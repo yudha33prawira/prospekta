@@ -8505,8 +8505,20 @@ async function checkSession() {
   }
 }
 
+// ========== AUTH STATE & INITIALIZATION ==========
+
+// Fungsi untuk memulai aplikasi
+async function initApp() {
+  await checkSession();
+  console.log('✅ Aplikasi PROSPEKTA siap!');
+}
+
+// Panggil initApp
+initApp();
+
 // Listen untuk perubahan auth state
 supabase.auth.onAuthStateChange((event, session) => {
+  console.log('Auth state changed:', event);
   if (event === 'SIGNED_IN') {
     checkSession();
   } else if (event === 'SIGNED_OUT') {
