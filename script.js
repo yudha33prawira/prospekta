@@ -2604,7 +2604,7 @@ function updateSelectAllProdukButton() {
   btn.textContent = allChecked ? '⬜ Batal Semua' : '✅ Pilih Semua';
 }
 
-function deleteSelectedProduk() {
+async function deleteSelectedProduk() {
   const selectedIds = Array.from(selectedProdukIds.keys());
   if (selectedIds.length === 0) {
     showNotifTop('⚠️ Tidak ada produk yang dipilih', true);
