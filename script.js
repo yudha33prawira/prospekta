@@ -2,7 +2,7 @@
 const SUPABASE_URL = 'https://haylblhjzfavrfiyaicq.supabase.co/rest/v1/';
 const SUPABASE_ANON_KEY = 'sb_publishable_fUK_T02OjLRcy-WMrAVirA__vxag3yx';
 
-const supabase = supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+const supabaseClient = supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
 
 // ========== PERFORMANCE CONFIGURATION ==========
 const DB_CONFIG = {
