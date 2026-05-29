@@ -1,13 +1,8 @@
-// Firebase Config
-const firebaseConfig = {
-  apiKey: "AIzaSyCfj2Xdj6et3fThyA2gg-GWG8yZOhoqREA",
-  authDomain: "floupyud.firebaseapp.com",
-  projectId: "floupyud"
-};
+// ========== SUPABASE CONFIGURATION ==========
+const SUPABASE_URL = 'https://haylblhjzfavrfiyaicq.supabase.co/rest/v1/';
+const SUPABASE_ANON_KEY = 'sb_publishable_fUK_T02OjLRcy-WMrAVirA__vxag3yx';
 
-firebase.initializeApp(firebaseConfig);
-const auth = firebase.auth();
-const db = firebase.firestore();
+const supabase = supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
 
 // ========== PERFORMANCE CONFIGURATION ==========
 const DB_CONFIG = {
@@ -32,7 +27,7 @@ async function firestoreWithRetry(operation, maxRetries = 3, initialDelay = 1000
       return await operation();
     } catch (error) {
       lastError = error;
-      if (error.code === 'resource-exhausted') {
+      if (error.code === 'resource-exhausted' || error.message?.includes('quota')) {
         console.warn(`Quota exceeded, retry ${i + 1}/${maxRetries} after ${delayMs}ms`);
         await delay(delayMs);
         delayMs *= 2;
@@ -45,10 +40,6 @@ async function firestoreWithRetry(operation, maxRetries = 3, initialDelay = 1000
 }
 
 // variabel global
-db.settings({
-  persistence: false
-});
-
 let currentUser = null;
 let currentUserRole = 'cs';
 let currentUserName = '';
@@ -335,6 +326,7 @@ function getTargetPhone(customerData) {
       customerData.agent_type !== 'AGENT' && 
       customerData.agent_type !== '' &&
       customerData.upline_phone && 
+      customerData.upline_phone && 
       customerData.upline_phone.trim() !== '') {
     return customerData.upline_phone;
   }
@@ -346,10 +338,74 @@ function getTargetName(customerData) {
       customerData.agent_type !== 'AGENT' && 
       customerData.agent_type !== '' &&
       customerData.upline_name && 
+      customerData.upline_name && 
       customerData.upline_name.trim() !== '') {
     return customerData.upline_name;
   }
   return customerData.nama;
+}
+
+// ========== SUPABASE HELPER FUNCTIONS ==========
+async function supabaseGet(collection, filters = {}, options = {}) {
+  let query = supabase.from(collection).select('*');
+  
+  if (currentUserRole !== 'owner' && filters.user_id !== undefined) {
+    query = query.eq('user_id', currentUser.id);
+  }
+  
+  for (const [key, value] of Object.entries(filters)) {
+    if (value !== undefined && value !== null && value !== '') {
+      if (key === 'user_id' && currentUserRole !== 'owner') continue;
+      query = query.eq(key, value);
+    }
+  }
+  
+  if (options.orderBy) {
+    query = query.order(options.orderBy.field, { ascending: options.orderBy.ascending || false });
+  }
+  
+  if (options.limit) {
+    query = query.limit(options.limit);
+  }
+  
+  const { data, error } = await query;
+  if (error) throw error;
+  return data;
+}
+
+async function supabaseAdd(collection, data) {
+  const { data: result, error } = await supabase
+    .from(collection)
+    .insert([{ ...data, user_id: currentUser.id, created_at: new Date().toISOString() }])
+    .select();
+  if (error) throw error;
+  return result[0];
+}
+
+async function supabaseUpdate(collection, id, updates) {
+  const { error } = await supabase
+    .from(collection)
+    .update({ ...updates, updated_at: new Date().toISOString() })
+    .eq('id', id);
+  if (error) throw error;
+}
+
+async function supabaseDelete(collection, id) {
+  const { error } = await supabase
+    .from(collection)
+    .delete()
+    .eq('id', id);
+  if (error) throw error;
+}
+
+async function supabaseGetById(collection, id) {
+  const { data, error } = await supabase
+    .from(collection)
+    .select('*')
+    .eq('id', id)
+    .single();
+  if (error) throw error;
+  return data;
 }
 
 // ========== FUNGSI WA ==========
@@ -376,7 +432,7 @@ function openWADirect(nomor) {
     window.open('https://wa.me/' + encodeURIComponent(cleanNomor), '_blank');
 }
 
-function showPilihNomor(customerId) {
+async function showPilihNomor(customerId) {
     console.log('showPilihNomor dipanggil untuk ID:', customerId);
     currentPilihNomorCustomerId = customerId;
     
@@ -393,13 +449,13 @@ function showPilihNomor(customerId) {
         return phoneStr && phoneStr !== '' && phoneStr !== '+62' && phoneStr !== '62' && phoneStr !== '0';
     };
     
-    db.collection('customers').doc(customerId).get().then(doc => {
-        if (!doc.exists) {
+    try {
+        const data = await supabaseGetById('customers', customerId);
+        if (!data) {
             showNotifTop('⚠️ Data tidak ditemukan!', true);
             return;
         }
         
-        const data = doc.data();
         const options = [];
         
         const agentPhone = safeString(data.hp);
@@ -495,10 +551,10 @@ function showPilihNomor(customerId) {
         modal.style.display = 'flex';
         document.body.classList.add('modal-open');
         document.body.style.overflow = 'hidden';
-    }).catch(err => {
+    } catch (err) {
         console.error('Error showPilihNomor:', err);
         showNotifTop('❌ Gagal memuat data: ' + err.message, true);
-    });
+    }
 }
 
 function openWACustomer(customerId) {
@@ -513,7 +569,7 @@ function openWA(hp, customerData = null) {
     }
 }
 
-function openWAById(customerId) {
+async function openWAById(customerId) {
     console.log('openWAById dipanggil untuk ID:', customerId);
     
     const customer = customersData.find(c => c.id === customerId);
@@ -528,59 +584,65 @@ function openWAById(customerId) {
         return;
     }
     
-    db.collection('customers').doc(customerId).get().then(doc => {
-        if (doc.exists) {
+    try {
+        const data = await supabaseGetById('customers', customerId);
+        if (data) {
             showPilihNomor(customerId);
         } else {
-            db.collection('prospek').doc(customerId).get().then(prospekDoc => {
-                if (prospekDoc.exists && prospekDoc.data().hp) {
-                    openWADirect(prospekDoc.data().hp);
-                } else {
-                    showNotifTop('⚠️ Data tidak ditemukan!', true);
-                }
-            }).catch(() => {
+            const prospekData = await supabaseGetById('prospek', customerId);
+            if (prospekData && prospekData.hp) {
+                openWADirect(prospekData.hp);
+            } else {
                 showNotifTop('⚠️ Data tidak ditemukan!', true);
-            });
+            }
         }
-    }).catch(() => {
+    } catch (err) {
         showNotifTop('⚠️ Data tidak ditemukan!', true);
-    });
+    }
 }
 
 // ========== VALIDASI DUPLIKAT ==========
 async function checkDuplicateCustomer(agentId, hp, excludeId = null) {
   const isHpValid = hp && hp !== '+62' && hp !== '62' && hp !== '0' && hp.trim() !== '';
   
-  let query = db.collection('customers').where('user_id', '==', currentUser.uid);
-  const snapshot = await query.get();
+  let query = supabase.from('customers').select('*');
+  if (currentUserRole !== 'owner') {
+    query = query.eq('user_id', currentUser.id);
+  }
+  
+  const { data: customers, error } = await query;
+  if (error) {
+    console.error('Error check duplicate:', error);
+    return { duplicateAgent: null, duplicateHp: null };
+  }
+  
   let duplicateAgent = null;
   let duplicateHp = null;
 
-  for (const doc of snapshot.docs) {
-    const data = doc.data();
-    if (excludeId && doc.id === excludeId) continue;
-    if (data.agent_id === agentId) {
-      duplicateAgent = { id: doc.id, nama: data.nama, owner: currentUserName };
+  for (const customer of customers) {
+    if (excludeId && customer.id === excludeId) continue;
+    if (customer.agent_id === agentId) {
+      duplicateAgent = { id: customer.id, nama: customer.nama, owner: currentUserName };
     }
-    if (isHpValid && data.hp === hp) {
-      duplicateHp = { id: doc.id, nama: data.nama, owner: currentUserName };
+    if (isHpValid && customer.hp === hp) {
+      duplicateHp = { id: customer.id, nama: customer.nama, owner: currentUserName };
     }
   }
 
   if (currentUserRole === 'owner') {
-    const allCustomers = await db.collection('customers').get();
-    for (const doc of allCustomers.docs) {
-      const data = doc.data();
-      if (excludeId && doc.id === excludeId) continue;
-      if (data.agent_id === agentId) {
-        const userDoc = await db.collection('users').doc(data.user_id).get();
-        const userName = userDoc.exists ? userDoc.data().nama || 'CS Agent' : 'CS Agent';
-        duplicateAgent = { id: doc.id, nama: data.nama, owner: userName };
-      }
-      if (isHpValid && data.hp === hp) {
-        const userDoc = await db.collection('users').doc(data.user_id).get();
-        const userName = userDoc.exists ? userDoc.data().nama || 'CS Agent' : 'CS Agent';
-        duplicateHp = { id: doc.id, nama: data.nama, owner: userName };
+    const { data: allCustomers, error: allError } = await supabase
+      .from('customers')
+      .select('*, users!user_id(nama)');
+    
+    if (!allError && allCustomers) {
+      for (const customer of allCustomers) {
+        if (excludeId && customer.id === excludeId) continue;
+        if (customer.agent_id === agentId) {
+          duplicateAgent = { id: customer.id, nama: customer.nama, owner: customer.users?.nama || 'CS Agent' };
+        }
+        if (isHpValid && customer.hp === hp) {
+          duplicateHp = { id: customer.id, nama: customer.nama, owner: customer.users?.nama || 'CS Agent' };
+        }
       }
     }
   }
@@ -595,27 +657,34 @@ async function checkDuplicateProspek(hp, excludeId = null) {
     return null;
   }
   
-  let query = db.collection('prospek').where('user_id', '==', currentUser.uid);
-  const snapshot = await query.get();
+  let query = supabase.from('prospek').select('*');
+  if (currentUserRole !== 'owner') {
+    query = query.eq('user_id', currentUser.id);
+  }
+  
+  const { data: prospek, error } = await query;
+  if (error) return null;
+  
   let duplicateHp = null;
 
-  for (const doc of snapshot.docs) {
-    const data = doc.data();
-    if (excludeId && doc.id === excludeId) continue;
-    if (data.hp === hp) {
-      duplicateHp = { id: doc.id, nama: data.nama, owner: currentUserName };
+  for (const item of prospek) {
+    if (excludeId && item.id === excludeId) continue;
+    if (item.hp === hp) {
+      duplicateHp = { id: item.id, nama: item.nama, owner: currentUserName };
     }
   }
 
   if (currentUserRole === 'owner') {
-    const allProspek = await db.collection('prospek').get();
-    for (const doc of allProspek.docs) {
-      const data = doc.data();
-      if (excludeId && doc.id === excludeId) continue;
-      if (data.hp === hp) {
-        const userDoc = await db.collection('users').doc(data.user_id).get();
-        const userName = userDoc.exists ? userDoc.data().nama || 'CS Agent' : 'CS Agent';
-        duplicateHp = { id: doc.id, nama: data.nama, owner: userName };
+    const { data: allProspek, error: allError } = await supabase
+      .from('prospek')
+      .select('*, users!user_id(nama)');
+    
+    if (!allError && allProspek) {
+      for (const item of allProspek) {
+        if (excludeId && item.id === excludeId) continue;
+        if (item.hp === hp) {
+          duplicateHp = { id: item.id, nama: item.nama, owner: item.users?.nama || 'CS Agent' };
+        }
       }
     }
   }
@@ -836,9 +905,14 @@ async function loadTargetData() {
 
   try {
     console.log('loadTargetData: Fetching target data...');
-    const targetDoc = await db.collection('settings').doc('targetKPI').get();
-    if (targetDoc.exists) {
-      targetData = targetDoc.data();
+    const { data, error } = await supabase
+      .from('settings')
+      .select('*')
+      .eq('id', 'targetKPI')
+      .single();
+    
+    if (!error && data) {
+      targetData = data;
       console.log('loadTargetData: Data ditemukan', targetData);
     } else {
       targetData = {
@@ -1025,17 +1099,24 @@ async function saveTargetData() {
   const transaksiVal = parseInt(document.getElementById('targetTransaksiInput')?.value) || 0;
 
   const newTarget = {
+    id: 'targetKPI',
     agent: agentVal,
     koordinator: koorVal,
     ca: caVal,
     transaksi: transaksiVal,
     monthlyTargets: targetData.monthlyTargets || [],
     updated_at: new Date().toISOString(),
-    updated_by: currentUser?.uid || 'unknown'
+    updated_by: currentUser?.id || 'unknown'
   };
 
   try {
-    await db.collection('settings').doc('targetKPI').set(newTarget, { merge: true });
+    const { error } = await supabase
+      .from('settings')
+      .upsert(newTarget)
+      .eq('id', 'targetKPI');
+    
+    if (error) throw error;
+    
     targetData = newTarget;
     showNotifTop('✅ Target berhasil disimpan!');
     closeModal('manageTargetModal');
@@ -1113,9 +1194,12 @@ async function loadTransaksiGlobal() {
   if (!currentUser) return;
 
   try {
-    const snapshot = await db.collection('transaksi_global')
-      .orderBy('tanggal', 'desc')
-      .get();
+    const { data, error } = await supabase
+      .from('transaksi_global')
+      .select('*')
+      .order('tanggal', { ascending: false });
+
+    if (error) throw error;
 
     transaksiList = [];
     let totalTransaksiBulanIni = 0;
@@ -1123,13 +1207,12 @@ async function loadTransaksiGlobal() {
     const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1);
     const endOfMonth = new Date(now.getFullYear(), now.getMonth() + 1, 0);
 
-    snapshot.forEach(doc => {
-      const data = doc.data();
-      transaksiList.push({ id: doc.id, ...data });
+    (data || []).forEach(item => {
+      transaksiList.push({ id: item.id, ...item });
 
-      const tglTransaksi = new Date(data.tanggal);
+      const tglTransaksi = new Date(item.tanggal);
       if (tglTransaksi >= startOfMonth && tglTransaksi <= endOfMonth) {
-        totalTransaksiBulanIni += data.nominal || 0;
+        totalTransaksiBulanIni += item.nominal || 0;
       }
     });
 
@@ -1154,22 +1237,28 @@ async function saveTransaksiGlobal(nominal, keterangan, tanggal, transaksiId = n
   }
 
   try {
-    const transaksiRef = db.collection('transaksi_global');
     const data = {
       nominal: parseInt(nominal),
       keterangan: keterangan || '',
       tanggal: tanggal || new Date().toISOString().split('T')[0],
       created_at: new Date().toISOString(),
-      created_by: currentUser.uid,
+      created_by: currentUser.id,
       created_by_name: currentUserName,
       updated_at: new Date().toISOString()
     };
 
     if (transaksiId) {
-      await transaksiRef.doc(transaksiId).update(data);
+      const { error } = await supabase
+        .from('transaksi_global')
+        .update(data)
+        .eq('id', transaksiId);
+      if (error) throw error;
       showNotifTop('✅ Transaksi berhasil diupdate!');
     } else {
-      await transaksiRef.add(data);
+      const { error } = await supabase
+        .from('transaksi_global')
+        .insert([data]);
+      if (error) throw error;
       showNotifTop('✅ Transaksi berhasil ditambahkan!');
     }
 
@@ -1186,7 +1275,11 @@ async function deleteTransaksiGlobal(transaksiId) {
   if (!confirm('Yakin ingin menghapus transaksi ini?')) return;
 
   try {
-    await db.collection('transaksi_global').doc(transaksiId).delete();
+    const { error } = await supabase
+      .from('transaksi_global')
+      .delete()
+      .eq('id', transaksiId);
+    if (error) throw error;
     showNotifTop('🗑️ Transaksi dihapus');
     await loadTransaksiGlobal();
     renderTransaksiListGlobal();
@@ -1212,7 +1305,7 @@ function renderTransaksiListGlobal() {
                 <small>📅 ${new Date(item.tanggal).toLocaleDateString('id-ID')} | 👤 oleh: ${escapeHtml(item.created_by_name || 'CS')}</small>
             </div>
             <div class="db-item-actions">
-                ${currentUserRole === 'owner' || item.created_by === currentUser.uid ? 
+                ${currentUserRole === 'owner' || item.created_by === currentUser.id ? 
                     `<button class="db-item-edit" onclick="editTransaksiGlobal('${item.id}')">✏️ Edit</button>
                      <button class="db-item-delete" onclick="deleteTransaksiGlobal('${item.id}')">🗑️ Hapus</button>` : 
                     `<small style="color:#9ca3af;">Hanya pembuat yang bisa edit/hapus</small>`
@@ -1226,7 +1319,7 @@ window.editTransaksiGlobal = function(id) {
   const transaksi = transaksiList.find(t => t.id === id);
   if (!transaksi) return;
 
-  if (currentUserRole !== 'owner' && transaksi.created_by !== currentUser.uid) {
+  if (currentUserRole !== 'owner' && transaksi.created_by !== currentUser.id) {
     showNotifTop('⚠️ Anda hanya bisa mengedit transaksi yang Anda buat sendiri!', true);
     return;
   }
@@ -1252,17 +1345,22 @@ function showTransaksiListModal() {
 }
 
 async function updateTotalTransaksiDariCustomer() {
-    let query = db.collection('customers');
+    let query = supabase.from('customers').select('progres_transaksi');
+    
     if (currentUserRole !== 'owner') {
-        query = query.where('user_id', '==', currentUser.uid);
+        query = query.eq('user_id', currentUser.id);
     }
     
-    const snapshot = await query.get();
+    const { data, error } = await query;
+    if (error) {
+      console.error('Error updateTotalTransaksiDariCustomer:', error);
+      return 0;
+    }
+    
     let totalTransaksi = 0;
     
-    snapshot.forEach(doc => {
-        const data = doc.data();
-        const progres = data.progres_transaksi;
+    (data || []).forEach(item => {
+        const progres = item.progres_transaksi;
         if (progres && progres.total_tercapai !== undefined) {
             totalTransaksi += progres.total_tercapai;
         }
@@ -1275,17 +1373,22 @@ async function updateTotalTransaksiDariCustomer() {
 }
 
 // ========== CUSTOMER CRUD ==========
-function openDetailCustomer(id) {
-  db.collection('customers').doc(id).get().then(async doc => {
-    const d = doc.data();
+async function openDetailCustomer(id) {
+  try {
+    const d = await supabaseGetById('customers', id);
+    if (!d) return;
     
     const progresData = d.progres_transaksi || { items: [], total_tercapai: 0 };
     const totalTercapai = progresData.total_tercapai || 0;
     
     let ownerInfo = '';
-    if (currentUserRole === 'owner' && d.user_id !== currentUser.uid) {
-      const userDoc = await db.collection('users').doc(d.user_id).get();
-      const ownerName = userDoc.exists ? userDoc.data().nama || 'CS Agent' : 'CS Agent';
+    if (currentUserRole === 'owner' && d.user_id !== currentUser.id) {
+      const { data: userData } = await supabase
+        .from('users')
+        .select('nama')
+        .eq('id', d.user_id)
+        .single();
+      const ownerName = userData?.nama || 'CS Agent';
       ownerInfo = `<div class="detail-info-item"><div class="detail-info-icon">👤</div><div class="detail-info-content"><label>Pemilik Data</label><div class="value">${escapeHtml(ownerName)}</div></div></div>`;
     }
 
@@ -1306,20 +1409,18 @@ function openDetailCustomer(id) {
       followupInfo = `<div class="detail-info-item"><div class="detail-info-icon">✅</div><div class="detail-info-content"><label>Follow Up</label><div class="value">Terkirim: ${d.followup_data.terkirim ? 'Ya' : 'Tidak'} | Dibalas: ${d.followup_data.dibalas ? 'Ya' : 'Tidak'}</div></div></div>`;
     }
     
-    // ========== PERBAIKAN: TAMPILKAN PENDING RESPONSES UNTUK SEMUA STATUS ==========
     let pendingInfo = '';
     if (d.pending_data && d.pending_data.length > 0) {
       const completedCount = d.pending_data.filter(item => item.checked === true && item.text?.trim() !== '').length;
       const totalCount = d.pending_data.length;
       
-      // Buat HTML untuk menampilkan detail pending responses
       let pendingItemsHtml = '';
       d.pending_data.forEach(item => {
-        const statusIcon = item.checked ? '✅' : '⭕';
+        const statusIconPending = item.checked ? '✅' : '⭕';
         const textDisplay = item.text && item.text.trim() !== '' ? escapeHtml(item.text) : '<em style="color:#9ca3af;">(kosong)</em>';
         pendingItemsHtml += `
           <div style="display: flex; align-items: center; gap: 8px; padding: 6px 0; border-bottom: 1px solid #e5e7eb;">
-            <span style="font-size: 14px;">${statusIcon}</span>
+            <span style="font-size: 14px;">${statusIconPending}</span>
             <span style="flex: 1; font-size: 12px;">${textDisplay}</span>
           </div>
         `;
@@ -1425,7 +1526,7 @@ function openDetailCustomer(id) {
             </div>
           </div>
           ${followupInfo}
-          ${pendingInfo}  <!-- ← PENDING INFO AKAN TAMPIL UNTUK SEMUA STATUS, TERMASUK CLOSING -->
+          ${pendingInfo}
           <div class="detail-info-item">
             <div class="detail-info-icon">📌</div>
             <div class="detail-info-content">
@@ -1446,21 +1547,28 @@ function openDetailCustomer(id) {
       </div>
     `;
     showModal('detailModal');
-  });
+  } catch (error) {
+    console.error('Error openDetailCustomer:', error);
+    showNotifTop('❌ Gagal memuat detail customer: ' + error.message, true);
+  }
 }
 
 window.updateCustomerStatus = async function(id, newStatus) {
   if (newStatus === 'followup') {
-    const doc = await db.collection('customers').doc(id).get();
-    const currentDeadline = doc.data().tanggal || getTodayDate();
-    const newDeadline = addDaysToDate(currentDeadline, 1);
-    await db.collection('customers').doc(id).update({
-      status: 'followup',
-      tanggal: newDeadline
-    });
-    showNotif(`✅ Status berhasil diupdate ke Follow Up. Deadline +1 hari menjadi ${newDeadline}`);
-    closeModal('detailModal');
-    loadAllData();
+    try {
+      const d = await supabaseGetById('customers', id);
+      const currentDeadline = d.tanggal || getTodayDate();
+      const newDeadline = addDaysToDate(currentDeadline, 1);
+      await supabaseUpdate('customers', id, {
+        status: 'followup',
+        tanggal: newDeadline
+      });
+      showNotif(`✅ Status berhasil diupdate ke Follow Up. Deadline +1 hari menjadi ${newDeadline}`);
+      closeModal('detailModal');
+      loadAllData();
+    } catch (error) {
+      showNotif('❌ Gagal: ' + error.message, true);
+    }
   }
 };
 
@@ -1468,7 +1576,7 @@ window.deleteCustomer = async function(id) {
   if (!confirm('Yakin hapus customer ini? Data akan dihapus permanen!')) return;
 
   try {
-    await db.collection('customers').doc(id).delete();
+    await supabaseDelete('customers', id);
     closeModal('detailModal');
     showNotifTop('🗑️ Data customer berhasil dihapus');
     setTimeout(() => {
@@ -1484,7 +1592,7 @@ window.deleteProspek = async function(id) {
   if (!confirm('Yakin hapus prospek ini? Data akan dihapus permanen!')) return;
 
   try {
-    await db.collection('prospek').doc(id).delete();
+    await supabaseDelete('prospek', id);
     closeModal('detailModal');
     showNotifTop('🗑️ Data prospek berhasil dihapus');
     setTimeout(() => {
@@ -1571,40 +1679,39 @@ function openFollowupConfirm(id) {
     finalYesBtn.textContent = '⏳ Memproses...';
     finalNoBtn.disabled = true;
     
-    setTimeout(() => {
-      db.collection('customers').doc(id).get()
-        .then(doc => {
-          if (!doc.exists) {
-            throw new Error('Data customer tidak ditemukan');
-          }
-          
-          const currentDeadline = doc.data().tanggal || getTodayDate();
-          const newDeadline = addDaysToDate(currentDeadline, 1);
-          
-          return db.collection('customers').doc(id).update({
-            followup_data: {
-              terkirim: true,
-              dibalas: true,
-              timestamp: new Date().toISOString()
-            },
-            status: 'pending',
-            tanggal: newDeadline
-          }).then(() => {
-            safeCloseModal();
-            showNotifTop(`✅ Customer dipindahkan ke Pending. Deadline +1 hari menjadi ${newDeadline}`);
-            setTimeout(() => {
-              loadAllData();
-              closeModal('detailModal');
-            }, 500);
-          });
-        })
-        .catch(error => {
-          console.error('Error update customer:', error);
-          showNotifTop('❌ Gagal: ' + error.message, true);
-          finalYesBtn.disabled = false;
-          finalYesBtn.textContent = '✅ Lanjut ke Pending';
-          finalNoBtn.disabled = false;
+    setTimeout(async () => {
+      try {
+        const doc = await supabaseGetById('customers', id);
+        if (!doc) {
+          throw new Error('Data customer tidak ditemukan');
+        }
+        
+        const currentDeadline = doc.tanggal || getTodayDate();
+        const newDeadline = addDaysToDate(currentDeadline, 1);
+        
+        await supabaseUpdate('customers', id, {
+          followup_data: {
+            terkirim: true,
+            dibalas: true,
+            timestamp: new Date().toISOString()
+          },
+          status: 'pending',
+          tanggal: newDeadline
         });
+        
+        safeCloseModal();
+        showNotifTop(`✅ Customer dipindahkan ke Pending. Deadline +1 hari menjadi ${newDeadline}`);
+        setTimeout(() => {
+          loadAllData();
+          closeModal('detailModal');
+        }, 500);
+      } catch (error) {
+        console.error('Error update customer:', error);
+        showNotifTop('❌ Gagal: ' + error.message, true);
+        finalYesBtn.disabled = false;
+        finalYesBtn.textContent = '✅ Lanjut ke Pending';
+        finalNoBtn.disabled = false;
+      }
     }, 50);
   };
   
@@ -1615,54 +1722,45 @@ function openFollowupConfirm(id) {
     finalNoBtn.textContent = '⏳ Memproses...';
     finalYesBtn.disabled = true;
     
-    setTimeout(() => {
-      db.collection('customers').doc(id).get()
-        .then(doc => {
-          if (!doc.exists) {
-            throw new Error('Data customer tidak ditemukan');
+    setTimeout(async () => {
+      try {
+        const doc = await supabaseGetById('customers', id);
+        if (!doc) {
+          throw new Error('Data customer tidak ditemukan');
+        }
+        
+        showConfirmDialog(
+          'Pindahkan ke Database Nomor Salah?',
+          `Apakah Anda yakin nomor "${escapeHtml(doc.hp)}" milik "${escapeHtml(doc.nama)}" tidak dapat dihubungi?`,
+          async () => {
+            await supabase.from('nomor_salah').insert([{
+              ...doc,
+              alasan: 'Nomor tidak bisa dihubungi / tidak aktif',
+              deleted_at: new Date().toISOString(),
+              user_id: doc.user_id
+            }]);
+            await supabaseDelete('customers', id);
+            safeCloseModal();
+            showNotifTop('📵 Data dipindahkan ke Database Nomor Salah');
+            setTimeout(() => {
+              closeModal('detailModal');
+              loadAllData();
+            }, 500);
+          },
+          () => {
+            finalNoBtn.disabled = false;
+            finalNoBtn.textContent = '📵 Nomor salah/Tidak bisa dihubungi';
+            finalYesBtn.disabled = false;
+            updateYesButton();
           }
-          
-          showConfirmDialog(
-            'Pindahkan ke Database Nomor Salah?',
-            `Apakah Anda yakin nomor "${escapeHtml(doc.data().hp)}" milik "${escapeHtml(doc.data().nama)}" tidak dapat dihubungi?`,
-            () => {
-              db.collection('nomor_salah').add({
-                ...doc.data(),
-                alasan: 'Nomor tidak bisa dihubungi / tidak aktif',
-                deleted_at: new Date().toISOString(),
-                user_id: doc.data().user_id
-              })
-              .then(() => db.collection('customers').doc(id).delete())
-              .then(() => {
-                safeCloseModal();
-                showNotifTop('📵 Data dipindahkan ke Database Nomor Salah');
-                setTimeout(() => {
-                  closeModal('detailModal');
-                  loadAllData();
-                }, 500);
-              })
-              .catch(err => {
-                showNotifTop('❌ Gagal: ' + err.message, true);
-                finalNoBtn.disabled = false;
-                finalNoBtn.textContent = '📵 Nomor salah/Tidak bisa dihubungi';
-                finalYesBtn.disabled = false;
-              });
-            },
-            () => {
-              finalNoBtn.disabled = false;
-              finalNoBtn.textContent = '📵 Nomor salah/Tidak bisa dihubungi';
-              finalYesBtn.disabled = false;
-              updateYesButton();
-            }
-          );
-        })
-        .catch(error => {
-          console.error('Error:', error);
-          showNotifTop('❌ Gagal: ' + error.message, true);
-          finalNoBtn.disabled = false;
-          finalNoBtn.textContent = '📵 Nomor salah/Tidak bisa dihubungi';
-          finalYesBtn.disabled = false;
-        });
+        );
+      } catch (error) {
+        console.error('Error:', error);
+        showNotifTop('❌ Gagal: ' + error.message, true);
+        finalNoBtn.disabled = false;
+        finalNoBtn.textContent = '📵 Nomor salah/Tidak bisa dihubungi';
+        finalYesBtn.disabled = false;
+      }
     }, 50);
   };
   
@@ -1672,11 +1770,13 @@ function openFollowupConfirm(id) {
 // ========== PENDING MODAL ==========
 function openPendingModal(id) {
   currentPendingId = id;
-  db.collection('customers').doc(id).get().then(doc => {
-    const data = doc.data();
-    pendingItems = data.pending_data || [];
+  supabaseGetById('customers', id).then(doc => {
+    pendingItems = doc.pending_data || [];
     renderPendingModal();
     document.getElementById('pendingModal').style.display = 'flex';
+  }).catch(err => {
+    console.error('Error openPendingModal:', err);
+    showNotifTop('❌ Gagal memuat data pending: ' + err.message, true);
   });
 }
 
@@ -1746,7 +1846,7 @@ function updatePendingButtons() {
       const newFinishBtn = finishBtn.cloneNode(true);
       finishBtn.parentNode.replaceChild(newFinishBtn, finishBtn);
       newFinishBtn.onclick = async () => {
-        await db.collection('customers').doc(currentPendingId).update({ pending_data: pendingItems });
+        await supabaseUpdate('customers', currentPendingId, { pending_data: pendingItems });
         await confirmClosing(currentPendingId);
         closeModal('pendingModal');
       };
@@ -1768,43 +1868,47 @@ function updatePendingButtons() {
     const newSaveBtn = saveBtn.cloneNode(true);
     saveBtn.parentNode.replaceChild(newSaveBtn, saveBtn);
     newSaveBtn.onclick = async () => {
-      const doc = await db.collection('customers').doc(currentPendingId).get();
-      const oldPendingData = doc.data().pending_data || [];
+      try {
+        const doc = await supabaseGetById('customers', currentPendingId);
+        const oldPendingData = doc.pending_data || [];
 
-      let hasChanges = false;
-      if (pendingItems.length !== oldPendingData.length) {
-        hasChanges = true;
-      } else {
-        for (let i = 0; i < pendingItems.length; i++) {
-          const newItem = pendingItems[i];
-          const oldItem = oldPendingData[i] || {};
-          if (newItem.text !== oldItem.text || newItem.checked !== oldItem.checked) {
-            hasChanges = true;
-            break;
+        let hasChanges = false;
+        if (pendingItems.length !== oldPendingData.length) {
+          hasChanges = true;
+        } else {
+          for (let i = 0; i < pendingItems.length; i++) {
+            const newItem = pendingItems[i];
+            const oldItem = oldPendingData[i] || {};
+            if (newItem.text !== oldItem.text || newItem.checked !== oldItem.checked) {
+              hasChanges = true;
+              break;
+            }
           }
         }
+
+        const hasAnyData = pendingItems.some(item => item.text && item.text.trim() !== '');
+
+        if (!hasAnyData) {
+          showNotifTop('⚠️ Minimal isi satu balasan sebelum menyimpan!', true);
+          return;
+        }
+
+        if (!hasChanges) {
+          showNotifTop('⚠️ Tidak ada perubahan data! Silakan ubah data terlebih dahulu sebelum menyimpan.', true);
+          return;
+        }
+
+        const newDeadline = addDaysToDate(doc.tanggal || getTodayDate(), 3);
+        await supabaseUpdate('customers', currentPendingId, {
+          pending_data: pendingItems,
+          tanggal: newDeadline
+        });
+        showNotifTop(`💾 Data pending berhasil disimpan. Deadline +3 hari menjadi ${newDeadline}`);
+        closeModal('pendingModal');
+        loadAllData();
+      } catch (err) {
+        showNotifTop('❌ Gagal menyimpan: ' + err.message, true);
       }
-
-      const hasAnyData = pendingItems.some(item => item.text && item.text.trim() !== '');
-
-      if (!hasAnyData) {
-        showNotifTop('⚠️ Minimal isi satu balasan sebelum menyimpan!', true);
-        return;
-      }
-
-      if (!hasChanges) {
-        showNotifTop('⚠️ Tidak ada perubahan data! Silakan ubah data terlebih dahulu sebelum menyimpan.', true);
-        return;
-      }
-
-      const newDeadline = addDaysToDate(doc.data().tanggal || getTodayDate(), 3);
-      await db.collection('customers').doc(currentPendingId).update({
-        pending_data: pendingItems,
-        tanggal: newDeadline
-      });
-      showNotifTop(`💾 Data pending berhasil disimpan. Deadline +3 hari menjadi ${newDeadline}`);
-      closeModal('pendingModal');
-      loadAllData();
     };
   }
 
@@ -1819,13 +1923,19 @@ function updatePendingButtons() {
 }
 
 // ========== PROSPEK FUNCTIONS ==========
-function openDetailProspek(id) {
-  db.collection('prospek').doc(id).get().then(async doc => {
-    const d = doc.data();
+async function openDetailProspek(id) {
+  try {
+    const d = await supabaseGetById('prospek', id);
+    if (!d) return;
+    
     let ownerInfo = '';
-    if (currentUserRole === 'owner' && d.user_id !== currentUser.uid) {
-      const userDoc = await db.collection('users').doc(d.user_id).get();
-      const ownerName = userDoc.exists ? userDoc.data().nama || 'CS Agent' : 'CS Agent';
+    if (currentUserRole === 'owner' && d.user_id !== currentUser.id) {
+      const { data: userData } = await supabase
+        .from('users')
+        .select('nama')
+        .eq('id', d.user_id)
+        .single();
+      const ownerName = userData?.nama || 'CS Agent';
       ownerInfo = `<div class="detail-info-item"><div class="detail-info-icon">👤</div><div class="detail-info-content"><label>Pemilik Data</label><div class="value">${escapeHtml(ownerName)}</div></div></div>`;
     }
 
@@ -1876,14 +1986,17 @@ function openDetailProspek(id) {
             <div class="detail-footer"><button class="btn-outline" onclick="closeModal('detailModal')">❌ Tutup</button><button class="btn-danger" onclick="deleteProspek('${id}')">🗑️ Hapus</button></div>
         `;
     showModal('detailModal');
-  });
+  } catch (error) {
+    console.error('Error openDetailProspek:', error);
+    showNotifTop('❌ Gagal memuat detail prospek: ' + error.message, true);
+  }
 }
 
 function lanjutKeDihubungi(id) {
-  db.collection('prospek').doc(id).get().then(doc => {
-    const currentDeadline = doc.data().deadline || getTodayDate();
+  supabaseGetById('prospek', id).then(doc => {
+    const currentDeadline = doc.deadline || getTodayDate();
     const newDeadline = addDaysToDate(currentDeadline, 1);
-    db.collection('prospek').doc(id).update({
+    supabaseUpdate('prospek', id, {
       status: 'Dihubungi',
       deadline: newDeadline
     }).then(() => {
@@ -1947,10 +2060,10 @@ function openProspekDihubungiConfirm(id) {
       showNotifTop('⚠️ Harap centang "pesan terkirim" DAN "sudah dibalas" terlebih dahulu!', true);
       return;
     }
-    const doc = await db.collection('prospek').doc(id).get();
-    const currentDeadline = doc.data().deadline || getTodayDate();
+    const doc = await supabaseGetById('prospek', id);
+    const currentDeadline = doc.deadline || getTodayDate();
     const newDeadline = addDaysToDate(currentDeadline, 1);
-    await db.collection('prospek').doc(id).update({
+    await supabaseUpdate('prospek', id, {
       status: 'Negosiasi',
       deadline: newDeadline,
       dihubungi_data: {
@@ -1968,21 +2081,20 @@ function openProspekDihubungiConfirm(id) {
   };
 
   noBtn.onclick = async () => {
-    const doc = await db.collection('prospek').doc(id).get();
-    const data = doc.data();
+    const data = await supabaseGetById('prospek', id);
     if (data) {
       showConfirmDialog(
         'Pindahkan ke Database Nomor Salah?',
         `Apakah Anda yakin nomor "${escapeHtml(data.hp)}" milik "${escapeHtml(data.nama)}" tidak dapat dihubungi?\n\n⚠️ Data yang sudah dipindahkan TIDAK BISA dikembalikan!`,
         async () => {
-          await db.collection('nomor_salah').add({
+          await supabase.from('nomor_salah').insert([{
             nama: data.nama,
             hp: data.hp,
             alasan: 'Nomor tidak bisa dihubungi / tidak aktif',
             deleted_at: new Date().toISOString(),
             user_id: data.user_id
-          });
-          await db.collection('prospek').doc(id).delete();
+          }]);
+          await supabaseDelete('prospek', id);
           showNotifTop('📵 Data dipindahkan ke Database Nomor Salah');
           modal.remove();
           document.body.classList.remove('modal-open');
@@ -2012,8 +2124,8 @@ function openProspekNegosiasiModal(id) {
   const fields = ['prospek_aplikasi', 'prospek_domisili', 'prospek_transaksi', 'prospek_deposit', 'prospek_tertarik', 'prospek_penawaran'];
   fields.forEach(f => document.getElementById(f).value = '');
 
-  db.collection('prospek').doc(id).get().then(doc => {
-    const data = doc.data();
+  supabaseGetById('prospek', id).then(doc => {
+    const data = doc;
     if (data.negosiasi_data) {
       document.getElementById('prospek_aplikasi').value = data.negosiasi_data.aplikasi || '';
       document.getElementById('prospek_domisili').value = data.negosiasi_data.domisili || '';
@@ -2081,7 +2193,7 @@ function openProspekNegosiasiModal(id) {
           penawaran: penawaran,
           timestamp: new Date().toISOString()
         };
-        await db.collection('prospek').doc(currentProspekId).update({
+        await supabaseUpdate('prospek', currentProspekId, {
           status: 'Tertarik',
           negosiasi_data: negosiasi_data
         });
@@ -2106,14 +2218,13 @@ function openProspekNegosiasiModal(id) {
       return;
     }
 
-    const doc = await db.collection('prospek').doc(currentProspekId).get();
-    const data = doc.data();
+    const data = await supabaseGetById('prospek', currentProspekId);
     if (data) {
       showConfirmDialog(
         'Pindahkan ke Database Tidak Tertarik?',
         `Apakah Anda yakin ingin memindahkan "${escapeHtml(data.nama)}" ke DATABASE TIDAK TERTARIK?\n\n⚠️ Data yang sudah dipindahkan TIDAK BISA dikembalikan!`,
         async () => {
-          await db.collection('db_tidak_tertarik').add({
+          await supabase.from('db_tidak_tertarik').insert([{
             nama: data.nama,
             hp: data.hp,
             tanggal: new Date().toISOString(),
@@ -2121,8 +2232,8 @@ function openProspekNegosiasiModal(id) {
             alasan: 'Tidak tertarik setelah negosiasi',
             status_sebelumnya: data.status,
             negosiasi_data: data.negosiasi_data || null
-          });
-          await db.collection('prospek').doc(currentProspekId).delete();
+          }]);
+          await supabaseDelete('prospek', currentProspekId);
           showNotifTop('📵 Data dipindahkan ke Database Tidak Tertarik');
           closeModal('prospekNegosiasiModal');
           closeModal('detailModal');
@@ -2141,8 +2252,8 @@ function openProspekNegosiasiModal(id) {
     const tertarik = document.getElementById('prospek_tertarik').value;
     const penawaran = document.getElementById('prospek_penawaran').value;
 
-    const doc = await db.collection('prospek').doc(currentProspekId).get();
-    const existingData = doc.data().negosiasi_data || {};
+    const doc = await supabaseGetById('prospek', currentProspekId);
+    const existingData = doc.negosiasi_data || {};
 
     const hasChanges =
       aplikasi !== (existingData.aplikasi || '') ||
@@ -2175,10 +2286,10 @@ function openProspekNegosiasiModal(id) {
       is_complete: !!(aplikasi && domisili && transaksi && deposit && tertarik && penawaran)
     };
 
-    const currentDeadline = doc.data().deadline || getTodayDate();
+    const currentDeadline = doc.deadline || getTodayDate();
     const newDeadline = addDaysToDate(currentDeadline, 3);
 
-    await db.collection('prospek').doc(currentProspekId).update({
+    await supabaseUpdate('prospek', currentProspekId, {
       negosiasi_data: negosiasi_data,
       deadline: newDeadline
     });
@@ -2201,7 +2312,7 @@ function openProspekNegosiasiModal(id) {
 // ========== CLOSING FUNCTIONS ==========
 async function saveToClosingDB(id, data) {
   try {
-    await db.collection('db_closing').add({
+    await supabase.from('db_closing').insert([{
       nama: data.nama,
       hp: data.hp,
       tanggal: data.tanggal || getTodayDate(),
@@ -2209,8 +2320,8 @@ async function saveToClosingDB(id, data) {
       user_id: data.user_id,
       followup_data: data.followup_data || null,
       pending_data: data.pending_data || []
-    });
-    await db.collection('customers').doc(id).delete();
+    }]);
+    await supabaseDelete('customers', id);
     showNotif('✅ Data berhasil masuk Database Closing!');
     updateAllBadges();
     return true;
@@ -2222,15 +2333,15 @@ async function saveToClosingDB(id, data) {
 
 async function saveToTidakTertarikDB(id, data) {
   try {
-    await db.collection('db_tidak_tertarik').add({
+    await supabase.from('db_tidak_tertarik').insert([{
       nama: data.nama,
       hp: data.hp,
       tanggal: new Date().toISOString(),
       user_id: data.user_id,
       dihubungi_data: data.dihubungi_data || null,
       negosiasi_data: data.negosiasi_data || null
-    });
-    await db.collection('prospek').doc(id).delete();
+    }]);
+    await supabaseDelete('prospek', id);
     showNotif('✅ Data berhasil masuk Database Tidak Tertarik!');
     updateAllBadges();
     return true;
@@ -2245,13 +2356,13 @@ function confirmClosing(id) {
     'Pindahkan ke Database Closing?',
     `Apakah Anda yakin ingin memindahkan data ini ke DATABASE CLOSING?\n\n⚠️ Data yang sudah dipindahkan TIDAK BISA dikembalikan ke Followup Agen!`,
     async () => {
-        const doc = await db.collection('customers').doc(id).get();
-        if (doc.exists) await saveToClosingDB(id, doc.data());
+        const doc = await supabaseGetById('customers', id);
+        if (doc) await saveToClosingDB(id, doc);
         loadAllData();
         updateAllBadges();
       },
       async () => {
-        await db.collection('customers').doc(id).update({ status: 'closing' });
+        await supabaseUpdate('customers', id, { status: 'closing' });
         showNotif('📌 Data tetap di kolom Closing');
         loadAllData();
         updateAllBadges();
@@ -2265,9 +2376,9 @@ function saveToClosingNow(id) {
     `Apakah Anda yakin ingin memindahkan customer ini ke DATABASE CLOSING?\n\n⚠️ Data yang sudah dipindahkan TIDAK BISA dikembalikan ke Followup Agen!`,
     async () => {
       try {
-        const doc = await db.collection('customers').doc(id).get();
-        if (doc.exists) {
-          await saveToClosingDB(id, doc.data());
+        const doc = await supabaseGetById('customers', id);
+        if (doc) {
+          await saveToClosingDB(id, doc);
           closeModal('detailModal');
           showNotif('✅ Data berhasil dipindahkan ke DB Closing');
           updateAllBadges();
@@ -2309,8 +2420,8 @@ function showConvertToCustomerModal(prospekId) {
         return;
       }
 
-      const doc = await db.collection('prospek').doc(prospekId).get();
-      const data = doc.data();
+      const doc = await supabaseGetById('prospek', prospekId);
+      const data = doc;
       const cleanHp = data.hp;
       const { duplicateAgent: dupAgent, duplicateHp: dupHp } = await checkDuplicateCustomer(values.inputAgentId, cleanHp);
 
@@ -2336,7 +2447,7 @@ function showConvertToCustomerModal(prospekId) {
           try {
             showNotifTop('⏳ Memproses pemindahan data...');
 
-            await db.collection('db_commitment').add({
+            await supabase.from('db_commitment').insert([{
               nama: data.nama,
               hp: data.hp,
               negosiasi_data: data.negosiasi_data || null,
@@ -2346,9 +2457,9 @@ function showConvertToCustomerModal(prospekId) {
               user_id: data.user_id,
               original_prospek_id: prospekId,
               followup_date: followupDate
-            });
+            }]);
 
-            await db.collection('customers').add({
+            await supabase.from('customers').insert([{
               agent_id: values.inputAgentId,
               nama: data.nama,
               hp: data.hp,
@@ -2360,9 +2471,9 @@ function showConvertToCustomerModal(prospekId) {
               converted_from: 'prospek_commitment',
               followup_data: null,
               pending_data: []
-            });
+            }]);
 
-            await db.collection('prospek').doc(prospekId).delete();
+            await supabaseDelete('prospek', prospekId);
 
             showNotifTop('✅ Berhasil! Customer telah ditambahkan ke Followup Agen dan disimpan ke DB Commitment');
             closeModal('detailModal');
@@ -2382,11 +2493,17 @@ function showConvertToCustomerModal(prospekId) {
 async function loadProduk() {
   if (!currentUser) return;
   
-  const snapshot = await db.collection('produk').limit(200).get();
-  produkData = [];
-  snapshot.forEach(doc => {
-    produkData.push({ id: doc.id, ...doc.data() });
-  });
+  const { data, error } = await supabase
+    .from('produk')
+    .select('*')
+    .limit(200);
+  
+  if (error) {
+    console.error('Error load produk:', error);
+    return;
+  }
+  
+  produkData = data || [];
   renderProdukList();
   updateProductSelect();
 }
@@ -2499,42 +2616,33 @@ function deleteSelectedProduk() {
   const progress = showFloatingProgress('🗑️ Menghapus Produk', selectedIds.length);
   progress.update(0, '🗑️ Menghapus', 'Memulai proses hapus produk...');
 
-  try {
-    let deleted = 0;
-    const BATCH_SIZE = 10;
+  let deleted = 0;
+  const BATCH_SIZE = 10;
 
-    for (let i = 0; i < selectedIds.length; i += BATCH_SIZE) {
-      const batch = db.batch();
-      const chunk = selectedIds.slice(i, i + BATCH_SIZE);
-
-      for (const id of chunk) {
-        const ref = db.collection('produk').doc(id);
-        batch.delete(ref);
-      }
-
-      batch.commit();
-      deleted += chunk.length;
-
-      for (const id of chunk) {
+  for (let i = 0; i < selectedIds.length; i += BATCH_SIZE) {
+    const chunk = selectedIds.slice(i, i + BATCH_SIZE);
+    
+    for (const id of chunk) {
+      try {
+        await supabaseDelete('produk', id);
         selectedProdukIds.delete(id);
         const index = produkData.findIndex(p => p.id === id);
         if (index !== -1) produkData.splice(index, 1);
+        deleted++;
+      } catch (e) {
+        console.error(`Gagal hapus produk ${id}:`, e);
       }
-
-      const percent = Math.floor((deleted / selectedIds.length) * 100);
-      progress.update(percent, '🗑️ Menghapus', `Menghapus produk...`, deleted, selectedIds.length);
     }
 
-    renderProdukList();
-    progress.update(100, '✅ Selesai', `Berhasil menghapus ${selectedIds.length} produk`, selectedIds.length, selectedIds.length);
-    showNotifTop(`✅ ${selectedIds.length} produk berhasil dihapus`);
-
-    setTimeout(() => progress.hide(), 2000);
-  } catch (e) {
-    console.error('Error delete selected:', e);
-    showNotifTop('❌ Gagal menghapus: ' + e.message, true);
-    progress.hide();
+    const percent = Math.floor((deleted / selectedIds.length) * 100);
+    progress.update(percent, '🗑️ Menghapus', `Menghapus produk...`, deleted, selectedIds.length);
   }
+
+  renderProdukList();
+  progress.update(100, '✅ Selesai', `Berhasil menghapus ${selectedIds.length} produk`, selectedIds.length, selectedIds.length);
+  showNotifTop(`✅ ${selectedIds.length} produk berhasil dihapus`);
+
+  setTimeout(() => progress.hide(), 2000);
 }
 
 function deleteProduk(id) {
@@ -2544,7 +2652,7 @@ function deleteProduk(id) {
   progress.update(50, '🗑️ Menghapus', 'Menghapus produk...', 0, 1);
 
   try {
-    db.collection('produk').doc(id).delete();
+    supabaseDelete('produk', id);
 
     const index = produkData.findIndex(p => p.id === id);
     if (index !== -1) produkData.splice(index, 1);
@@ -2586,16 +2694,21 @@ async function saveProduk(nama, hpp, hargaJual, keterangan, adminDefault, jenisP
     data.cid_based = cidBased === 'yes';
   }
 
-  if (id) {
-    await db.collection('produk').doc(id).update(data);
-    showNotifTop('✅ Produk berhasil diupdate');
-  } else {
-    data.created_at = new Date().toISOString();
-    await db.collection('produk').add(data);
-    showNotifTop('✅ Produk berhasil ditambahkan');
+  try {
+    if (id) {
+      await supabaseUpdate('produk', id, data);
+      showNotifTop('✅ Produk berhasil diupdate');
+    } else {
+      data.created_at = new Date().toISOString();
+      await supabase.from('produk').insert([data]);
+      showNotifTop('✅ Produk berhasil ditambahkan');
+    }
+    await loadProduk();
+    return true;
+  } catch (e) {
+    showNotifTop('❌ Gagal: ' + e.message, true);
+    return false;
   }
-  await loadProduk();
-  return true;
 }
 
 function editProduk(id) {
@@ -2653,18 +2766,19 @@ async function loadTarifAdmin() {
   if (!currentUser) return;
 
   const isOwner = currentUserRole === 'owner';
-  let query = db.collection('tarif_admin');
+  let query = supabase.from('tarif_admin').select('*');
   if (!isOwner) {
-    query = query.where('user_id', '==', currentUser.uid);
+    query = query.eq('user_id', currentUser.id);
   }
   
-  query = query.limit(500);
+  const { data, error } = await query.limit(500);
   
-  const snapshot = await query.get();
-  tarifAdminData = [];
-  snapshot.forEach(doc => {
-    tarifAdminData.push({ id: doc.id, ...doc.data() });
-  });
+  if (error) {
+    console.error('Error load tarif admin:', error);
+    return;
+  }
+  
+  tarifAdminData = data || [];
   renderTarifAdminList();
 }
 
@@ -2716,13 +2830,13 @@ async function saveTarifAdmin(cid, pospaid, prepaid, nontaglis, id = null) {
     admin_pospaid: parseInt(pospaid) || 0,
     admin_prepaid: parseInt(prepaid) || 0,
     admin_nontaglis: parseInt(nontaglis) || 0,
-    user_id: currentUser.uid,
+    user_id: currentUser.id,
     updated_at: new Date().toISOString()
   };
 
   try {
     if (id) {
-      await db.collection('tarif_admin').doc(id).update(data);
+      await supabaseUpdate('tarif_admin', id, data);
       showNotifTop('✅ Data admin per CID berhasil diupdate');
     } else {
       const existing = tarifAdminData.find(t => t.cid === cid);
@@ -2731,7 +2845,7 @@ async function saveTarifAdmin(cid, pospaid, prepaid, nontaglis, id = null) {
         return false;
       }
       data.created_at = new Date().toISOString();
-      await db.collection('tarif_admin').add(data);
+      await supabase.from('tarif_admin').insert([data]);
       showNotifTop('✅ Data admin per CID berhasil ditambahkan');
     }
     await loadTarifAdmin();
@@ -2744,7 +2858,7 @@ async function saveTarifAdmin(cid, pospaid, prepaid, nontaglis, id = null) {
 
 function deleteTarifAdmin(id) {
   if (!confirm('Yakin hapus data admin per CID ini?')) return;
-  db.collection('tarif_admin').doc(id).delete();
+  supabaseDelete('tarif_admin', id);
   showNotifTop('🗑️ Data dihapus');
   loadTarifAdmin();
 }
@@ -2820,22 +2934,22 @@ function setupTarifImport() {
 
             const existing = tarifAdminData.find(t => t.cid === cid);
             if (existing) {
-              await db.collection('tarif_admin').doc(existing.id).update({
+              await supabaseUpdate('tarif_admin', existing.id, {
                 admin_pospaid: parseInt(pospaid) || 0,
                 admin_prepaid: parseInt(prepaid) || 0,
                 admin_nontaglis: parseInt(nontaglis) || 0,
                 updated_at: new Date().toISOString()
               });
             } else {
-              await db.collection('tarif_admin').add({
+              await supabase.from('tarif_admin').insert([{
                 cid: cid,
                 admin_pospaid: parseInt(pospaid) || 0,
                 admin_prepaid: parseInt(prepaid) || 0,
                 admin_nontaglis: parseInt(nontaglis) || 0,
-                user_id: currentUser.uid,
+                user_id: currentUser.id,
                 created_at: new Date().toISOString(),
                 updated_at: new Date().toISOString()
-              });
+              }]);
             }
             success++;
           } catch (err) {
@@ -2905,32 +3019,38 @@ async function loadDatabaseAgent() {
   if (!currentUser) return;
 
   const isOwner = currentUserRole === 'owner';
-  let query = db.collection('db_agent');
+  let query = supabase.from('db_agent').select('*');
   if (!isOwner) {
-    query = query.where('user_id', '==', currentUser.uid);
+    query = query.eq('user_id', currentUser.id);
   }
   
-  query = query.orderBy('created_at', 'desc').limit(500);
+  const { data, error } = await query.order('created_at', { ascending: false }).limit(500);
   
-  const snapshot = await query.get();
+  if (error) {
+    console.error('Error load database agent:', error);
+    return;
+  }
 
   const items = [];
-  for (const doc of snapshot.docs) {
-    const d = doc.data();
+  for (const d of (data || [])) {
     let ownerName = '';
-    if (isOwner && d.user_id !== currentUser.uid) {
-      const userDoc = await db.collection('users').doc(d.user_id).get();
-      ownerName = userDoc.exists ? ` (${userDoc.data().nama || 'CS'})` : '';
+    if (isOwner && d.user_id !== currentUser.id) {
+      const { data: userData } = await supabase
+        .from('users')
+        .select('nama')
+        .eq('id', d.user_id)
+        .single();
+      ownerName = userData ? ` (${userData.nama || 'CS'})` : '';
     }
     items.push({
-      id: doc.id,
+      id: d.id,
       nama: d.nama + ownerName,
       hp: d.hp || '',
       agent_id: d.agent_id || '-',
       agent_type: d.agent_type || '-',
       apk: d.apk || '',
       createdAt: d.created_at,
-      checked: selectedAgentIds.get(doc.id) || false,
+      checked: selectedAgentIds.get(d.id) || false,
       upline: d.upline || '',
       cid: d.cid || '',
       jenis_bank: d.jenis_bank || '',
@@ -3118,10 +3238,15 @@ function updateSelectAllAgentButton() {
 }
 
 async function moveAgentToFollowup(agentId) {
-  const doc = await db.collection('db_agent').doc(agentId).get();
-  if (!doc.exists) return;
+  const { data: doc, error } = await supabase
+    .from('db_agent')
+    .select('*')
+    .eq('id', agentId)
+    .single();
+  
+  if (error || !doc) return;
 
-  const data = doc.data();
+  const data = doc;
 
   const { duplicateAgent, duplicateHp } = await checkDuplicateCustomer(data.agent_id, data.hp);
   if (duplicateAgent) {
@@ -3137,7 +3262,7 @@ async function moveAgentToFollowup(agentId) {
     'Pindahkan ke Followup Agen?',
     `Apakah Anda yakin ingin memindahkan agent "${escapeHtml(data.nama)}" ke FOLLOWUP AGEN?\n\nData akan dipindahkan dengan status "Baru".`,
     async () => {
-      await db.collection('customers').add({
+      await supabase.from('customers').insert([{
         agent_id: data.agent_id,
         nama: data.nama,
         hp: data.hp,
@@ -3149,111 +3274,13 @@ async function moveAgentToFollowup(agentId) {
         created_at: new Date().toISOString(),
         followup_data: null,
         pending_data: []
-      });
-      await db.collection('db_agent').doc(agentId).delete();
+      }]);
+      await supabaseDelete('db_agent', agentId);
       showNotifTop('✅ Agent berhasil dipindahkan ke Followup Agen!');
       loadDatabaseAgent();
       loadAllData();
     }
   );
-}
-
-// Fungsi untuk memindahkan data sesuai filter ke followup
-async function moveAllToFollowup() {
-    // Ambil data sesuai filter yang aktif
-    const filteredData = await getFilteredTransaksiData();
-    
-    if (filteredData.length === 0) {
-        showNotifTop('⚠️ Tidak ada data yang sesuai filter untuk dipindahkan!', true);
-        return;
-    }
-    
-    // Tampilkan konfirmasi
-    const progresFilter = document.getElementById('filterProgresTransaksi')?.value || '';
-    const filterText = progresFilter ? ` (Filter: ${progresFilter})` : '';
-    
-    if (!confirm(`⚠️ PERINGATAN!\n\nAnda akan memindahkan ${filteredData.length} data${filterText} ke Followup Agen.\n\nProses ini akan memindahkan data satu per satu.\n\nKlik OK untuk melanjutkan.`)) return;
-    
-    // Tampilkan modal pilih CS
-    await showPilihCsModal(filteredData);
-}
-
-// Event listener untuk tombol baru
-document.getElementById('moveAllToFollowupBtn')?.addEventListener('click', moveAllToFollowup);
-
-// Fungsi untuk mendapatkan data transaksi sesuai filter yang aktif
-async function getFilteredTransaksiData() {
-    const searchTerm = document.getElementById('searchTransaksiInput')?.value.toLowerCase() || '';
-    const progresFilter = document.getElementById('filterProgresTransaksi')?.value || '';
-    const statusFilter = document.getElementById('filterStatusTransaksi')?.value || '';
-    
-    const isOwner = currentUserRole === 'owner';
-    let query = db.collection('db_transaksi');
-    
-    if (!isOwner) {
-        query = query.where('user_id', '==', currentUser.uid);
-    }
-    
-    // Terapkan filter progres ke query jika ada
-    if (progresFilter) {
-        query = query.where('progres_jenis', '==', progresFilter);
-    }
-    
-    const snapshot = await query.get();
-    let results = [];
-    
-    for (const doc of snapshot.docs) {
-        const d = doc.data();
-        let ownerName = '';
-        if (isOwner && d.user_id !== currentUser.uid) {
-            const userDoc = await db.collection('users').doc(d.user_id).get();
-            ownerName = userDoc.exists ? ` (${userDoc.data().nama || 'CS'})` : '';
-        }
-        
-        // Filter tambahan untuk search term dan status
-        let include = true;
-        if (searchTerm) {
-            include = (d.nama && d.nama.toLowerCase().includes(searchTerm)) ||
-                      (d.agent_id && String(d.agent_id).toLowerCase().includes(searchTerm)) ||
-                      (d.hp && String(d.hp).includes(searchTerm));
-        }
-        
-        if (include && statusFilter && d.status !== statusFilter) {
-            include = false;
-        }
-        
-        if (include) {
-            results.push({
-                id: doc.id,
-                ...d,
-                displayName: (d.nama || '') + ownerName
-            });
-        }
-    }
-    
-    return results;
-}
-
-// Tambahkan fungsi untuk menampilkan status filter
-function updateFilterStatus() {
-    const progresFilter = document.getElementById('filterProgresTransaksi')?.value || '';
-    const statusFilter = document.getElementById('filterStatusTransaksi')?.value || '';
-    const searchTerm = document.getElementById('searchTransaksiInput')?.value || '';
-    
-    let filterText = '';
-    if (progresFilter) filterText += `📊 ${progresFilter === 'naik' ? 'Naik' : (progresFilter === 'turun' ? 'Turun' : 'Normal')} `;
-    if (statusFilter) filterText += `📌 ${statusFilter === 'imported' ? 'Sudah Dipindah' : 'Pending'} `;
-    if (searchTerm) filterText += `🔍 "${searchTerm}"`;
-    
-    const filterInfo = document.getElementById('activeFilterInfo');
-    if (filterInfo) {
-        if (filterText) {
-            filterInfo.innerHTML = `🎯 Filter aktif: ${filterText}`;
-            filterInfo.style.display = 'block';
-        } else {
-            filterInfo.style.display = 'none';
-        }
-    }
 }
 
 function deleteSelectedAgentSafe() {
@@ -3275,7 +3302,7 @@ function deleteSelectedAgentSafe() {
     const id = selectedIds[i];
 
     try {
-      db.collection('db_agent').doc(id).delete();
+      await supabaseDelete('db_agent', id);
       deleted++;
       selectedAgentIds.delete(id);
       
@@ -3310,7 +3337,7 @@ function deleteAgentItem(id) {
   progress.update(50, '🗑️ Menghapus', 'Menghapus data agent...', 0, 1);
 
   try {
-    db.collection('db_agent').doc(id).delete();
+    supabaseDelete('db_agent', id);
 
     selectedAgentIds.delete(id);
 
@@ -3404,12 +3431,16 @@ function setupAgentImport() {
         progress.update(10, '📥 Import Data', `Memproses ${dataRows.length} baris data...`);
         progress.setTotal(dataRows.length);
         
-        const allExistingAgents = await db.collection('db_agent').get();
+        const { data: existingAgents, error: existingError } = await supabase
+          .from('db_agent')
+          .select('agent_id');
+        
         const existingAgentIds = new Set();
-        allExistingAgents.forEach(doc => {
-          const data = doc.data();
-          if (data.agent_id) existingAgentIds.add(data.agent_id);
-        });
+        if (!existingError && existingAgents) {
+          existingAgents.forEach(doc => {
+            if (doc.agent_id) existingAgentIds.add(doc.agent_id);
+          });
+        }
         
         let success = 0, duplicate = 0, failed = 0;
         const errors = [];
@@ -3451,11 +3482,11 @@ function setupAgentImport() {
             
             existingAgentIds.add(agentId);
             
-            await db.collection('db_agent').add({
+            await supabase.from('db_agent').insert([{
               agent_id: agentId,
               nama: nama,
               hp: cleanHp,
-              user_id: currentUser.uid,
+              user_id: currentUser.id,
               created_at: new Date().toISOString(),
               updated_at: new Date().toISOString(),
               agent_type: '',
@@ -3471,7 +3502,7 @@ function setupAgentImport() {
               cid: '',
               apk: '',
               produk: []
-            });
+            }]);
             
             success++;
             
@@ -3592,13 +3623,11 @@ async function downloadAgentExample() {
   try {
     showNotifTop('⏳ Memuat data produk...');
 
-    const produkSnapshot = await db.collection('produk').get();
-    const produkList = [];
-    produkSnapshot.forEach(doc => {
-      produkList.push({ id: doc.id, nama: doc.data().nama });
-    });
+    const { data: produkList, error: produkError } = await supabase
+      .from('produk')
+      .select('id, nama');
 
-    if (produkList.length === 0) {
+    if (produkError || !produkList || produkList.length === 0) {
       showNotifTop('⚠️ Belum ada data produk. Silakan tambahkan produk terlebih dahulu!', true);
       return;
     }
@@ -3727,7 +3756,7 @@ function saveAgentDetail() {
   }
 
   try {
-    db.collection('db_agent').doc(currentAgentIdForProduct).update({
+    supabaseUpdate('db_agent', currentAgentIdForProduct, {
       agent_id: agentId,
       nama: nama,
       agent_type: agentType,
@@ -3759,11 +3788,12 @@ async function loadTarifAdminByCid(cid) {
     currentTarifData = [];
     return;
   }
-  const snapshot = await db.collection('tarif_admin').where('cid', '==', cid).get();
-  currentTarifData = [];
-  snapshot.forEach(doc => {
-    currentTarifData.push({ id: doc.id, ...doc.data() });
-  });
+  const { data, error } = await supabase
+    .from('tarif_admin')
+    .select('*')
+    .eq('cid', cid);
+  
+  currentTarifData = data || [];
 }
 
 async function renderAgentProducts() {
@@ -3797,9 +3827,13 @@ async function renderAgentProducts() {
 
   let tarifData = null;
   if (cid) {
-    const tarifSnapshot = await db.collection('tarif_admin').where('cid', '==', cid).get();
-    if (!tarifSnapshot.empty) {
-      tarifData = tarifSnapshot.docs[0].data();
+    const { data: tarifSnapshot, error: tarifError } = await supabase
+      .from('tarif_admin')
+      .select('*')
+      .eq('cid', cid);
+    
+    if (!tarifError && tarifSnapshot && tarifSnapshot.length > 0) {
+      tarifData = tarifSnapshot[0];
     }
   }
 
@@ -3818,7 +3852,7 @@ async function renderAgentProducts() {
                 <th style="text-align:left; padding:10px;">Profit</th>
                 <th style="text-align:left; padding:10px;">Fee Upline</th>
                 <th style="text-align:left; padding:10px;">Fee Agent</th>
-            <tr>
+            </td>
         </thead>
         <tbody>
     `;
@@ -3888,7 +3922,7 @@ async function renderAgentProducts() {
                 <td style="padding:10px;">${profitInput}</td>
                 <td style="padding:10px;">${feeUplineInput}</td>
                 <td style="padding:10px;">${feeAgentDisplay}</td>
-            </tr>
+            </table>
         `;
   }
 
@@ -4065,14 +4099,14 @@ function setupProdukImport() {
               continue;
             }
 
-            await db.collection('produk').add({
+            await supabase.from('produk').insert([{
               nama: nama.toString().trim(),
               hpp: parseInt(hpp) || 0,
               harga_jual: parseInt(hargaJual) || 0,
               keterangan: keterangan || '',
               created_at: new Date().toISOString(),
               updated_at: new Date().toISOString()
-            });
+            }]);
             success++;
           } catch (err) {
             failed++;
@@ -4126,8 +4160,6 @@ function downloadProdukExample() {
 }
 
 // ========== BROADCAST FUNCTIONS ==========
-// ========== FUNGSI BROADCAST LENGKAP ==========
-
 async function loadNumbers() {
     const sourceType = document.querySelector('input[name="sourceType"]:checked')?.value || 'customer';
     
@@ -4147,7 +4179,6 @@ async function loadNumbers() {
     let statusField = 'status';
     let statusValues = [];
     
-    // Tentukan collection berdasarkan sumber
     if (sourceType === 'customer') {
         collection = 'customers';
         statusValues = Array.from(document.querySelectorAll('#customerFilter input:checked')).map(cb => cb.value);
@@ -4171,27 +4202,32 @@ async function loadNumbers() {
     
     showNotifTop('⏳ Memuat nomor...');
     
-    let query = db.collection(collection);
+    let query = supabase.from(collection).select('*');
     if (currentUserRole !== 'owner') {
-        query = query.where('user_id', '==', currentUser.uid);
+        query = query.eq('user_id', currentUser.id);
     }
     query = query.limit(2000);
     
     if (statusField && statusValues.length > 0) {
-        query = query.where(statusField, 'in', statusValues);
+        query = query.in(statusField, statusValues);
     }
     
-    const snapshot = await query.get();
+    const { data, error } = await query;
+    
+    if (error) {
+        showNotifTop('❌ Gagal memuat nomor: ' + error.message, true);
+        return;
+    }
+    
     const numbers = [];
     
-    for (const doc of snapshot.docs) {
-        const data = doc.data();
-        let hp = data.hp || '';
+    for (const doc of (data || [])) {
+        let hp = doc.hp || '';
         
         if (hp && hp !== '+62' && hp !== '62') {
             numbers.push({
                 hp: hp,
-                nama: data.nama || 'Customer',
+                nama: doc.nama || 'Customer',
                 id: doc.id
             });
         }
@@ -4487,7 +4523,6 @@ function renderTemplateList() {
 }
 
 // ========== UPLINE BROADCAST LENGKAP ==========
-
 async function loadUplineNumbers() {
     const sourceType = document.querySelector('input[name="uplineSourceType"]:checked')?.value || 'transaksi';
     
@@ -4538,21 +4573,21 @@ async function loadUplineNumbers() {
     
     showNotifTop('⏳ Mengelompokkan data berdasarkan Upline...');
     
-    let query = db.collection(collection);
+    let query = supabase.from(collection).select('*');
     if (currentUserRole !== 'owner') {
-        query = query.where('user_id', '==', currentUser.uid);
+        query = query.eq('user_id', currentUser.id);
     }
     query = query.limit(2000);
     
     if (statusField && statusValues.length > 0) {
-        query = query.where(statusField, 'in', statusValues);
+        query = query.in(statusField, statusValues);
     }
     
-    const snapshot = await query.get();
+    const { data, error } = await query;
     const listDiv = document.getElementById('uplineNumbersList');
     const countSpan = document.getElementById('uplineCount');
     
-    if (snapshot.empty) {
+    if (error || !data || data.length === 0) {
         if (listDiv) listDiv.innerHTML = '<p style="color:#ef4444; padding:20px;">⚠️ Tidak ada data dengan filter yang dipilih.</p>';
         if (countSpan) countSpan.innerText = '0';
         return;
@@ -4561,10 +4596,9 @@ async function loadUplineNumbers() {
     const uplineMap = new Map();
     let dataWithoutUpline = 0;
     
-    snapshot.forEach(doc => {
-        const data = doc.data();
-        const uplinePhone = data.upline_phone || '';
-        const uplineName = data.upline_name || 'Tidak ada upline';
+    for (const doc of data) {
+        const uplinePhone = doc.upline_phone || '';
+        const uplineName = doc.upline_name || 'Tidak ada upline';
         
         if (!uplinePhone || uplinePhone === '+62' || uplinePhone === '62' || uplinePhone === '' || uplinePhone === '0') {
             dataWithoutUpline++;
@@ -4580,11 +4614,11 @@ async function loadUplineNumbers() {
         }
         
         uplineMap.get(uplinePhone).agents.push({
-            agent_id: data.agent_id || '-',
-            nama: data.nama || '-',
-            hp: data.hp || '-'
+            agent_id: doc.agent_id || '-',
+            nama: doc.nama || '-',
+            hp: doc.hp || '-'
         });
-    });
+    }
     
     uplineDataList = Array.from(uplineMap.values());
     
@@ -4701,23 +4735,25 @@ async function sendUplineBroadcast() {
 // ========== REMINDER FUNCTIONS ==========
 async function loadReminders() {
     try {
-        let query = db.collection('reminders');
+        let query = supabase.from('reminders').select('*');
         if (currentUserRole !== 'owner') {
-            query = query.where('user_id', '==', currentUser.uid);
+            query = query.eq('user_id', currentUser.id);
         }
-        const snapshot = await query.get();
+        const { data, error } = await query.order('created_at', { ascending: false });
+        
         const reminderList = document.getElementById('reminderList');
         if (!reminderList) return;
-        if (snapshot.empty) {
+        
+        if (error || !data || data.length === 0) {
             reminderList.innerHTML = '<p style="text-align:center;padding:40px;">⏰ Belum ada pengingat</p>';
             return;
         }
-        const items = [];
-        snapshot.forEach(doc => items.push({ id: doc.id, ...doc.data() }));
-        items.sort((a, b) => new Date(b.created_at) - new Date(a.created_at));
+        
+        const items = data;
+        
         reminderList.innerHTML = items.map(item => {
             let ownerInfo = '';
-            if (currentUserRole === 'owner' && item.user_id !== currentUser.uid) {
+            if (currentUserRole === 'owner' && item.user_id !== currentUser.id) {
                 ownerInfo = `<small style="color:#4f46e5;">(Milik: ${escapeHtml(item.user_name || 'CS Lain')})</small>`;
             }
             return `<div class="db-item"><div class="db-item-info"><h4>📝 ${escapeHtml(item.title)}</h4><p>${escapeHtml(item.description || '-')}</p><small>⏰ ${item.datetime ? new Date(item.datetime).toLocaleString('id-ID') : '-'} ${ownerInfo}</small></div><div class="db-item-actions"><button class="db-item-delete" onclick="deleteReminder('${item.id}')">🗑️ Hapus</button></div></div>`;
@@ -4731,7 +4767,7 @@ async function loadReminders() {
 
 window.deleteReminder = async function(id) {
     if (!confirm('Hapus pengingat ini?')) return;
-    await db.collection('reminders').doc(id).delete();
+    await supabaseDelete('reminders', id);
     showNotifTop('🗑️ Pengingat dihapus');
     loadReminders();
 };
@@ -4739,25 +4775,34 @@ window.deleteReminder = async function(id) {
 async function loadPesan() {
     if (!currentUser) return;
     try {
-        let query = db.collection('messages').where('to_id', '==', currentUser.uid);
-        const snapshot = await query.get();
+        const { data, error } = await supabase
+            .from('messages')
+            .select('*')
+            .eq('to_id', currentUser.id)
+            .order('created_at', { ascending: false });
+        
         const pesanList = document.getElementById('pesanList');
         if (!pesanList) return;
-        if (snapshot.empty) {
+        
+        if (error || !data || data.length === 0) {
             pesanList.innerHTML = '<p style="text-align:center;padding:40px;">💬 Belum ada pesan</p>';
             return;
         }
+        
         const items = [];
-        for (const doc of snapshot.docs) {
-            const data = doc.data();
+        for (const doc of data) {
             let fromName = 'Unknown';
             try {
-                const fromUser = await db.collection('users').doc(data.from_id).get();
-                if (fromUser.exists) fromName = fromUser.data().nama || fromUser.data().email || 'CS Agent';
+                const { data: fromUser } = await supabase
+                    .from('users')
+                    .select('nama, email')
+                    .eq('id', doc.from_id)
+                    .single();
+                if (fromUser) fromName = fromUser.nama || fromUser.email || 'CS Agent';
             } catch (e) {}
-            items.push({ id: doc.id, ...data, fromName });
+            items.push({ id: doc.id, ...doc, fromName });
         }
-        items.sort((a, b) => new Date(b.created_at) - new Date(a.created_at));
+        
         pesanList.innerHTML = items.map(item => `
             <div class="db-item ${!item.is_read ? 'unread' : ''}">
                 <div class="db-item-info">
@@ -4780,7 +4825,7 @@ async function loadPesan() {
 }
 
 window.markAsRead = async function(id) {
-    await db.collection('messages').doc(id).update({ is_read: true });
+    await supabaseUpdate('messages', id, { is_read: true });
     showNotif('Pesan ditandai dibaca');
     loadPesan();
     updateAllBadges();
@@ -4788,7 +4833,7 @@ window.markAsRead = async function(id) {
 
 window.deletePesan = async function(id) {
     if (confirm('Hapus pesan ini?')) {
-        await db.collection('messages').doc(id).delete();
+        await supabaseDelete('messages', id);
         showNotif('Pesan dihapus');
         loadPesan();
         updateAllBadges();
@@ -4799,13 +4844,19 @@ window.deletePesan = async function(id) {
 async function loadUsersList() {
     if (currentUserRole !== 'owner') return;
 
-    const snapshot = await db.collection('users').get();
+    const { data, error } = await supabase.from('users').select('*');
+    
+    if (error) {
+        console.error('Error load users:', error);
+        return;
+    }
+    
     const users = [];
-    snapshot.forEach(doc => {
-        if (doc.id !== currentUser.uid) {
-            users.push({ id: doc.id, ...doc.data() });
+    for (const user of (data || [])) {
+        if (user.id !== currentUser.id) {
+            users.push({ id: user.id, ...user });
         }
-    });
+    }
 
     const container = document.getElementById('usersList');
     if (!container) return;
@@ -4832,7 +4883,8 @@ async function loadUsersList() {
 window.deleteUser = async function(userId) {
     if (!confirm('Yakin ingin menghapus CS Agent ini? Data CS akan tetap ada tetapi tidak bisa login.')) return;
     try {
-        await db.collection('users').doc(userId).delete();
+        await supabase.auth.admin.deleteUser(userId);
+        await supabaseDelete('users', userId);
         showNotif('✅ CS Agent berhasil dihapus');
         loadUsersList();
     } catch (e) {
@@ -4841,16 +4893,17 @@ window.deleteUser = async function(userId) {
 };
 
 async function loadUsersForSelect() {
-    const snapshot = await db.collection('users').get();
+    const { data, error } = await supabase.from('users').select('*');
     const select = document.getElementById('pesanTo');
     if (!select) return;
     select.innerHTML = '<option value="">Pilih CS Tujuan</option>';
-    snapshot.forEach(doc => {
-        const data = doc.data();
-        if (doc.id !== currentUser.uid) {
-            select.innerHTML += `<option value="${doc.id}">${escapeHtml(data.nama || data.email || 'CS Agent')}</option>`;
+    if (!error && data) {
+        for (const user of data) {
+            if (user.id !== currentUser.id) {
+                select.innerHTML += `<option value="${user.id}">${escapeHtml(user.nama || user.email || 'CS Agent')}</option>`;
+            }
         }
-    });
+    }
 }
 
 // ========== INIT BROADCAST LENGKAP ==========
@@ -4922,134 +4975,140 @@ async function performSearch() {
     let customersQuery, prospekQuery, closingQuery, tidakQuery, nomorSalahQuery, commitmentQuery;
     
     if (currentUserRole === 'owner') {
-        customersQuery = db.collection('customers');
-        prospekQuery = db.collection('prospek');
-        closingQuery = db.collection('db_closing');
-        tidakQuery = db.collection('db_tidak_tertarik');
-        nomorSalahQuery = db.collection('nomor_salah');
-        commitmentQuery = db.collection('db_commitment');
+        customersQuery = supabase.from('customers').select('*');
+        prospekQuery = supabase.from('prospek').select('*');
+        closingQuery = supabase.from('db_closing').select('*');
+        tidakQuery = supabase.from('db_tidak_tertarik').select('*');
+        nomorSalahQuery = supabase.from('nomor_salah').select('*');
+        commitmentQuery = supabase.from('db_commitment').select('*');
     } else {
-        customersQuery = db.collection('customers').where('user_id', '==', currentUser.uid);
-        prospekQuery = db.collection('prospek').where('user_id', '==', currentUser.uid);
-        closingQuery = db.collection('db_closing').where('user_id', '==', currentUser.uid);
-        tidakQuery = db.collection('db_tidak_tertarik').where('user_id', '==', currentUser.uid);
-        nomorSalahQuery = db.collection('nomor_salah').where('user_id', '==', currentUser.uid);
-        commitmentQuery = db.collection('db_commitment').where('user_id', '==', currentUser.uid);
+        customersQuery = supabase.from('customers').select('*').eq('user_id', currentUser.id);
+        prospekQuery = supabase.from('prospek').select('*').eq('user_id', currentUser.id);
+        closingQuery = supabase.from('db_closing').select('*').eq('user_id', currentUser.id);
+        tidakQuery = supabase.from('db_tidak_tertarik').select('*').eq('user_id', currentUser.id);
+        nomorSalahQuery = supabase.from('nomor_salah').select('*').eq('user_id', currentUser.id);
+        commitmentQuery = supabase.from('db_commitment').select('*').eq('user_id', currentUser.id);
     }
 
     if (searchCustomer) {
-        const snapshot = await customersQuery.limit(SEARCH_LIMIT).get();
-        for (const doc of snapshot.docs) {
-            const data = doc.data();
-            const searchText = `${data.agent_id || ''} ${data.nama || ''} ${data.hp || ''}`.toLowerCase();
-            if (searchText.includes(keyword)) {
-                results.push({
-                    id: doc.id,
-                    type: 'customer',
-                    title: data.nama,
-                    subtitle: data.hp,
-                    detail: `ID: ${data.agent_id || '-'} | Deadline: ${data.tanggal || '-'}`,
-                    badge: 'Followup Agen',
-                    badgeClass: 'badge-customer'
-                });
+        const { data, error } = await customersQuery.limit(SEARCH_LIMIT);
+        if (!error && data) {
+            for (const doc of data) {
+                const searchText = `${doc.agent_id || ''} ${doc.nama || ''} ${doc.hp || ''}`.toLowerCase();
+                if (searchText.includes(keyword)) {
+                    results.push({
+                        id: doc.id,
+                        type: 'customer',
+                        title: doc.nama,
+                        subtitle: doc.hp,
+                        detail: `ID: ${doc.agent_id || '-'} | Deadline: ${doc.tanggal || '-'}`,
+                        badge: 'Followup Agen',
+                        badgeClass: 'badge-customer'
+                    });
+                }
             }
         }
     }
 
     if (searchProspek) {
-        const snapshot = await prospekQuery.limit(SEARCH_LIMIT).get();
-        for (const doc of snapshot.docs) {
-            const data = doc.data();
-            const searchText = `${data.nama || ''} ${data.hp || ''}`.toLowerCase();
-            if (searchText.includes(keyword)) {
-                results.push({
-                    id: doc.id,
-                    type: 'prospek',
-                    title: data.nama,
-                    subtitle: data.hp,
-                    detail: `Status: ${data.status || 'Baru'} | Deadline: ${data.deadline || '-'}`,
-                    badge: 'Prospek Agen',
-                    badgeClass: 'badge-prospek'
-                });
+        const { data, error } = await prospekQuery.limit(SEARCH_LIMIT);
+        if (!error && data) {
+            for (const doc of data) {
+                const searchText = `${doc.nama || ''} ${doc.hp || ''}`.toLowerCase();
+                if (searchText.includes(keyword)) {
+                    results.push({
+                        id: doc.id,
+                        type: 'prospek',
+                        title: doc.nama,
+                        subtitle: doc.hp,
+                        detail: `Status: ${doc.status || 'Baru'} | Deadline: ${doc.deadline || '-'}`,
+                        badge: 'Prospek Agen',
+                        badgeClass: 'badge-prospek'
+                    });
+                }
             }
         }
     }
 
-   if (searchClosing) {
-    const snapshot = await closingQuery.limit(SEARCH_LIMIT).get();
-    for (const doc of snapshot.docs) {
-        const data = doc.data();
-        const searchText = `${data.nama || ''} ${data.hp || ''}`.toLowerCase();
-        if (searchText.includes(keyword)) {
-            results.push({
-                id: doc.id,
-                type: 'closing',
-                title: data.nama,
-                subtitle: data.hp,
-                detail: `Closing: ${data.closing_date ? new Date(data.closing_date).toLocaleDateString('id-ID') : '-'}`,
-                badge: 'DB Closing',
-                badgeClass: 'badge-closing'
-            });
+    if (searchClosing) {
+        const { data, error } = await closingQuery.limit(SEARCH_LIMIT);
+        if (!error && data) {
+            for (const doc of data) {
+                const searchText = `${doc.nama || ''} ${doc.hp || ''}`.toLowerCase();
+                if (searchText.includes(keyword)) {
+                    results.push({
+                        id: doc.id,
+                        type: 'closing',
+                        title: doc.nama,
+                        subtitle: doc.hp,
+                        detail: `Closing: ${doc.closing_date ? new Date(doc.closing_date).toLocaleDateString('id-ID') : '-'}`,
+                        badge: 'DB Closing',
+                        badgeClass: 'badge-closing'
+                    });
+                }
+            }
         }
     }
-}
 
-if (searchTidak) {
-    const snapshot = await tidakQuery.limit(SEARCH_LIMIT).get();
-    for (const doc of snapshot.docs) {
-        const data = doc.data();
-        const searchText = `${data.nama || ''} ${data.hp || ''}`.toLowerCase();
-        if (searchText.includes(keyword)) {
-            results.push({
-                id: doc.id,
-                type: 'tidak',
-                title: data.nama,
-                subtitle: data.hp,
-                detail: `Tanggal: ${data.tanggal ? new Date(data.tanggal).toLocaleDateString('id-ID') : '-'}`,
-                badge: 'DB Tidak Tertarik',
-                badgeClass: 'badge-tidak'
-            });
+    if (searchTidak) {
+        const { data, error } = await tidakQuery.limit(SEARCH_LIMIT);
+        if (!error && data) {
+            for (const doc of data) {
+                const searchText = `${doc.nama || ''} ${doc.hp || ''}`.toLowerCase();
+                if (searchText.includes(keyword)) {
+                    results.push({
+                        id: doc.id,
+                        type: 'tidak',
+                        title: doc.nama,
+                        subtitle: doc.hp,
+                        detail: `Tanggal: ${doc.tanggal ? new Date(doc.tanggal).toLocaleDateString('id-ID') : '-'}`,
+                        badge: 'DB Tidak Tertarik',
+                        badgeClass: 'badge-tidak'
+                    });
+                }
+            }
         }
     }
-}
 
-if (searchNomorSalah) {
-    const snapshot = await nomorSalahQuery.limit(SEARCH_LIMIT).get();
-    for (const doc of snapshot.docs) {
-        const data = doc.data();
-        const searchText = `${data.nama || ''} ${data.hp || ''}`.toLowerCase();
-        if (searchText.includes(keyword)) {
-            results.push({
-                id: doc.id,
-                type: 'nomor_salah',
-                title: data.nama,
-                subtitle: data.hp,
-                detail: `Alasan: ${data.alasan || '-'}`,
-                badge: 'DB Nomor Salah',
-                badgeClass: 'badge-nomor-salah'
-            });
+    if (searchNomorSalah) {
+        const { data, error } = await nomorSalahQuery.limit(SEARCH_LIMIT);
+        if (!error && data) {
+            for (const doc of data) {
+                const searchText = `${doc.nama || ''} ${doc.hp || ''}`.toLowerCase();
+                if (searchText.includes(keyword)) {
+                    results.push({
+                        id: doc.id,
+                        type: 'nomor_salah',
+                        title: doc.nama,
+                        subtitle: doc.hp,
+                        detail: `Alasan: ${doc.alasan || '-'}`,
+                        badge: 'DB Nomor Salah',
+                        badgeClass: 'badge-nomor-salah'
+                    });
+                }
+            }
         }
     }
-}
 
-if (searchCommitment) {
-    const snapshot = await commitmentQuery.limit(SEARCH_LIMIT).get();
-    for (const doc of snapshot.docs) {
-        const data = doc.data();
-        const searchText = `${data.nama || ''} ${data.hp || ''}`.toLowerCase();
-        if (searchText.includes(keyword)) {
-            results.push({
-                id: doc.id,
-                type: 'commitment',
-                title: data.nama,
-                subtitle: data.hp,
-                detail: `Agent: ${data.agent_id || '-'}`,
-                badge: 'DB Commitment',
-                badgeClass: 'badge-commitment'
-            });
+    if (searchCommitment) {
+        const { data, error } = await commitmentQuery.limit(SEARCH_LIMIT);
+        if (!error && data) {
+            for (const doc of data) {
+                const searchText = `${doc.nama || ''} ${doc.hp || ''}`.toLowerCase();
+                if (searchText.includes(keyword)) {
+                    results.push({
+                        id: doc.id,
+                        type: 'commitment',
+                        title: doc.nama,
+                        subtitle: doc.hp,
+                        detail: `Agent: ${doc.agent_id || '-'}`,
+                        badge: 'DB Commitment',
+                        badgeClass: 'badge-commitment'
+                    });
+                }
+            }
         }
     }
-}
 
     const resultsContainer = document.getElementById('searchResults');
     if (!resultsContainer) return;
@@ -5092,187 +5151,239 @@ function openSearchResultDetail(id, type) {
 }
 
 // ========== DATABASE ARCHIVES FUNCTIONS ==========
-function loadDBClosing() {
+async function loadDBClosing() {
     if (!currentUser) return;
     const isOwner = currentUserRole === 'owner';
-    const query = isOwner ? db.collection('db_closing') : db.collection('db_closing').where('user_id', '==', currentUser.uid);
-    query.onSnapshot(async snap => {
-        let items = [];
-        for (const doc of snap.docs) {
-            const d = doc.data();
-            let ownerName = '';
-            if (isOwner && d.user_id !== currentUser.uid) {
-                const userDoc = await db.collection('users').doc(d.user_id).get();
-                ownerName = userDoc.exists ? ` (${userDoc.data().nama || 'CS'})` : '';
-            }
-            items.push({
-                id: doc.id,
-                nama: d.nama + ownerName,
-                hp: d.hp,
-                closing_date: d.closing_date,
-                checked: selectedClosingIds.get(doc.id) || false
-            });
+    let query = supabase.from('db_closing').select('*');
+    if (!isOwner) {
+        query = query.eq('user_id', currentUser.id);
+    }
+    
+    const { data, error } = await query.order('closing_date', { ascending: false });
+    
+    if (error) {
+        console.error('Error load closing:', error);
+        return;
+    }
+    
+    let items = [];
+    for (const doc of (data || [])) {
+        let ownerName = '';
+        if (isOwner && doc.user_id !== currentUser.id) {
+            const { data: userData } = await supabase
+                .from('users')
+                .select('nama')
+                .eq('id', doc.user_id)
+                .single();
+            ownerName = userData ? ` (${userData.nama || 'CS'})` : '';
         }
-        items.sort((a, b) => new Date(b.closing_date) - new Date(a.closing_date));
-        const html = items.map(item => `
-            <div class="db-item" data-id="${item.id}" data-type="closing" style="cursor: pointer;">
-                <input type="checkbox" class="db-item-checkbox" data-id="${item.id}" ${item.checked ? 'checked' : ''}>
-                <div class="db-item-info"><h4>${escapeHtml(item.nama)}</h4><p>${item.hp}</p><small>Closing: ${new Date(item.closing_date).toLocaleDateString('id-ID')}</small></div>
-                <div class="db-item-actions"><button class="db-item-wa" onclick="event.stopPropagation(); openWA('${item.hp}')">💬 WA</button><button class="db-item-delete" onclick="event.stopPropagation(); deleteDBItem('closing', '${item.id}')">🗑️ Hapus</button></div>
-            </div>
-        `).join('');
-        const container = document.getElementById('dbClosingList');
-        if (container) {
-            container.innerHTML = html || '<p style="text-align:center;padding:40px;">📭 Belum ada data closing</p>';
-            document.querySelectorAll('#dbClosingList .db-item').forEach(el => {
-                el.onclick = (e) => {
-                    if (e.target.type !== 'checkbox' && !e.target.classList.contains('db-item-wa') && !e.target.classList.contains('db-item-delete')) {
-                        openDBDetailModal(el.dataset.id, 'closing');
-                    }
-                };
-            });
-        }
-        attachCheckboxEvents('#dbClosingList', selectedClosingIds, 'selectAllClosing');
-    });
+        items.push({
+            id: doc.id,
+            nama: doc.nama + ownerName,
+            hp: doc.hp,
+            closing_date: doc.closing_date,
+            checked: selectedClosingIds.get(doc.id) || false
+        });
+    }
+    
+    const html = items.map(item => `
+        <div class="db-item" data-id="${item.id}" data-type="closing" style="cursor: pointer;">
+            <input type="checkbox" class="db-item-checkbox" data-id="${item.id}" ${item.checked ? 'checked' : ''}>
+            <div class="db-item-info"><h4>${escapeHtml(item.nama)}</h4><p>${item.hp}</p><small>Closing: ${new Date(item.closing_date).toLocaleDateString('id-ID')}</small></div>
+            <div class="db-item-actions"><button class="db-item-wa" onclick="event.stopPropagation(); openWA('${item.hp}')">💬 WA</button><button class="db-item-delete" onclick="event.stopPropagation(); deleteDBItem('closing', '${item.id}')">🗑️ Hapus</button></div>
+        </div>
+    `).join('');
+    
+    const container = document.getElementById('dbClosingList');
+    if (container) {
+        container.innerHTML = html || '<p style="text-align:center;padding:40px;">📭 Belum ada data closing</p>';
+        document.querySelectorAll('#dbClosingList .db-item').forEach(el => {
+            el.onclick = (e) => {
+                if (e.target.type !== 'checkbox' && !e.target.classList.contains('db-item-wa') && !e.target.classList.contains('db-item-delete')) {
+                    openDBDetailModal(el.dataset.id, 'closing');
+                }
+            };
+        });
+    }
+    attachCheckboxEvents('#dbClosingList', selectedClosingIds, 'selectAllClosing');
 }
 
-function loadDBTidak() {
+async function loadDBTidak() {
     if (!currentUser) return;
     const isOwner = currentUserRole === 'owner';
-    const query = isOwner ? db.collection('db_tidak_tertarik') : db.collection('db_tidak_tertarik').where('user_id', '==', currentUser.uid);
-    query.onSnapshot(async snap => {
-        let items = [];
-        for (const doc of snap.docs) {
-            const d = doc.data();
-            let ownerName = '';
-            if (isOwner && d.user_id !== currentUser.uid) {
-                const userDoc = await db.collection('users').doc(d.user_id).get();
-                ownerName = userDoc.exists ? ` (${userDoc.data().nama || 'CS'})` : '';
-            }
-            items.push({
-                id: doc.id,
-                nama: d.nama + ownerName,
-                hp: d.hp,
-                tanggal: d.tanggal,
-                checked: selectedTidakIds.get(doc.id) || false
-            });
+    let query = supabase.from('db_tidak_tertarik').select('*');
+    if (!isOwner) {
+        query = query.eq('user_id', currentUser.id);
+    }
+    
+    const { data, error } = await query.order('tanggal', { ascending: false });
+    
+    if (error) {
+        console.error('Error load tidak:', error);
+        return;
+    }
+    
+    let items = [];
+    for (const doc of (data || [])) {
+        let ownerName = '';
+        if (isOwner && doc.user_id !== currentUser.id) {
+            const { data: userData } = await supabase
+                .from('users')
+                .select('nama')
+                .eq('id', doc.user_id)
+                .single();
+            ownerName = userData ? ` (${userData.nama || 'CS'})` : '';
         }
-        items.sort((a, b) => new Date(b.tanggal) - new Date(a.tanggal));
-        const html = items.map(item => `
-            <div class="db-item" data-id="${item.id}" data-type="tidak" style="cursor: pointer;">
-                <input type="checkbox" class="db-item-checkbox" data-id="${item.id}" ${item.checked ? 'checked' : ''}>
-                <div class="db-item-info"><h4>${escapeHtml(item.nama)}</h4><p>${item.hp}</p><small>Tanggal: ${new Date(item.tanggal).toLocaleDateString('id-ID')}</small></div>
-                <div class="db-item-actions"><button class="db-item-wa" onclick="event.stopPropagation(); openWA('${item.hp}')">💬 WA</button><button class="db-item-delete" onclick="event.stopPropagation(); deleteDBItem('tidak', '${item.id}')">🗑️ Hapus</button></div>
-            </div>
-        `).join('');
-        const container = document.getElementById('dbTidakList');
-        if (container) {
-            container.innerHTML = html || '<p style="text-align:center;padding:40px;">📭 Belum ada data tidak tertarik</p>';
-            document.querySelectorAll('#dbTidakList .db-item').forEach(el => {
-                el.onclick = (e) => {
-                    if (e.target.type !== 'checkbox' && !e.target.classList.contains('db-item-wa') && !e.target.classList.contains('db-item-delete')) {
-                        openDBDetailModal(el.dataset.id, 'tidak');
-                    }
-                };
-            });
-        }
-        attachCheckboxEvents('#dbTidakList', selectedTidakIds, 'selectAllTidak');
-    });
+        items.push({
+            id: doc.id,
+            nama: doc.nama + ownerName,
+            hp: doc.hp,
+            tanggal: doc.tanggal,
+            checked: selectedTidakIds.get(doc.id) || false
+        });
+    }
+    
+    const html = items.map(item => `
+        <div class="db-item" data-id="${item.id}" data-type="tidak" style="cursor: pointer;">
+            <input type="checkbox" class="db-item-checkbox" data-id="${item.id}" ${item.checked ? 'checked' : ''}>
+            <div class="db-item-info"><h4>${escapeHtml(item.nama)}</h4><p>${item.hp}</p><small>Tanggal: ${new Date(item.tanggal).toLocaleDateString('id-ID')}</small></div>
+            <div class="db-item-actions"><button class="db-item-wa" onclick="event.stopPropagation(); openWA('${item.hp}')">💬 WA</button><button class="db-item-delete" onclick="event.stopPropagation(); deleteDBItem('tidak', '${item.id}')">🗑️ Hapus</button></div>
+        </div>
+    `).join('');
+    
+    const container = document.getElementById('dbTidakList');
+    if (container) {
+        container.innerHTML = html || '<p style="text-align:center;padding:40px;">📭 Belum ada data tidak tertarik</p>';
+        document.querySelectorAll('#dbTidakList .db-item').forEach(el => {
+            el.onclick = (e) => {
+                if (e.target.type !== 'checkbox' && !e.target.classList.contains('db-item-wa') && !e.target.classList.contains('db-item-delete')) {
+                    openDBDetailModal(el.dataset.id, 'tidak');
+                }
+            };
+        });
+    }
+    attachCheckboxEvents('#dbTidakList', selectedTidakIds, 'selectAllTidak');
 }
 
-function loadDBNomorSalah() {
+async function loadDBNomorSalah() {
     if (!currentUser) return;
     const isOwner = currentUserRole === 'owner';
-    const query = isOwner ? db.collection('nomor_salah') : db.collection('nomor_salah').where('user_id', '==', currentUser.uid);
-    query.onSnapshot(async snap => {
-        let items = [];
-        for (const doc of snap.docs) {
-            const d = doc.data();
-            let ownerName = '';
-            if (isOwner && d.user_id !== currentUser.uid) {
-                const userDoc = await db.collection('users').doc(d.user_id).get();
-                ownerName = userDoc.exists ? ` (${userDoc.data().nama || 'CS'})` : '';
-            }
-            items.push({
-                id: doc.id,
-                nama: d.nama + ownerName,
-                hp: d.hp,
-                alasan: d.alasan,
-                deleted_at: d.deleted_at,
-                checked: selectedNomorSalahIds.get(doc.id) || false
-            });
+    let query = supabase.from('nomor_salah').select('*');
+    if (!isOwner) {
+        query = query.eq('user_id', currentUser.id);
+    }
+    
+    const { data, error } = await query.order('deleted_at', { ascending: false });
+    
+    if (error) {
+        console.error('Error load nomor salah:', error);
+        return;
+    }
+    
+    let items = [];
+    for (const doc of (data || [])) {
+        let ownerName = '';
+        if (isOwner && doc.user_id !== currentUser.id) {
+            const { data: userData } = await supabase
+                .from('users')
+                .select('nama')
+                .eq('id', doc.user_id)
+                .single();
+            ownerName = userData ? ` (${userData.nama || 'CS'})` : '';
         }
-        items.sort((a, b) => new Date(b.deleted_at) - new Date(a.deleted_at));
-        const html = items.map(item => `
-            <div class="db-item" data-id="${item.id}" data-type="nomor_salah" style="cursor: pointer;">
-                <input type="checkbox" class="db-item-checkbox" data-id="${item.id}" ${item.checked ? 'checked' : ''}>
-                <div class="db-item-info"><h4>${escapeHtml(item.nama)}</h4><p>${item.hp}</p><small>Alasan: ${item.alasan}<br>Tanggal: ${new Date(item.deleted_at).toLocaleDateString('id-ID')}</small></div>
-                <div class="db-item-actions"><button class="db-item-wa" onclick="event.stopPropagation(); openWA('${item.hp}')">💬 WA</button><button class="db-item-delete" onclick="event.stopPropagation(); deleteDBItem('nomor_salah', '${item.id}')">🗑️ Hapus</button></div>
-            </div>
-        `).join('');
-        const container = document.getElementById('dbNomorSalahList');
-        if (container) {
-            container.innerHTML = html || '<p style="text-align:center;padding:40px;">📭 Belum ada data nomor salah</p>';
-            document.querySelectorAll('#dbNomorSalahList .db-item').forEach(el => {
-                el.onclick = (e) => {
-                    if (e.target.type !== 'checkbox' && !e.target.classList.contains('db-item-wa') && !e.target.classList.contains('db-item-delete')) {
-                        openDBDetailModal(el.dataset.id, 'nomor_salah');
-                    }
-                };
-            });
-        }
-        attachCheckboxEvents('#dbNomorSalahList', selectedNomorSalahIds, 'selectAllNomorSalah');
-    });
+        items.push({
+            id: doc.id,
+            nama: doc.nama + ownerName,
+            hp: doc.hp,
+            alasan: doc.alasan,
+            deleted_at: doc.deleted_at,
+            checked: selectedNomorSalahIds.get(doc.id) || false
+        });
+    }
+    
+    const html = items.map(item => `
+        <div class="db-item" data-id="${item.id}" data-type="nomor_salah" style="cursor: pointer;">
+            <input type="checkbox" class="db-item-checkbox" data-id="${item.id}" ${item.checked ? 'checked' : ''}>
+            <div class="db-item-info"><h4>${escapeHtml(item.nama)}</h4><p>${item.hp}</p><small>Alasan: ${item.alasan}<br>Tanggal: ${new Date(item.deleted_at).toLocaleDateString('id-ID')}</small></div>
+            <div class="db-item-actions"><button class="db-item-wa" onclick="event.stopPropagation(); openWA('${item.hp}')">💬 WA</button><button class="db-item-delete" onclick="event.stopPropagation(); deleteDBItem('nomor_salah', '${item.id}')">🗑️ Hapus</button></div>
+        </div>
+    `).join('');
+    
+    const container = document.getElementById('dbNomorSalahList');
+    if (container) {
+        container.innerHTML = html || '<p style="text-align:center;padding:40px;">📭 Belum ada data nomor salah</p>';
+        document.querySelectorAll('#dbNomorSalahList .db-item').forEach(el => {
+            el.onclick = (e) => {
+                if (e.target.type !== 'checkbox' && !e.target.classList.contains('db-item-wa') && !e.target.classList.contains('db-item-delete')) {
+                    openDBDetailModal(el.dataset.id, 'nomor_salah');
+                }
+            };
+        });
+    }
+    attachCheckboxEvents('#dbNomorSalahList', selectedNomorSalahIds, 'selectAllNomorSalah');
 }
 
-function loadDBCommitment() {
+async function loadDBCommitment() {
     if (!currentUser) return;
     const isOwner = currentUserRole === 'owner';
-    const query = isOwner ? db.collection('db_commitment') : db.collection('db_commitment').where('user_id', '==', currentUser.uid);
-    query.onSnapshot(async snap => {
-        let items = [];
-        for (const doc of snap.docs) {
-            const d = doc.data();
-            let ownerName = '';
-            if (isOwner && d.user_id !== currentUser.uid) {
-                const userDoc = await db.collection('users').doc(d.user_id).get();
-                ownerName = userDoc.exists ? ` (${userDoc.data().nama || 'CS'})` : '';
-            }
-            items.push({
-                id: doc.id,
-                nama: d.nama + ownerName,
-                hp: d.hp,
-                committed_at: d.committed_at,
-                agent_id: d.agent_id,
-                aplikasi: d.aplikasi,
-                followup_date: d.followup_date,
-                checked: selectedCommitmentIds.get(doc.id) || false
-            });
+    let query = supabase.from('db_commitment').select('*');
+    if (!isOwner) {
+        query = query.eq('user_id', currentUser.id);
+    }
+    
+    const { data, error } = await query.order('committed_at', { ascending: false });
+    
+    if (error) {
+        console.error('Error load commitment:', error);
+        return;
+    }
+    
+    let items = [];
+    for (const doc of (data || [])) {
+        let ownerName = '';
+        if (isOwner && doc.user_id !== currentUser.id) {
+            const { data: userData } = await supabase
+                .from('users')
+                .select('nama')
+                .eq('id', doc.user_id)
+                .single();
+            ownerName = userData ? ` (${userData.nama || 'CS'})` : '';
         }
-        items.sort((a, b) => new Date(b.committed_at) - new Date(a.committed_at));
-        const html = items.map(item => `
-            <div class="db-item" data-id="${item.id}" data-type="commitment" style="cursor: pointer;">
-                <input type="checkbox" class="db-item-checkbox" data-id="${item.id}" ${item.checked ? 'checked' : ''}>
-                <div class="db-item-info"><h4>${escapeHtml(item.nama)}</h4><p>${item.hp}</p><small>Komitmen: ${new Date(item.committed_at).toLocaleDateString('id-ID')}<br>Followup: ${item.followup_date || '-'}<br>Agent: ${item.agent_id || '-'}<br>Aplikasi: ${item.aplikasi || '-'}</small></div>
-                <div class="db-item-actions"><button class="db-item-wa" onclick="event.stopPropagation(); openWA('${item.hp}')">💬 WA</button><button class="db-item-delete" onclick="event.stopPropagation(); deleteDBItem('db_commitment', '${item.id}')">🗑️ Hapus</button></div>
-            </div>
-        `).join('');
-        const container = document.getElementById('dbCommitmentList');
-        if (container) {
-            container.innerHTML = html || '<p style="text-align:center;padding:40px;">📭 Belum ada data komitmen</p>';
-            document.querySelectorAll('#dbCommitmentList .db-item').forEach(el => {
-                el.onclick = (e) => {
-                    if (e.target.type !== 'checkbox' && !e.target.classList.contains('db-item-wa') && !e.target.classList.contains('db-item-delete')) {
-                        openDBDetailModal(el.dataset.id, 'commitment');
-                    }
-                };
-            });
-        }
-        attachCheckboxEvents('#dbCommitmentList', selectedCommitmentIds, 'selectAllCommitment');
-    });
+        items.push({
+            id: doc.id,
+            nama: doc.nama + ownerName,
+            hp: doc.hp,
+            committed_at: doc.committed_at,
+            agent_id: doc.agent_id,
+            aplikasi: doc.aplikasi,
+            followup_date: doc.followup_date,
+            checked: selectedCommitmentIds.get(doc.id) || false
+        });
+    }
+    
+    const html = items.map(item => `
+        <div class="db-item" data-id="${item.id}" data-type="commitment" style="cursor: pointer;">
+            <input type="checkbox" class="db-item-checkbox" data-id="${item.id}" ${item.checked ? 'checked' : ''}>
+            <div class="db-item-info"><h4>${escapeHtml(item.nama)}</h4><p>${item.hp}</p><small>Komitmen: ${new Date(item.committed_at).toLocaleDateString('id-ID')}<br>Followup: ${item.followup_date || '-'}<br>Agent: ${item.agent_id || '-'}<br>Aplikasi: ${item.aplikasi || '-'}</small></div>
+            <div class="db-item-actions"><button class="db-item-wa" onclick="event.stopPropagation(); openWA('${item.hp}')">💬 WA</button><button class="db-item-delete" onclick="event.stopPropagation(); deleteDBItem('db_commitment', '${item.id}')">🗑️ Hapus</button></div>
+        </div>
+    `).join('');
+    
+    const container = document.getElementById('dbCommitmentList');
+    if (container) {
+        container.innerHTML = html || '<p style="text-align:center;padding:40px;">📭 Belum ada data komitmen</p>';
+        document.querySelectorAll('#dbCommitmentList .db-item').forEach(el => {
+            el.onclick = (e) => {
+                if (e.target.type !== 'checkbox' && !e.target.classList.contains('db-item-wa') && !e.target.classList.contains('db-item-delete')) {
+                    openDBDetailModal(el.dataset.id, 'commitment');
+                }
+            };
+        });
+    }
+    attachCheckboxEvents('#dbCommitmentList', selectedCommitmentIds, 'selectAllCommitment');
 }
 
-function openDBDetailModal(id, type) {
+async function openDBDetailModal(id, type) {
     let collectionName = '';
     let title = '';
 
@@ -5297,21 +5408,29 @@ function openDBDetailModal(id, type) {
             return;
     }
 
-    db.collection(collectionName).doc(id).get().then(async doc => {
-        if (!doc.exists) return;
-        const d = doc.data();
+    try {
+        const { data: d, error } = await supabase
+            .from(collectionName)
+            .select('*')
+            .eq('id', id)
+            .single();
+        
+        if (error || !d) return;
 
         let ownerInfo = '';
-        if (currentUserRole === 'owner' && d.user_id !== currentUser.uid) {
-            const userDoc = await db.collection('users').doc(d.user_id).get();
-            const ownerName = userDoc.exists ? userDoc.data().nama || 'CS Agent' : 'CS Agent';
+        if (currentUserRole === 'owner' && d.user_id !== currentUser.id) {
+            const { data: userData } = await supabase
+                .from('users')
+                .select('nama')
+                .eq('id', d.user_id)
+                .single();
+            const ownerName = userData?.nama || 'CS Agent';
             ownerInfo = `<div class="detail-info-item"><div class="detail-info-icon">👤</div><div class="detail-info-content"><label>Pemilik Data</label><div class="value">${escapeHtml(ownerName)}</div></div></div>`;
         }
 
         let detailHtml = '';
         
         if (type === 'closing') {
-            // ========== TAMBAHKAN PENDING RESPONSES DI SINI ==========
             let pendingHtml = '';
             if (d.pending_data && d.pending_data.length > 0) {
                 const completedCount = d.pending_data.filter(item => item.checked === true && item.text?.trim() !== '').length;
@@ -5369,7 +5488,10 @@ function openDBDetailModal(id, type) {
             <div class="detail-footer"><button class="btn-outline" onclick="closeModal('detailModal')">❌ Tutup</button><button class="btn-danger" onclick="deleteDBItem('${type}', '${id}'); closeModal('detailModal');">🗑️ Hapus</button></div>
         `;
         showModal('detailModal');
-    });
+    } catch (error) {
+        console.error('Error openDBDetailModal:', error);
+        showNotifTop('❌ Gagal memuat detail: ' + error.message, true);
+    }
 }
 
 function deleteDBItem(type, id) {
@@ -5401,7 +5523,7 @@ function deleteDBItem(type, id) {
     }
 
     try {
-        db.collection(collectionName).doc(id).delete();
+        supabaseDelete(collectionName, id);
         if (mapRef) mapRef.delete(id);
         showNotifTop('🗑️ Data berhasil dihapus');
 
@@ -5454,25 +5576,29 @@ let daftarCs = [];
 // ========== FUNGSI UNTUK LOAD DAFTAR CS ==========
 async function loadDaftarCs() {
     try {
-        const snapshot = await db.collection('users').where('role', '==', 'cs').get();
+        const { data, error } = await supabase
+            .from('users')
+            .select('*')
+            .eq('role', 'cs');
+        
+        if (error) throw error;
+        
         daftarCs = [];
-        snapshot.forEach(doc => {
+        for (const doc of (data || [])) {
             daftarCs.push({
                 id: doc.id,
-                nama: doc.data().nama || doc.data().email || 'CS Agent',
-                email: doc.data().email,
-                hp: doc.data().hp
+                nama: doc.nama || doc.email || 'CS Agent',
+                email: doc.email,
+                hp: doc.hp
             });
-        });
+        }
         
-        // Update select single
         const csSelect = document.getElementById('csTujuanSelect');
         if (csSelect) {
             csSelect.innerHTML = '<option value="">Pilih CS Agent</option>' + 
                 daftarCs.map(cs => `<option value="${cs.id}">${escapeHtml(cs.nama)}</option>`).join('');
         }
         
-        // Update multi select
         const csMultiContainer = document.getElementById('csMultiSelect');
         if (csMultiContainer) {
             csMultiContainer.innerHTML = daftarCs.map(cs => `
@@ -5509,24 +5635,18 @@ async function showPilihCsModal(dataToMove) {
         satuGroup.style.display = 'block';
         rataGroup.style.display = 'none';
         
-        // Di dalam showPilihCsModal, bagian metodeSelect.onchange
-metodeSelect.onchange = () => {
-    const metode = metodeSelect.value;
-    if (metode === 'satu') {
-        satuGroup.style.display = 'block';
-        rataGroup.style.display = 'none';
-    } else if (metode === 'rata') {
-        satuGroup.style.display = 'none';
-        rataGroup.style.display = 'block';
-    } else if (metode === 'upline') {
-        // Untuk metode upline, gunakan multi-select
-        satuGroup.style.display = 'none';
-        rataGroup.style.display = 'block';
+        metodeSelect.onchange = () => {
+            const metode = metodeSelect.value;
+            if (metode === 'satu') {
+                satuGroup.style.display = 'block';
+                rataGroup.style.display = 'none';
+            } else {
+                satuGroup.style.display = 'none';
+                rataGroup.style.display = 'block';
+            }
+        };
     }
-};
-}
     
-    // Setup confirm button
     const confirmBtn = document.getElementById('confirmPindahKeCsBtn');
     if (confirmBtn) {
         const newConfirmBtn = confirmBtn.cloneNode(true);
@@ -5556,7 +5676,6 @@ metodeSelect.onchange = () => {
         };
     }
     
-    // Setup cancel button
     const batalBtn = document.getElementById('batalPindahKeCsBtn');
     if (batalBtn) {
         const newBatalBtn = batalBtn.cloneNode(true);
@@ -5568,23 +5687,18 @@ metodeSelect.onchange = () => {
     }
 }
 
-// ========== FUNGSI PROSES PEMINDAHAN KE CS PEMBAGIAN DATA BERDASARKAN UPLINE ==========
-
+// ========== FUNGSI PROSES PEMINDAHAN KE CS ==========
 function bagiDataBerdasarkanUpline(dataToMove, csIds) {
     console.log('========== DEBUG PEMBAGIAN UPLINE ==========');
     console.log('Total data yang akan dibagi:', dataToMove.length);
     console.log('Jumlah CS:', csIds.length);
     
-    // Step 1: Kelompokkan data berdasarkan upline_phone
     const uplineGroups = new Map();
     
     for (const item of dataToMove) {
-        // Gunakan upline_phone sebagai kunci utama
         let uplineKey = item.upline_phone || 'NO_UPLINE';
-        // Bersihkan nomor (hapus spasi, dll)
         uplineKey = String(uplineKey).trim();
         
-        // Jika upline_phone kosong atau tidak valid, beri kunci khusus
         if (!uplineKey || uplineKey === '' || uplineKey === '0' || uplineKey === '+62') {
             uplineKey = 'NO_UPLINE';
         }
@@ -5598,38 +5712,15 @@ function bagiDataBerdasarkanUpline(dataToMove, csIds) {
                 agents: [],
                 totalAgent: 0
             });
-            console.log(`📌 Group baru untuk Upline: ${uplineName} (${uplineKey})`);
         }
         
         uplineGroups.get(uplineKey).agents.push(item);
         uplineGroups.get(uplineKey).totalAgent++;
     }
     
-    // Konversi ke array
     let groups = Array.from(uplineGroups.values());
-    
-    // Log semua group
-    console.log('\n📊 Daftar Group Upline:');
-    groups.forEach((group, idx) => {
-        console.log(`  ${idx + 1}. ${group.upline_name} (${group.upline_phone}) - ${group.totalAgent} agent`);
-        // Tampilkan 3 agent pertama sebagai contoh
-        group.agents.slice(0, 3).forEach(agent => {
-            console.log(`      - ${agent.nama} (${agent.agent_id})`);
-        });
-        if (group.agents.length > 3) {
-            console.log(`      ... dan ${group.agents.length - 3} agent lainnya`);
-        }
-    });
-    
-    // Urutkan dari group terbesar ke terkecil (untuk fairness)
     groups.sort((a, b) => b.totalAgent - a.totalAgent);
     
-    console.log('\n📊 Urutan group (dari terbesar ke terkecil):');
-    groups.forEach((group, idx) => {
-        console.log(`  ${idx + 1}. ${group.upline_name}: ${group.totalAgent} agent`);
-    });
-    
-    // Inisialisasi hasil untuk setiap CS
     const result = csIds.map(csId => ({
         csId: csId,
         data: [],
@@ -5637,9 +5728,7 @@ function bagiDataBerdasarkanUpline(dataToMove, csIds) {
         groups: []
     }));
     
-    // Algoritma Greedy - assign group terbesar ke CS dengan total paling sedikit
     for (const group of groups) {
-        // Cari CS dengan total agent paling sedikit
         let minIndex = 0;
         let minTotal = result[0].totalAgent;
         
@@ -5650,49 +5739,16 @@ function bagiDataBerdasarkanUpline(dataToMove, csIds) {
             }
         }
         
-        // Assign seluruh group ke CS tersebut
         result[minIndex].data.push(...group.agents);
         result[minIndex].totalAgent += group.totalAgent;
         result[minIndex].groups.push(group);
-        
-        console.log(`📦 Assign group "${group.upline_name}" (${group.totalAgent} agent) ke CS index ${minIndex}`);
     }
     
-    // Urutkan hasil berdasarkan total agent (descending)
     result.sort((a, b) => b.totalAgent - a.totalAgent);
-    
-    console.log('\n📊 HASIL AKHIR PEMBAGIAN:');
-    for (const cs of result) {
-        const csInfo = daftarCs.find(c => c.id === cs.csId);
-        const csName = csInfo ? csInfo.nama : cs.csId;
-        console.log(`\n👤 CS: ${csName}`);
-        console.log(`   Total Agent: ${cs.totalAgent}`);
-        console.log(`   Jumlah Group Upline: ${cs.groups.length}`);
-        console.log(`   Daftar Upline:`);
-        cs.groups.forEach(group => {
-            console.log(`     - ${group.upline_name} (${group.upline_phone}): ${group.totalAgent} agent`);
-        });
-    }
-    
-    console.log('========== END DEBUG ==========\n');
     
     return result;
 }
 
-// ========== TAMBAHKAN FUNGSI DEBUG DI SINI ==========
-async function cekUplineData() {
-    const snapshot = await db.collection('db_transaksi').limit(20).get();
-    console.log('🔍 CEK DATA UPLINE DI DB TRANSAKSI:');
-    snapshot.forEach(doc => {
-        const data = doc.data();
-        console.log(`  Agent: ${data.nama}`);
-        console.log(`    upline_name: "${data.upline_name}"`);
-        console.log(`    upline_phone: "${data.upline_phone}"`);
-        console.log('---');
-    });
-}
-
-// KEMUDIAN MODIFIKASI fungsi prosesPindahKeCs
 async function prosesPindahKeCs(dataToMove, csIds, metode) {
     const totalData = dataToMove.length;
     const totalCs = csIds.length;
@@ -5700,8 +5756,6 @@ async function prosesPindahKeCs(dataToMove, csIds, metode) {
     let dataPerCs = [];
     
     if (metode === 'rata') {
-        // METODE LAMA - BAGI RATA (hanya untuk fallback)
-        console.log('📋 Menggunakan metode pembagian rata biasa (tanpa memperhatikan upline)');
         const baseCount = Math.floor(totalData / totalCs);
         const remainder = totalData % totalCs;
         
@@ -5715,28 +5769,14 @@ async function prosesPindahKeCs(dataToMove, csIds, metode) {
             });
             startIndex += count;
         }
-    } 
-    else if (metode === 'upline') {
-    // METODE BARU - BERDASARKAN UPLINE
-    console.log('📋 Menggunakan metode pembagian berdasarkan Upline (tidak memisah grup)');
-    
-    const pembagian = bagiDataBerdasarkanUpline(dataToMove, csIds);
-    
-    dataPerCs = pembagian.map(item => ({
-        csId: item.csId,
-        data: item.data,
-        count: item.totalAgent
-    }));
-    
-    console.log('📊 Ringkasan pembagian per CS:');
-    dataPerCs.forEach(cs => {
-        const csInfo = daftarCs.find(c => c.id === cs.csId);
-        const csName = csInfo ? csInfo.nama : cs.csId;
-        console.log(`  CS ${csName}: ${cs.count} agent`);
-    });
-}
-    else {
-        // Kirim semua ke satu CS
+    } else if (metode === 'upline') {
+        const pembagian = bagiDataBerdasarkanUpline(dataToMove, csIds);
+        dataPerCs = pembagian.map(item => ({
+            csId: item.csId,
+            data: item.data,
+            count: item.totalAgent
+        }));
+    } else {
         dataPerCs.push({
             csId: csIds[0],
             data: dataToMove,
@@ -5761,31 +5801,17 @@ async function prosesPindahKeCs(dataToMove, csIds, metode) {
             const item = csItem.data[i];
             
             try {
-                // Cek duplikat
                 const { duplicateAgent, duplicateHp } = await checkDuplicateCustomer(item.agent_id, item.hp);
                 
                 if (duplicateAgent) {
                     totalSkipped++;
-                    console.log(`Skip ${item.nama}: ID Agent ${item.agent_id} sudah terdaftar`);
-                    await db.collection('db_transaksi').doc(item.id).update({
-                        status: 'duplicate',
-                        duplicate_reason: `ID Agent ${item.agent_id} sudah terdaftar oleh ${duplicateAgent.owner}`,
-                        last_check_at: new Date().toISOString()
-                    }).catch(err => console.error('Gagal update status:', err));
                     continue;
                 }
                 if (duplicateHp) {
                     totalSkipped++;
-                    console.log(`Skip ${item.nama}: Nomor HP ${item.hp} sudah terdaftar`);
-                    await db.collection('db_transaksi').doc(item.id).update({
-                        status: 'duplicate',
-                        duplicate_reason: `Nomor HP ${item.hp} sudah terdaftar oleh ${duplicateHp.owner}`,
-                        last_check_at: new Date().toISOString()
-                    }).catch(err => console.error('Gagal update status:', err));
                     continue;
                 }
                 
-                // Hitung total tercapai
                 let totalTercapai = 0;
                 if (item.progres_jenis === 'naik') {
                     totalTercapai = Math.abs(item.progres_jumlah || 0);
@@ -5795,7 +5821,6 @@ async function prosesPindahKeCs(dataToMove, csIds, metode) {
                     totalTercapai = item.progres_jumlah || 0;
                 }
                 
-                // Progres item
                 const progresItem = {
                     tanggal: item.tanggal_transaksi || getTodayDate(),
                     jenis: item.progres_jenis || 'normal',
@@ -5804,12 +5829,10 @@ async function prosesPindahKeCs(dataToMove, csIds, metode) {
                     created_at: new Date().toISOString()
                 };
                 
-                // Pindah ke customers dengan user_id CS tujuan
-                await db.collection('customers').add({
+                await supabase.from('customers').insert([{
                     agent_id: item.agent_id,
                     nama: item.nama,
                     hp: item.hp,
-                    apk: item.apk || '',
                     upline_name: item.upline_name || '',
                     upline_phone: item.upline_phone || '',
                     status: 'baru',
@@ -5824,12 +5847,11 @@ async function prosesPindahKeCs(dataToMove, csIds, metode) {
                     },
                     moved_from_transaksi: true,
                     original_transaksi_id: item.id,
-                    moved_by: currentUser.uid,
+                    moved_by: currentUser.id,
                     moved_by_name: currentUserName
-                });
+                }]);
                 
-                // Update status di db_transaksi
-                await db.collection('db_transaksi').doc(item.id).update({
+                await supabaseUpdate('db_transaksi', item.id, {
                     status: 'imported',
                     moved_to_followup_at: new Date().toISOString(),
                     moved_to_cs_id: csItem.csId,
@@ -5842,15 +5864,6 @@ async function prosesPindahKeCs(dataToMove, csIds, metode) {
             } catch (e) {
                 totalFailed++;
                 console.error(`Gagal pindah ${item.nama}:`, e);
-                try {
-                    await db.collection('db_transaksi').doc(item.id).update({
-                        status: 'error',
-                        error_message: e.message,
-                        last_check_at: new Date().toISOString()
-                    });
-                } catch (err) {
-                    console.error('Gagal update status error:', err);
-                }
             }
             
             const percent = Math.floor(((totalSuccess + totalFailed + totalSkipped) / totalData) * 100);
@@ -5862,16 +5875,13 @@ async function prosesPindahKeCs(dataToMove, csIds, metode) {
     progress.update(100, '✅ Selesai', `Berhasil: ${totalSuccess}, Gagal: ${totalFailed}, Dilewati: ${totalSkipped}`, totalData, totalData);
     showNotifTop(`✅ ${totalSuccess} data dipindahkan ke Followup Agen...`);
     
-    // REFRESH SEMUA DATA
-    await loadDbTransaksi();  // Refresh DB Transaksi
-    await loadAllData();       // Refresh data customer
-    renderFullFollowupKanban(); // Refresh tampilan Full Mode
-    renderFullProspekKanban();  // Refresh tampilan Prospek Full Mode
+    await loadDbTransaksi();
+    await loadAllData();
     
     setTimeout(() => progress.hide(), 3000);
 }
 
-// ========== FUNGSI MOVE SELECTED TO FOLLOWUP (VERSI BARU) ==========
+// ========== FUNGSI MOVE SELECTED TO FOLLOWUP ==========
 async function moveSelectedToFollowup() {
     let selectedIds = Array.from(selectedTransaksiIds.keys());
     
@@ -5880,7 +5890,6 @@ async function moveSelectedToFollowup() {
         return;
     }
     
-    // Ambil data dari database
     let dataToMove = [];
     for (const id of selectedIds) {
         const item = transaksiData.find(t => t.id === id);
@@ -5894,7 +5903,6 @@ async function moveSelectedToFollowup() {
         return;
     }
     
-    // Tampilkan modal pilih CS
     await showPilihCsModal(dataToMove);
 }
 
@@ -5998,7 +6006,6 @@ async function loadDbTransaksi(loadMore = false) {
     
     isLoadingMore = true;
     
-    // Tampilkan loading indicator
     const container = document.getElementById('dbTransaksiList');
     if (container && loadMore) {
         const loadingDiv = document.createElement('div');
@@ -6011,43 +6018,40 @@ async function loadDbTransaksi(loadMore = false) {
     
     try {
         const isOwner = currentUserRole === 'owner';
-        let query = db.collection('db_transaksi');
+        let query = supabase.from('db_transaksi').select('*');
         
         if (!isOwner) {
-            query = query.where('user_id', '==', currentUser.uid);
+            query = query.eq('user_id', currentUser.id);
         }
         
-        query = query.orderBy('tanggal_transaksi', 'desc');
+        query = query.order('tanggal_transaksi', { ascending: false });
         
         if (loadMore && transaksiLastDoc) {
-            query = query.startAfter(transaksiLastDoc);
+            query = query.lt('created_at', transaksiLastDoc);
         }
         
         query = query.limit(500);
         
-        const snapshot = await query.get();
-        console.log('loadDbTransaksi: Data ditemukan:', snapshot.size);
+        const { data, error } = await query;
         
-        let totalCount = 0;
-        if (!loadMore) {
-            // Buat query terpisah untuk menghitung total (tanpa limit)
-            let countQuery = db.collection('db_transaksi');
-            if (!isOwner) {
-                countQuery = countQuery.where('user_id', '==', currentUser.uid);
-            }
-            const countSnapshot = await countQuery.get();
-            totalCount = countSnapshot.size;
-            console.log('Total transaksi:', totalCount);
-            window.totalTransaksiCount = totalCount;
-        } else {
-            totalCount = window.totalTransaksiCount || 0;
+        if (error) throw error;
+        
+        console.log('loadDbTransaksi: Data ditemukan:', data?.length || 0);
+        
+        // Hitung total data
+        let countQuery = supabase.from('db_transaksi').select('*', { count: 'exact', head: true });
+        if (!isOwner) {
+            countQuery = countQuery.eq('user_id', currentUser.id);
+        }
+        const { count, error: countError } = await countQuery;
+        
+        if (!countError) {
+            totalTransaksiCount = count || 0;
+            const totalCountSpan = document.getElementById('transaksiTotalCount');
+            if (totalCountSpan) totalCountSpan.innerText = totalTransaksiCount;
         }
         
-        // Update total count di UI
-        const totalCountSpan = document.getElementById('transaksiTotalCount');
-        if (totalCountSpan) totalCountSpan.innerText = totalCount;
-        
-        if (snapshot.empty) {
+        if (!data || data.length === 0) {
             transaksiHasMore = false;
             if (loadMore && container) {
                 const noMoreDiv = document.createElement('div');
@@ -6059,48 +6063,45 @@ async function loadDbTransaksi(loadMore = false) {
                 setTimeout(() => noMoreDiv.remove(), 2000);
             }
         } else {
-            transaksiLastDoc = snapshot.docs[snapshot.docs.length - 1];
-            transaksiHasMore = snapshot.docs.length === 500;
+            transaksiLastDoc = data[data.length - 1]?.created_at || null;
+            transaksiHasMore = data.length === 500;
             
-            for (const doc of snapshot.docs) {
-                const d = doc.data();
+            for (const d of data) {
                 let ownerName = '';
-                if (isOwner && d.user_id !== currentUser.uid) {
-                    const userDoc = await db.collection('users').doc(d.user_id).get();
-                    ownerName = userDoc.exists ? ` (${userDoc.data().nama || 'CS'})` : '';
+                if (isOwner && d.user_id !== currentUser.id) {
+                    const { data: userData } = await supabase
+                        .from('users')
+                        .select('nama')
+                        .eq('id', d.user_id)
+                        .single();
+                    ownerName = userData ? ` (${userData.nama || 'CS'})` : '';
                 }
                 transaksiData.push({ 
-                    id: doc.id, 
+                    id: d.id, 
                     ...d, 
                     displayName: (d.nama || '') + ownerName 
                 });
             }
         }
         
-        // Hapus loading indicator
         if (container) {
             const loadingDiv = document.getElementById('loadingMoreTransaksi');
             if (loadingDiv) loadingDiv.remove();
         }
         
-        // Panggil statistik jika bukan load more
         if (!loadMore && typeof getTransaksiStats === 'function') {
             await getTransaksiStats();
         }
         
         renderTransaksiList(transaksiData);
+        updateTransaksiStatsDisplay(transaksiData.length, totalTransaksiCount);
         
-        // Update info Menampilkan X dari Y data
-        updateTransaksiStatsDisplay(transaksiData.length, totalCount);
-        
-        // Tambahkan tombol "Muat Lebih Banyak" jika masih ada data
         if (transaksiHasMore && !loadMore) {
             addLoadMoreButton();
         } else if (!transaksiHasMore && !loadMore) {
             removeLoadMoreButton();
         }
         
-        // Update total transaksi untuk target
         await updateTotalTransaksiDariDBTransaksi();
         
     } catch (error) {
@@ -6141,7 +6142,6 @@ function renderTransaksiList(items) {
         return '⚖️';
     };
     
-    // Format jumlah progres dengan tanda + atau -
     const formatProgresJumlah = (jenis, jumlah) => {
         const absJumlah = Math.abs(jumlah);
         if (jenis === 'naik') {
@@ -6149,7 +6149,6 @@ function renderTransaksiList(items) {
         } else if (jenis === 'turun') {
             return `-${absJumlah.toLocaleString()}`;
         } else {
-            // Untuk normal, tampilkan nilai asli (bisa positif atau negatif)
             if (jumlah < 0) {
                 return `${jumlah.toLocaleString()}`;
             } else if (jumlah > 0) {
@@ -6160,22 +6159,21 @@ function renderTransaksiList(items) {
     };
     
     const getStatusBadge = (status) => {
-    if (status === 'imported') {
-        return '<span style="background:#10b981; color:white; padding:2px 8px; border-radius:12px; font-size:10px;">✅ Sudah Dipindah</span>';
-    } else if (status === 'duplicate') {
-        return '<span style="background:#f59e0b; color:white; padding:2px 8px; border-radius:12px; font-size:10px;">⚠️ Duplikat</span>';
-    } else if (status === 'error') {
-        return '<span style="background:#ef4444; color:white; padding:2px 8px; border-radius:12px; font-size:10px;">❌ Gagal</span>';
-    }
-    return '<span style="background:#3b82f6; color:white; padding:2px 8px; border-radius:12px; font-size:10px;">⏳ Pending</span>';
-};
+        if (status === 'imported') {
+            return '<span style="background:#10b981; color:white; padding:2px 8px; border-radius:12px; font-size:10px;">✅ Sudah Dipindah</span>';
+        } else if (status === 'duplicate') {
+            return '<span style="background:#f59e0b; color:white; padding:2px 8px; border-radius:12px; font-size:10px;">⚠️ Duplikat</span>';
+        } else if (status === 'error') {
+            return '<span style="background:#ef4444; color:white; padding:2px 8px; border-radius:12px; font-size:10px;">❌ Gagal</span>';
+        }
+        return '<span style="background:#3b82f6; color:white; padding:2px 8px; border-radius:12px; font-size:10px;">⏳ Pending</span>';
+    };
     
     let html = '';
     
     for (const item of items) {
         const isChecked = selectedTransaksiIds.get(item.id) === true;
         
-        // Tentukan warna untuk progres
         let progresColor = '#6b7280';
         let progresBg = '#f3f4f6';
         if (item.progres_jenis === 'naik') {
@@ -6208,33 +6206,24 @@ function renderTransaksiList(items) {
                     <small style="font-size: 10px; color: #9ca3af;">📅 ${item.tanggal_transaksi ? new Date(item.tanggal_transaksi).toLocaleDateString('id-ID') : '-'} | Status: ${getStatusBadge(item.status)}</small>
                 </div>
                 <div class="db-item-agent-actions" style="display: flex; gap: 6px; flex-wrap: wrap;">
-    <button class="db-item-wa" onclick="event.stopPropagation(); openWA('${escapeHtml(item.hp || '')}')" style="background: #25D366; color: white; padding: 4px 10px; border: none; border-radius: 6px; cursor: pointer;">💬 WA</button>
-    
-    ${item.status === 'duplicate' || item.status === 'error' ? 
-        `<button class="db-item-retry" onclick="event.stopPropagation(); retryMoveToFollowup('${item.id}')" style="background: #f59e0b; color: white; padding: 4px 10px; border: none; border-radius: 6px; cursor: pointer;">🔄 Coba Lagi</button>` : 
-        (item.status !== 'imported' ? 
-            `<button class="db-item-move-followup" onclick="event.stopPropagation(); moveSingleToFollowup('${item.id}')" style="background: #4f46e5; color: white; padding: 4px 10px; border: none; border-radius: 6px; cursor: pointer;">📋 Pindah ke Followup</button>` : 
-            '')
-                  }
-    
-                <button class="db-item-delete" onclick="event.stopPropagation(); deleteTransaksiItem('${item.id}')" style="background: #fef2f2; color: #dc2626; padding: 4px 10px; border: none; border-radius: 6px; cursor: pointer;">🗑️ Hapus</button>
-              </div>
+                    <button class="db-item-wa" onclick="event.stopPropagation(); openWA('${escapeHtml(item.hp || '')}')" style="background: #25D366; color: white; padding: 4px 10px; border: none; border-radius: 6px; cursor: pointer;">💬 WA</button>
+                    ${item.status !== 'imported' ? 
+                        `<button class="db-item-move-followup" onclick="event.stopPropagation(); moveSingleToFollowup('${item.id}')" style="background: #4f46e5; color: white; padding: 4px 10px; border: none; border-radius: 6px; cursor: pointer;">📋 Pindah ke Followup</button>` : ''}
+                    <button class="db-item-delete" onclick="event.stopPropagation(); deleteTransaksiItem('${item.id}')" style="background: #fef2f2; color: #dc2626; padding: 4px 10px; border: none; border-radius: 6px; cursor: pointer;">🗑️ Hapus</button>
+                </div>
             </div>
         `;
     }
     
     container.innerHTML = html;
     
-    // Event listener untuk klik card (menampilkan detail)
     document.querySelectorAll('#dbTransaksiList .db-item-agent').forEach(el => {
         el.removeEventListener('click', handleTransaksiItemClick);
         el.addEventListener('click', handleTransaksiItemClick);
     });
     
-    // Event listener untuk checkbox
     document.querySelectorAll('#dbTransaksiList .db-item-checkbox-transaksi').forEach(cb => {
         const id = cb.dataset.id;
-        // Set checkbox sesuai dengan selectedTransaksiIds
         if (selectedTransaksiIds.get(id) === true) {
             cb.checked = true;
         } else {
@@ -6248,12 +6237,10 @@ function renderTransaksiList(items) {
     updateSelectAllTransaksiButton();
 }
 
-// Fungsi untuk menambahkan tombol "Muat Lebih Banyak"
 function addLoadMoreButton() {
     const container = document.getElementById('dbTransaksiList');
     if (!container) return;
     
-    // Hapus tombol lama jika ada
     removeLoadMoreButton();
     
     const btnContainer = document.createElement('div');
@@ -6281,17 +6268,18 @@ function removeLoadMoreButton() {
     if (btnContainer) btnContainer.remove();
 }
 
-// Fungsi untuk menghitung jumlah data per jenis progres
 async function getTransaksiStats() {
     try {
         const isOwner = currentUserRole === 'owner';
-        let query = db.collection('db_transaksi');
+        let query = supabase.from('db_transaksi').select('*');
         
         if (!isOwner) {
-            query = query.where('user_id', '==', currentUser.uid);
+            query = query.eq('user_id', currentUser.id);
         }
         
-        const snapshot = await query.get();
+        const { data, error } = await query;
+        
+        if (error) throw error;
         
         let stats = {
             total: 0,
@@ -6302,17 +6290,16 @@ async function getTransaksiStats() {
             imported: 0
         };
         
-        snapshot.forEach(doc => {
-            const data = doc.data();
+        for (const doc of (data || [])) {
             stats.total++;
             
-            if (data.progres_jenis === 'naik') stats.naik++;
-            else if (data.progres_jenis === 'turun') stats.turun++;
-            else if (data.progres_jenis === 'normal') stats.normal++;
+            if (doc.progres_jenis === 'naik') stats.naik++;
+            else if (doc.progres_jenis === 'turun') stats.turun++;
+            else if (doc.progres_jenis === 'normal') stats.normal++;
             
-            if (data.status === 'imported') stats.imported++;
+            if (doc.status === 'imported') stats.imported++;
             else stats.pending++;
-        });
+        }
         
         console.log('📊 Statistik Transaksi:', stats);
         updateTransaksiStatsPanel(stats);
@@ -6324,11 +6311,9 @@ async function getTransaksiStats() {
     }
 }
 
-// Update panel statistik di halaman DB Transaksi
 function updateTransaksiStatsPanel(stats) {
     if (!stats) return;
     
-    // Cari atau buat panel statistik
     let statsPanel = document.getElementById('transaksiStatsPanel');
     const container = document.querySelector('#dbTransaksiPage .db-section');
     
@@ -6368,7 +6353,6 @@ function updateTransaksiStatsPanel(stats) {
     }
 }
 
-// Update tampilan statistik transaksi
 function updateTransaksiStatsDisplay(filteredCount, totalCount) {
     const statsDiv = document.getElementById('transaksiStats');
     if (statsDiv) {
@@ -6376,14 +6360,18 @@ function updateTransaksiStatsDisplay(filteredCount, totalCount) {
     }
 }
 
-// Hitung total transaksi dari DB Transaksi untuk target (PERBAIKAN)
 async function updateTotalTransaksiDariDBTransaksi() {
     try {
-        let query = db.collection('db_transaksi');
-        if (currentUserRole !== 'owner') {
-            query = query.where('user_id', '==', currentUser.uid);
+        const isOwner = currentUserRole === 'owner';
+        let query = supabase.from('db_transaksi').select('*');
+        
+        if (!isOwner) {
+            query = query.eq('user_id', currentUser.id);
         }
-        const snapshot = await query.get();
+        
+        const { data, error } = await query;
+        
+        if (error) throw error;
         
         let totalBersih = 0;
         let totalNaik = 0;
@@ -6391,19 +6379,17 @@ async function updateTotalTransaksiDariDBTransaksi() {
         let totalNormalPositif = 0;
         let totalNormalNegatif = 0;
         
-        snapshot.forEach(doc => {
-            const data = doc.data();
-            const jenis = data.progres_jenis;
-            const jumlah = data.progres_jumlah || 0;
+        for (const doc of (data || [])) {
+            const jenis = doc.progres_jenis;
+            const jumlah = doc.progres_jumlah || 0;
             
             if (jenis === 'naik') {
                 totalNaik += Math.abs(jumlah);
-                totalBersih += jumlah; // jumlah positif
+                totalBersih += jumlah;
             } else if (jenis === 'turun') {
                 totalTurun += Math.abs(jumlah);
-                totalBersih += jumlah; // jumlah sudah negatif dari database
+                totalBersih += jumlah;
             } else {
-                // normal: simpan nilai asli (bisa positif atau negatif)
                 if (jumlah > 0) {
                     totalNormalPositif += jumlah;
                 } else if (jumlah < 0) {
@@ -6411,7 +6397,7 @@ async function updateTotalTransaksiDariDBTransaksi() {
                 }
                 totalBersih += jumlah;
             }
-        });
+        }
         
         console.log('📊 Statistik Transaksi:', { 
             totalNaik, 
@@ -6421,25 +6407,8 @@ async function updateTotalTransaksiDariDBTransaksi() {
             totalBersih 
         });
         
-        // Update target transaksi dengan total bersih
         window.totalTransaksiGlobal = totalBersih;
-        
-        // Update tampilan target di dashboard
         await updateTargetDisplay();
-        
-        // Update tampilan ringkasan di DB Transaksi jika ada
-        const summaryDiv = document.getElementById('transaksiSummary');
-        if (summaryDiv) {
-            summaryDiv.innerHTML = `
-                <div style="display: flex; gap: 20px; flex-wrap: wrap; padding: 12px; background: #f8fafc; border-radius: 12px; margin-bottom: 16px;">
-                    <div style="color: #10b981;">📈 Naik: +${totalNaik.toLocaleString()}</div>
-                    <div style="color: #ef4444;">📉 Turun: -${totalTurun.toLocaleString()}</div>
-                    ${totalNormalPositif > 0 ? `<div style="color: #10b981;">📊 Normal Positif: +${totalNormalPositif.toLocaleString()}</div>` : ''}
-                    ${totalNormalNegatif > 0 ? `<div style="color: #ef4444;">📊 Normal Negatif: -${totalNormalNegatif.toLocaleString()}</div>` : ''}
-                    <div style="color: #4f46e5; font-weight: 600;">🎯 Total Bersih: ${totalBersih > 0 ? '+' : ''}${totalBersih.toLocaleString()}</div>
-                </div>
-            `;
-        }
         
         return totalBersih;
     } catch (e) {
@@ -6448,7 +6417,6 @@ async function updateTotalTransaksiDariDBTransaksi() {
     }
 }
 
-// Handler untuk checkbox transaksi
 function handleTransaksiCheckboxChange(e) {
     e.stopPropagation();
     const id = e.target.dataset.id;
@@ -6457,29 +6425,24 @@ function handleTransaksiCheckboxChange(e) {
     } else {
         selectedTransaksiIds.delete(id);
     }
-    updateSelectAllTransaksiButton(); // Update tombol setiap kali checkbox berubah
+    updateSelectAllTransaksiButton();
 }
 
-// Update tombol "Pilih Semua" berdasarkan data yang DITAMPILKAN
 function updateSelectAllTransaksiButton() {
     const btn = document.getElementById('selectAllTransaksi');
     if (!btn) return;
     
-    // Ambil checkbox yang ADA DI LAYAR (hasil filter saat ini)
     const checkboxes = document.querySelectorAll('#dbTransaksiList .db-item-checkbox-transaksi');
     if (checkboxes.length === 0) {
         btn.textContent = '✅ Pilih Semua';
         return;
     }
     
-    // Cek apakah semua checkbox yang tampil sudah terpilih
     const allChecked = Array.from(checkboxes).every(cb => cb.checked);
     btn.textContent = allChecked ? '⬜ Batal Semua' : '✅ Pilih Semua';
 }
 
-// Handler untuk klik item transaksi
 function handleTransaksiItemClick(e) {
-    // Jangan trigger jika klik pada tombol atau checkbox
     if (e.target.type === 'checkbox' ||
         e.target.classList.contains('db-item-wa') ||
         e.target.classList.contains('db-item-move-followup') ||
@@ -6491,7 +6454,6 @@ function handleTransaksiItemClick(e) {
     showTransaksiDetail(id);
 }
 
-// Fungsi untuk menampilkan detail transaksi dalam modal
 function showTransaksiDetail(id) {
     const item = transaksiData.find(t => t.id === id);
     if (!item) return;
@@ -6534,7 +6496,6 @@ function showTransaksiDetail(id) {
     modal.style.zIndex = '999999';
     modal.innerHTML = `
         <div class="modal-content" style="max-width: 480px; border-radius: 24px; overflow: hidden; animation: modalPopup 0.3s cubic-bezier(0.34, 1.2, 0.64, 1);">
-            <!-- Header dengan gradient -->
             <div style="background: linear-gradient(135deg, #4f46e5, #8b5cf6); padding: 20px 24px; color: white;">
                 <div style="display: flex; align-items: center; gap: 12px;">
                     <div style="background: rgba(255,255,255,0.2); width: 48px; height: 48px; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 24px;">
@@ -6546,10 +6507,7 @@ function showTransaksiDetail(id) {
                     </div>
                 </div>
             </div>
-            
-            <!-- Body -->
             <div style="padding: 20px 24px; background: #fff;">
-                <!-- Nama & Agent ID -->
                 <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px; padding-bottom: 12px; border-bottom: 1px solid #e5e7eb;">
                     <div>
                         <div style="font-size: 12px; color: #9ca3af;">Nama Agent</div>
@@ -6560,8 +6518,6 @@ function showTransaksiDetail(id) {
                         <div style="font-size: 14px; font-weight: 500; color: #4f46e5;">${escapeHtml(item.agent_id)}</div>
                     </div>
                 </div>
-                
-                <!-- Informasi Kontak -->
                 <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin-bottom: 16px; padding: 12px; background: #f9fafb; border-radius: 12px;">
                     <div>
                         <div style="font-size: 11px; color: #9ca3af;">📱 Nomor HP</div>
@@ -6572,8 +6528,6 @@ function showTransaksiDetail(id) {
                         <div style="font-size: 13px; font-weight: 500;">${new Date(item.tanggal_transaksi).toLocaleDateString('id-ID')}</div>
                     </div>
                 </div>
-                
-                <!-- Informasi Upline -->
                 <div style="margin-bottom: 16px; padding: 12px; background: #f9fafb; border-radius: 12px;">
                     <div style="font-size: 11px; color: #9ca3af; margin-bottom: 8px;">👤 Upline / Atasan</div>
                     <div style="display: flex; justify-content: space-between;">
@@ -6581,8 +6535,6 @@ function showTransaksiDetail(id) {
                         <span style="font-size: 12px; color: #6b7280;">📞 ${escapeHtml(item.upline_phone || '-')}</span>
                     </div>
                 </div>
-                
-                <!-- Progres Transaksi - Card Highlight -->
                 <div style="margin-bottom: 16px; padding: 16px; background: ${progresColor === '#10b981' ? '#ecfdf5' : (progresColor === '#ef4444' ? '#fef2f2' : '#f3f4f6')}; border-radius: 16px; text-align: center;">
                     <div style="font-size: 12px; color: #6b7280; margin-bottom: 8px;">📊 Progres Transaksi</div>
                     <div style="font-size: 32px; font-weight: 700; color: ${progresColor};">
@@ -6594,8 +6546,6 @@ function showTransaksiDetail(id) {
                         </span>
                     </div>
                 </div>
-                
-                <!-- Status -->
                 <div style="display: flex; justify-content: space-between; align-items: center; padding: 12px; background: #f9fafb; border-radius: 12px;">
                     <span style="font-size: 12px; color: #6b7280;">📌 Status</span>
                     <span style="font-size: 13px; font-weight: 500; padding: 4px 12px; border-radius: 20px; background: ${item.status === 'imported' ? '#d1fae5' : '#fef3c7'}; color: ${item.status === 'imported' ? '#065f46' : '#b45309'};">
@@ -6603,8 +6553,6 @@ function showTransaksiDetail(id) {
                     </span>
                 </div>
             </div>
-            
-            <!-- Footer dengan Tombol -->
             <div style="display: flex; gap: 12px; padding: 16px 24px; background: #f9fafb; border-top: 1px solid #e5e7eb;">
                 <button class="btn-primary" onclick="window.open('https://wa.me/${item.hp?.replace(/[^\d]/g, '')}', '_blank')" style="flex: 1; background: #25D366; border: none; padding: 12px; border-radius: 12px; color: white; font-weight: 600; cursor: pointer; display: flex; align-items: center; justify-content: center; gap: 8px;">
                     💬 WhatsApp
@@ -6629,7 +6577,6 @@ function showTransaksiDetail(id) {
     };
 }
 
-// Fungsi untuk menutup modal dari dalam elemen
 function closeModalFromElement(btn) {
     const modal = btn.closest('.modal');
     if (modal) {
@@ -6638,13 +6585,13 @@ function closeModalFromElement(btn) {
     }
 }
 
-// Setup filter untuk DB Transaksi
 function setupTransaksiFilters() {
     const searchInput = document.getElementById('searchTransaksiInput');
     const filterProgres = document.getElementById('filterProgresTransaksi');
     const filterStatus = document.getElementById('filterStatusTransaksi');
     const resetBtn = document.getElementById('resetTransaksiFilterBtn');
-  if (filterProgres) {
+    
+    if (filterProgres) {
         filterProgres.innerHTML = `
             <option value="">Semua Progres</option>
             <option value="naik">📈 Naik</option>
@@ -6663,11 +6610,8 @@ function setupTransaksiFilters() {
         `;
     }
     
-    // Variabel untuk menyimpan hasil filter dari database
     let filteredDataCache = [];
     let isFiltering = false;
-    
-    // HANYA SATU DEKLARASI debounceTimer - HAPUS YANG DUPLIKAT
     let debounceTimer;
     
     const applyFilters = async () => {
@@ -6678,45 +6622,45 @@ function setupTransaksiFilters() {
         const progresFilter = filterProgres?.value || '';
         const statusFilter = filterStatus?.value || '';
         
-        // Tampilkan loading
         const container = document.getElementById('dbTransaksiList');
         if (container) {
             container.innerHTML = '<div style="text-align:center;padding:40px;">⏳ Memuat data filter...</div>';
         }
         
         try {
-            // Query ke database langsung (bukan dari cache)
             const isOwner = currentUserRole === 'owner';
-            let query = db.collection('db_transaksi');
+            let query = supabase.from('db_transaksi').select('*');
             
             if (!isOwner) {
-                query = query.where('user_id', '==', currentUser.uid);
+                query = query.eq('user_id', currentUser.id);
             }
             
-            // Terapkan filter progres ke query jika ada
             if (progresFilter) {
-                query = query.where('progres_jenis', '==', progresFilter);
+                query = query.eq('progres_jenis', progresFilter);
             }
             
-            // Eksekusi query
-            const snapshot = await query.get();
-            let results = [];
+            const { data, error } = await query;
             
-            for (const doc of snapshot.docs) {
-                const d = doc.data();
+            if (error) throw error;
+            
+            let results = [];
+            for (const d of (data || [])) {
                 let ownerName = '';
-                if (isOwner && d.user_id !== currentUser.uid) {
-                    const userDoc = await db.collection('users').doc(d.user_id).get();
-                    ownerName = userDoc.exists ? ` (${userDoc.data().nama || 'CS'})` : '';
+                if (isOwner && d.user_id !== currentUser.id) {
+                    const { data: userData } = await supabase
+                        .from('users')
+                        .select('nama')
+                        .eq('id', d.user_id)
+                        .single();
+                    ownerName = userData ? ` (${userData.nama || 'CS'})` : '';
                 }
                 results.push({
-                    id: doc.id,
+                    id: d.id,
                     ...d,
                     displayName: (d.nama || '') + ownerName
                 });
             }
             
-            // Filter tambahan untuk search term dan status (jika tidak bisa di-filter di query)
             if (searchTerm) {
                 results = results.filter(item =>
                     (item.nama && item.nama.toLowerCase().includes(searchTerm)) ||
@@ -6729,16 +6673,13 @@ function setupTransaksiFilters() {
                 results = results.filter(item => item.status === statusFilter);
             }
             
-            // Urutkan berdasarkan tanggal
             results.sort((a, b) => new Date(b.tanggal_transaksi) - new Date(a.tanggal_transaksi));
             
             filteredDataCache = results;
             
-            // Update statistik
             const filteredCountSpan = document.getElementById('transaksiFilteredCount');
             if (filteredCountSpan) filteredCountSpan.innerText = results.length;
             
-            // Tampilkan hasil
             renderTransaksiList(results);
             
         } catch (error) {
@@ -6749,7 +6690,6 @@ function setupTransaksiFilters() {
         }
     };
     
-    // Fungsi update status filter
     const updateFilterDisplay = () => {
         const progresFilter = filterProgres?.value || '';
         const statusFilter = filterStatus?.value || '';
@@ -6771,7 +6711,6 @@ function setupTransaksiFilters() {
         }
     };
     
-    // Event listener dengan debounce untuk search
     if (searchInput) {
         searchInput.addEventListener('input', () => {
             clearTimeout(debounceTimer);
@@ -6802,19 +6741,13 @@ function setupTransaksiFilters() {
             if (filterProgres) filterProgres.value = '';
             if (filterStatus) filterStatus.value = '';
             
-            // Reset selection
             selectedTransaksiIds.clear();
-            
-            // Reload semua data
             await loadDbTransaksi();
-            
-            // Update filter display setelah reset
             updateFilterDisplay();
         };
     }
 }
 
-// Fungsi untuk menghapus item transaksi tunggal
 async function deleteTransaksiItem(id) {
     if (!confirm('Yakin hapus data transaksi ini?')) return;
     
@@ -6822,7 +6755,7 @@ async function deleteTransaksiItem(id) {
     progress.update(50, '🗑️ Menghapus', 'Menghapus data...', 0, 1);
     
     try {
-        await db.collection('db_transaksi').doc(id).delete();
+        await supabaseDelete('db_transaksi', id);
         selectedTransaksiIds.delete(id);
         progress.update(100, '✅ Selesai', 'Data berhasil dihapus', 1, 1);
         showNotifTop('🗑️ Data transaksi berhasil dihapus');
@@ -6834,14 +6767,17 @@ async function deleteTransaksiItem(id) {
     }
 }
 
-// Fungsi untuk memindahkan satu item ke followup
 async function moveSingleToFollowup(id, silent = false) {
-    const doc = await db.collection('db_transaksi').doc(id).get();
-    if (!doc.exists) return;
+    const { data: doc, error } = await supabase
+        .from('db_transaksi')
+        .select('*')
+        .eq('id', id)
+        .single();
     
-    const data = doc.data();
+    if (error || !doc) return;
     
-    // Cek duplikat
+    const data = doc;
+    
     const { duplicateAgent, duplicateHp } = await checkDuplicateCustomer(data.agent_id, data.hp);
     if (duplicateAgent) {
         if (!silent) showNotifTop(`⚠️ ID Agent "${data.agent_id}" sudah terdaftar!`, true);
@@ -6852,7 +6788,6 @@ async function moveSingleToFollowup(id, silent = false) {
         return false;
     }
     
-    // Hitung total tercapai berdasarkan progres
     let totalTercapai = 0;
     if (data.progres_jenis === 'naik') {
         totalTercapai = Math.abs(data.progres_jumlah || 0);
@@ -6862,7 +6797,6 @@ async function moveSingleToFollowup(id, silent = false) {
         totalTercapai = data.progres_jumlah || 0;
     }
     
-    // Buat item progres
     const progresItem = {
         tanggal: data.tanggal_transaksi || getTodayDate(),
         jenis: data.progres_jenis || 'normal',
@@ -6871,8 +6805,7 @@ async function moveSingleToFollowup(id, silent = false) {
         created_at: new Date().toISOString()
     };
     
-    // Pindah ke customers
-    await db.collection('customers').add({
+    await supabase.from('customers').insert([{
         agent_id: data.agent_id,
         nama: data.nama,
         hp: data.hp,
@@ -6890,10 +6823,9 @@ async function moveSingleToFollowup(id, silent = false) {
         },
         moved_from_transaksi: true,
         original_transaksi_id: id
-    });
+    }]);
     
-    // Update status
-    await db.collection('db_transaksi').doc(id).update({
+    await supabaseUpdate('db_transaksi', id, {
         status: 'imported',
         moved_to_followup_at: new Date().toISOString()
     });
@@ -6902,61 +6834,6 @@ async function moveSingleToFollowup(id, silent = false) {
     return true;
 }
 
-// Fungsi untuk mencoba ulang pemindahan data yang gagal
-async function retryMoveToFollowup(id) {
-    console.log(`🔄 Mencoba ulang pemindahan untuk ID: ${id}`);
-    
-    try {
-        // Reset status menjadi pending_import
-        await db.collection('db_transaksi').doc(id).update({
-            status: 'pending_import',
-            duplicate_reason: null,
-            error_message: null,
-            last_check_at: new Date().toISOString()
-        });
-        
-        showNotifTop('🔄 Mereset status data, mencoba memindahkan ulang...');
-        
-        // Panggil fungsi pindah
-        const result = await moveSingleToFollowup(id);
-        
-        if (result) {
-            showNotifTop('✅ Data berhasil dipindahkan ke Followup Agen!');
-        } else {
-            // Jika gagal karena duplikat, biarkan status tetap pending_import atau update jadi duplicate
-            const doc = await db.collection('db_transaksi').doc(id).get();
-            const data = doc.data();
-            const { duplicateAgent, duplicateHp } = await checkDuplicateCustomer(data.agent_id, data.hp);
-            
-            if (duplicateAgent || duplicateHp) {
-                await db.collection('db_transaksi').doc(id).update({
-                    status: 'duplicate',
-                    duplicate_reason: duplicateAgent ? `ID Agent ${data.agent_id} sudah terdaftar` : `Nomor HP ${data.hp} sudah terdaftar`,
-                    last_check_at: new Date().toISOString()
-                });
-                showNotifTop('⚠️ Data masih duplikat, tidak bisa dipindahkan', true);
-            }
-        }
-        
-        // Refresh tampilan
-        await loadDbTransaksi();
-        await loadAllData();
-        renderFullFollowupKanban();
-        
-    } catch (error) {
-        console.error('Error retry move:', error);
-        showNotifTop('❌ Gagal mencoba ulang: ' + error.message, true);
-        
-        // Update status menjadi error
-        await db.collection('db_transaksi').doc(id).update({
-            status: 'error',
-            error_message: error.message,
-            last_check_at: new Date().toISOString()
-        }).catch(err => console.error('Gagal update status:', err));
-    }
-}
-
-// Fungsi untuk menghapus data terpilih (VERSI CEPAT dengan BATCH)
 async function deleteSelectedTransaksi() {
     const selectedIds = Array.from(selectedTransaksiIds.keys());
     if (selectedIds.length === 0) {
@@ -6971,36 +6848,24 @@ async function deleteSelectedTransaksi() {
     
     let deleted = 0;
     let failed = 0;
-    
-    // BATCH DELETE - sama seperti import, 20 data per batch
     const BATCH_SIZE = 20;
     
     for (let i = 0; i < selectedIds.length; i += BATCH_SIZE) {
-        const batch = db.batch();
         const chunk = selectedIds.slice(i, i + BATCH_SIZE);
         
         for (const id of chunk) {
-            const docRef = db.collection('db_transaksi').doc(id);
-            batch.delete(docRef);
-        }
-        
-        try {
-            await batch.commit();
-            deleted += chunk.length;
-            
-            // Hapus dari selectedIds
-            for (const id of chunk) {
+            try {
+                await supabaseDelete('db_transaksi', id);
                 selectedTransaksiIds.delete(id);
+                deleted++;
+            } catch (e) {
+                failed++;
+                console.error(`Gagal hapus ${id}:`, e);
             }
-        } catch (e) {
-            failed += chunk.length;
-            console.error('Batch delete gagal:', e);
         }
         
         const percent = Math.floor((deleted / selectedIds.length) * 100);
         progress.update(percent, '🗑️ Menghapus', `Memproses... (${deleted}/${selectedIds.length})`, deleted, selectedIds.length);
-        
-        // Tidak ada delay! Langsung lanjut ke batch berikutnya
     }
     
     progress.update(100, '✅ Selesai', `Berhasil: ${deleted}, Gagal: ${failed}`, deleted, selectedIds.length);
@@ -7010,7 +6875,6 @@ async function deleteSelectedTransaksi() {
     await loadDbTransaksi();
 }
 
-// Fungsi untuk hapus semua data (VERSI CEPAT dengan BATCH)
 // ========== HAPUS SEMUA DATA FOLLOWUP AGEN (FULL MODE) ==========
 async function deleteAllFullFollowup() {
     if (currentUserRole !== 'owner') {
@@ -7023,9 +6887,15 @@ async function deleteAllFullFollowup() {
     const progress = showFloatingProgress('🗑️ Menghapus Semua Followup Agen', 0);
     progress.update(0, '🗑️ Menghapus', 'Mengambil data...');
     
-    // Ambil semua data customers (tanpa filter user_id karena owner)
-    const snapshot = await db.collection('customers').get();
-    const totalData = snapshot.size;
+    const { data, error } = await supabase.from('customers').select('*');
+    
+    if (error) {
+        showNotifTop('❌ Gagal mengambil data: ' + error.message, true);
+        progress.hide();
+        return;
+    }
+    
+    const totalData = data?.length || 0;
     progress.setTotal(totalData);
     
     if (totalData === 0) {
@@ -7037,36 +6907,30 @@ async function deleteAllFullFollowup() {
     let deleted = 0;
     let failed = 0;
     const BATCH_SIZE = 20;
-    const docs = snapshot.docs;
     
-    for (let i = 0; i < docs.length; i += BATCH_SIZE) {
-        const batch = db.batch();
-        const chunk = docs.slice(i, i + BATCH_SIZE);
+    for (let i = 0; i < (data || []).length; i += BATCH_SIZE) {
+        const chunk = (data || []).slice(i, i + BATCH_SIZE);
         
         for (const doc of chunk) {
-            batch.delete(doc.ref);
-        }
-        
-        try {
-            await batch.commit();
-            deleted += chunk.length;
-        } catch (e) {
-            failed += chunk.length;
-            console.error('Batch delete gagal:', e);
+            try {
+                await supabaseDelete('customers', doc.id);
+                deleted++;
+            } catch (e) {
+                failed++;
+                console.error(`Gagal hapus ${doc.id}:`, e);
+            }
         }
         
         const percent = Math.floor((deleted / totalData) * 100);
         progress.update(percent, '🗑️ Menghapus', `Memproses... (${deleted}/${totalData})`, deleted, totalData);
     }
     
-    // Bersihkan selectedIds
     selectedFullFollowupIds.clear();
     
     progress.update(100, '✅ Selesai', `Berhasil: ${deleted}, Gagal: ${failed}`, deleted, totalData);
     showNotifTop(`✅ ${deleted} data Followup Agen berhasil dihapus${failed > 0 ? `, ${failed} gagal` : ''}`);
     setTimeout(() => progress.hide(), 2000);
     
-    // Refresh data
     await loadAllData();
     renderFullFollowupKanban();
 }
@@ -7083,9 +6947,15 @@ async function deleteAllFullProspek() {
     const progress = showFloatingProgress('🗑️ Menghapus Semua Prospek Agen', 0);
     progress.update(0, '🗑️ Menghapus', 'Mengambil data...');
     
-    // Ambil semua data prospek (tanpa filter user_id karena owner)
-    const snapshot = await db.collection('prospek').get();
-    const totalData = snapshot.size;
+    const { data, error } = await supabase.from('prospek').select('*');
+    
+    if (error) {
+        showNotifTop('❌ Gagal mengambil data: ' + error.message, true);
+        progress.hide();
+        return;
+    }
+    
+    const totalData = data?.length || 0;
     progress.setTotal(totalData);
     
     if (totalData === 0) {
@@ -7097,71 +6967,70 @@ async function deleteAllFullProspek() {
     let deleted = 0;
     let failed = 0;
     const BATCH_SIZE = 20;
-    const docs = snapshot.docs;
     
-    for (let i = 0; i < docs.length; i += BATCH_SIZE) {
-        const batch = db.batch();
-        const chunk = docs.slice(i, i + BATCH_SIZE);
+    for (let i = 0; i < (data || []).length; i += BATCH_SIZE) {
+        const chunk = (data || []).slice(i, i + BATCH_SIZE);
         
         for (const doc of chunk) {
-            batch.delete(doc.ref);
-        }
-        
-        try {
-            await batch.commit();
-            deleted += chunk.length;
-        } catch (e) {
-            failed += chunk.length;
-            console.error('Batch delete gagal:', e);
+            try {
+                await supabaseDelete('prospek', doc.id);
+                deleted++;
+            } catch (e) {
+                failed++;
+                console.error(`Gagal hapus ${doc.id}:`, e);
+            }
         }
         
         const percent = Math.floor((deleted / totalData) * 100);
         progress.update(percent, '🗑️ Menghapus', `Memproses... (${deleted}/${totalData})`, deleted, totalData);
     }
     
-    // Bersihkan selectedIds
     selectedFullProspekIds.clear();
     
     progress.update(100, '✅ Selesai', `Berhasil: ${deleted}, Gagal: ${failed}`, deleted, totalData);
     showNotifTop(`✅ ${deleted} data Prospek Agen berhasil dihapus${failed > 0 ? `, ${failed} gagal` : ''}`);
     setTimeout(() => progress.hide(), 2000);
     
-    // Refresh data
     await loadAllData();
     renderFullProspekKanban();
 }
 
-// Fungsi untuk hapus semua data (VERSI CEPAT dengan BATCH)
+// ========== HAPUS SEMUA DATA DB TRANSAKSI ==========
 async function deleteAllTransaksi() {
     if (!confirm('⚠️ PERINGATAN!\n\nAnda akan menghapus SEMUA data di Database Transaksi.\n\nProses ini TIDAK BISA dibatalkan dan data akan hilang permanen!\n\nKlik OK untuk melanjutkan.')) return;
     
     const progress = showFloatingProgress('🗑️ Menghapus Semua Data', 0);
     progress.update(0, '🗑️ Menghapus', 'Mengambil data...');
     
-    // Ambil semua data (tanpa select karena tidak support)
     let allIds = [];
-    let lastDoc = null;
+    let lastId = null;
     let hasMore = true;
     
     while (hasMore) {
-        let query = db.collection('db_transaksi');
-        if (lastDoc) {
-            query = query.startAfter(lastDoc);
+        let query = supabase.from('db_transaksi').select('id');
+        if (lastId) {
+            query = query.gt('id', lastId);
         }
         query = query.limit(500);
         
-        const snapshot = await query.get();
+        const { data, error } = await query;
         
-        snapshot.forEach(doc => {
-            allIds.push(doc.id);
-        });
-        
-        hasMore = snapshot.docs.length === 500;
-        if (hasMore) {
-            lastDoc = snapshot.docs[snapshot.docs.length - 1];
+        if (error) {
+            console.error('Error mengambil ID:', error);
+            break;
         }
+        
+        if (!data || data.length === 0) {
+            hasMore = false;
+        } else {
+            for (const item of data) {
+                allIds.push(item.id);
+            }
+            lastId = data[data.length - 1]?.id;
+            hasMore = data.length === 500;
+        }
+        
         progress.update(10, '🗑️ Menghapus', `Mengambil ID... (${allIds.length})`, allIds.length, 0);
-        // Delay kecil agar tidak terlalu banyak request
         await delay(100);
     }
     
@@ -7178,31 +7047,23 @@ async function deleteAllTransaksi() {
     
     let deleted = 0;
     let failed = 0;
-    
-    // BATCH DELETE
     const BATCH_SIZE = 20;
     
     for (let i = 0; i < allIds.length; i += BATCH_SIZE) {
-        const batch = db.batch();
         const chunk = allIds.slice(i, i + BATCH_SIZE);
         
         for (const id of chunk) {
-            const docRef = db.collection('db_transaksi').doc(id);
-            batch.delete(docRef);
-        }
-        
-        try {
-            await batch.commit();
-            deleted += chunk.length;
-        } catch (e) {
-            failed += chunk.length;
-            console.error('Batch delete gagal:', e);
+            try {
+                await supabaseDelete('db_transaksi', id);
+                deleted++;
+            } catch (e) {
+                failed++;
+                console.error(`Gagal hapus ${id}:`, e);
+            }
         }
         
         const percent = Math.floor((deleted / totalData) * 100);
         progress.update(percent, '🗑️ Menghapus', `Memproses... (${deleted}/${totalData})`, deleted, totalData);
-        
-        // Delay kecil agar tidak overload
         await delay(50);
     }
     
@@ -7216,17 +7077,22 @@ async function deleteAllTransaksi() {
     setTimeout(() => progress.hide(), 3000);
 }
 
-// ========== FUNGSI HAPUS SEMUA UNTUK SEMUA DATABASE ==========
-
-// Hapus semua Database Agent
+// ========== HAPUS SEMUA UNTUK SEMUA DATABASE ==========
 async function deleteAllAgent() {
     if (!confirm('⚠️ PERINGATAN!\n\nAnda akan menghapus SEMUA data di Database Agent.\n\nProses ini TIDAK BISA dibatalkan!\n\nKlik OK untuk melanjutkan.')) return;
     
     const progress = showFloatingProgress('🗑️ Menghapus Semua Agent', 0);
     progress.update(0, '🗑️ Menghapus', 'Mengambil data...');
     
-    const snapshot = await db.collection('db_agent').get();
-    const totalData = snapshot.size;
+    const { data, error } = await supabase.from('db_agent').select('*');
+    
+    if (error) {
+        showNotifTop('❌ Gagal mengambil data: ' + error.message, true);
+        progress.hide();
+        return;
+    }
+    
+    const totalData = data?.length || 0;
     progress.setTotal(totalData);
     
     if (totalData === 0) {
@@ -7237,18 +7103,18 @@ async function deleteAllAgent() {
     
     let deleted = 0;
     const BATCH_SIZE = 20;
-    const docs = snapshot.docs;
     
-    for (let i = 0; i < docs.length; i += BATCH_SIZE) {
-        const batch = db.batch();
-        const chunk = docs.slice(i, i + BATCH_SIZE);
+    for (let i = 0; i < (data || []).length; i += BATCH_SIZE) {
+        const chunk = (data || []).slice(i, i + BATCH_SIZE);
         
         for (const doc of chunk) {
-            batch.delete(doc.ref);
+            try {
+                await supabaseDelete('db_agent', doc.id);
+                deleted++;
+            } catch (e) {
+                console.error(`Gagal hapus ${doc.id}:`, e);
+            }
         }
-        
-        await batch.commit();
-        deleted += chunk.length;
         
         const percent = Math.floor((deleted / totalData) * 100);
         progress.update(percent, '🗑️ Menghapus', `Memproses... (${deleted}/${totalData})`, deleted, totalData);
@@ -7262,15 +7128,21 @@ async function deleteAllAgent() {
     await loadDatabaseAgent();
 }
 
-// Hapus semua Database Closing
 async function deleteAllClosing() {
     if (!confirm('⚠️ PERINGATAN!\n\nAnda akan menghapus SEMUA data di Database Closing.\n\nProses ini TIDAK BISA dibatalkan!\n\nKlik OK untuk melanjutkan.')) return;
     
     const progress = showFloatingProgress('🗑️ Menghapus Semua Closing', 0);
     progress.update(0, '🗑️ Menghapus', 'Mengambil data...');
     
-    const snapshot = await db.collection('db_closing').get();
-    const totalData = snapshot.size;
+    const { data, error } = await supabase.from('db_closing').select('*');
+    
+    if (error) {
+        showNotifTop('❌ Gagal mengambil data: ' + error.message, true);
+        progress.hide();
+        return;
+    }
+    
+    const totalData = data?.length || 0;
     progress.setTotal(totalData);
     
     if (totalData === 0) {
@@ -7281,18 +7153,18 @@ async function deleteAllClosing() {
     
     let deleted = 0;
     const BATCH_SIZE = 20;
-    const docs = snapshot.docs;
     
-    for (let i = 0; i < docs.length; i += BATCH_SIZE) {
-        const batch = db.batch();
-        const chunk = docs.slice(i, i + BATCH_SIZE);
+    for (let i = 0; i < (data || []).length; i += BATCH_SIZE) {
+        const chunk = (data || []).slice(i, i + BATCH_SIZE);
         
         for (const doc of chunk) {
-            batch.delete(doc.ref);
+            try {
+                await supabaseDelete('db_closing', doc.id);
+                deleted++;
+            } catch (e) {
+                console.error(`Gagal hapus ${doc.id}:`, e);
+            }
         }
-        
-        await batch.commit();
-        deleted += chunk.length;
         
         const percent = Math.floor((deleted / totalData) * 100);
         progress.update(percent, '🗑️ Menghapus', `Memproses... (${deleted}/${totalData})`, deleted, totalData);
@@ -7306,15 +7178,21 @@ async function deleteAllClosing() {
     loadDBClosing();
 }
 
-// Hapus semua Database Tidak Tertarik
 async function deleteAllTidak() {
     if (!confirm('⚠️ PERINGATAN!\n\nAnda akan menghapus SEMUA data di Database Tidak Tertarik.\n\nProses ini TIDAK BISA dibatalkan!\n\nKlik OK untuk melanjutkan.')) return;
     
     const progress = showFloatingProgress('🗑️ Menghapus Semua Tidak Tertarik', 0);
     progress.update(0, '🗑️ Menghapus', 'Mengambil data...');
     
-    const snapshot = await db.collection('db_tidak_tertarik').get();
-    const totalData = snapshot.size;
+    const { data, error } = await supabase.from('db_tidak_tertarik').select('*');
+    
+    if (error) {
+        showNotifTop('❌ Gagal mengambil data: ' + error.message, true);
+        progress.hide();
+        return;
+    }
+    
+    const totalData = data?.length || 0;
     progress.setTotal(totalData);
     
     if (totalData === 0) {
@@ -7325,18 +7203,18 @@ async function deleteAllTidak() {
     
     let deleted = 0;
     const BATCH_SIZE = 20;
-    const docs = snapshot.docs;
     
-    for (let i = 0; i < docs.length; i += BATCH_SIZE) {
-        const batch = db.batch();
-        const chunk = docs.slice(i, i + BATCH_SIZE);
+    for (let i = 0; i < (data || []).length; i += BATCH_SIZE) {
+        const chunk = (data || []).slice(i, i + BATCH_SIZE);
         
         for (const doc of chunk) {
-            batch.delete(doc.ref);
+            try {
+                await supabaseDelete('db_tidak_tertarik', doc.id);
+                deleted++;
+            } catch (e) {
+                console.error(`Gagal hapus ${doc.id}:`, e);
+            }
         }
-        
-        await batch.commit();
-        deleted += chunk.length;
         
         const percent = Math.floor((deleted / totalData) * 100);
         progress.update(percent, '🗑️ Menghapus', `Memproses... (${deleted}/${totalData})`, deleted, totalData);
@@ -7350,15 +7228,21 @@ async function deleteAllTidak() {
     loadDBTidak();
 }
 
-// Hapus semua Database Nomor Salah
 async function deleteAllNomorSalah() {
     if (!confirm('⚠️ PERINGATAN!\n\nAnda akan menghapus SEMUA data di Database Nomor Salah.\n\nProses ini TIDAK BISA dibatalkan!\n\nKlik OK untuk melanjutkan.')) return;
     
     const progress = showFloatingProgress('🗑️ Menghapus Semua Nomor Salah', 0);
-    progress.update(0, '🗑️ Menghapus', 'Mengambil data...');
+    progress.update(0, '🗑️ Menghapus', 'Mengambil数据...');
     
-    const snapshot = await db.collection('nomor_salah').get();
-    const totalData = snapshot.size;
+    const { data, error } = await supabase.from('nomor_salah').select('*');
+    
+    if (error) {
+        showNotifTop('❌ Gagal mengambil data: ' + error.message, true);
+        progress.hide();
+        return;
+    }
+    
+    const totalData = data?.length || 0;
     progress.setTotal(totalData);
     
     if (totalData === 0) {
@@ -7369,18 +7253,18 @@ async function deleteAllNomorSalah() {
     
     let deleted = 0;
     const BATCH_SIZE = 20;
-    const docs = snapshot.docs;
     
-    for (let i = 0; i < docs.length; i += BATCH_SIZE) {
-        const batch = db.batch();
-        const chunk = docs.slice(i, i + BATCH_SIZE);
+    for (let i = 0; i < (data || []).length; i += BATCH_SIZE) {
+        const chunk = (data || []).slice(i, i + BATCH_SIZE);
         
         for (const doc of chunk) {
-            batch.delete(doc.ref);
+            try {
+                await supabaseDelete('nomor_salah', doc.id);
+                deleted++;
+            } catch (e) {
+                console.error(`Gagal hapus ${doc.id}:`, e);
+            }
         }
-        
-        await batch.commit();
-        deleted += chunk.length;
         
         const percent = Math.floor((deleted / totalData) * 100);
         progress.update(percent, '🗑️ Menghapus', `Memproses... (${deleted}/${totalData})`, deleted, totalData);
@@ -7394,15 +7278,21 @@ async function deleteAllNomorSalah() {
     loadDBNomorSalah();
 }
 
-// Hapus semua Database Commitment
 async function deleteAllCommitment() {
     if (!confirm('⚠️ PERINGATAN!\n\nAnda akan menghapus SEMUA data di Database Commitment.\n\nProses ini TIDAK BISA dibatalkan!\n\nKlik OK untuk melanjutkan.')) return;
     
     const progress = showFloatingProgress('🗑️ Menghapus Semua Commitment', 0);
     progress.update(0, '🗑️ Menghapus', 'Mengambil data...');
     
-    const snapshot = await db.collection('db_commitment').get();
-    const totalData = snapshot.size;
+    const { data, error } = await supabase.from('db_commitment').select('*');
+    
+    if (error) {
+        showNotifTop('❌ Gagal mengambil data: ' + error.message, true);
+        progress.hide();
+        return;
+    }
+    
+    const totalData = data?.length || 0;
     progress.setTotal(totalData);
     
     if (totalData === 0) {
@@ -7413,18 +7303,18 @@ async function deleteAllCommitment() {
     
     let deleted = 0;
     const BATCH_SIZE = 20;
-    const docs = snapshot.docs;
     
-    for (let i = 0; i < docs.length; i += BATCH_SIZE) {
-        const batch = db.batch();
-        const chunk = docs.slice(i, i + BATCH_SIZE);
+    for (let i = 0; i < (data || []).length; i += BATCH_SIZE) {
+        const chunk = (data || []).slice(i, i + BATCH_SIZE);
         
         for (const doc of chunk) {
-            batch.delete(doc.ref);
+            try {
+                await supabaseDelete('db_commitment', doc.id);
+                deleted++;
+            } catch (e) {
+                console.error(`Gagal hapus ${doc.id}:`, e);
+            }
         }
-        
-        await batch.commit();
-        deleted += chunk.length;
         
         const percent = Math.floor((deleted / totalData) * 100);
         progress.update(percent, '🗑️ Menghapus', `Memproses... (${deleted}/${totalData})`, deleted, totalData);
@@ -7438,15 +7328,21 @@ async function deleteAllCommitment() {
     loadDBCommitment();
 }
 
-// Hapus semua Produk
 async function deleteAllProduk() {
     if (!confirm('⚠️ PERINGATAN!\n\nAnda akan menghapus SEMUA data Produk.\n\nProduk yang sudah terpakai di Agent akan kehilangan referensi!\n\nKlik OK untuk melanjutkan.')) return;
     
     const progress = showFloatingProgress('🗑️ Menghapus Semua Produk', 0);
     progress.update(0, '🗑️ Menghapus', 'Mengambil data...');
     
-    const snapshot = await db.collection('produk').get();
-    const totalData = snapshot.size;
+    const { data, error } = await supabase.from('produk').select('*');
+    
+    if (error) {
+        showNotifTop('❌ Gagal mengambil data: ' + error.message, true);
+        progress.hide();
+        return;
+    }
+    
+    const totalData = data?.length || 0;
     progress.setTotal(totalData);
     
     if (totalData === 0) {
@@ -7457,18 +7353,18 @@ async function deleteAllProduk() {
     
     let deleted = 0;
     const BATCH_SIZE = 20;
-    const docs = snapshot.docs;
     
-    for (let i = 0; i < docs.length; i += BATCH_SIZE) {
-        const batch = db.batch();
-        const chunk = docs.slice(i, i + BATCH_SIZE);
+    for (let i = 0; i < (data || []).length; i += BATCH_SIZE) {
+        const chunk = (data || []).slice(i, i + BATCH_SIZE);
         
         for (const doc of chunk) {
-            batch.delete(doc.ref);
+            try {
+                await supabaseDelete('produk', doc.id);
+                deleted++;
+            } catch (e) {
+                console.error(`Gagal hapus ${doc.id}:`, e);
+            }
         }
-        
-        await batch.commit();
-        deleted += chunk.length;
         
         const percent = Math.floor((deleted / totalData) * 100);
         progress.update(percent, '🗑️ Menghapus', `Memproses... (${deleted}/${totalData})`, deleted, totalData);
@@ -7483,775 +7379,44 @@ async function deleteAllProduk() {
     await loadProduk();
 }
 
-// ========== IMPORT EXCEL FUNCTIONS ==========
-function setupImportExcel() {
-    const dropZone = document.getElementById('dropZone');
-    const excelFileInput = document.getElementById('excelFile');
-    const importTypeRadios = document.querySelectorAll('.radio-option');
-    const importBtn = document.getElementById('importBtn');
-    
-    // Drop zone click
-    if (dropZone) {
-        dropZone.addEventListener('click', () => excelFileInput?.click());
-    }
-    
-    // File input change
-    if (excelFileInput) {
-        excelFileInput.addEventListener('change', function(e) {
-            if (e.target.files[0]) {
-                document.getElementById('fileInfo').innerHTML = '📄 ' + e.target.files[0].name;
-            }
-        });
-    }
-    
-    // Radio option for import type
-    if (importTypeRadios) {
-        importTypeRadios.forEach(opt => {
-            opt.addEventListener('click', function() {
-                importType = this.dataset.import;
-                importTypeRadios.forEach(o => o.classList.remove('active'));
-                this.classList.add('active');
-                
-                // Debug: log import type yang dipilih
-                console.log('Import type dipilih:', importType);
-            });
-        });
-    }
-    
-    // Import button
-    if (importBtn) {
-        importBtn.addEventListener('click', async () => {
-            const file = excelFileInput?.files[0];
-            if (!file) {
-                showNotif('Pilih file dulu!', true);
-                return;
-            }
-            
-            const btn = importBtn;
-            const originalText = btn.textContent;
-            btn.textContent = '⏳ Memproses...';
-            btn.disabled = true;
-            
-            // Floating progress
-            const progress = showFloatingProgress('📥 Import Data', 0);
-            progress.update(0, '📥 Import Data', 'Membaca file Excel...');
-            
-            const reader = new FileReader();
-            
-            reader.onload = async function(e) {
-                try {
-                    progress.update(5, '📥 Import Data', 'Memproses file Excel...');
-                    
-                    const data = new Uint8Array(e.target.result);
-                    const workbook = XLSX.read(data, { type: 'array' });
-                    const sheetName = workbook.SheetNames[0];
-                    const worksheet = workbook.Sheets[sheetName];
-                    
-                    // Cara 1: Baca dengan header: 1 untuk lihat semua baris
-                    const rawData = XLSX.utils.sheet_to_json(worksheet, { header: 1, defval: "" });
-                    console.log('Raw data (header + rows):', rawData.slice(0, 3));
-                    
-                    if (!rawData || rawData.length < 2) {
-                        showNotif('File Excel kosong!', true);
-                        return;
-                    }
-                    
-                    // Ambil header dari baris pertama
-                    const headers = rawData[0];
-                    const dataRows = rawData.slice(1);
-                    
-                    console.log('Headers yang terdeteksi:', headers);
-                    
-                    // Konversi ke array of objects
-                    const json = dataRows.map(row => {
-                        const obj = {};
-                        headers.forEach((header, idx) => {
-                            obj[header] = row[idx];
-                        });
-                        return obj;
-                    }).filter(row => {
-                        // Filter baris yang benar-benar kosong
-                        return Object.values(row).some(v => v !== undefined && v !== null && v !== '');
-                    });
-                    
-                    console.log('Jumlah data setelah filter:', json.length);
-                    console.log('Sample data pertama:', json[0]);
-                    
-                    if (!json || json.length === 0) {
-                        showNotif('File Excel kosong!', true);
-                        btn.textContent = originalText;
-                        btn.disabled = false;
-                        progress.hide();
-                        return;
-                    }
-                    
-                    let success = 0, failed = 0, skipped = 0;
-                    const errors = [];
-                    const duplicates = [];
-                    const firstRow = json[0];
-                    const columnMap = {};
-                    
-                    progress.update(10, '📥 Import Data', 'Mendeteksi kolom...');
-                    
-                    // Detect columns based on import type
-                    if (importType === 'customer') {
-                        const possibleAgentId = ['agent_id', 'Agent_ID', 'agentid', 'AgentId', 'id', 'ID'];
-                        const possibleNama = ['nama', 'Nama', 'name', 'Name', 'customer_name', 'CustomerName'];
-                        const possibleHp = ['hp', 'HP', 'phone', 'Phone', 'no_hp', 'NoHP', 'whatsapp', 'WhatsApp'];
-                        const possibleApk = ['apk', 'APK', 'aplikasi', 'Aplikasi', 'app', 'APP'];
-                        const possibleDeadline = ['deadline', 'Deadline', 'tanggal', 'Tanggal', 'date'];
-                        const possibleUplineName = ['upline_name', 'nama_upline', 'upline', 'atasan'];
-                        const possibleUplinePhone = ['upline_phone', 'phone_upline', 'hp_upline', 'no_upline'];
-                        const possibleAgentType = ['agent_type', 'type', 'class', 'tipe'];
-                        
-                        for (let key in firstRow) {
-                            const lowerKey = key.toLowerCase();
-                            if (possibleAgentId.some(p => p.toLowerCase() === lowerKey)) columnMap.agentId = key;
-                            if (possibleNama.some(p => p.toLowerCase() === lowerKey)) columnMap.nama = key;
-                            if (possibleHp.some(p => p.toLowerCase() === lowerKey)) columnMap.hp = key;
-                            if (possibleUplineName.some(p => p.toLowerCase() === lowerKey)) columnMap.uplineName = key;
-                            if (possibleUplinePhone.some(p => p.toLowerCase() === lowerKey)) columnMap.uplinePhone = key;
-                            if (possibleApk.some(p => p.toLowerCase() === lowerKey)) columnMap.apk = key;
-                            if (possibleDeadline.some(p => p.toLowerCase() === lowerKey)) columnMap.deadline = key;
-                            if (possibleAgentType.some(p => p.toLowerCase() === lowerKey)) columnMap.agentType = key;
-                        }
-                        
-                        if (!columnMap.agentId) {
-                            showNotif('❌ Format Excel tidak sesuai! Kolom agent_id WAJIB ada!', true);
-                            btn.textContent = originalText;
-                            btn.disabled = false;
-                            progress.hide();
-                            return;
-                        }
-                        if (!columnMap.nama) {
-                            showNotif('❌ Format Excel tidak sesuai! Kolom nama WAJIB ada!', true);
-                            btn.textContent = originalText;
-                            btn.disabled = false;
-                            progress.hide();
-                            return;
-                        }
-                        if (!columnMap.hp) {
-                            showNotif('❌ Format Excel tidak sesuai! Kolom hp WAJIB ada!', true);
-                            btn.textContent = originalText;
-                            btn.disabled = false;
-                            progress.hide();
-                            return;
-                        }
-                    } 
-                      
-else if (importType === 'transaksi') {
-    // Daftar kemungkinan nama kolom (case insensitive)
-    const possibleAgentId = ['agent_id', 'Agent_ID', 'agentid', 'AgentId', 'id', 'ID'];
-    const possibleNama = ['nama', 'Nama', 'name', 'Name', 'agent_name', 'customer_name'];
-    const possibleHp = ['hp', 'HP', 'phone', 'Phone', 'no_hp', 'NoHP', 'whatsapp', 'WhatsApp', 'mobile', 'telp'];
-    const possibleApk = ['apk', 'APK', 'aplikasi', 'Aplikasi', 'app', 'APP'];  // <-- TAMBAHKAN BARIS INI
-    const possibleUplineName = ['upline_name', 'nama_upline', 'upline', 'atasan', 'upline name'];
-    const possibleUplinePhone = ['upline_phone', 'phone_upline', 'hp_upline', 'no_upline', 'upline phone', 'upline_wa'];
-    const possibleProgresJenis = ['progres_jenis', 'jenis_progres', 'jenis', 'progresjenis', 'tipe_progres', 'status_progres'];
-    const possibleProgresJumlah = ['progres_jumlah', 'jumlah_progres', 'jumlah', 'progresjumlah', 'value', 'nominal', 'total'];
-    const possibleTanggal = ['tanggal_transaksi', 'tanggal', 'date', 'deadline', 'tgl', 'created_at'];
-                        
-                        // Loop semua kolom di Excel
-                        for (let key in firstRow) {
-                            const lowerKey = key.toLowerCase();
-                            console.log(`Checking column: "${key}" -> lower: "${lowerKey}"`);
-
-                            if (possibleApk.some(p => p.toLowerCase() === lowerKey)) {
-                                columnMap.apk = key;
-                                console.log(`✓ Found apk column: ${key}`);
-                            }
-
-                            if (possibleAgentId.some(p => p.toLowerCase() === lowerKey)) {
-                                columnMap.agentId = key;
-                                console.log(`✓ Found agent_id column: ${key}`);
-                            }
-                            if (possibleNama.some(p => p.toLowerCase() === lowerKey)) {
-                                columnMap.nama = key;
-                                console.log(`✓ Found nama column: ${key}`);
-                            }
-                            if (possibleHp.some(p => p.toLowerCase() === lowerKey)) {
-                                columnMap.hp = key;
-                                console.log(`✓ Found hp column: ${key}`);
-                            }
-                            if (possibleUplineName.some(p => p.toLowerCase() === lowerKey)) {
-                                columnMap.uplineName = key;
-                                console.log(`✓ Found upline_name column: ${key}`);
-                            }
-                            if (possibleUplinePhone.some(p => p.toLowerCase() === lowerKey)) {
-                                columnMap.uplinePhone = key;
-                                console.log(`✓ Found upline_phone column: ${key}`);
-                            }
-                            if (possibleProgresJenis.some(p => p.toLowerCase() === lowerKey)) {
-                                columnMap.progresJenis = key;
-                                console.log(`✓ Found progres_jenis column: ${key}`);
-                            }
-                            if (possibleProgresJumlah.some(p => p.toLowerCase() === lowerKey)) {
-                                columnMap.progresJumlah = key;
-                                console.log(`✓ Found progres_jumlah column: ${key}`);
-                            }
-                            if (possibleTanggal.some(p => p.toLowerCase() === lowerKey)) {
-                                columnMap.tanggal = key;
-                                console.log(`✓ Found tanggal column: ${key}`);
-                            }
-                        }
-                        
-                        // Log semua kolom yang terdeteksi
-                        console.log('Final columnMap for transaksi:', columnMap);
-                        
-                        // Validasi: Agent ID WAJIB ada
-                        if (!columnMap.agentId) {
-                            showNotif('❌ Format Excel tidak sesuai! Kolom agent_id WAJIB ada untuk DB Transaksi!', true);
-                            btn.textContent = originalText;
-                            btn.disabled = false;
-                            progress.hide();
-                            return;
-                        }
-                        
-                        // Progres jenis dan jumlah juga wajib
-                        if (!columnMap.progresJenis) {
-                            showNotif('❌ Kolom progres_jenis (naik/turun/normal) tidak ditemukan di Excel!', true);
-                            btn.textContent = originalText;
-                            btn.disabled = false;
-                            progress.hide();
-                            return;
-                        }
-                        
-                        if (!columnMap.progresJumlah) {
-                            showNotif('❌ Kolom progres_jumlah tidak ditemukan di Excel!', true);
-                            btn.textContent = originalText;
-                            btn.disabled = false;
-                            progress.hide();
-                            return;
-                        }
-                        
-                        // Nama dan HP TIDAK WAJIB - hanya warning jika tidak ada
-                        if (!columnMap.nama) {
-                            console.warn('⚠️ Kolom nama tidak ditemukan, nama akan diisi default');
-                        }
-                        if (!columnMap.hp) {
-                            console.warn('⚠️ Kolom hp tidak ditemukan, hp akan dikosongkan');
-                        }
-                    }
-                        
-                    else {
-                        // For prospek
-                        const possibleNama = ['nama', 'Nama', 'name', 'Name', 'prospek_name', 'ProspekName'];
-                        const possibleHp = ['hp', 'HP', 'phone', 'Phone', 'no_hp', 'NoHP', 'whatsapp', 'WhatsApp'];
-                        const possibleDeadline = ['deadline', 'Deadline', 'tanggal', 'Tanggal', 'date'];
-                        const possibleAgentType = ['agent_type', 'type', 'class', 'tipe'];
-                        
-                        for (let key in firstRow) {
-                            const lowerKey = key.toLowerCase();
-                            if (possibleNama.some(p => p.toLowerCase() === lowerKey)) columnMap.nama = key;
-                            if (possibleHp.some(p => p.toLowerCase() === lowerKey)) columnMap.hp = key;
-                            if (possibleDeadline.some(p => p.toLowerCase() === lowerKey)) columnMap.deadline = key;
-                            if (possibleAgentType.some(p => p.toLowerCase() === lowerKey)) columnMap.agentType = key;
-                        }
-                    }
-                    
-                // Validasi kolom wajib berdasarkan tipe import
-                if (importType === 'customer') {
-                    if (!columnMap.nama || !columnMap.hp) {
-                        showNotif('❌ Format Excel tidak sesuai! Gunakan kolom: nama, hp (wajib untuk Customer)', true);
-                        btn.textContent = originalText;
-                        btn.disabled = false;
-                        progress.hide();
-                        return;
-                    }
-                } else if (importType === 'transaksi') {
-                    // Untuk transaksi, hanya agent_id yang wajib (nama dan hp opsional)
-                    if (!columnMap.agentId) {
-                        showNotif('❌ Format Excel tidak sesuai! Kolom agent_id WAJIB ada untuk DB Transaksi!', true);
-                        btn.textContent = originalText;
-                        btn.disabled = false;
-                        progress.hide();
-                        return;
-                    }
-                    // nama dan hp tidak wajib, jadi tidak perlu divalidasi
-                } else {
-                    // Untuk prospek
-                    if (!columnMap.nama || !columnMap.hp) {
-                        showNotif('❌ Format Excel tidak sesuai! Gunakan kolom: nama, hp (wajib)', true);
-                        btn.textContent = originalText;
-                        btn.disabled = false;
-                        progress.hide();
-                        return;
-                    }
-                }
-                    
-                    // Detect progres columns for transaksi
-                    let progresJenisCol = null;
-                    let progresJumlahCol = null;
-                    let progresKeteranganCol = null;
-                    
-                    if (importType === 'transaksi') {
-                        for (let key in firstRow) {
-                            const lowerKey = key.toLowerCase();
-                            if (lowerKey === 'progres_jenis' || lowerKey === 'jenis_progres' || lowerKey === 'jenis') progresJenisCol = key;
-                            if (lowerKey === 'progres_jumlah' || lowerKey === 'jumlah_progres' || lowerKey === 'jumlah') progresJumlahCol = key;
-                            if (lowerKey === 'progres_keterangan' || lowerKey === 'keterangan_progres') progresKeteranganCol = key;
-                        }
-                        
-                        console.log('Kolom progres terdeteksi:', { progresJenisCol, progresJumlahCol });
-                    }
-
-                    // ========== TAMBAHKAN DEBUGGING DI SINI ==========
-                    if (importType === 'transaksi') {
-                        console.log('========== DEBUG IMPORT TRANSAKSI ==========');
-                        console.log('Total baris data:', json.length);
-                        console.log('Column Map yang terdeteksi:', columnMap);
-                        console.log('Sample row pertama (raw):', json[0]);
-                        
-                        // Tampilkan 3 sample data pertama
-                        for (let i = 0; i < Math.min(3, json.length); i++) {
-                            const row = json[i];
-                            console.log(`Sample row ${i+1}:`);
-                            console.log(`  agent_id (${columnMap.agentId}):`, row[columnMap.agentId]);
-                            console.log(`  progres_jenis (${columnMap.progresJenis}):`, row[columnMap.progresJenis]);
-                            console.log(`  progres_jumlah (${columnMap.progresJumlah}):`, row[columnMap.progresJumlah]);
-                            console.log(`  nama (${columnMap.nama}):`, row[columnMap.nama]);
-                            console.log(`  hp (${columnMap.hp}):`, row[columnMap.hp]);
-                        }
-                        
-                        // Cek apakah data bisa diakses
-                        if (json.length > 0) {
-                            const testRow = json[0];
-                            const testAgentId = testRow[columnMap.agentId];
-                            console.log('Test ambil agent_id:', testAgentId);
-                            
-                            if (!testAgentId || testAgentId === '') {
-                                console.error('❌ agent_id tidak terbaca! Periksa nama kolom di Excel.');
-                                console.error('Nama kolom yang ada di Excel:', Object.keys(json[0]));
-                            }
-                        }
-                    }
-                    // =============================================
-                  
-                    const totalRows = json.length;
-                    progress.update(15, '📥 Import Data', `Memproses ${totalRows} baris data...`, 0, totalRows);
-                    progress.setTotal(totalRows);
-                    
-                    let processed = 0;
-                    
-for (let row of json) {
-    processed++;
-    
-    if (processed % 10 === 0 || processed === totalRows) {
-        const percent = 15 + Math.floor((processed / totalRows) * 80);
-        progress.update(percent, '📥 Import Data', `Memproses data...`, processed, totalRows);
-        await new Promise(resolve => setTimeout(resolve, 10));
-    }
-    
-    try {
-        let agentId = columnMap.agentId ? String(row[columnMap.agentId] || '').trim() : '';
-        let nama = String(row[columnMap.nama] || '').trim();
-        let hp = row[columnMap.hp];
-        let uplineName = columnMap.uplineName ? String(row[columnMap.uplineName] || '').trim() : '';
-        let uplinePhone = columnMap.uplinePhone ? String(row[columnMap.uplinePhone] || '').trim() : '';
-        let apk = columnMap.apk ? String(row[columnMap.apk] || '').trim() : null;
-        let deadline = columnMap.deadline ? row[columnMap.deadline] : null;
-        let agentType = columnMap.agentType ? String(row[columnMap.agentType] || '').trim() : '';
-        
-        // Progres variables
-        let progresJenis = '';
-        let progresJumlah = 0;
-        let progresKeterangan = '';
-        let totalTercapai = 0;
-        
-        // Baca progres untuk transaksi
-        if (importType === 'transaksi') {
-            // Baca progres_jenis dari Excel
-            if (progresJenisCol && row[progresJenisCol] !== undefined && row[progresJenisCol] !== null && row[progresJenisCol] !== '') {
-                let jenisInput = String(row[progresJenisCol]).toLowerCase().trim();
-                if (jenisInput === 'naik' || jenisInput === 'up' || jenisInput === '+' || jenisInput === 'increase') {
-                    progresJenis = 'naik';
-                } else if (jenisInput === 'turun' || jenisInput === 'down' || jenisInput === '-' || jenisInput === 'decrease') {
-                    progresJenis = 'turun';
-                } else if (jenisInput === 'normal') {
-                    progresJenis = 'normal';
-                } else {
-                    progresJenis = jenisInput;
-                }
-            }
-            
-            // Baca progres_jumlah dari Excel
-            if (progresJumlahCol && row[progresJumlahCol] !== undefined && row[progresJumlahCol] !== null && row[progresJumlahCol] !== '') {
-                const rawValue = row[progresJumlahCol];
-                if (typeof rawValue === 'number') {
-                    progresJumlah = rawValue;
-                } else {
-                    const rawString = String(rawValue).trim();
-                    const isNegative = rawString.startsWith('-');
-                    const matches = rawString.match(/\d+/);
-                    if (matches) {
-                        let numValue = parseInt(matches[0], 10);
-                        progresJumlah = isNegative ? -numValue : numValue;
-                    }
-                }
-            }
-            
-            if (!progresJenis) progresJenis = 'normal';
-            if (progresKeteranganCol && row[progresKeteranganCol]) {
-                progresKeterangan = String(row[progresKeteranganCol]).trim();
-            }
-        }
-        
-        let tanggalTransaksi = null;
-        if (columnMap.tanggal) {
-            tanggalTransaksi = row[columnMap.tanggal];
-        }
-        let formattedDeadline = getTodayDate(); // default hari ini
-        if (tanggalTransaksi && tanggalTransaksi !== '' && tanggalTransaksi !== null && tanggalTransaksi !== undefined) {
-            try {
-                const dateObj = new Date(tanggalTransaksi);
-                if (!isNaN(dateObj.getTime())) {
-                    formattedDeadline = dateObj.toISOString().split('T')[0];
-                } else {
-                    formattedDeadline = getTodayDate();
-                }
-            } catch(e) {
-                formattedDeadline = getTodayDate();
-            }
-        }
-        
-        // Validasi untuk transaksi
-        if (importType === 'transaksi') {
-            // ========== KOLOM WAJIB (4 KOLOM) ==========
-            // 1. agent_id WAJIB
-            if (!agentId || agentId === '') {
-                failed++;
-                errors.push(`Baris ke-${json.indexOf(row)+2}: agent_id WAJIB diisi!`);
-                console.error(`Baris ${json.indexOf(row)+2}: agent_id kosong`, row);
-                continue;
-            }
-            
-            // 2. apk WAJIB
-            if (!apk || apk === '') {
-                failed++;
-                errors.push(`Baris ke-${json.indexOf(row)+2}: apk WAJIB diisi (contoh: GNP, BSB, BTN)!`);
-                console.error(`Baris ${json.indexOf(row)+2}: apk kosong`, row);
-                continue;
-            }
-            
-            // 3. progres_jenis WAJIB (naik/turun/normal)
-            if (!progresJenis || progresJenis === '') {
-                failed++;
-                errors.push(`Baris ke-${json.indexOf(row)+2}: progres_jenis WAJIB diisi (naik/turun/normal)!`);
-                console.error(`Baris ${json.indexOf(row)+2}: progres_jenis kosong, nilai:`, row[progresJenisCol]);
-                continue;
-            }
-            
-            // 4. progres_jumlah WAJIB (boleh 0, positif, atau negatif)
-            if (progresJumlah === null || progresJumlah === undefined || progresJumlah === '') {
-                failed++;
-                errors.push(`Baris ke-${json.indexOf(row)+2}: progres_jumlah WAJIB diisi!`);
-                console.error(`Baris ${json.indexOf(row)+2}: progres_jumlah kosong, nilai:`, row[progresJumlahCol]);
-                continue;
-            }
-            
-            // Konversi progres_jumlah ke number
-            if (typeof progresJumlah !== 'number') {
-                progresJumlah = parseFloat(progresJumlah) || 0;
-            }
-            
-            // ========== KOLOM TIDAK WAJIB ==========
-            // nama: boleh kosong, akan diisi default
-            if (!nama || nama === '') {
-                nama = `Agent ${agentId}`;
-            }
-            
-            // upline_name: boleh kosong
-            // upline_phone: boleh kosong
-            // tanggal_transaksi: boleh kosong (akan diisi hari ini)
-            
-            console.log(`✅ Baris ${json.indexOf(row)+2} valid: agent=${agentId}, apk=${apk}, jenis=${progresJenis}, jumlah=${progresJumlah}`);
-        }
-        
-        // Format phone number - TANPA VALIDASI KETAT, boleh kosong atau 0
-        let cleanHp = '';
-        
-        // Jika hp ada dan bukan 0, coba format
-        if (hp && hp !== 0 && hp !== '0') {
-            try {
-                let rawHp = String(hp).trim();
-                let digits = rawHp.replace(/[^\d+]/g, '');
-                
-                if (!digits.startsWith('+')) {
-                    digits = digits.replace(/^0+/, '');
-                    if (digits.startsWith('62')) {
-                        cleanHp = '+' + digits;
-                    } else if (digits.match(/^\d{10,13}$/)) {
-                        cleanHp = '+62' + digits;
-                    } else {
-                        cleanHp = digits;
-                    }
-                } else {
-                    cleanHp = digits;
-                }
-            } catch(e) {
-                cleanHp = String(hp);
-            }
-        } else {
-            // hp kosong atau 0, biarkan kosong
-            cleanHp = '';
-        }
-        
-        console.log(`HP处理后: ${cleanHp || '(kosong)'}`);
-        
-        // Save to database
-        if (importType === 'transaksi') {
-            // Tanggal transaksi: jika kosong, pakai hari ini
-            let tanggalAkhir = formattedDeadline || getTodayDate();
-            
-            console.log(`📝 Menyimpan: ${agentId} | ${apk} | ${progresJenis} | ${progresJumlah}`);
-            
-            await db.collection('db_transaksi').add({
-                agent_id: agentId.toUpperCase(),      // WAJIB
-                apk: apk || '',                       // WAJIB
-                progres_jenis: progresJenis,          // WAJIB
-                progres_jumlah: progresJumlah,        // WAJIB
-                nama: nama || `Agent ${agentId}`,     // OPSIONAL (default jika kosong)
-                hp: cleanHp || '',                    // OPSIONAL (boleh kosong)
-                upline_name: uplineName || '',        // OPSIONAL (boleh kosong)
-                upline_phone: uplinePhone || '',      // OPSIONAL (boleh kosong)
-                tanggal_transaksi: tanggalAkhir,      // OPSIONAL (default hari ini)
-                status: 'pending_import',             // DEFAULT
-                user_id: currentUser.uid,             // DEFAULT
-                created_at: new Date().toISOString(), // DEFAULT
-                updated_at: new Date().toISOString()  // DEFAULT
-            });
-            
-            console.log(`✅ Berhasil simpan: ${agentId}`);
-            success++;
-        } else if (importType === 'customer') {
-            // Kode untuk customer (biarkan seperti sebelumnya)
-            await db.collection('customers').add({
-                agent_id: agentId.toUpperCase(),
-                nama: nama,
-                hp: cleanHp,
-                apk: apk,
-                agent_type: agentType || '',
-                tanggal: formattedDeadline,
-                status: 'baru',
-                upline_name: uplineName || '',
-                upline_phone: uplinePhone || '',
-                user_id: currentUser.uid,
-                created_at: new Date().toISOString(),
-                followup_data: null,
-                pending_data: []
-            });
-            success++;
-        } else {
-            // Kode untuk prospek
-            await db.collection('prospek').add({
-                nama: nama,
-                hp: cleanHp,
-                agent_type: agentType || '',
-                status: 'Baru',
-                deadline: formattedDeadline,
-                user_id: currentUser.uid,
-                created_at: new Date().toISOString(),
-                dihubungi_data: null,
-                negosiasi_data: null
-            });
-            success++;
-        }
-        
-    } catch (rowError) {
-        failed++;
-        errors.push(`Baris ke-${json.indexOf(row)+2}: ${rowError.message}`);
-        console.error(`Error pada baris ${json.indexOf(row)+2}:`, rowError);
-    }
-}
-                    
-                    progress.update(100, '✅ Selesai', 'Menyelesaikan...', totalRows, totalRows);
-                    
-                    let resultMsg = `✅ Selesai!\n📊 Berhasil: ${success}\n❌ Gagal: ${failed}`;
-                    if (duplicates.length > 0) {
-                        resultMsg += `\n\n⏭ Data duplikat dilewati:\n${duplicates.slice(0,5).join('\n')}`;
-                    }
-                    if (errors.length > 0 && errors.length <= 5) {
-                        resultMsg += `\n\nDetail error:\n${errors.join('\n')}`;
-                    }
-                    alert(resultMsg);
-                    
-                    setTimeout(() => progress.hide(), 3000);
-                    
-                    excelFileInput.value = '';
-                    document.getElementById('fileInfo').innerHTML = '';
-                    updateAllBadges();
-                    loadAllData();
-                    if (importType === 'transaksi') {
-                        await loadDbTransaksi();
-                    }
-                    
-                } catch (error) {
-                    console.error('Import error:', error);
-                    showNotif('❌ Gagal memproses file: ' + error.message, true);
-                    progress.hide();
-                } finally {
-                    btn.textContent = originalText;
-                    btn.disabled = false;
-                }
-            };
-            
-            reader.onerror = function() {
-                showNotif('❌ Gagal membaca file', true);
-                btn.textContent = originalText;
-                btn.disabled = false;
-                if (progress) progress.hide();
-            };
-            
-            reader.readAsArrayBuffer(file);
-        });
-    }
-    
-    // Download example buttons
-    document.getElementById('downloadCustomerExample')?.addEventListener('click', () => {
-        const data = [{
-            agent_id: 'AG-001',
-            nama: 'Budi Santoso',
-            hp: '6281234567890',
-            apk: 'GNP',
-            agent_type: 'CollectingAgent (CA)',
-            deadline: getTodayDate(),
-            upline_name: 'Siti Aminah',
-            upline_phone: '6281234567891',
-            progres_jenis: 'turun',
-            progres_jumlah: -2120,
-            progres_keterangan: 'Penurunan order'
-        }];
-        const ws = XLSX.utils.json_to_sheet(data);
-        const wb = XLSX.utils.book_new();
-        XLSX.utils.book_append_sheet(wb, ws, 'Customer');
-        XLSX.writeFile(wb, 'contoh_customer.xlsx');
-        showNotifTop('📋 Contoh file Customer berhasil diunduh');
-    });
-    
-    document.getElementById('downloadProspekExample')?.addEventListener('click', () => {
-        const data = [{
-            nama: 'Rina Marlina',
-            hp: '6281234567893',
-            agent_type: 'AGENT',
-            deadline: getTodayDate()
-        }];
-        const ws = XLSX.utils.json_to_sheet(data);
-        const wb = XLSX.utils.book_new();
-        XLSX.utils.book_append_sheet(wb, ws, 'Prospek');
-        XLSX.writeFile(wb, 'contoh_prospek.xlsx');
-        showNotifTop('📋 Contoh file Prospek berhasil diunduh');
-    });
-    
-    // Download contoh DB Transaksi
-    document.getElementById('downloadTransaksiExample')?.addEventListener('click', () => {
-        const data = [{
-            'agent_id': 'AG-001 (WAJIB)',
-            'nama': 'Budi Santoso (TIDAK WAJIB)',
-            'hp': '6281234567890 (TIDAK WAJIB)',
-            'apk': 'GNP',
-            'upline_name': 'Siti Aminah',
-            'upline_phone': '6281234567891',
-            'progres_jenis': 'turun (WAJIB: naik/turun/normal)',
-            'progres_jumlah': '2120 (WAJIB: angka positif)',
-            'tanggal_transaksi': new Date().toISOString().split('T')[0]
-        }];
-        
-        const ws = XLSX.utils.json_to_sheet(data);
-        ws['!cols'] = [
-            {wch: 25}, {wch: 30}, {wch: 25}, {wch: 10},
-            {wch: 20}, {wch: 20}, {wch: 25}, {wch: 20}, {wch: 18}
-        ];
-        
-        const wb = XLSX.utils.book_new();
-        XLSX.utils.book_append_sheet(wb, ws, 'DB Transaksi');
-        XLSX.writeFile(wb, `contoh_db_transaksi_${new Date().toISOString().split('T')[0]}.xlsx`);
-        
-        showNotifTop(`📋 Contoh file DB Transaksi berhasil diunduh
-    
-📌 KOLOM WAJIB:
-   ✅ agent_id
-   ✅ progres_jenis (naik/turun/normal)
-   ✅ progres_jumlah (angka positif)
-
-📌 KOLOM TIDAK WAJIB:
-   ⭕ nama, hp, apk, upline_name, upline_phone, tanggal_transaksi`);
-    });
-}
-
-// ========== UPLINE BROADCAST FUNCTIONS ==========
-function initUplineBroadcast() {
-    document.querySelectorAll('input[name="uplineSourceType"]').forEach(radio => {
-        radio.addEventListener('change', function() {
-            const value = this.value;
-            const transaksiFilter = document.getElementById('uplineTransaksiFilter');
-            const customerFilter = document.getElementById('uplineCustomerFilter');
-            const customCard = document.getElementById('uplineCustomCard');
-            
-            if (transaksiFilter) transaksiFilter.style.display = 'none';
-            if (customerFilter) customerFilter.style.display = 'none';
-            if (customCard) customCard.style.display = 'none';
-            
-            if (value === 'transaksi') {
-                if (transaksiFilter) transaksiFilter.style.display = 'flex';
-            } else if (value === 'customer') {
-                if (customerFilter) customerFilter.style.display = 'flex';
-            } else if (value === 'custom') {
-                if (customCard) customCard.style.display = 'block';
-            }
-            
-            loadUplineNumbers();
-        });
-    });
-    
-    document.querySelectorAll('#uplineCustomerFilter input').forEach(cb => {
-        cb.addEventListener('change', () => loadUplineNumbers());
-    });
-    
-    document.getElementById('uplineCustomNumbers')?.addEventListener('input', loadUplineNumbers);
-    document.getElementById('refreshUplineBtn')?.addEventListener('click', loadUplineNumbers);
-    document.getElementById('sendUplineBroadcastBtn')?.addEventListener('click', sendUplineBroadcast);
-    
-    loadUplineNumbers();
-}
-
 // ========== FULL PAGE KANBAN FUNCTIONS ==========
 function renderFullFollowupKanban() {
-  console.log('renderFullFollowupKanban - jumlah customersData:', customersData.length);
-  
-  const today = getTodayDate();
-  const lists = { baru: [], followup: [], pending: [], closing: [] };
-  
-  customersData.forEach(item => {
-    const status = item.status || 'baru';
-    if (status === 'closing') lists.closing.push(item);
-    else if (status === 'pending') lists.pending.push(item);
-    else if (status === 'followup') lists.followup.push(item);
-    else lists.baru.push(item);
-  });
-  
-  lists.baru.sort((a, b) => (a.tanggal || '9999-12-31').localeCompare(b.tanggal || '9999-12-31'));
-  lists.followup.sort((a, b) => (a.tanggal || '9999-12-31').localeCompare(b.tanggal || '9999-12-31'));
-  lists.pending.sort((a, b) => (a.tanggal || '9999-12-31').localeCompare(b.tanggal || '9999-12-31'));
-  lists.closing.sort((a, b) => (a.tanggal || '9999-12-31').localeCompare(b.tanggal || '9999-12-31'));
-  
-  document.getElementById('fullCountBaru').innerText = lists.baru.length;
-  document.getElementById('fullCountFollowup').innerText = lists.followup.length;
-  document.getElementById('fullCountPending').innerText = lists.pending.length;
-  document.getElementById('fullCountClosing').innerText = lists.closing.length;
-
-  const isOwner = currentUserRole === 'owner';
-  
-  const baruContainer = document.getElementById('fullBaruList');
-  if (baruContainer) {
-    baruContainer.innerHTML = lists.baru.map(item => {
-      const isOverdue = item.tanggal && item.tanggal < today;
-      const isToday = item.tanggal === today;
-      let deadlineClass = '';
-      if (isOverdue) deadlineClass = 'deadline-overdue';
-      else if (isToday) deadlineClass = 'deadline-today';
-      const isChecked = selectedFullFollowupIds.get(item.id) === true;
-      const checkboxHtml = isOwner ? `<input type="checkbox" class="full-item-checkbox" data-id="${item.id}" data-column="baru" ${isChecked ? 'checked' : ''}>` : '';
-      return `<div class="card-item ${deadlineClass}" data-id="${item.id}" data-status="baru">
+    console.log('renderFullFollowupKanban - jumlah customersData:', customersData.length);
+    
+    const today = getTodayDate();
+    const lists = { baru: [], followup: [], pending: [], closing: [] };
+    
+    customersData.forEach(item => {
+        const status = item.status || 'baru';
+        if (status === 'closing') lists.closing.push(item);
+        else if (status === 'pending') lists.pending.push(item);
+        else if (status === 'followup') lists.followup.push(item);
+        else lists.baru.push(item);
+    });
+    
+    lists.baru.sort((a, b) => (a.tanggal || '9999-12-31').localeCompare(b.tanggal || '9999-12-31'));
+    lists.followup.sort((a, b) => (a.tanggal || '9999-12-31').localeCompare(b.tanggal || '9999-12-31'));
+    lists.pending.sort((a, b) => (a.tanggal || '9999-12-31').localeCompare(b.tanggal || '9999-12-31'));
+    lists.closing.sort((a, b) => (a.tanggal || '9999-12-31').localeCompare(b.tanggal || '9999-12-31'));
+    
+    document.getElementById('fullCountBaru').innerText = lists.baru.length;
+    document.getElementById('fullCountFollowup').innerText = lists.followup.length;
+    document.getElementById('fullCountPending').innerText = lists.pending.length;
+    document.getElementById('fullCountClosing').innerText = lists.closing.length;
+    
+    const isOwner = currentUserRole === 'owner';
+    
+    const baruContainer = document.getElementById('fullBaruList');
+    if (baruContainer) {
+        baruContainer.innerHTML = lists.baru.map(item => {
+            const isOverdue = item.tanggal && item.tanggal < today;
+            const isToday = item.tanggal === today;
+            let deadlineClass = '';
+            if (isOverdue) deadlineClass = 'deadline-overdue';
+            else if (isToday) deadlineClass = 'deadline-today';
+            const isChecked = selectedFullFollowupIds.get(item.id) === true;
+            const checkboxHtml = isOwner ? `<input type="checkbox" class="full-item-checkbox" data-id="${item.id}" data-column="baru" ${isChecked ? 'checked' : ''}>` : '';
+            return `<div class="card-item ${deadlineClass}" data-id="${item.id}" data-status="baru">
                 <div style="display: flex; align-items: center; gap: 8px;">
                     ${checkboxHtml}
                     <div style="flex: 1; cursor: pointer;" class="card-click-area">
@@ -8262,213 +7427,208 @@ function renderFullFollowupKanban() {
                     </div>
                 </div>
             </div>`;
-    }).join('');
-    
-    if (isOwner) {
-      document.querySelectorAll('#fullBaruList .full-item-checkbox').forEach(cb => {
-        cb.removeEventListener('change', handleFullFollowupCheckboxChange);
-        cb.addEventListener('change', handleFullFollowupCheckboxChange);
-      });
+        }).join('');
+        
+        if (isOwner) {
+            document.querySelectorAll('#fullBaruList .full-item-checkbox').forEach(cb => {
+                cb.removeEventListener('change', handleFullFollowupCheckboxChange);
+                cb.addEventListener('change', handleFullFollowupCheckboxChange);
+            });
+        }
+        
+        document.querySelectorAll('#fullBaruList .card-click-area').forEach(area => {
+            const newArea = area.cloneNode(true);
+            area.parentNode.replaceChild(newArea, area);
+            newArea.addEventListener('click', (e) => {
+                e.stopPropagation();
+                const card = newArea.closest('.card-item');
+                if (card) {
+                    const id = card.dataset.id;
+                    openDetailCustomer(id);
+                }
+            });
+        });
     }
     
-    document.querySelectorAll('#fullBaruList .card-click-area').forEach(area => {
-      const newArea = area.cloneNode(true);
-      area.parentNode.replaceChild(newArea, area);
-      
-      newArea.addEventListener('click', (e) => {
-        e.stopPropagation();
-        const card = newArea.closest('.card-item');
-        if (card) {
-          const id = card.dataset.id;
-          openDetailCustomer(id);
-        }
-      });
-    });
-  }
-
-// Render kolom FOLLOWUP
-const followupContainer = document.getElementById('fullFollowupList');
-if (followupContainer) {
-    followupContainer.innerHTML = lists.followup.map(item => {
-        const isOverdue = item.tanggal && item.tanggal < today;
-        const isToday = item.tanggal === today;
-        let deadlineClass = '';
-        if (isOverdue) deadlineClass = 'deadline-overdue';
-        else if (isToday) deadlineClass = 'deadline-today';
-        return `<div class="card-item ${deadlineClass}" data-id="${item.id}" data-status="followup">
-                    <div style="flex: 1; cursor: pointer;" class="card-click-area">
-                        <div class="card-id">🆔 ${escapeHtml(item.agent_id || '-')}</div>
-                        <div class="card-name" title="${escapeHtml(item.nama)}">${escapeHtml(item.nama)}</div>
-                        <div class="card-phone"><span title="${item.hp}">${item.hp}</span><span class="whatsapp-icon" onclick="event.stopPropagation(); openWAById('${item.id}')">💬</span></div>
-                        <div class="card-deadline">📅 ${item.tanggal || '-'}</div>
-                    </div>
-                </div>`;
-    }).join('');
-    
-    document.querySelectorAll('#fullFollowupList .card-click-area').forEach(area => {
-        const newArea = area.cloneNode(true);
-        area.parentNode.replaceChild(newArea, area);
-        newArea.addEventListener('click', (e) => {
-            e.stopPropagation();
-            const card = newArea.closest('.card-item');
-            if (card) openDetailCustomer(card.dataset.id);
+    const followupContainer = document.getElementById('fullFollowupList');
+    if (followupContainer) {
+        followupContainer.innerHTML = lists.followup.map(item => {
+            const isOverdue = item.tanggal && item.tanggal < today;
+            const isToday = item.tanggal === today;
+            let deadlineClass = '';
+            if (isOverdue) deadlineClass = 'deadline-overdue';
+            else if (isToday) deadlineClass = 'deadline-today';
+            return `<div class="card-item ${deadlineClass}" data-id="${item.id}" data-status="followup">
+                <div style="flex: 1; cursor: pointer;" class="card-click-area">
+                    <div class="card-id">🆔 ${escapeHtml(item.agent_id || '-')}</div>
+                    <div class="card-name" title="${escapeHtml(item.nama)}">${escapeHtml(item.nama)}</div>
+                    <div class="card-phone"><span title="${item.hp}">${item.hp}</span><span class="whatsapp-icon" onclick="event.stopPropagation(); openWAById('${item.id}')">💬</span></div>
+                    <div class="card-deadline">📅 ${item.tanggal || '-'}</div>
+                </div>
+            </div>`;
+        }).join('');
+        
+        document.querySelectorAll('#fullFollowupList .card-click-area').forEach(area => {
+            const newArea = area.cloneNode(true);
+            area.parentNode.replaceChild(newArea, area);
+            newArea.addEventListener('click', (e) => {
+                e.stopPropagation();
+                const card = newArea.closest('.card-item');
+                if (card) openDetailCustomer(card.dataset.id);
+            });
         });
-    });
-}
-
-// Render kolom PENDING
-const pendingContainer = document.getElementById('fullPendingList');
-if (pendingContainer) {
-    pendingContainer.innerHTML = lists.pending.map(item => {
-        const isOverdue = item.tanggal && item.tanggal < today;
-        const isToday = item.tanggal === today;
-        let deadlineClass = '';
-        if (isOverdue) deadlineClass = 'deadline-overdue';
-        else if (isToday) deadlineClass = 'deadline-today';
-        return `<div class="card-item ${deadlineClass}" data-id="${item.id}" data-status="pending">
-                    <div style="flex: 1; cursor: pointer;" class="card-click-area">
-                        <div class="card-id">🆔 ${escapeHtml(item.agent_id || '-')}</div>
-                        <div class="card-name" title="${escapeHtml(item.nama)}">${escapeHtml(item.nama)}</div>
-                        <div class="card-phone"><span title="${item.hp}">${item.hp}</span><span class="whatsapp-icon" onclick="event.stopPropagation(); openWAById('${item.id}')">💬</span></div>
-                        <div class="card-deadline">📅 ${item.tanggal || '-'}</div>
-                    </div>
-                </div>`;
-    }).join('');
+    }
     
-    document.querySelectorAll('#fullPendingList .card-click-area').forEach(area => {
-        const newArea = area.cloneNode(true);
-        area.parentNode.replaceChild(newArea, area);
-        newArea.addEventListener('click', (e) => {
-            e.stopPropagation();
-            const card = newArea.closest('.card-item');
-            if (card) openDetailCustomer(card.dataset.id);
+    const pendingContainer = document.getElementById('fullPendingList');
+    if (pendingContainer) {
+        pendingContainer.innerHTML = lists.pending.map(item => {
+            const isOverdue = item.tanggal && item.tanggal < today;
+            const isToday = item.tanggal === today;
+            let deadlineClass = '';
+            if (isOverdue) deadlineClass = 'deadline-overdue';
+            else if (isToday) deadlineClass = 'deadline-today';
+            return `<div class="card-item ${deadlineClass}" data-id="${item.id}" data-status="pending">
+                <div style="flex: 1; cursor: pointer;" class="card-click-area">
+                    <div class="card-id">🆔 ${escapeHtml(item.agent_id || '-')}</div>
+                    <div class="card-name" title="${escapeHtml(item.nama)}">${escapeHtml(item.nama)}</div>
+                    <div class="card-phone"><span title="${item.hp}">${item.hp}</span><span class="whatsapp-icon" onclick="event.stopPropagation(); openWAById('${item.id}')">💬</span></div>
+                    <div class="card-deadline">📅 ${item.tanggal || '-'}</div>
+                </div>
+            </div>`;
+        }).join('');
+        
+        document.querySelectorAll('#fullPendingList .card-click-area').forEach(area => {
+            const newArea = area.cloneNode(true);
+            area.parentNode.replaceChild(newArea, area);
+            newArea.addEventListener('click', (e) => {
+                e.stopPropagation();
+                const card = newArea.closest('.card-item');
+                if (card) openDetailCustomer(card.dataset.id);
+            });
         });
-    });
-}
-
-// Render kolom CLOSING
-const closingContainer = document.getElementById('fullClosingList');
-if (closingContainer) {
-    closingContainer.innerHTML = lists.closing.map(item => {
-        const isOverdue = item.tanggal && item.tanggal < today;
-        const isToday = item.tanggal === today;
-        let deadlineClass = '';
-        if (isOverdue) deadlineClass = 'deadline-overdue';
-        else if (isToday) deadlineClass = 'deadline-today';
-        return `<div class="card-item ${deadlineClass}" data-id="${item.id}" data-status="closing">
-                    <div style="flex: 1; cursor: pointer;" class="card-click-area">
-                        <div class="card-id">🆔 ${escapeHtml(item.agent_id || '-')}</div>
-                        <div class="card-name" title="${escapeHtml(item.nama)}">${escapeHtml(item.nama)}</div>
-                        <div class="card-phone"><span title="${item.hp}">${item.hp}</span><span class="whatsapp-icon" onclick="event.stopPropagation(); openWAById('${item.id}')">💬</span></div>
-                        <div class="card-deadline">📅 ${item.tanggal || '-'}</div>
-                    </div>
-                </div>`;
-    }).join('');
+    }
     
-    document.querySelectorAll('#fullClosingList .card-click-area').forEach(area => {
-        const newArea = area.cloneNode(true);
-        area.parentNode.replaceChild(newArea, area);
-        newArea.addEventListener('click', (e) => {
-            e.stopPropagation();
-            const card = newArea.closest('.card-item');
-            if (card) openDetailCustomer(card.dataset.id);
+    const closingContainer = document.getElementById('fullClosingList');
+    if (closingContainer) {
+        closingContainer.innerHTML = lists.closing.map(item => {
+            const isOverdue = item.tanggal && item.tanggal < today;
+            const isToday = item.tanggal === today;
+            let deadlineClass = '';
+            if (isOverdue) deadlineClass = 'deadline-overdue';
+            else if (isToday) deadlineClass = 'deadline-today';
+            return `<div class="card-item ${deadlineClass}" data-id="${item.id}" data-status="closing">
+                <div style="flex: 1; cursor: pointer;" class="card-click-area">
+                    <div class="card-id">🆔 ${escapeHtml(item.agent_id || '-')}</div>
+                    <div class="card-name" title="${escapeHtml(item.nama)}">${escapeHtml(item.nama)}</div>
+                    <div class="card-phone"><span title="${item.hp}">${item.hp}</span><span class="whatsapp-icon" onclick="event.stopPropagation(); openWAById('${item.id}')">💬</span></div>
+                    <div class="card-deadline">📅 ${item.tanggal || '-'}</div>
+                </div>
+            </div>`;
+        }).join('');
+        
+        document.querySelectorAll('#fullClosingList .card-click-area').forEach(area => {
+            const newArea = area.cloneNode(true);
+            area.parentNode.replaceChild(newArea, area);
+            newArea.addEventListener('click', (e) => {
+                e.stopPropagation();
+                const card = newArea.closest('.card-item');
+                if (card) openDetailCustomer(card.dataset.id);
+            });
         });
-    });
-}
-  
-  updateSelectAllFullFollowupButton();
+    }
+    
+    updateSelectAllFullFollowupButton();
 }
 
 function handleFullFollowupCheckboxChange(e) {
-  e.stopPropagation();
-  const id = e.target.dataset.id;
-  if (e.target.checked) {
-    selectedFullFollowupIds.set(id, true);
-    const card = e.target.closest('.card-item');
-    if (card) {
-      card.style.opacity = '0.6';
-      card.style.background = '#eef2ff';
+    e.stopPropagation();
+    const id = e.target.dataset.id;
+    if (e.target.checked) {
+        selectedFullFollowupIds.set(id, true);
+        const card = e.target.closest('.card-item');
+        if (card) {
+            card.style.opacity = '0.6';
+            card.style.background = '#eef2ff';
+        }
+    } else {
+        selectedFullFollowupIds.delete(id);
+        const card = e.target.closest('.card-item');
+        if (card) {
+            card.style.opacity = '1';
+            card.style.background = '';
+        }
     }
-  } else {
-    selectedFullFollowupIds.delete(id);
-    const card = e.target.closest('.card-item');
-    if (card) {
-      card.style.opacity = '1';
-      card.style.background = '';
-    }
-  }
-  updateSelectAllFullFollowupButton();
+    updateSelectAllFullFollowupButton();
 }
 
 function updateSelectAllFullFollowupButton() {
-  const cards = document.querySelectorAll('#fullBaruList .full-item-checkbox');
-  const allChecked = cards.length > 0 && Array.from(cards).every(cb => cb.checked);
-  const btn = document.getElementById('selectAllFullFollowup');
-  if (btn) {
-    btn.textContent = allChecked ? '⬜ Batal Semua' : '✅ Pilih Semua';
-    if (currentUserRole !== 'owner') {
-      btn.style.display = 'none';
-    } else {
-      btn.style.display = 'inline-block';
+    const cards = document.querySelectorAll('#fullBaruList .full-item-checkbox');
+    const allChecked = cards.length > 0 && Array.from(cards).every(cb => cb.checked);
+    const btn = document.getElementById('selectAllFullFollowup');
+    if (btn) {
+        btn.textContent = allChecked ? '⬜ Batal Semua' : '✅ Pilih Semua';
+        if (currentUserRole !== 'owner') {
+            btn.style.display = 'none';
+        } else {
+            btn.style.display = 'inline-block';
+        }
     }
-  }
 }
 
 function toggleSelectAllFullFollowup() {
-  if (currentUserRole !== 'owner') {
-    showNotifTop('⚠️ Hanya Owner yang dapat menggunakan fitur ini!', true);
-    return;
-  }
-  
-  const cards = document.querySelectorAll('#fullBaruList .full-item-checkbox');
-  if (cards.length === 0) return;
-  
-  const allChecked = Array.from(cards).every(cb => cb.checked);
-  
-  cards.forEach(cb => {
-    cb.checked = !allChecked;
-    const event = new Event('change', { bubbles: true });
-    cb.dispatchEvent(event);
-  });
+    if (currentUserRole !== 'owner') {
+        showNotifTop('⚠️ Hanya Owner yang dapat menggunakan fitur ini!', true);
+        return;
+    }
+    
+    const cards = document.querySelectorAll('#fullBaruList .full-item-checkbox');
+    if (cards.length === 0) return;
+    
+    const allChecked = Array.from(cards).every(cb => cb.checked);
+    
+    cards.forEach(cb => {
+        cb.checked = !allChecked;
+        const event = new Event('change', { bubbles: true });
+        cb.dispatchEvent(event);
+    });
 }
 
 function deleteSelectedFullFollowup() {
-  if (currentUserRole !== 'owner') {
-    showNotifTop('⚠️ Hanya Owner yang dapat menghapus massal!', true);
-    return;
-  }
-  
-  const selectedIds = Array.from(selectedFullFollowupIds.keys());
-  if (selectedIds.length === 0) {
-    showNotifTop('⚠️ Tidak ada data yang dipilih', true);
-    return;
-  }
-  
-  if (!confirm(`Hapus ${selectedIds.length} data customer dari kolom BARU?`)) return;
-  
-  const progress = showFloatingProgress('🗑️ Menghapus Data', selectedIds.length);
-  progress.update(0, '🗑️ Menghapus', 'Memulai proses hapus...');
-  
-  let deleted = 0;
-  for (const id of selectedIds) {
-    try {
-      db.collection('customers').doc(id).delete();
-      selectedFullFollowupIds.delete(id);
-      deleted++;
-      const percent = Math.floor((deleted / selectedIds.length) * 100);
-      progress.update(percent, '🗑️ Menghapus', `Menghapus... (${deleted}/${selectedIds.length})`, deleted, selectedIds.length);
-    } catch (e) {
-      console.error(`Gagal hapus ${id}:`, e);
+    if (currentUserRole !== 'owner') {
+        showNotifTop('⚠️ Hanya Owner yang dapat menghapus massal!', true);
+        return;
     }
-  }
-  
-  progress.update(100, '✅ Selesai', `Berhasil menghapus ${deleted} data`, deleted, selectedIds.length);
-  showNotifTop(`✅ ${deleted} data berhasil dihapus`);
-  
-  setTimeout(() => progress.hide(), 2000);
-  
-  loadAllData();
-  renderFullFollowupKanban();
+    
+    const selectedIds = Array.from(selectedFullFollowupIds.keys());
+    if (selectedIds.length === 0) {
+        showNotifTop('⚠️ Tidak ada data yang dipilih', true);
+        return;
+    }
+    
+    if (!confirm(`Hapus ${selectedIds.length} data customer dari kolom BARU?`)) return;
+    
+    const progress = showFloatingProgress('🗑️ Menghapus Data', selectedIds.length);
+    progress.update(0, '🗑️ Menghapus', 'Memulai proses hapus...');
+    
+    let deleted = 0;
+    for (const id of selectedIds) {
+        try {
+            await supabaseDelete('customers', id);
+            selectedFullFollowupIds.delete(id);
+            deleted++;
+            const percent = Math.floor((deleted / selectedIds.length) * 100);
+            progress.update(percent, '🗑️ Menghapus', `Menghapus... (${deleted}/${selectedIds.length})`, deleted, selectedIds.length);
+        } catch (e) {
+            console.error(`Gagal hapus ${id}:`, e);
+        }
+    }
+    
+    progress.update(100, '✅ Selesai', `Berhasil menghapus ${deleted} data`, deleted, selectedIds.length);
+    showNotifTop(`✅ ${deleted} data berhasil dihapus`);
+    setTimeout(() => progress.hide(), 2000);
+    
+    loadAllData();
+    renderFullFollowupKanban();
 }
 
 // ========== FULL PROSPEK KANBAN ==========
@@ -8498,10 +7658,9 @@ function renderFullProspekKanban() {
     document.getElementById('fullCountDihubungi').innerText = lists.prospekDihubungi.length;
     document.getElementById('fullCountNegosiasi').innerText = lists.prospekNegosiasi.length;
     document.getElementById('fullCountTertarik').innerText = lists.prospekTertarik.length;
-
+    
     const isOwner = currentUserRole === 'owner';
     
-    // Render kolom BARU
     const baruContainer = document.getElementById('fullProspekBaruList');
     if (baruContainer) {
         baruContainer.innerHTML = lists.prospekBaru.map(item => {
@@ -8513,15 +7672,15 @@ function renderFullProspekKanban() {
             const isChecked = selectedFullProspekIds.get(item.id) === true;
             const checkboxHtml = isOwner ? `<input type="checkbox" class="full-item-checkbox" data-id="${item.id}" style="margin-right: 8px;" ${isChecked ? 'checked' : ''}>` : '';
             return `<div class="card-item ${deadlineClass}" data-id="${item.id}">
-                        <div style="display: flex; align-items: center;">
-                            ${checkboxHtml}
-                            <div style="flex: 1; cursor: pointer;" class="card-click-area">
-                                <div class="card-name" title="${escapeHtml(item.nama)}">${escapeHtml(item.nama)}</div>
-                                <div class="card-phone">${escapeHtml(item.hp)}<span class="whatsapp-icon" onclick="event.stopPropagation(); openWAById('${item.id}')">💬</span></div>
-                                <div class="card-deadline">📅 ${item.deadline || '-'}</div>
-                            </div>
-                        </div>
-                    </div>`;
+                <div style="display: flex; align-items: center;">
+                    ${checkboxHtml}
+                    <div style="flex: 1; cursor: pointer;" class="card-click-area">
+                        <div class="card-name" title="${escapeHtml(item.nama)}">${escapeHtml(item.nama)}</div>
+                        <div class="card-phone">${escapeHtml(item.hp)}<span class="whatsapp-icon" onclick="event.stopPropagation(); openWAById('${item.id}')">💬</span></div>
+                        <div class="card-deadline">📅 ${item.deadline || '-'}</div>
+                    </div>
+                </div>
+            </div>`;
         }).join('');
         
         if (isOwner) {
@@ -8539,7 +7698,6 @@ function renderFullProspekKanban() {
         });
     }
     
-    // Render kolom DIHUBUNGI
     const dihubungiContainer = document.getElementById('fullProspekDihubungiList');
     if (dihubungiContainer) {
         dihubungiContainer.innerHTML = lists.prospekDihubungi.map(item => {
@@ -8551,15 +7709,15 @@ function renderFullProspekKanban() {
             const isChecked = selectedFullProspekIds.get(item.id) === true;
             const checkboxHtml = isOwner ? `<input type="checkbox" class="full-item-checkbox" data-id="${item.id}" style="margin-right: 8px;" ${isChecked ? 'checked' : ''}>` : '';
             return `<div class="card-item ${deadlineClass}" data-id="${item.id}">
-                        <div style="display: flex; align-items: center;">
-                            ${checkboxHtml}
-                            <div style="flex: 1; cursor: pointer;" class="card-click-area">
-                                <div class="card-name" title="${escapeHtml(item.nama)}">${escapeHtml(item.nama)}</div>
-                                <div class="card-phone">${escapeHtml(item.hp)}<span class="whatsapp-icon" onclick="event.stopPropagation(); openWAById('${item.id}')">💬</span></div>
-                                <div class="card-deadline">📅 ${item.deadline || '-'}</div>
-                            </div>
-                        </div>
-                    </div>`;
+                <div style="display: flex; align-items: center;">
+                    ${checkboxHtml}
+                    <div style="flex: 1; cursor: pointer;" class="card-click-area">
+                        <div class="card-name" title="${escapeHtml(item.nama)}">${escapeHtml(item.nama)}</div>
+                        <div class="card-phone">${escapeHtml(item.hp)}<span class="whatsapp-icon" onclick="event.stopPropagation(); openWAById('${item.id}')">💬</span></div>
+                        <div class="card-deadline">📅 ${item.deadline || '-'}</div>
+                    </div>
+                </div>
+            </div>`;
         }).join('');
         
         if (isOwner) {
@@ -8577,7 +7735,6 @@ function renderFullProspekKanban() {
         });
     }
     
-    // Render kolom NEGOSIASI
     const negosiasiContainer = document.getElementById('fullProspekNegosiasiList');
     if (negosiasiContainer) {
         negosiasiContainer.innerHTML = lists.prospekNegosiasi.map(item => {
@@ -8589,15 +7746,15 @@ function renderFullProspekKanban() {
             const isChecked = selectedFullProspekIds.get(item.id) === true;
             const checkboxHtml = isOwner ? `<input type="checkbox" class="full-item-checkbox" data-id="${item.id}" style="margin-right: 8px;" ${isChecked ? 'checked' : ''}>` : '';
             return `<div class="card-item ${deadlineClass}" data-id="${item.id}">
-                        <div style="display: flex; align-items: center;">
-                            ${checkboxHtml}
-                            <div style="flex: 1; cursor: pointer;" class="card-click-area">
-                                <div class="card-name" title="${escapeHtml(item.nama)}">${escapeHtml(item.nama)}</div>
-                                <div class="card-phone">${escapeHtml(item.hp)}<span class="whatsapp-icon" onclick="event.stopPropagation(); openWAById('${item.id}')">💬</span></div>
-                                <div class="card-deadline">📅 ${item.deadline || '-'}</div>
-                            </div>
-                        </div>
-                    </div>`;
+                <div style="display: flex; align-items: center;">
+                    ${checkboxHtml}
+                    <div style="flex: 1; cursor: pointer;" class="card-click-area">
+                        <div class="card-name" title="${escapeHtml(item.nama)}">${escapeHtml(item.nama)}</div>
+                        <div class="card-phone">${escapeHtml(item.hp)}<span class="whatsapp-icon" onclick="event.stopPropagation(); openWAById('${item.id}')">💬</span></div>
+                        <div class="card-deadline">📅 ${item.deadline || '-'}</div>
+                    </div>
+                </div>
+            </div>`;
         }).join('');
         
         if (isOwner) {
@@ -8615,7 +7772,6 @@ function renderFullProspekKanban() {
         });
     }
     
-    // Render kolom TERTARIK
     const tertarikContainer = document.getElementById('fullProspekTertarikList');
     if (tertarikContainer) {
         tertarikContainer.innerHTML = lists.prospekTertarik.map(item => {
@@ -8627,15 +7783,15 @@ function renderFullProspekKanban() {
             const isChecked = selectedFullProspekIds.get(item.id) === true;
             const checkboxHtml = isOwner ? `<input type="checkbox" class="full-item-checkbox" data-id="${item.id}" style="margin-right: 8px;" ${isChecked ? 'checked' : ''}>` : '';
             return `<div class="card-item ${deadlineClass}" data-id="${item.id}">
-                        <div style="display: flex; align-items: center;">
-                            ${checkboxHtml}
-                            <div style="flex: 1; cursor: pointer;" class="card-click-area">
-                                <div class="card-name" title="${escapeHtml(item.nama)}">${escapeHtml(item.nama)}</div>
-                                <div class="card-phone">${escapeHtml(item.hp)}<span class="whatsapp-icon" onclick="event.stopPropagation(); openWAById('${item.id}')">💬</span></div>
-                                <div class="card-deadline">📅 ${item.deadline || '-'}</div>
-                            </div>
-                        </div>
-                    </div>`;
+                <div style="display: flex; align-items: center;">
+                    ${checkboxHtml}
+                    <div style="flex: 1; cursor: pointer;" class="card-click-area">
+                        <div class="card-name" title="${escapeHtml(item.nama)}">${escapeHtml(item.nama)}</div>
+                        <div class="card-phone">${escapeHtml(item.hp)}<span class="whatsapp-icon" onclick="event.stopPropagation(); openWAById('${item.id}')">💬</span></div>
+                        <div class="card-deadline">📅 ${item.deadline || '-'}</div>
+                    </div>
+                </div>
+            </div>`;
         }).join('');
         
         if (isOwner) {
@@ -8652,10 +7808,8 @@ function renderFullProspekKanban() {
             };
         });
     }
-    
-} // <-- INI TUTUP FUNGSI renderFullProspekKanban - HARUS ADA
+}
 
-// ========== FUNGSI HANDLER FULL PROSPEK ==========
 function handleFullProspekCheckboxChange(e) {
     e.stopPropagation();
     const id = e.target.dataset.id;
@@ -8722,7 +7876,7 @@ async function deleteSelectedFullProspek() {
     
     for (const id of selectedIds) {
         try {
-            await db.collection('prospek').doc(id).delete();
+            await supabaseDelete('prospek', id);
             selectedFullProspekIds.delete(id);
             deleted++;
             const percent = Math.floor((deleted / selectedIds.length) * 100);
@@ -8742,54 +7896,54 @@ async function deleteSelectedFullProspek() {
 }
 
 function initFullModeSelection() {
-  if (currentUserRole !== 'owner') {
+    if (currentUserRole !== 'owner') {
+        const followupSelectBtn = document.getElementById('selectAllFullFollowup');
+        const followupDeleteBtn = document.getElementById('deleteSelectedFullFollowup');
+        const followupDeleteAllBtn = document.getElementById('deleteAllFullFollowup');
+        const prospekSelectBtn = document.getElementById('selectAllFullProspek');
+        const prospekDeleteBtn = document.getElementById('deleteSelectedFullProspek');
+        const prospekDeleteAllBtn = document.getElementById('deleteAllFullProspek');
+        
+        if (followupSelectBtn) followupSelectBtn.style.display = 'none';
+        if (followupDeleteBtn) followupDeleteBtn.style.display = 'none';
+        if (followupDeleteAllBtn) followupDeleteAllBtn.style.display = 'none';
+        if (prospekSelectBtn) prospekSelectBtn.style.display = 'none';
+        if (prospekDeleteBtn) prospekDeleteBtn.style.display = 'none';
+        if (prospekDeleteAllBtn) prospekDeleteAllBtn.style.display = 'none';
+        return;
+    }
+    
     const followupSelectBtn = document.getElementById('selectAllFullFollowup');
     const followupDeleteBtn = document.getElementById('deleteSelectedFullFollowup');
-    const followupDeleteAllBtn = document.getElementById('deleteAllFullFollowup'); 
+    const followupDeleteAllBtn = document.getElementById('deleteAllFullFollowup');
     const prospekSelectBtn = document.getElementById('selectAllFullProspek');
     const prospekDeleteBtn = document.getElementById('deleteSelectedFullProspek');
-    const prospekDeleteAllBtn = document.getElementById('deleteAllFullProspek');   
+    const prospekDeleteAllBtn = document.getElementById('deleteAllFullProspek');
     
-    if (followupSelectBtn) followupSelectBtn.style.display = 'none';
-    if (followupDeleteBtn) followupDeleteBtn.style.display = 'none';
-    if (followupDeleteAllBtn) followupDeleteAllBtn.style.display = 'none';         
-    if (prospekSelectBtn) prospekSelectBtn.style.display = 'none';
-    if (prospekDeleteBtn) prospekDeleteBtn.style.display = 'none';
-    if (prospekDeleteAllBtn) prospekDeleteAllBtn.style.display = 'none';           
-    return;
-  }
-  
-  const followupSelectBtn = document.getElementById('selectAllFullFollowup');
-  const followupDeleteBtn = document.getElementById('deleteSelectedFullFollowup');
-  const followupDeleteAllBtn = document.getElementById('deleteAllFullFollowup');  
-  const prospekSelectBtn = document.getElementById('selectAllFullProspek');
-  const prospekDeleteBtn = document.getElementById('deleteSelectedFullProspek');
-  const prospekDeleteAllBtn = document.getElementById('deleteAllFullProspek');    
-  
-  if (followupSelectBtn) {
-    followupSelectBtn.style.display = 'inline-block';
-    followupSelectBtn.onclick = () => toggleSelectAllFullFollowup();
-  }
-  if (followupDeleteBtn) {
-    followupDeleteBtn.style.display = 'inline-block';
-    followupDeleteBtn.onclick = () => deleteSelectedFullFollowup();
-  }
-  if (followupDeleteAllBtn) {                                                      
-    followupDeleteAllBtn.style.display = 'inline-block';
-    followupDeleteAllBtn.onclick = () => deleteAllFullFollowup();
-  }
-  if (prospekSelectBtn) {
-    prospekSelectBtn.style.display = 'inline-block';
-    prospekSelectBtn.onclick = () => toggleSelectAllFullProspek();
-  }
-  if (prospekDeleteBtn) {
-    prospekDeleteBtn.style.display = 'inline-block';
-    prospekDeleteBtn.onclick = () => deleteSelectedFullProspek();
-  }
-  if (prospekDeleteAllBtn) {                                                      
-    prospekDeleteAllBtn.style.display = 'inline-block';
-    prospekDeleteAllBtn.onclick = () => deleteAllFullProspek();
-  }
+    if (followupSelectBtn) {
+        followupSelectBtn.style.display = 'inline-block';
+        followupSelectBtn.onclick = () => toggleSelectAllFullFollowup();
+    }
+    if (followupDeleteBtn) {
+        followupDeleteBtn.style.display = 'inline-block';
+        followupDeleteBtn.onclick = () => deleteSelectedFullFollowup();
+    }
+    if (followupDeleteAllBtn) {
+        followupDeleteAllBtn.style.display = 'inline-block';
+        followupDeleteAllBtn.onclick = () => deleteAllFullFollowup();
+    }
+    if (prospekSelectBtn) {
+        prospekSelectBtn.style.display = 'inline-block';
+        prospekSelectBtn.onclick = () => toggleSelectAllFullProspek();
+    }
+    if (prospekDeleteBtn) {
+        prospekDeleteBtn.style.display = 'inline-block';
+        prospekDeleteBtn.onclick = () => deleteSelectedFullProspek();
+    }
+    if (prospekDeleteAllBtn) {
+        prospekDeleteAllBtn.style.display = 'inline-block';
+        prospekDeleteAllBtn.onclick = () => deleteAllFullProspek();
+    }
 }
 
 // ========== CHART FUNCTIONS ==========
@@ -8951,35 +8105,39 @@ function openTambahProgres(customerId) {
       return;
     }
     
-    const doc = await db.collection('customers').doc(customerId).get();
-    const currentData = doc.data();
-    const progresData = currentData.progres_transaksi || { items: [], total_tercapai: 0 };
-    
-    let perubahan = jenis === 'naik' ? jumlah : -jumlah;
-    const newTotalTercapai = (progresData.total_tercapai || 0) + perubahan;
-    
-    const newItem = {
-      tanggal: getTodayDate(),
-      jenis: jenis,
-      jumlah: jumlah,
-      keterangan: keterangan,
-      created_at: new Date().toISOString()
-    };
-    
-    await db.collection('customers').doc(customerId).update({
-      progres_transaksi: {
-        items: [...(progresData.items || []), newItem],
-        total_tercapai: newTotalTercapai
-      },
-      updated_at: new Date().toISOString()
-    });
-    
-    showNotifTop(`✅ Progres berhasil ditambahkan! Total transaksi tercapai: ${newTotalTercapai > 0 ? '+' : ''}${newTotalTercapai} Transaksi`);
-    modal.remove();
-    
-    await loadAllData();
-    await updateTargetDisplay();
-    closeModal('detailModal');
+    try {
+      const doc = await supabaseGetById('customers', customerId);
+      const currentData = doc;
+      const progresData = currentData.progres_transaksi || { items: [], total_tercapai: 0 };
+      
+      let perubahan = jenis === 'naik' ? jumlah : -jumlah;
+      const newTotalTercapai = (progresData.total_tercapai || 0) + perubahan;
+      
+      const newItem = {
+        tanggal: getTodayDate(),
+        jenis: jenis,
+        jumlah: jumlah,
+        keterangan: keterangan,
+        created_at: new Date().toISOString()
+      };
+      
+      await supabaseUpdate('customers', customerId, {
+        progres_transaksi: {
+          items: [...(progresData.items || []), newItem],
+          total_tercapai: newTotalTercapai
+        },
+        updated_at: new Date().toISOString()
+      });
+      
+      showNotifTop(`✅ Progres berhasil ditambahkan! Total transaksi tercapai: ${newTotalTercapai > 0 ? '+' : ''}${newTotalTercapai} Transaksi`);
+      modal.remove();
+      
+      await loadAllData();
+      await updateTargetDisplay();
+      closeModal('detailModal');
+    } catch (err) {
+      showNotifTop('❌ Gagal: ' + err.message, true);
+    }
   };
   
   batalBtn.onclick = () => modal.remove();
@@ -8995,17 +8153,23 @@ async function updateDeadlineBadge() {
   if (!badge) return;
   try {
     const today = getTodayDate();
-    let customerQuery = db.collection('customers').where('user_id', '==', currentUser.uid).where('tanggal', '<', today);
-    let prospekQuery = db.collection('prospek').where('user_id', '==', currentUser.uid).where('deadline', '<', today);
-
-    if (currentUserRole === 'owner') {
-      customerQuery = db.collection('customers').where('tanggal', '<', today);
-      prospekQuery = db.collection('prospek').where('deadline', '<', today);
+    
+    let customerQuery = supabase.from('customers').select('*', { count: 'exact', head: true });
+    if (currentUserRole !== 'owner') {
+      customerQuery = customerQuery.eq('user_id', currentUser.id);
     }
-
-    const customerOverdue = await customerQuery.get();
-    const prospekOverdue = await prospekQuery.get();
-    const deadlineCount = customerOverdue.size + prospekOverdue.size;
+    customerQuery = customerQuery.lt('tanggal', today);
+    
+    let prospekQuery = supabase.from('prospek').select('*', { count: 'exact', head: true });
+    if (currentUserRole !== 'owner') {
+      prospekQuery = prospekQuery.eq('user_id', currentUser.id);
+    }
+    prospekQuery = prospekQuery.lt('deadline', today);
+    
+    const { count: customerOverdue } = await customerQuery;
+    const { count: prospekOverdue } = await prospekQuery;
+    
+    const deadlineCount = (customerOverdue || 0) + (prospekOverdue || 0);
     badge.innerText = deadlineCount;
     if (deadlineCount > 0) badge.classList.add('has-notif');
     else badge.classList.remove('has-notif');
@@ -9019,8 +8183,15 @@ async function updatePesanBadge() {
   const badge = document.getElementById('pesanCount');
   if (!badge) return;
   try {
-    const pesanSnapshot = await db.collection('messages').where('to_id', '==', currentUser.uid).where('is_read', '==', false).get();
-    const pesanCount = pesanSnapshot.size;
+    const { count, error } = await supabase
+      .from('messages')
+      .select('*', { count: 'exact', head: true })
+      .eq('to_id', currentUser.id)
+      .eq('is_read', false);
+    
+    if (error) throw error;
+    
+    const pesanCount = count || 0;
     badge.innerText = pesanCount;
     if (pesanCount > 0) badge.classList.add('has-notif');
     else badge.classList.remove('has-notif');
@@ -9038,35 +8209,40 @@ async function updateAllBadges() {
 function loadAllData() {
   if (!currentUser) return;
   
-  // BERSIHKAN DATA LAMA
   customersData = [];
   prospekData = [];
   
   const today = getTodayDate();
   const isOwner = currentUserRole === 'owner';
 
-  // HAPUS LIMIT 500 - ambil semua data
-  let customersQuery = db.collection('customers');
-  let prospekQuery = db.collection('prospek');
-
-  if (!isOwner) {
-    customersQuery = db.collection('customers').where('user_id', '==', currentUser.uid);
-    prospekQuery = db.collection('prospek').where('user_id', '==', currentUser.uid);
-  }
-
-  customersQuery.onSnapshot(async snap => {
+  async function loadCustomers() {
+    let query = supabase.from('customers').select('*');
+    if (!isOwner) {
+      query = query.eq('user_id', currentUser.id);
+    }
+    
+    const { data, error } = await query;
+    
+    if (error) {
+      console.error('Error loading customers:', error);
+      return;
+    }
+    
     let total = 0, closing = 0, pending = 0, followup = 0;
     const lists = { baru: [], followup: [], pending: [], closing: [] };
-    customersData = [];
-    for (const doc of snap.docs) {
-      const d = doc.data();
+    
+    for (const d of (data || [])) {
       let ownerName = '';
-      if (isOwner && d.user_id !== currentUser.uid) {
-        const userDoc = await db.collection('users').doc(d.user_id).get();
-        ownerName = userDoc.exists ? ` (${userDoc.data().nama || 'CS'})` : '';
+      if (isOwner && d.user_id !== currentUser.id) {
+        const { data: userData } = await supabase
+          .from('users')
+          .select('nama')
+          .eq('id', d.user_id)
+          .single();
+        ownerName = userData ? ` (${userData.nama || 'CS'})` : '';
       }
       const itemData = {
-        id: doc.id,
+        id: d.id,
         agent_id: d.agent_id,
         nama: d.nama + ownerName,
         hp: d.hp,
@@ -9074,7 +8250,7 @@ function loadAllData() {
         status: d.status,
         ownerId: d.user_id
       };
-      customersData.push({ id: doc.id, ...d, displayName: d.nama + ownerName });
+      customersData.push({ id: d.id, ...d, displayName: d.nama + ownerName });
       total++;
       if (d.status === 'closing') closing++;
       else if (d.status === 'pending') pending++;
@@ -9084,9 +8260,11 @@ function loadAllData() {
       if (d.status === 'pending') lists.pending.push(itemData);
       if (d.status === 'closing') lists.closing.push(itemData);
     }
+    
     for (let status in lists) {
       lists[status].sort((a, b) => (a.tanggal || '9999-12-31').localeCompare(b.tanggal || '9999-12-31'));
     }
+    
     document.getElementById('countBaru').innerText = total - (closing + pending + followup);
     document.getElementById('countFollowup').innerText = followup;
     document.getElementById('countPending').innerText = pending;
@@ -9095,7 +8273,7 @@ function loadAllData() {
     document.getElementById('closingTotal').innerText = closing;
     document.getElementById('activeProspek').innerText = total - closing;
     document.getElementById('rateClosing').innerText = total ? Math.round((closing / total) * 100) + '%' : '0%';
-
+    
     for (let status in lists) {
       const container = document.getElementById(status + 'List');
       if (container) {
@@ -9117,30 +8295,45 @@ function loadAllData() {
     updateChartCustomer(total, closing, pending, followup);
     updateAllBadges();
     renderFullFollowupKanban();
-  });
-
-  prospekQuery.onSnapshot(async snap => {
+  }
+  
+  async function loadProspek() {
+    let query = supabase.from('prospek').select('*');
+    if (!isOwner) {
+      query = query.eq('user_id', currentUser.id);
+    }
+    
+    const { data, error } = await query;
+    
+    if (error) {
+      console.error('Error loading prospek:', error);
+      return;
+    }
+    
     let baru = 0, dihubungi = 0, negosiasi = 0, tertarik = 0;
     const lists = { prospekBaru: [], prospekDihubungi: [], prospekNegosiasi: [], prospekTertarik: [] };
-    prospekData = [];
-    for (const doc of snap.docs) {
-      const d = doc.data();
+    
+    for (const d of (data || [])) {
       let ownerName = '';
-      if (isOwner && d.user_id !== currentUser.uid) {
-        const userDoc = await db.collection('users').doc(d.user_id).get();
-        ownerName = userDoc.exists ? ` (${userDoc.data().nama || 'CS'})` : '';
+      if (isOwner && d.user_id !== currentUser.id) {
+        const { data: userData } = await supabase
+          .from('users')
+          .select('nama')
+          .eq('id', d.user_id)
+          .single();
+        ownerName = userData ? ` (${userData.nama || 'CS'})` : '';
       }
       const st = d.status || 'Baru';
       const deadline = d.deadline || '';
       const itemData = {
-        id: doc.id,
+        id: d.id,
         nama: d.nama + ownerName,
         hp: d.hp,
         status: st,
         deadline: deadline,
         ownerId: d.user_id
       };
-      prospekData.push({ id: doc.id, ...d, displayName: d.nama + ownerName });
+      prospekData.push({ id: d.id, ...d, displayName: d.nama + ownerName });
       if (st === 'Baru') {
         baru++;
         lists.prospekBaru.push(itemData);
@@ -9158,13 +8351,16 @@ function loadAllData() {
         lists.prospekTertarik.push(itemData);
       }
     }
+    
     for (let col in lists) {
       lists[col].sort((a, b) => (a.deadline || '9999-12-31').localeCompare(b.deadline || '9999-12-31'));
     }
+    
     document.getElementById('countProspekBaru').innerText = baru;
     document.getElementById('countDihubungi').innerText = dihubungi;
     document.getElementById('countNegosiasi').innerText = negosiasi;
     document.getElementById('countTertarik').innerText = tertarik;
+    
     for (let col in lists) {
       const container = document.getElementById(col + 'List');
       if (container) {
@@ -9186,7 +8382,10 @@ function loadAllData() {
     updateChartProspek(baru, dihubungi, negosiasi, tertarik);
     updateAllBadges();
     renderFullProspekKanban();
-  });
+  }
+  
+  loadCustomers();
+  loadProspek();
 }
 
 function clearSearch() {
@@ -9195,15 +8394,40 @@ function clearSearch() {
 }
 
 // ========== AUTH STATE ==========
-auth.onAuthStateChanged(async user => {
+async function checkSession() {
   const loginPage = document.getElementById('loginPage');
   const app = document.getElementById('app');
-  if (user) {
-    currentUser = user;
-    loginPage.style.display = 'none';
-    app.style.display = 'block';
-
-        // Sembunyikan semua page content terlebih dahulu
+  
+  const { data: { session } } = await supabase.auth.getSession();
+  
+  if (session) {
+    currentUser = session.user;
+    
+    const { data: userData, error } = await supabase
+      .from('users')
+      .select('*')
+      .eq('email', session.user.email)
+      .single();
+    
+    if (!error && userData) {
+      currentUserRole = userData.role || 'cs';
+      currentUserName = userData.nama || 'CS Agent';
+    } else {
+      currentUserRole = 'cs';
+      currentUserName = 'CS Agent';
+    }
+    
+    document.getElementById('topUserName').innerText = currentUserName;
+    document.getElementById('profileName').value = currentUserName;
+    document.getElementById('profileEmail').value = session.user.email;
+    
+    if (currentUserRole === 'owner') {
+      document.getElementById('ownerMenu').style.display = 'block';
+    } else {
+      document.getElementById('ownerMenu').style.display = 'none';
+    }
+    
+    // Sembunyikan semua page content terlebih dahulu
     const allPages = ['dashboardPage', 'importPage', 'dbClosingPage', 'dbTidakPage', 
                       'dbNomorSalahPage', 'dbCommitmentPage', 'dbAgentPage', 'produkPage', 
                       'reminderPage', 'pesanPage', 'broadcastPage', 'broadcastUplinePage', 
@@ -9215,59 +8439,17 @@ auth.onAuthStateChanged(async user => {
       if (el) el.style.display = 'none';
     });
     
-    // Tampilkan dashboard
     const dashboardPage = document.getElementById('dashboardPage');
     if (dashboardPage) dashboardPage.style.display = 'block';
     
-    // Set active menu di sidebar
     document.querySelectorAll('.menu-item').forEach(m => m.classList.remove('active'));
     const dashboardMenu = document.querySelector('.menu-item[data-page="dashboard"]');
     if (dashboardMenu) dashboardMenu.classList.add('active');
-
-    const userDoc = await db.collection('users').doc(user.uid).get();
-    let nama = 'CS Agent', foto = 'https://i.pravatar.cc/40';
-    currentUserRole = 'cs';
-    currentUserName = nama;
-
-    if (userDoc.exists) {
-      nama = userDoc.data().nama || 'CS Agent';
-      foto = userDoc.data().foto || 'https://i.pravatar.cc/40';
-      currentUserRole = userDoc.data().role || 'cs';
-      currentUserName = nama;
-    }
-
-  // Atur visibilitas menu berdasarkan role
-  const menuDbAgent = document.getElementById('menuDbAgent');
-  const menuDbTransaksi = document.getElementById('menuDbTransaksi');
-  const menuImport = document.getElementById('menuImport');
-  const ownerMenu = document.getElementById('ownerMenu');
-  
-  if (currentUserRole === 'owner') {
-    // Owner: lihat semua menu
-    if (menuDbAgent) menuDbAgent.style.display = 'flex';
-    if (menuDbTransaksi) menuDbTransaksi.style.display = 'flex';
-    if (menuImport) menuImport.style.display = 'flex';
-    if (ownerMenu) ownerMenu.style.display = 'block';
-  } else {
-    // CS: sembunyikan Database Agent, DB Transaksi, Import Data, dan menu owner
-    if (menuDbAgent) menuDbAgent.style.display = 'none';
-    if (menuDbTransaksi) menuDbTransaksi.style.display = 'none';
-    if (menuImport) menuImport.style.display = 'none';
-    if (ownerMenu) ownerMenu.style.display = 'none';
-  }
     
-    document.getElementById('topUserName').innerText = nama;
-    document.getElementById('profileName').value = nama;
-    document.getElementById('profileImg').src = foto;
-    document.getElementById('previewFoto').src = foto;
-    document.getElementById('profileEmail').value = user.email;
-
-    if (currentUserRole === 'owner') {
-      document.getElementById('ownerMenu').style.display = 'block';
-    } else {
-      document.getElementById('ownerMenu').style.display = 'none';
-    }
-
+    loginPage.style.display = 'none';
+    app.style.display = 'block';
+    
+    // Load semua data
     await updateAllBadges();
     initFullModeSelection();
     loadAllData();
@@ -9284,9 +8466,7 @@ auth.onAuthStateChanged(async user => {
     loadProduk();
     loadUsersList();
     await loadDbTransaksi();
-
     
-
     setTimeout(() => {
       const manageTargetBtn = document.getElementById('manageTargetBtn');
       if (manageTargetBtn) {
@@ -9301,14 +8481,14 @@ auth.onAuthStateChanged(async user => {
             const koorInput = document.getElementById('targetKoorInput');
             const caInput = document.getElementById('targetCAInput');
             const transaksiInput = document.getElementById('targetTransaksiInput');
-
+            
             if (agentInput) agentInput.value = targetData.agent || 0;
             if (koorInput) koorInput.value = targetData.koordinator || 0;
             if (caInput) caInput.value = targetData.ca || 0;
             if (transaksiInput) transaksiInput.value = targetData.transaksi || 0;
-
+            
             renderMonthlyTargetList();
-
+            
             const modal = document.getElementById('manageTargetModal');
             if (modal) modal.style.display = 'flex';
           });
@@ -9323,7 +8503,22 @@ auth.onAuthStateChanged(async user => {
     app.style.display = 'none';
     currentUser = null;
   }
+}
+
+// Listen untuk perubahan auth state
+supabase.auth.onAuthStateChange((event, session) => {
+  if (event === 'SIGNED_IN') {
+    checkSession();
+  } else if (event === 'SIGNED_OUT') {
+    document.getElementById('loginPage').style.display = 'flex';
+    document.getElementById('app').style.display = 'none';
+    currentUser = null;
+    currentUserRole = 'cs';
+  }
 });
+
+// Panggil checkSession saat aplikasi mulai
+checkSession();
 
 // ========== DOMContentLoaded - Setup Event Listeners ==========
 document.addEventListener('DOMContentLoaded', function() {
@@ -9331,22 +8526,22 @@ document.addEventListener('DOMContentLoaded', function() {
   function initDarkMode() {
     const savedMode = localStorage.getItem('darkMode');
     const darkModeToggle = document.getElementById('darkModeToggle');
-
+    
     function enableDarkMode() {
       document.body.classList.add('dark-mode');
       localStorage.setItem('darkMode', 'enabled');
       if (darkModeToggle) darkModeToggle.classList.add('active');
     }
-
+    
     function disableDarkMode() {
       document.body.classList.remove('dark-mode');
       localStorage.setItem('darkMode', 'disabled');
       if (darkModeToggle) darkModeToggle.classList.remove('active');
     }
-
+    
     if (savedMode === 'enabled') enableDarkMode();
     else disableDarkMode();
-
+    
     if (darkModeToggle) {
       darkModeToggle.addEventListener('click', function(e) {
         e.preventDefault();
@@ -9363,16 +8558,16 @@ document.addEventListener('DOMContentLoaded', function() {
   }
   initDarkMode();
   setupImportExcel();
-
+  
   // ========== SIDEBAR ==========
   const sidebar = document.getElementById('sidebar');
   const hoverZone = document.getElementById('hoverZone');
   const toggleBtn = document.getElementById('toggleSidebarBtn');
-
+  
   function updateState() {
     updateSidebarBodyClass();
   }
-
+  
   if (hoverZone) {
     hoverZone.addEventListener('mouseenter', function() {
       if (!isMobile() && sidebar) {
@@ -9382,7 +8577,7 @@ document.addEventListener('DOMContentLoaded', function() {
       }
     });
   }
-
+  
   if (sidebar) {
     sidebar.addEventListener('mouseleave', function() {
       if (!isMobile()) {
@@ -9394,7 +8589,7 @@ document.addEventListener('DOMContentLoaded', function() {
     });
     sidebar.addEventListener('mouseenter', () => clearTimeout(sidebarTimeout));
   }
-
+  
   if (toggleBtn) {
     toggleBtn.addEventListener('click', function(e) {
       e.stopPropagation();
@@ -9402,20 +8597,20 @@ document.addEventListener('DOMContentLoaded', function() {
       updateState();
     });
   }
-
+  
   document.addEventListener('click', function(e) {
     if (isMobile() && sidebar && toggleBtn && !sidebar.contains(e.target) && e.target !== toggleBtn && !toggleBtn.contains(e.target)) {
       sidebar.classList.remove('active');
       updateState();
     }
   });
-
+  
   window.addEventListener('resize', function() {
     if (sidebar) sidebar.classList.remove('active');
     updateState();
   });
   updateState();
-
+  
   // ========== SETUP MODAL CLICK OUTSIDE ==========
   const allModalIds = [
     'detailModal', 'customerModal', 'prospekModal', 'prospekNegosiasiModal',
@@ -9425,32 +8620,32 @@ document.addEventListener('DOMContentLoaded', function() {
     'produkMasterModal', 'manageTargetModal', 'tarifAdminModal', 'inputTransaksiModal',
     'transaksiListModal', 'pilihNomorModal'
   ];
-
+  
   allModalIds.forEach(id => setupModalClickOutside(id));
-
+  
   // ========== SETUP TARIF IMPORT ==========
   setupTarifImport();
-
+  
   // ========== SETUP EXPORT/IMPORT BUTTONS ==========
   const exportTarifBtn = document.getElementById('exportTarifExcelBtn');
   if (exportTarifBtn) {
     exportTarifBtn.addEventListener('click', exportTarifToExcel);
   }
-
+  
   const downloadTarifExampleBtn = document.getElementById('downloadTarifExampleBtn');
   if (downloadTarifExampleBtn) {
     downloadTarifExampleBtn.addEventListener('click', downloadTarifExample);
   }
-
+  
   setupProdukImport();
   const exportProdukBtn = document.getElementById('exportProdukExcelBtn');
   if (exportProdukBtn) exportProdukBtn.addEventListener('click', exportProdukToExcel);
-
+  
   setupAgentImport();
   setupAgentFilters();
   const exportAgentBtn = document.getElementById('exportAgentExcelBtn');
   if (exportAgentBtn) exportAgentBtn.addEventListener('click', exportAgentToExcel);
-
+  
   // ========== SETUP SAVE/CANCEL BUTTONS ==========
   document.getElementById('saveDeadlineBtn')?.addEventListener('click', async () => {
     const newDeadline = document.getElementById('editDeadlineDate').value;
@@ -9458,13 +8653,13 @@ document.addEventListener('DOMContentLoaded', function() {
       showNotif('⚠️ Tanggal deadline harus diisi!', true);
       return;
     }
-
+    
     try {
       if (currentEditType === 'customer') {
-        await db.collection('customers').doc(currentEditItem).update({ tanggal: newDeadline });
+        await supabaseUpdate('customers', currentEditItem, { tanggal: newDeadline });
         showNotif('✅ Deadline customer berhasil diubah menjadi ' + newDeadline);
       } else if (currentEditType === 'prospek') {
-        await db.collection('prospek').doc(currentEditItem).update({ deadline: newDeadline });
+        await supabaseUpdate('prospek', currentEditItem, { deadline: newDeadline });
         showNotif('✅ Deadline prospek berhasil diubah menjadi ' + newDeadline);
       }
       closeModal('editDeadlineModal');
@@ -9473,141 +8668,125 @@ document.addEventListener('DOMContentLoaded', function() {
       showNotif('❌ Gagal: ' + e.message, true);
     }
   });
-
+  
   document.getElementById('cancelDeadlineBtn')?.addEventListener('click', () => closeModal('editDeadlineModal'));
-
+  
   // ========== ADD CUSTOMER/PROSPEK BUTTONS ==========
   document.getElementById('addCustomerBtn')?.addEventListener('click', () => {
     const today = getTodayDate();
     document.getElementById('customerDate').value = today;
     document.getElementById('customerModal').style.display = 'flex';
   });
-
+  
   document.getElementById('addProspekBtn')?.addEventListener('click', () => {
     const today = getTodayDate();
     document.getElementById('prospekDeadline').value = today;
     document.getElementById('prospekModal').style.display = 'flex';
   });
-
-  // ========== SAVE CUSTOMER BUTTON ==========
-  const saveCustomerBtn = document.getElementById('saveCustomerBtn');
-  if (saveCustomerBtn) {
-    saveCustomerBtn.addEventListener('click', async () => {
-      // ... isi fungsi save customer (salin dari kode Anda yang sudah ada) ...
-    });
-  }
-
-  // ========== SAVE PROSPEK BUTTON ==========
-  const saveProspekBtn = document.getElementById('saveProspekBtn');
-  if (saveProspekBtn) {
-    saveProspekBtn.addEventListener('click', async () => {
-      // ... isi fungsi save prospek (salin dari kode Anda yang sudah ada) ...
-    });
-  }
-
+  
   // ========== PAGE NAVIGATION ==========
-document.querySelectorAll('.menu-item[data-page]').forEach(item => {
+  document.querySelectorAll('.menu-item[data-page]').forEach(item => {
     item.addEventListener('click', () => {
-        const page = item.dataset.page;
-        const pages = ['dashboardPage', 'importPage', 'dbClosingPage', 'dbTidakPage', 'dbNomorSalahPage', 'dbCommitmentPage', 'dbAgentPage', 'produkPage', 'reminderPage', 'pesanPage', 'broadcastPage', 'broadcastUplinePage', 'followupFullPage', 'prospekFullPage', 'searchPage', 'manageUsersPage', 'dbTransaksiPage'];
-
-        pages.forEach(p => {
-            const el = document.getElementById(p);
-            if (el) el.style.display = 'none';
-        });
-
-        if (page === 'dashboard') {
-            document.getElementById('dashboardPage').style.display = 'block';
-        } else if (page === 'import') {
-            document.getElementById('importPage').style.display = 'block';
-        } else if (page === 'dbClosing') {
-            document.getElementById('dbClosingPage').style.display = 'block';
-            loadDBClosing();
-        } else if (page === 'dbTidak') {
-            document.getElementById('dbTidakPage').style.display = 'block';
-            loadDBTidak();
-        } else if (page === 'dbNomorSalah') {
-            document.getElementById('dbNomorSalahPage').style.display = 'block';
-            loadDBNomorSalah();
-        } else if (page === 'dbCommitment') {
-            document.getElementById('dbCommitmentPage').style.display = 'block';
-            loadDBCommitment();
-        } else if (page === 'dbAgent') {
-            document.getElementById('dbAgentPage').style.display = 'block';
-            loadDatabaseAgent();
-        } else if (page === 'produk') {
-            document.getElementById('produkPage').style.display = 'block';
-            loadProduk();
-        } else if (page === 'reminder') {
-            document.getElementById('reminderPage').style.display = 'block';
-            loadReminders();
-        } else if (page === 'pesan') {
-            document.getElementById('pesanPage').style.display = 'block';
-            loadPesan();
-            loadUsersForSelect();
-        } else if (page === 'broadcast') {
-            document.getElementById('broadcastPage').style.display = 'block';
-            initBroadcast();
-        } else if (page === 'broadcastUpline') {
-            const pageElement = document.getElementById('broadcastUplinePage');
-            if (pageElement) {
-                pageElement.style.display = 'block';
-                initUplineBroadcast();
-            }
-        } else if (page === 'followupFull') {
-            document.getElementById('followupFullPage').style.display = 'block';
-            renderFullFollowupKanban();
-        } else if (page === 'prospekFull') {
-            document.getElementById('prospekFullPage').style.display = 'block';
-            renderFullProspekKanban();
-        } else if (page === 'search') {
-            document.getElementById('searchPage').style.display = 'block';
-        } else if (page === 'manageUsers' && currentUserRole === 'owner') {
-            document.getElementById('manageUsersPage').style.display = 'block';
-            loadUsersList();
-        } else if (page === 'dbTransaksi') {
+      const page = item.dataset.page;
+      const pages = ['dashboardPage', 'importPage', 'dbClosingPage', 'dbTidakPage', 'dbNomorSalahPage', 'dbCommitmentPage', 'dbAgentPage', 'produkPage', 'reminderPage', 'pesanPage', 'broadcastPage', 'broadcastUplinePage', 'followupFullPage', 'prospekFullPage', 'searchPage', 'manageUsersPage', 'dbTransaksiPage'];
+      
+      pages.forEach(p => {
+        const el = document.getElementById(p);
+        if (el) el.style.display = 'none';
+      });
+      
+      if (page === 'dashboard') {
+        document.getElementById('dashboardPage').style.display = 'block';
+      } else if (page === 'import') {
+        document.getElementById('importPage').style.display = 'block';
+      } else if (page === 'dbClosing') {
+        document.getElementById('dbClosingPage').style.display = 'block';
+        loadDBClosing();
+      } else if (page === 'dbTidak') {
+        document.getElementById('dbTidakPage').style.display = 'block';
+        loadDBTidak();
+      } else if (page === 'dbNomorSalah') {
+        document.getElementById('dbNomorSalahPage').style.display = 'block';
+        loadDBNomorSalah();
+      } else if (page === 'dbCommitment') {
+        document.getElementById('dbCommitmentPage').style.display = 'block';
+        loadDBCommitment();
+      } else if (page === 'dbAgent') {
+        document.getElementById('dbAgentPage').style.display = 'block';
+        loadDatabaseAgent();
+      } else if (page === 'produk') {
+        document.getElementById('produkPage').style.display = 'block';
+        loadProduk();
+      } else if (page === 'reminder') {
+        document.getElementById('reminderPage').style.display = 'block';
+        loadReminders();
+      } else if (page === 'pesan') {
+        document.getElementById('pesanPage').style.display = 'block';
+        loadPesan();
+        loadUsersForSelect();
+      } else if (page === 'broadcast') {
+        document.getElementById('broadcastPage').style.display = 'block';
+        initBroadcast();
+      } else if (page === 'broadcastUpline') {
+        const pageElement = document.getElementById('broadcastUplinePage');
+        if (pageElement) {
+          pageElement.style.display = 'block';
+          initUplineBroadcast();
+        }
+      } else if (page === 'followupFull') {
+        document.getElementById('followupFullPage').style.display = 'block';
+        renderFullFollowupKanban();
+      } else if (page === 'prospekFull') {
+        document.getElementById('prospekFullPage').style.display = 'block';
+        renderFullProspekKanban();
+      } else if (page === 'search') {
+        document.getElementById('searchPage').style.display = 'block';
+      } else if (page === 'manageUsers' && currentUserRole === 'owner') {
+        document.getElementById('manageUsersPage').style.display = 'block';
+        loadUsersList();
+      } else if (page === 'dbTransaksi') {
         const dbTransaksiPage = document.getElementById('dbTransaksiPage');
         if (dbTransaksiPage) {
-        dbTransaksiPage.style.display = 'block';
-        dbTransaksiPage.style.width = '100%';
+          dbTransaksiPage.style.display = 'block';
+          dbTransaksiPage.style.width = '100%';
         }
         loadDbTransaksi();
-        }
-
-        document.querySelectorAll('.menu-item').forEach(m => m.classList.remove('active'));
-        item.classList.add('active');
-
-        if (window.innerWidth <= 768) {
-            document.getElementById('sidebar')?.classList.remove('active');
-        }
-        updateSidebarBodyClass();
+      }
+      
+      document.querySelectorAll('.menu-item').forEach(m => m.classList.remove('active'));
+      item.classList.add('active');
+      
+      if (window.innerWidth <= 768) {
+        document.getElementById('sidebar')?.classList.remove('active');
+      }
+      updateSidebarBodyClass();
     });
-});
-
+  });
+  
   // ========== CLOSE MODAL BUTTONS ==========
   document.querySelectorAll('.closeModalBtn').forEach(btn => btn.addEventListener('click', () => closeModal(btn.dataset.modal)));
-
+  
   // ========== INFO BUTTON ==========
   document.getElementById('infoBtn')?.addEventListener('click', () => {
     document.getElementById('infoModal').style.display = 'flex';
   });
   document.getElementById('infoModalClose')?.addEventListener('click', () => closeModal('infoModal'));
-
+  
   // ========== PROFILE MODAL ==========
   const profileImg = document.getElementById('profileImg');
   if (profileImg) {
     profileImg.addEventListener('click', () => {
       document.getElementById('profileModal').style.display = 'flex';
-      db.collection('users').doc(currentUser.uid).get().then(doc => {
-        if (doc.exists) {
-          document.getElementById('profileName').value = doc.data().nama || '';
-          document.getElementById('profilePhone').value = doc.data().hp ? doc.data().hp.replace('+62', '') : '';
-          if (doc.data().foto) document.getElementById('previewFoto').src = doc.data().foto;
+      supabaseGetById('users', currentUser.id).then(doc => {
+        if (doc) {
+          document.getElementById('profileName').value = doc.nama || '';
+          document.getElementById('profilePhone').value = doc.hp ? doc.hp.replace('+62', '') : '';
+          if (doc.foto) document.getElementById('previewFoto').src = doc.foto;
         }
-      });
+      }).catch(() => {});
     });
   }
-
+  
   // ========== PREVIEW PHOTO ==========
   const previewFoto = document.getElementById('previewFoto');
   if (previewFoto) {
@@ -9616,7 +8795,7 @@ document.querySelectorAll('.menu-item[data-page]').forEach(item => {
       showPhotoPreview(document.getElementById('previewFoto').src);
     });
   }
-
+  
   function showPhotoPreview(imageUrl) {
     const previewModal = document.getElementById('previewPhotoModal');
     const previewImage = document.getElementById('previewPhotoLarge');
@@ -9627,7 +8806,7 @@ document.querySelectorAll('.menu-item[data-page]').forEach(item => {
       document.body.style.overflow = 'hidden';
     }
   }
-
+  
   const cameraIconBtn = document.getElementById('cameraIconBtn');
   if (cameraIconBtn) {
     cameraIconBtn.addEventListener('click', (e) => {
@@ -9636,7 +8815,7 @@ document.querySelectorAll('.menu-item[data-page]').forEach(item => {
       document.getElementById('profileFoto').click();
     });
   }
-
+  
   const profileFotoInput = document.getElementById('profileFoto');
   if (profileFotoInput) {
     profileFotoInput.addEventListener('change', function(e) {
@@ -9656,7 +8835,7 @@ document.querySelectorAll('.menu-item[data-page]').forEach(item => {
       }
     });
   }
-
+  
   const saveProfileBtn = document.getElementById('saveProfileBtn');
   if (saveProfileBtn) {
     saveProfileBtn.addEventListener('click', async () => {
@@ -9673,14 +8852,12 @@ document.querySelectorAll('.menu-item[data-page]').forEach(item => {
         hp = '+62' + hp;
       } else hp = '+62';
       try {
-        await db.collection('users').doc(currentUser.uid).set({
-          nama,
-          hp,
-          foto,
-          email: currentUser.email,
-          role: currentUserRole,
+        await supabaseUpdate('users', currentUser.id, {
+          nama: nama,
+          hp: hp,
+          foto: foto,
           updated_at: new Date().toISOString()
-        }, { merge: true });
+        });
         document.getElementById('topUserName').innerText = nama;
         document.getElementById('profileImg').src = foto;
         closeModal('profileModal');
@@ -9690,11 +8867,11 @@ document.querySelectorAll('.menu-item[data-page]').forEach(item => {
       }
     });
   }
-
+  
   // ========== LOGIN BUTTON ==========
   const loginBtn = document.getElementById('loginBtn');
   if (loginBtn) {
-    loginBtn.addEventListener('click', function() {
+    loginBtn.addEventListener('click', async function() {
       const email = document.getElementById('loginEmail').value;
       const password = document.getElementById('loginPassword').value;
       const errorDiv = document.getElementById('loginError');
@@ -9705,25 +8882,29 @@ document.querySelectorAll('.menu-item[data-page]').forEach(item => {
       errorDiv.textContent = '';
       this.textContent = 'Loading...';
       this.disabled = true;
-      auth.signInWithEmailAndPassword(email, password)
-        .then(() => {
-          this.textContent = 'Masuk';
-          this.disabled = false;
-        })
-        .catch(err => {
-          errorDiv.textContent = 'Login gagal: ' + err.message;
-          this.textContent = 'Masuk';
-          this.disabled = false;
+      
+      try {
+        const { error } = await supabase.auth.signInWithPassword({
+          email: email,
+          password: password
         });
+        if (error) throw error;
+      } catch (err) {
+        errorDiv.textContent = 'Login gagal: ' + err.message;
+        this.textContent = 'Masuk';
+        this.disabled = false;
+      }
     });
   }
-
+  
   // ========== LOGOUT BUTTON ==========
   const logoutBtn = document.getElementById('logoutBtn');
   if (logoutBtn) {
-    logoutBtn.addEventListener('click', () => auth.signOut());
+    logoutBtn.addEventListener('click', async () => {
+      await supabase.auth.signOut();
+    });
   }
-
+  
   // ========== TOGGLE PASSWORD ==========
   const togglePasswordBtn = document.getElementById('togglePasswordBtn');
   const loginPassword = document.getElementById('loginPassword');
@@ -9738,14 +8919,14 @@ document.querySelectorAll('.menu-item[data-page]').forEach(item => {
       }
     });
   }
-
+  
   // ========== SEARCH BUTTONS ==========
   document.getElementById('searchBtn')?.addEventListener('click', performSearch);
   document.getElementById('clearSearchBtn')?.addEventListener('click', clearSearch);
   document.getElementById('searchInput')?.addEventListener('keypress', (e) => {
     if (e.key === 'Enter') performSearch();
   });
-
+  
   // ========== TRANSAKSI CARD CLICK ==========
   const targetTransaksiCard = document.getElementById('targetTransaksiCard');
   if (targetTransaksiCard) {
@@ -9755,7 +8936,7 @@ document.querySelectorAll('.menu-item[data-page]').forEach(item => {
       showInputTransaksiModal();
     });
   }
-
+  
   // ========== SAVE TRANSAKSI BUTTON ==========
   const saveTransaksiBtn = document.getElementById('saveTransaksiBtn');
   if (saveTransaksiBtn) {
@@ -9777,7 +8958,7 @@ document.querySelectorAll('.menu-item[data-page]').forEach(item => {
       currentTransaksiId = null;
     });
   }
-
+  
   const cancelTransaksiBtn = document.getElementById('cancelTransaksiBtn');
   if (cancelTransaksiBtn) {
     cancelTransaksiBtn.addEventListener('click', function(e) {
@@ -9787,7 +8968,7 @@ document.querySelectorAll('.menu-item[data-page]').forEach(item => {
       currentTransaksiId = null;
     });
   }
-
+  
   // ========== FORMAT PHONE INPUTS ==========
   function formatPhoneInput(input) {
     if (input) input.addEventListener('input', function() {
@@ -9799,7 +8980,7 @@ document.querySelectorAll('.menu-item[data-page]').forEach(item => {
   formatPhoneInput(document.getElementById('customerPhone'));
   formatPhoneInput(document.getElementById('prospekPhone'));
   formatPhoneInput(document.getElementById('profilePhone'));
-
+  
   // ========== TARGET KPI BUTTONS ==========
   const saveTargetBtn = document.getElementById('saveTargetBtn');
   if (saveTargetBtn) {
@@ -9809,7 +8990,7 @@ document.querySelectorAll('.menu-item[data-page]').forEach(item => {
       await saveTargetData();
     });
   }
-
+  
   const cancelTargetBtn = document.getElementById('cancelTargetBtn');
   if (cancelTargetBtn) {
     cancelTargetBtn.addEventListener('click', function(e) {
@@ -9818,7 +8999,7 @@ document.querySelectorAll('.menu-item[data-page]').forEach(item => {
       closeModal('manageTargetModal');
     });
   }
-
+  
   const addMonthlyTargetBtn = document.getElementById('addMonthlyTargetBtn');
   if (addMonthlyTargetBtn) {
     addMonthlyTargetBtn.addEventListener('click', function(e) {
@@ -9836,7 +9017,7 @@ document.querySelectorAll('.menu-item[data-page]').forEach(item => {
       renderMonthlyTargetList();
     });
   }
-
+  
   // ========== SELECT ALL AGENT BUTTON ==========
   const selectAllAgentBtn = document.getElementById('selectAllAgent');
   if (selectAllAgentBtn) {
@@ -9859,7 +9040,7 @@ document.querySelectorAll('.menu-item[data-page]').forEach(item => {
       selectAllAgentBtn.textContent = allChecked ? '✅ Pilih Semua' : '⬜ Batal Semua';
     });
   }
-
+  
   // ========== SELECT ALL PRODUK BUTTON ==========
   const selectAllProdukBtn = document.getElementById('selectAllProduk');
   if (selectAllProdukBtn) {
@@ -9889,24 +9070,19 @@ document.querySelectorAll('.menu-item[data-page]').forEach(item => {
       renderProdukList();
     });
   }
-
+  
   // ========== DELETE SELECTED PRODUK ==========
   const deleteSelectedProdukBtn = document.getElementById('deleteSelectedProduk');
   if (deleteSelectedProdukBtn) {
     deleteSelectedProdukBtn.addEventListener('click', deleteSelectedProduk);
   }
-
+  
   // ========== DELETE SELECTED AGENT ==========
   const deleteSelectedAgentBtn = document.getElementById('deleteSelectedAgent');
   if (deleteSelectedAgentBtn) {
     deleteSelectedAgentBtn.addEventListener('click', deleteSelectedAgentSafe);
   }
-
-  const deleteSelectedAgentSafeBtn = document.getElementById('deleteSelectedAgentSafe');
-  if (deleteSelectedAgentSafeBtn) {
-    deleteSelectedAgentSafeBtn.addEventListener('click', deleteSelectedAgentSafe);
-  }
-
+  
   // ========== ADD PRODUK BUTTON ==========
   document.getElementById('addProdukBtn')?.addEventListener('click', () => {
     currentEditProdukId = null;
@@ -9917,7 +9093,7 @@ document.querySelectorAll('.menu-item[data-page]').forEach(item => {
     document.getElementById('produkMasterTitle').innerText = '🏷️ Tambah Produk';
     document.getElementById('produkMasterModal').style.display = 'flex';
   });
-
+  
   document.getElementById('saveProdukMasterBtn')?.addEventListener('click', async () => {
     const nama = document.getElementById('produkMasterNama').value;
     const hpp = document.getElementById('produkMasterHpp').value;
@@ -9935,7 +9111,7 @@ document.querySelectorAll('.menu-item[data-page]').forEach(item => {
     await saveProduk(nama, hpp, hargaJual, keterangan, adminDefault, jenisProduk, cidBased, currentEditProdukId);
     closeModal('produkMasterModal');
   });
-
+  
   document.getElementById('cancelProdukMasterBtn')?.addEventListener('click', () => {
     closeModal('produkMasterModal');
     currentEditProdukId = null;
@@ -9948,18 +9124,18 @@ document.querySelectorAll('.menu-item[data-page]').forEach(item => {
     document.getElementById('produkMasterCidBased').value = 'no';
     toggleProdukJenisFields('tanpa_admin');
   });
-
+  
   document.getElementById('produkMasterJenis')?.addEventListener('change', function() {
     toggleProdukJenisFields(this.value);
   });
-
+  
   // ========== AGENT DETAIL EVENT LISTENERS ==========
   document.getElementById('addAgentProductBtn')?.addEventListener('click', openAddProductModal);
   document.getElementById('saveAgentDetailBtn')?.addEventListener('click', saveAgentDetail);
   document.getElementById('closeAgentDetailBtn')?.addEventListener('click', () => closeModal('agentDetailModal'));
   document.getElementById('saveProductBtn')?.addEventListener('click', saveAgentProduct);
   document.getElementById('cancelProductBtn')?.addEventListener('click', () => closeModal('productModal'));
-
+  
   document.getElementById('productSelect')?.addEventListener('change', function() {
     const selectedOption = this.options[this.selectedIndex];
     const harga = selectedOption.getAttribute('data-harga');
@@ -9967,7 +9143,7 @@ document.querySelectorAll('.menu-item[data-page]').forEach(item => {
       document.getElementById('productPrice').value = harga;
     }
   });
-
+  
   // ========== TARIF ADMIN MODAL ==========
   document.getElementById('manageTarifAdminBtn')?.addEventListener('click', () => {
     loadTarifAdmin();
@@ -9986,7 +9162,7 @@ document.querySelectorAll('.menu-item[data-page]').forEach(item => {
     clearTarifForm();
   });
   document.getElementById('clearTarifFormBtn')?.addEventListener('click', clearTarifForm);
-
+  
   // ========== SEARCH INPUTS ==========
   document.getElementById('searchProdukInput')?.addEventListener('input', () => {
     renderProdukList();
@@ -9994,14 +9170,14 @@ document.querySelectorAll('.menu-item[data-page]').forEach(item => {
   document.getElementById('searchTarifInput')?.addEventListener('input', () => {
     renderTarifAdminList();
   });
-
+  
   // ========== LOAD ALL AGENT BUTTON ==========
   document.getElementById('loadAllAgentBtn')?.addEventListener('click', async () => {
     showNotifTop('⏳ Memuat semua data agent...');
     await loadDatabaseAgent();
     showNotifTop(`✅ ${agentsData.length} data agent dimuat`);
   });
-
+  
   // ========== REFRESH PRODUK BUTTON ==========
   document.getElementById('refreshProdukBtn')?.addEventListener('click', () => {
     loadProduk();
@@ -10010,7 +9186,7 @@ document.querySelectorAll('.menu-item[data-page]').forEach(item => {
     }
     showNotifTop('🔄 Daftar produk direfresh');
   });
-
+  
   // ========== PILIH NOMOR MODAL ==========
   const pilihNomorModal = document.getElementById('pilihNomorModal');
   if (pilihNomorModal) {
@@ -10026,7 +9202,7 @@ document.querySelectorAll('.menu-item[data-page]').forEach(item => {
       closeModal('pilihNomorModal');
     };
   }
-
+  
   // ========== DOWNLOAD EXAMPLE BUTTONS ==========
   const downloadAgentExampleBtn = document.getElementById('downloadAgentExampleBtn');
   if (downloadAgentExampleBtn) {
@@ -10043,7 +9219,7 @@ document.querySelectorAll('.menu-item[data-page]').forEach(item => {
       actionsDiv.appendChild(newBtn);
     }
   }
-
+  
   const downloadProdukExampleBtn = document.getElementById('downloadProdukExampleBtn');
   if (downloadProdukExampleBtn) {
     downloadProdukExampleBtn.addEventListener('click', downloadProdukExample);
@@ -10059,7 +9235,7 @@ document.querySelectorAll('.menu-item[data-page]').forEach(item => {
       produkActionsDiv.appendChild(newBtn);
     }
   }
-
+  
   // ========== CS MODAL ==========
   document.getElementById('addCsBtn')?.addEventListener('click', () => {
     document.getElementById('addCsModal').style.display = 'flex';
@@ -10079,15 +9255,22 @@ document.querySelectorAll('.menu-item[data-page]').forEach(item => {
       hp = '+62' + hp;
     }
     try {
-      const userCredential = await auth.createUserWithEmailAndPassword(email, password);
-      const newUser = userCredential.user;
-      await db.collection('users').doc(newUser.uid).set({
-        nama: nama,
+      const { data: authData, error: authError } = await supabase.auth.admin.createUser({
         email: email,
+        password: password,
+        email_confirm: true
+      });
+      if (authError) throw authError;
+      
+      await supabase.from('users').insert([{
+        id: authData.user.id,
+        email: email,
+        nama: nama,
         hp: hp || '',
         role: 'cs',
         created_at: new Date().toISOString()
-      });
+      }]);
+      
       showNotif('✅ CS Agent berhasil ditambahkan');
       closeModal('addCsModal');
       document.getElementById('csEmail').value = '';
@@ -10099,7 +9282,7 @@ document.querySelectorAll('.menu-item[data-page]').forEach(item => {
       showNotif('❌ Gagal: ' + e.message, true);
     }
   });
-
+  
   // ========== PESAN MODAL ==========
   document.getElementById('addPesanBtn')?.addEventListener('click', async () => {
     await loadUsersForSelect();
@@ -10112,108 +9295,91 @@ document.querySelectorAll('.menu-item[data-page]').forEach(item => {
       showNotif('Lengkapi data!', true);
       return;
     }
-    await db.collection('messages').add({
-      from_id: currentUser.uid,
+    await supabase.from('messages').insert([{
+      from_id: currentUser.id,
       to_id: toId,
-      message,
+      message: message,
       is_read: false,
       created_at: new Date().toISOString()
-    });
+    }]);
     closeModal('pesanModal');
     document.getElementById('pesanTo').value = '';
     document.getElementById('pesanMessage').value = '';
     showNotif('✅ Pesan terkirim');
     updateAllBadges();
   });
-
+  
   // ========== REMINDER BUTTON ==========
-document.getElementById('addReminderBtn')?.addEventListener('click', () => {
+  document.getElementById('addReminderBtn')?.addEventListener('click', () => {
     document.getElementById('reminderTitle').value = '';
     document.getElementById('reminderDesc').value = '';
     document.getElementById('reminderDateTime').value = '';
     document.getElementById('reminderModal').style.display = 'flex';
-});
-
-document.getElementById('saveReminderBtn')?.addEventListener('click', async () => {
+  });
+  
+  document.getElementById('saveReminderBtn')?.addEventListener('click', async () => {
     const title = document.getElementById('reminderTitle').value;
     const description = document.getElementById('reminderDesc').value;
     const datetime = document.getElementById('reminderDateTime').value;
     
     if (!title) {
-        showNotifTop('⚠️ Judul pengingat wajib diisi!', true);
-        return;
+      showNotifTop('⚠️ Judul pengingat wajib diisi!', true);
+      return;
     }
     
     try {
-        await db.collection('reminders').add({
-            title: title,
-            description: description,
-            datetime: datetime,
-            user_id: currentUser.uid,
-            user_name: currentUserName,
-            created_at: new Date().toISOString()
-        });
-        showNotifTop('✅ Pengingat berhasil ditambahkan');
-        closeModal('reminderModal');
-        loadReminders();
-    } catch (e) {
-        showNotifTop('❌ Gagal: ' + e.message, true);
-    }
-});
-
-// ========== PESAN BUTTON ==========
-document.getElementById('addPesanBtn')?.addEventListener('click', async () => {
-    await loadUsersForSelect();
-    document.getElementById('pesanModal').style.display = 'flex';
-});
-
-document.getElementById('savePesanBtn')?.addEventListener('click', async () => {
-    const toId = document.getElementById('pesanTo').value;
-    const message = document.getElementById('pesanMessage').value;
-    if (!toId || !message) {
-        showNotifTop('Lengkapi data!', true);
-        return;
-    }
-    await db.collection('messages').add({
-        from_id: currentUser.uid,
-        to_id: toId,
-        message,
-        is_read: false,
+      await supabase.from('reminders').insert([{
+        title: title,
+        description: description,
+        datetime: datetime,
+        user_id: currentUser.id,
+        user_name: currentUserName,
         created_at: new Date().toISOString()
-    });
-    closeModal('pesanModal');
-    document.getElementById('pesanTo').value = '';
-    document.getElementById('pesanMessage').value = '';
-    showNotifTop('✅ Pesan terkirim');
-    updateAllBadges();
-});
-
-// ========== VIEW TRANSAKSI HISTORY BUTTON ==========
-document.getElementById('viewTransaksiHistoryBtn')?.addEventListener('click', () => {
+      }]);
+      showNotifTop('✅ Pengingat berhasil ditambahkan');
+      closeModal('reminderModal');
+      loadReminders();
+    } catch (e) {
+      showNotifTop('❌ Gagal: ' + e.message, true);
+    }
+  });
+  
+  // ========== VIEW TRANSAKSI HISTORY BUTTON ==========
+  document.getElementById('viewTransaksiHistoryBtn')?.addEventListener('click', () => {
     showTransaksiListModal();
-});
-
+  });
+  
   // ========== DEADLINE NOTIFICATION BUTTON ==========
   const deadlineNotifBtn = document.getElementById('deadlineNotifBtn');
   if (deadlineNotifBtn) {
     deadlineNotifBtn.addEventListener('click', async () => {
       const today = getTodayDate();
       try {
-        let customerQuery = db.collection('customers').where('tanggal', '<', today);
-        let prospekQuery = db.collection('prospek').where('deadline', '<', today);
+        let customerQuery = supabase.from('customers').select('id', { count: 'exact' });
         if (currentUserRole !== 'owner') {
-          customerQuery = customerQuery.where('user_id', '==', currentUser.uid);
-          prospekQuery = prospekQuery.where('user_id', '==', currentUser.uid);
+          customerQuery = customerQuery.eq('user_id', currentUser.id);
         }
-        const overdueCustomers = await customerQuery.get();
-        const overdueProspek = await prospekQuery.get();
-        if (overdueCustomers.size + overdueProspek.size > 0) {
-          let message = `📅 DEADLINE TERLEWAT (${overdueCustomers.size + overdueProspek.size}):\n`;
-          overdueCustomers.forEach(doc => {
-            message += `\n• ${doc.data().nama} (Customer) - ${doc.data().tanggal}`;
+        customerQuery = customerQuery.lt('tanggal', today);
+        
+        let prospekQuery = supabase.from('prospek').select('id', { count: 'exact' });
+        if (currentUserRole !== 'owner') {
+          prospekQuery = prospekQuery.eq('user_id', currentUser.id);
+        }
+        prospekQuery = prospekQuery.lt('deadline', today);
+        
+        const { count: customerCount } = await customerQuery;
+        const { count: prospekCount } = await prospekQuery;
+        
+        if ((customerCount || 0) + (prospekCount || 0) > 0) {
+          let message = `📅 DEADLINE TERLEWAT (${(customerCount || 0) + (prospekCount || 0)}):\n`;
+          const { data: customers } = await customerQuery.limit(20);
+          const { data: prospeks } = await prospekQuery.limit(20);
+          
+          customers?.forEach(doc => {
+            message += `\n• ${doc.nama} (Customer) - ${doc.tanggal}`;
           });
-          overdueProspek.forEach(doc => {
-            message += `\n• ${doc.data().nama} (Prospek) - ${doc.data().deadline}`;
+          prospeks?.forEach(doc => {
+            message += `\n• ${doc.nama} (Prospek) - ${doc.deadline}`;
           });
           alert(message);
         } else {
@@ -10224,7 +9390,7 @@ document.getElementById('viewTransaksiHistoryBtn')?.addEventListener('click', ()
       }
     });
   }
-
+  
   const pesanNotifBtn = document.getElementById('pesanNotifBtn');
   if (pesanNotifBtn) {
     pesanNotifBtn.addEventListener('click', () => {
@@ -10232,78 +9398,72 @@ document.getElementById('viewTransaksiHistoryBtn')?.addEventListener('click', ()
       if (pesanMenu) pesanMenu.click();
     });
   }
-
-// ==================== DB TRANSAKSI SETUP ====================
-
-// Setup filter transaksi
-setupTransaksiFilters();
-
-// Tombol hapus semua data transaksi
-const deleteAllTransaksiBtn = document.getElementById('deleteAllTransaksiBtn');
-if (deleteAllTransaksiBtn) {
+  
+  // ==================== DB TRANSAKSI SETUP ====================
+  
+  setupTransaksiFilters();
+  
+  const deleteAllTransaksiBtn = document.getElementById('deleteAllTransaksiBtn');
+  if (deleteAllTransaksiBtn) {
     deleteAllTransaksiBtn.addEventListener('click', deleteAllTransaksi);
-} else {
+  } else {
     const dbActions = document.querySelector('#dbTransaksiPage .db-actions');
     if (dbActions) {
-        const newBtn = document.createElement('button');
-        newBtn.id = 'deleteAllTransaksiBtn';
-        newBtn.textContent = '🗑️ Hapus Semua';
-        newBtn.className = 'db-delete-selected';
-        newBtn.style.background = '#dc2626';
-        newBtn.style.color = 'white';
-        newBtn.style.marginLeft = '10px';
-        newBtn.onclick = deleteAllTransaksi;
-        dbActions.appendChild(newBtn);
+      const newBtn = document.createElement('button');
+      newBtn.id = 'deleteAllTransaksiBtn';
+      newBtn.textContent = '🗑️ Hapus Semua';
+      newBtn.className = 'db-delete-selected';
+      newBtn.style.background = '#dc2626';
+      newBtn.style.color = 'white';
+      newBtn.style.marginLeft = '10px';
+      newBtn.onclick = deleteAllTransaksi;
+      dbActions.appendChild(newBtn);
     }
-}
-
-// Tombol select all transaksi - HANYA memilih data yang tampil (hasil filter)
-const selectAllTransaksiBtn = document.getElementById('selectAllTransaksi');
-if (selectAllTransaksiBtn) {
+  }
+  
+  const selectAllTransaksiBtn = document.getElementById('selectAllTransaksi');
+  if (selectAllTransaksiBtn) {
     const newSelectAllBtn = selectAllTransaksiBtn.cloneNode(true);
     selectAllTransaksiBtn.parentNode.replaceChild(newSelectAllBtn, selectAllTransaksiBtn);
     
     newSelectAllBtn.addEventListener('click', () => {
-        const checkboxes = document.querySelectorAll('#dbTransaksiList .db-item-checkbox-transaksi');
-        if (checkboxes.length === 0) {
-            showNotifTop('⚠️ Tidak ada data yang ditampilkan', true);
-            return;
-        }
-        
-        const allChecked = Array.from(checkboxes).every(cb => cb.checked);
-        
-        checkboxes.forEach(cb => {
-            cb.checked = !allChecked;
-            const event = new Event('change', { bubbles: true });
-            cb.dispatchEvent(event);
-        });
-        
-        newSelectAllBtn.textContent = !allChecked ? '⬜ Batal Semua' : '✅ Pilih Semua';
+      const checkboxes = document.querySelectorAll('#dbTransaksiList .db-item-checkbox-transaksi');
+      if (checkboxes.length === 0) {
+        showNotifTop('⚠️ Tidak ada data yang ditampilkan', true);
+        return;
+      }
+      
+      const allChecked = Array.from(checkboxes).every(cb => cb.checked);
+      
+      checkboxes.forEach(cb => {
+        cb.checked = !allChecked;
+        const event = new Event('change', { bubbles: true });
+        cb.dispatchEvent(event);
+      });
+      
+      newSelectAllBtn.textContent = !allChecked ? '⬜ Batal Semua' : '✅ Pilih Semua';
     });
-}
-
-// Tombol delete selected transaksi
-const deleteSelectedBtn = document.getElementById('deleteSelectedTransaksi');
-if (deleteSelectedBtn) {
+  }
+  
+  const deleteSelectedBtn = document.getElementById('deleteSelectedTransaksi');
+  if (deleteSelectedBtn) {
     const newDeleteBtn = deleteSelectedBtn.cloneNode(true);
     deleteSelectedBtn.parentNode.replaceChild(newDeleteBtn, deleteSelectedBtn);
     newDeleteBtn.addEventListener('click', deleteSelectedTransaksi);
-}
-
-// Tombol move selected to followup
-const moveSelectedBtn = document.getElementById('moveSelectedToFollowupBtn');
-if (moveSelectedBtn) {
+  }
+  
+  const moveSelectedBtn = document.getElementById('moveSelectedToFollowupBtn');
+  if (moveSelectedBtn) {
     const newMoveBtn = moveSelectedBtn.cloneNode(true);
     moveSelectedBtn.parentNode.replaceChild(newMoveBtn, moveSelectedBtn);
     newMoveBtn.addEventListener('click', moveSelectedToFollowup);
-}
-
-// Tombol hapus semua untuk setiap database
-document.getElementById('deleteAllAgent')?.addEventListener('click', deleteAllAgent);
-document.getElementById('deleteAllClosing')?.addEventListener('click', deleteAllClosing);
-document.getElementById('deleteAllTidak')?.addEventListener('click', deleteAllTidak);
-document.getElementById('deleteAllNomorSalah')?.addEventListener('click', deleteAllNomorSalah);
-document.getElementById('deleteAllCommitment')?.addEventListener('click', deleteAllCommitment);
-document.getElementById('deleteAllProduk')?.addEventListener('click', deleteAllProduk);
+  }
   
-}); // <-- INI SATU-SATUNYA TUTUP DARI DOMContentLoaded
+  // Tombol hapus semua untuk setiap database
+  document.getElementById('deleteAllAgent')?.addEventListener('click', deleteAllAgent);
+  document.getElementById('deleteAllClosing')?.addEventListener('click', deleteAllClosing);
+  document.getElementById('deleteAllTidak')?.addEventListener('click', deleteAllTidak);
+  document.getElementById('deleteAllNomorSalah')?.addEventListener('click', deleteAllNomorSalah);
+  document.getElementById('deleteAllCommitment')?.addEventListener('click', deleteAllCommitment);
+  document.getElementById('deleteAllProduk')?.addEventListener('click', deleteAllProduk);
+});
