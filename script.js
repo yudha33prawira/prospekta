@@ -3283,7 +3283,7 @@ async function moveAgentToFollowup(agentId) {
   );
 }
 
-function deleteSelectedAgentSafe() {
+async function deleteSelectedAgentSafe() {
   const selectedIds = Array.from(selectedAgentIds.keys());
   if (selectedIds.length === 0) {
     showNotifTop('⚠️ Tidak ada data yang dipilih', true);
