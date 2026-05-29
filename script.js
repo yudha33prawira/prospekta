@@ -1,8 +1,9 @@
 // ========== SUPABASE CONFIGURATION ==========
-const SUPABASE_URL = 'https://haylblhjzfavrfiyaicq.supabase.co/rest/v1/';
-const SUPABASE_ANON_KEY = 'sb_publishable_fUK_T02OjLRcy-WMrAVirA__vxag3yx';
+const SUPABASE_URL = 'https://haylblhjzfavrfiyaicq.supabase.co';
+const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImhheWxibGhqemZhdnJmaXlhaWNxIiwicm9sZSI6ImFub24iLCJpYXQiOjE3MDAwMDAwMDAsImV4cCI6MTg1NzYwMDAwMH0.fUK_T02OjLRcy-WMrAVirA__vxag3yx';
 
-const supabaseClient = supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+// Inisialisasi Supabase dengan benar
+const supabase = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
 
 // ========== PERFORMANCE CONFIGURATION ==========
 const DB_CONFIG = {
@@ -3852,7 +3853,7 @@ async function renderAgentProducts() {
                 <th style="text-align:left; padding:10px;">Profit</th>
                 <th style="text-align:left; padding:10px;">Fee Upline</th>
                 <th style="text-align:left; padding:10px;">Fee Agent</th>
-            </td>
+            </table>
         </thead>
         <tbody>
     `;
@@ -3922,7 +3923,7 @@ async function renderAgentProducts() {
                 <td style="padding:10px;">${profitInput}</td>
                 <td style="padding:10px;">${feeUplineInput}</td>
                 <td style="padding:10px;">${feeAgentDisplay}</td>
-            </table>
+            </tr>
         `;
   }
 
