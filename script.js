@@ -7593,7 +7593,7 @@ function toggleSelectAllFullFollowup() {
     });
 }
 
-function deleteSelectedFullFollowup() {
+async function deleteSelectedFullFollowup() {
     if (currentUserRole !== 'owner') {
         showNotifTop('⚠️ Hanya Owner yang dapat menghapus massal!', true);
         return;
@@ -7627,7 +7627,7 @@ function deleteSelectedFullFollowup() {
     showNotifTop(`✅ ${deleted} data berhasil dihapus`);
     setTimeout(() => progress.hide(), 2000);
     
-    loadAllData();
+    await loadAllData();
     renderFullFollowupKanban();
 }
 
@@ -7891,7 +7891,7 @@ async function deleteSelectedFullProspek() {
     showNotifTop(`✅ ${deleted} data berhasil dihapus`);
     setTimeout(() => progress.hide(), 2000);
     
-    loadAllData();
+    await loadAllData();
     renderFullProspekKanban();
 }
 
