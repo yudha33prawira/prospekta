@@ -45,7 +45,9 @@ async function firestoreWithRetry(operation, maxRetries = 3, initialDelay = 1000
   throw lastError;
 }
 
-// variabel global
+// variabel global / deklarasi global
+let currentBroadcastSourceType = null;
+let currentBroadcastSelectedStatuses = [];
 let currentUser = null;
 let currentUserRole = 'cs';
 let currentUserName = '';
@@ -4261,7 +4263,15 @@ async function loadNumbers() {
 
 async function sendBroadcast() {
     const messageTemplate = document.getElementById('broadcastMessage')?.value;
-    const sendOneByOne = document.getElementById('sendOneByOne')?.checked;
+    const sourceType = document.querySelector('input[name="sourceType"]:checked')?.value;
+    
+    // Ambil status filter yang dipilih
+    let selectedStatuses = [];
+    if (sourceType === 'customer') {
+        selectedStatuses = Array.from(document.querySelectorAll('#customerFilter input:checked')).map(cb => cb.value);
+    } else if (sourceType === 'prospek') {
+        selectedStatuses = Array.from(document.querySelectorAll('#prospekFilter input:checked')).map(cb => cb.value);
+    }
     
     if (!messageTemplate) {
         showNotifTop('⚠️ Pesan tidak boleh kosong!', true);
@@ -4278,6 +4288,22 @@ async function sendBroadcast() {
         return;
     }
     
+    // Konfirmasi dengan user
+    const confirmMsg = confirm(
+        '📢 KONFIRMASI BROADCAST\n\n' +
+        `Total: ${currentNumbers.length} nomor\n` +
+        `Sumber: ${sourceType === 'customer' ? 'Followup Agen' : sourceType === 'prospek' ? 'Prospek Agen' : 'Custom'}\n\n` +
+        `✅ Jika SUKSES: Data akan pindah ke tahap berikutnya\n` +
+        `❌ Jika GAGAL: Data akan pindah ke DATABASE NOMOR SALAH\n\n` +
+        `Lanjutkan?`
+    );
+    
+    if (!confirmMsg) return;
+    
+    // Simpan source type untuk digunakan di proses
+    currentBroadcastSourceType = sourceType;
+    currentBroadcastSelectedStatuses = selectedStatuses;
+    
     broadcastNumbers = [...currentNumbers];
     broadcastMessageTemplate = messageTemplate;
     currentBroadcastIndex = 0;
@@ -4285,7 +4311,6 @@ async function sendBroadcast() {
     isBroadcasting = true;
     
     showBroadcastPanel();
-    processNextBroadcast();
 }
 
 function showBroadcastPanel() {
@@ -4329,25 +4354,43 @@ function showBroadcastPanel() {
                 isBroadcasting = false;
             });
             
-            document.getElementById('markSentBtn')?.addEventListener('click', () => {
-                if (isBroadcasting) {
-                    broadcastStatus[currentBroadcastIndex] = 'success';
-                    currentBroadcastIndex++;
-                    updateBroadcastPanel();
-                    if (currentBroadcastIndex >= broadcastNumbers.length) finishBroadcast();
-                    else processNextBroadcast();
-                }
-            });
-            
-            document.getElementById('markFailedBtn')?.addEventListener('click', () => {
-                if (isBroadcasting) {
-                    broadcastStatus[currentBroadcastIndex] = 'failed';
-                    currentBroadcastIndex++;
-                    updateBroadcastPanel();
-                    if (currentBroadcastIndex >= broadcastNumbers.length) finishBroadcast();
-                    else processNextBroadcast();
-                }
-            });
+document.getElementById('markSentBtn')?.addEventListener('click', async () => {
+    if (isBroadcasting) {
+        const item = broadcastNumbers[currentBroadcastIndex];
+        
+        // PROSES SUKSES - Update status data
+        await handleBroadcastSuccess(item, currentBroadcastSourceType, currentBroadcastSelectedStatuses);
+        
+        broadcastStatus[currentBroadcastIndex] = 'success';
+        currentBroadcastIndex++;
+        updateBroadcastPanel();
+        
+        if (currentBroadcastIndex >= broadcastNumbers.length) {
+            finishBroadcast();
+        } else {
+            processNextBroadcast();
+        }
+    }
+});
+
+document.getElementById('markFailedBtn')?.addEventListener('click', async () => {
+    if (isBroadcasting) {
+        const item = broadcastNumbers[currentBroadcastIndex];
+        
+        // PROSES GAGAL - Pindah ke Nomor Salah
+        await handleBroadcastFailed(item, currentBroadcastSourceType);
+        
+        broadcastStatus[currentBroadcastIndex] = 'failed';
+        currentBroadcastIndex++;
+        updateBroadcastPanel();
+        
+        if (currentBroadcastIndex >= broadcastNumbers.length) {
+            finishBroadcast();
+        } else {
+            processNextBroadcast();
+        }
+    }
+});
             
             document.getElementById('stopBroadcastPanelBtn')?.addEventListener('click', () => {
                 if (confirm('⏹️ Hentikan broadcast?')) {
@@ -4437,11 +4480,216 @@ function finishBroadcast() {
         else if (broadcastStatus[i] === 'failed') failedCount++;
         else if (i < currentBroadcastIndex) successCount++;
     }
+    
     showNotifTop(`✅ Broadcast selesai! Terkirim: ${successCount}, Gagal: ${failedCount}, Total: ${broadcastNumbers.length}`);
+    
+    // Refresh semua data setelah broadcast selesai
+    loadAllData();
+    if (currentBroadcastSourceType === 'customer') {
+        loadNumbers(); // Refresh nomor
+    } else if (currentBroadcastSourceType === 'prospek') {
+        loadNumbers();
+    }
+    
     isBroadcasting = false;
     const panel = document.getElementById('broadcastPanel');
     if (panel) panel.style.display = 'none';
     broadcastStatus = [];
+    currentBroadcastSourceType = null;
+}
+
+// ========== HANDLE BROADCAST SUKSES ==========
+async function handleBroadcastSuccess(item, sourceType, selectedStatuses) {
+    try {
+        if (sourceType === 'customer') {
+            const currentStatus = item.status || 'baru';
+            let nextStatus = '';
+            let newDeadline = addDaysToDate(getTodayDate(), 3);
+            
+            switch (currentStatus) {
+                case 'baru':
+                    nextStatus = 'followup';
+                    break;
+                case 'followup':
+                    nextStatus = 'pending';
+                    newDeadline = addDaysToDate(getTodayDate(), 1);
+                    break;
+                case 'pending':
+                    nextStatus = 'closing';
+                    newDeadline = addDaysToDate(getTodayDate(), 1);
+                    break;
+                case 'closing':
+                    // Pindah ke DB Closing
+                    await saveToClosingDB(item.id, item);
+                    showNotifTop(`✅ ${item.nama} berhasil closing!`);
+                    await loadAllData();
+                    return;
+                default:
+                    return;
+            }
+            
+            // Update status customer
+            await supabaseUpdate('customers', item.id, {
+                status: nextStatus,
+                tanggal: newDeadline,
+                followup_data: {
+                    terkirim: true,
+                    dibalas: true,
+                    via_broadcast: true,
+                    timestamp: new Date().toISOString()
+                }
+            });
+            
+            showNotifTop(`✅ ${item.nama} dipindahkan ke ${nextStatus.toUpperCase()}`);
+            
+        } else if (sourceType === 'prospek') {
+            const currentStatus = item.status || 'Baru';
+            let nextStatus = '';
+            let newDeadline = addDaysToDate(getTodayDate(), 3);
+            
+            switch (currentStatus) {
+                case 'Baru':
+                    nextStatus = 'Dihubungi';
+                    break;
+                case 'Dihubungi':
+                    nextStatus = 'Negosiasi';
+                    break;
+                case 'Negosiasi':
+                    nextStatus = 'Tertarik';
+                    newDeadline = addDaysToDate(getTodayDate(), 7);
+                    break;
+                case 'Tertarik':
+                    // Pindah ke Customer + DB Commitment
+                    await convertProspekToCustomer(item.id);
+                    showNotifTop(`✅ ${item.nama} berhasil menjadi customer!`);
+                    await loadAllData();
+                    return;
+                default:
+                    return;
+            }
+            
+            // Update status prospek
+            await supabaseUpdate('prospek', item.id, {
+                status: nextStatus,
+                deadline: newDeadline,
+                dihubungi_data: {
+                    terkirim: true,
+                    dibalas: true,
+                    via_broadcast: true,
+                    timestamp: new Date().toISOString()
+                }
+            });
+            
+            showNotifTop(`✅ ${item.nama} dipindahkan ke ${nextStatus}`);
+        }
+        
+        // Refresh data
+        await loadAllData();
+        
+    } catch (error) {
+        console.error('Error handle success:', error);
+        showNotifTop(`❌ Gagal update status: ${error.message}`, true);
+    }
+}
+
+// ========== HANDLE BROADCAST GAGAL ==========
+async function handleBroadcastFailed(item, sourceType) {
+    try {
+        // Cek apakah data sudah ada di nomor_salah
+        const { data: existing } = await supabase
+            .from('nomor_salah')
+            .select('id')
+            .eq('hp', item.hp)
+            .maybeSingle();
+        
+        if (!existing) {
+            await supabase.from('nomor_salah').insert([{
+                nama: item.nama,
+                hp: item.hp,
+                alasan: `Broadcast gagal - nomor tidak bisa dihubungi via WhatsApp`,
+                deleted_at: new Date().toISOString(),
+                user_id: item.user_id || currentUser.id,
+                original_table: sourceType,
+                original_id: item.id
+            }]);
+        }
+        
+        // Hapus dari tabel asal
+        if (sourceType === 'customer') {
+            await supabaseDelete('customers', item.id);
+        } else if (sourceType === 'prospek') {
+            await supabaseDelete('prospek', item.id);
+        }
+        
+        showNotifTop(`📵 ${item.nama} dipindahkan ke Database Nomor Salah`);
+        
+        // Refresh data
+        await loadAllData();
+        
+    } catch (error) {
+        console.error('Error handle failed:', error);
+        showNotifTop(`❌ Gagal pindah ke nomor salah: ${error.message}`, true);
+    }
+}
+
+// ========== KONVERSI PROSPEK KE CUSTOMER ==========
+async function convertProspekToCustomer(prospekId) {
+    const doc = await supabaseGetById('prospek', prospekId);
+    if (!doc) return;
+    
+    const newAgentId = `AG-${Date.now()}`;
+    const followupDate = addDaysToDate(getTodayDate(), 30);
+    
+    // Cek duplikat
+    const { duplicateAgent, duplicateHp } = await checkDuplicateCustomer(newAgentId, doc.hp);
+    if (duplicateAgent || duplicateHp) {
+        showNotifTop(`⚠️ Data ${doc.nama} sudah ada di Followup!`, true);
+        return;
+    }
+    
+    // Simpan ke DB Commitment
+    await supabase.from('db_commitment').insert([{
+        nama: doc.nama,
+        hp: doc.hp,
+        negosiasi_data: doc.negosiasi_data || null,
+        agent_id: newAgentId,
+        aplikasi: doc.negosiasi_data?.aplikasi || '',
+        committed_at: new Date().toISOString(),
+        user_id: doc.user_id,
+        original_prospek_id: prospekId,
+        followup_date: followupDate
+    }]);
+    
+    // Pindahkan ke Customers
+    await supabase.from('customers').insert([{
+        agent_id: newAgentId,
+        nama: doc.nama,
+        hp: doc.hp,
+        apk: doc.negosiasi_data?.aplikasi || '',
+        agent_type: doc.agent_type || '',
+        tanggal: followupDate,
+        status: 'baru',
+        user_id: doc.user_id,
+        created_at: new Date().toISOString(),
+        converted_from: 'prospek_broadcast'
+    }]);
+    
+    // Hapus dari prospek
+    await supabaseDelete('prospek', prospekId);
+}
+
+// ========== SAVE TO CLOSING DB ==========
+async function saveToClosingDB(customerId, customerData) {
+    await supabase.from('db_closing').insert([{
+        nama: customerData.nama,
+        hp: customerData.hp,
+        closing_date: new Date().toISOString(),
+        followup_data: customerData.followup_data || null,
+        pending_data: customerData.pending_data || [],
+        user_id: customerData.user_id
+    }]);
+    
+    await supabaseDelete('customers', customerId);
 }
 
 function initTemplateFeature() {
