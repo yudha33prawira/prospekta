@@ -9170,37 +9170,80 @@ document.addEventListener('DOMContentLoaded', function() {
     });
   }
   
-  const saveProfileBtn = document.getElementById('saveProfileBtn');
-  if (saveProfileBtn) {
+const saveProfileBtn = document.getElementById('saveProfileBtn');
+if (saveProfileBtn) {
     saveProfileBtn.addEventListener('click', async () => {
-      const nama = document.getElementById('profileName').value;
-      let hp = document.getElementById('profilePhone').value;
-      const foto = document.getElementById('previewFoto').src;
-      if (!nama) {
-        showNotif('Nama wajib diisi', true);
-        return;
-      }
-      if (hp) {
-        hp = hp.replace(/\D/g, '');
-        if (hp.startsWith('0')) hp = hp.substring(1);
-        hp = '+62' + hp;
-      } else hp = '+62';
-      try {
-        await supabaseUpdate('users', currentUser.id, {
-          nama: nama,
-          hp: hp,
-          foto: foto,
-          updated_at: new Date().toISOString()
-        });
-        document.getElementById('topUserName').innerText = nama;
-        document.getElementById('profileImg').src = foto;
-        closeModal('profileModal');
-        showNotif('Profile tersimpan');
-      } catch (e) {
-        showNotif('Gagal: ' + e.message, true);
-      }
+        const nama = document.getElementById('profileName').value;
+        let hp = document.getElementById('profilePhone').value;
+        const foto = document.getElementById('previewFoto').src;
+        
+        if (!nama) {
+            showNotifTop('⚠️ Nama wajib diisi!', true);
+            return;
+        }
+        
+        if (hp) {
+            hp = hp.replace(/\D/g, '');
+            if (hp.startsWith('0')) hp = hp.substring(1);
+            if (!hp.startsWith('62')) hp = '62' + hp;
+            hp = '+' + hp;
+        } else {
+            hp = '+62';
+        }
+        
+        saveProfileBtn.disabled = true;
+        saveProfileBtn.textContent = '⏳ Menyimpan...';
+        
+        try {
+            // Cek apakah user sudah ada
+            const { data: existingUser, error: checkError } = await supabase
+                .from('users')
+                .select('id')
+                .eq('id', currentUser.id)
+                .maybeSingle();
+            
+            if (checkError && checkError.code !== 'PGRST116') throw checkError;
+            
+            if (existingUser) {
+                // Update existing user
+                const { error } = await supabase
+                    .from('users')
+                    .update({ nama, hp, foto, updated_at: new Date().toISOString() })
+                    .eq('id', currentUser.id);
+                if (error) throw error;
+            } else {
+                // Insert new user
+                const { error } = await supabase
+                    .from('users')
+                    .insert({
+                        id: currentUser.id,
+                        email: currentUser.email,
+                        nama: nama,
+                        hp: hp,
+                        foto: foto,
+                        role: currentUserRole || 'cs',
+                        created_at: new Date().toISOString(),
+                        updated_at: new Date().toISOString()
+                    });
+                if (error) throw error;
+            }
+            
+            // Update tampilan
+            document.getElementById('topUserName').innerText = nama;
+            document.getElementById('profileImg').src = foto;
+            
+            showNotifTop('✅ Profile berhasil disimpan!');
+            closeModal('profileModal');
+            
+        } catch (e) {
+            console.error('Error saving profile:', e);
+            showNotifTop('❌ Gagal menyimpan: ' + e.message, true);
+        } finally {
+            saveProfileBtn.disabled = false;
+            saveProfileBtn.textContent = '💾 Simpan Perubahan';
+        }
     });
-  }
+}
   
   // ========== LOGIN BUTTON ==========
   const loginBtn = document.getElementById('loginBtn');
