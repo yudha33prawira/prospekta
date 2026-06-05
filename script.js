@@ -8160,7 +8160,7 @@ auth.onAuthStateChanged(async user => {
 });
 
 // ========== DOMContentLoaded ==========
-document.addEventListener('DOMContentLoaded', function() {
+document.addEventListener('DOMContentLoaded', async function() {
   function initDarkMode() {
     const savedMode = localStorage.getItem('darkMode');
     const darkModeToggle = document.getElementById('darkModeToggle');
