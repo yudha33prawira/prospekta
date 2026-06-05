@@ -3,8 +3,13 @@ const SUPABASE_URL = 'https://haylblhjzfavrfiyaicq.supabase.co/rest/v1/';
 const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImhheWxibGhqemZhdnJmaXlhaWNxIiwicm9sZSI6ImFub24iLCJpYXQiOjE3Nzk3MzgyMDIsImV4cCI6MjA5NTMxNDIwMn0.j4yQa1ZttP5_Zg0ye5lK2OLecq39QhG3tPyv5PZ3r78';
 
 // Inisialisasi Supabase dengan benar
-const supabase = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
-
+// Di awal script.js, SEBELUM deklarasi lainnya
+if (window.supabase && !window.supabase._reconfigured) {
+    const originalCreateClient = window.supabase.createClient;
+    window.supabase = originalCreateClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+    window.supabase._reconfigured = true;
+}
+// HAPUS deklarasi 'const supabase = ...' yang asli
 // ========== PERFORMANCE CONFIGURATION ==========
 const DB_CONFIG = {
   MAX_BATCH_SIZE: 15,
