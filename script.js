@@ -8773,6 +8773,7 @@ async function checkSession() {
     app.style.display = 'block';
     
     // Load semua data
+    await loadUserProfile();
     await updateAllBadges();
     initFullModeSelection();
     loadAllData();
@@ -8826,6 +8827,48 @@ async function checkSession() {
     app.style.display = 'none';
     currentUser = null;
   }
+}
+
+// ========== LOAD USER PROFILE ==========
+async function loadUserProfile() {
+    if (!currentUser) return;
+    
+    try {
+        const { data, error } = await supabase
+            .from('users')
+            .select('*')
+            .eq('id', currentUser.id)
+            .maybeSingle();
+        
+        if (error) throw error;
+        
+        if (data) {
+            // Update nama
+            if (data.nama) {
+                currentUserName = data.nama;
+                document.getElementById('topUserName').innerText = data.nama;
+                document.getElementById('profileName').value = data.nama;
+            }
+            
+            // Update foto header
+            if (data.foto && data.foto !== '') {
+                const profileImg = document.getElementById('profileImg');
+                if (profileImg) profileImg.src = data.foto;
+                
+                const previewFoto = document.getElementById('previewFoto');
+                if (previewFoto) previewFoto.src = data.foto;
+            }
+            
+            // Update HP
+            if (data.hp) {
+                let hpDisplay = data.hp.replace('+62', '');
+                const profilePhone = document.getElementById('profilePhone');
+                if (profilePhone) profilePhone.value = hpDisplay;
+            }
+        }
+    } catch (err) {
+        console.error('Error loading user profile:', err);
+    }
 }
 
 // ========== AUTH STATE & INITIALIZATION ==========
@@ -9170,6 +9213,7 @@ document.addEventListener('DOMContentLoaded', function() {
     });
   }
   
+// ========== SAVE PROFILE ==========
 const saveProfileBtn = document.getElementById('saveProfileBtn');
 if (saveProfileBtn) {
     saveProfileBtn.addEventListener('click', async () => {
@@ -9182,6 +9226,7 @@ if (saveProfileBtn) {
             return;
         }
         
+        // Format nomor HP
         if (hp) {
             hp = hp.replace(/\D/g, '');
             if (hp.startsWith('0')) hp = hp.substring(1);
@@ -9195,24 +9240,33 @@ if (saveProfileBtn) {
         saveProfileBtn.textContent = '⏳ Menyimpan...';
         
         try {
-            // Cek apakah user sudah ada
+            // Cek apakah user sudah ada di tabel users
             const { data: existingUser, error: checkError } = await supabase
                 .from('users')
                 .select('id')
                 .eq('id', currentUser.id)
                 .maybeSingle();
             
-            if (checkError && checkError.code !== 'PGRST116') throw checkError;
+            if (checkError && checkError.code !== 'PGRST116') {
+                throw checkError;
+            }
+            
+            let updateError;
             
             if (existingUser) {
-                // Update existing user
+                // UPDATE existing user
                 const { error } = await supabase
                     .from('users')
-                    .update({ nama, hp, foto, updated_at: new Date().toISOString() })
+                    .update({
+                        nama: nama,
+                        hp: hp,
+                        foto: foto,
+                        updated_at: new Date().toISOString()
+                    })
                     .eq('id', currentUser.id);
-                if (error) throw error;
+                updateError = error;
             } else {
-                // Insert new user
+                // INSERT new user
                 const { error } = await supabase
                     .from('users')
                     .insert({
@@ -9225,15 +9279,41 @@ if (saveProfileBtn) {
                         created_at: new Date().toISOString(),
                         updated_at: new Date().toISOString()
                     });
-                if (error) throw error;
+                updateError = error;
             }
             
-            // Update tampilan
+            if (updateError) throw updateError;
+            
+            // ========== UPDATE HEADER FOTO ==========
+            // Update elemen header profile
+            const profileImgElement = document.getElementById('profileImg');
+            if (profileImgElement) {
+                profileImgElement.src = foto;
+            }
+            
+            // Update nama di header
+            const topUserName = document.getElementById('topUserName');
+            if (topUserName) {
+                topUserName.innerText = nama;
+            }
+            
+            // Update currentUserName global
+            currentUserName = nama;
+            
+            // Simpan ke localStorage sebagai backup
+            localStorage.setItem('userProfile', JSON.stringify({
+                nama: nama,
+                hp: hp,
+                foto: foto
+            }));
             document.getElementById('topUserName').innerText = nama;
             document.getElementById('profileImg').src = foto;
             
             showNotifTop('✅ Profile berhasil disimpan!');
             closeModal('profileModal');
+            
+            // Refresh data user di memory
+            await loadUserProfile();
             
         } catch (e) {
             console.error('Error saving profile:', e);
