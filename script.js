@@ -8575,7 +8575,6 @@ document.addEventListener('DOMContentLoaded', function() {
     }
   }
   initDarkMode();
-  setupImportExcel();
   
   // ========== SIDEBAR ==========
   const sidebar = document.getElementById('sidebar');
