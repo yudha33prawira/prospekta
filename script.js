@@ -378,7 +378,7 @@ async function supabaseGet(collection, filters = {}, options = {}) {
 }
 
 async function supabaseAdd(collection, data) {
-  const { data: result, error } = await supabase
+  const { data: result, error } = await sb
     .from(collection)
     .insert([{ ...data, user_id: currentUser ? currentUser.id : null, created_at: new Date().toISOString() }])
     .select();
@@ -387,7 +387,7 @@ async function supabaseAdd(collection, data) {
 }
 
 async function supabaseUpdate(collection, id, updates) {
-  const { error } = await supabase
+  const { error } = await sb
     .from(collection)
     .update({ ...updates, updated_at: new Date().toISOString() })
     .eq('id', id);
@@ -395,7 +395,7 @@ async function supabaseUpdate(collection, id, updates) {
 }
 
 async function supabaseDelete(collection, id) {
-  const { error } = await supabase
+  const { error } = await sb
     .from(collection)
     .delete()
     .eq('id', id);
@@ -403,7 +403,7 @@ async function supabaseDelete(collection, id) {
 }
 
 async function supabaseGetById(collection, id) {
-  const { data, error } = await supabase
+  const { data, error } = await sb
     .from(collection)
     .select('*')
     .eq('id', id)
@@ -454,7 +454,7 @@ async function showPilihNomor(customerId) {
     };
     
     try {
-        const data = await supabaseGetById('customers', customerId);
+        const data = await sbGetById('customers', customerId);
         if (!data) {
             showNotifTop('⚠️ Data tidak ditemukan!', true);
             return;
@@ -589,11 +589,11 @@ async function openWAById(customerId) {
     }
     
     try {
-        const data = await supabaseGetById('customers', customerId);
+        const data = await sbGetById('customers', customerId);
         if (data) {
             showPilihNomor(customerId);
         } else {
-            const prospekData = await supabaseGetById('prospek', customerId);
+            const prospekData = await sbGetById('prospek', customerId);
             if (prospekData && prospekData.hp) {
                 openWADirect(prospekData.hp);
             } else {
@@ -634,7 +634,7 @@ async function checkDuplicateCustomer(agentId, hp, excludeId = null) {
   }
 
   if (currentUserRole === 'owner') {
-    const { data: allCustomers, error: allError } = await supabase
+    const { data: allCustomers, error: allError } = await sb
       .from('customers')
       .select('*, users!user_id(nama)');
     
@@ -679,7 +679,7 @@ async function checkDuplicateProspek(hp, excludeId = null) {
   }
 
   if (currentUserRole === 'owner') {
-    const { data: allProspek, error: allError } = await supabase
+    const { data: allProspek, error: allError } = await sb
       .from('prospek')
       .select('*, users!user_id(nama)');
     
@@ -909,7 +909,7 @@ async function loadTargetData() {
 
   try {
     console.log('loadTargetData: Fetching target data...');
-    const { data, error } = await supabase
+    const { data, error } = await sb
       .from('settings')
       .select('*')
       .eq('id', 'targetKPI')
@@ -1114,7 +1114,7 @@ async function saveTargetData() {
   };
 
   try {
-    const { error } = await supabase
+    const { error } = await sb
       .from('settings')
       .upsert(newTarget, { onConflict: 'id' });
     
@@ -1197,7 +1197,7 @@ async function loadTransaksiGlobal() {
   if (!currentUser) return;
 
   try {
-    const { data, error } = await supabase
+    const { data, error } = await sb
       .from('transaksi_global')
       .select('*')
       .order('tanggal', { ascending: false });
@@ -1251,14 +1251,14 @@ async function saveTransaksiGlobal(nominal, keterangan, tanggal, transaksiId = n
     };
 
     if (transaksiId) {
-      const { error } = await supabase
+      const { error } = await sb
         .from('transaksi_global')
         .update(data)
         .eq('id', transaksiId);
       if (error) throw error;
       showNotifTop('✅ Transaksi berhasil diupdate!');
     } else {
-      const { error } = await supabase
+      const { error } = await sb
         .from('transaksi_global')
         .insert([data]);
       if (error) throw error;
@@ -1278,7 +1278,7 @@ async function deleteTransaksiGlobal(transaksiId) {
   if (!confirm('Yakin ingin menghapus transaksi ini?')) return;
 
   try {
-    const { error } = await supabase
+    const { error } = await sb
       .from('transaksi_global')
       .delete()
       .eq('id', transaksiId);
@@ -1404,7 +1404,7 @@ async function loadCustomers() {
     for (const d of (data || [])) {
       let ownerName = '';
       if (currentUserRole === 'owner' && d.user_id !== currentUser.id) {
-        const { data: userData } = await supabase
+        const { data: userData } = await sb
           .from('users')
           .select('nama')
           .eq('id', d.user_id)
@@ -1507,7 +1507,7 @@ async function loadProspek() {
     for (const d of (data || [])) {
       let ownerName = '';
       if (currentUserRole === 'owner' && d.user_id !== currentUser.id) {
-        const { data: userData } = await supabase
+        const { data: userData } = await sb
           .from('users')
           .select('nama')
           .eq('id', d.user_id)
@@ -1609,7 +1609,7 @@ async function openDetailCustomer(id) {
     
     let ownerInfo = '';
     if (currentUserRole === 'owner' && d.user_id !== currentUser.id) {
-      const { data: userData } = await supabase
+      const { data: userData } = await sb
         .from('users')
         .select('nama')
         .eq('id', d.user_id)
@@ -1789,7 +1789,7 @@ async function openDetailProspek(id) {
     
     let ownerInfo = '';
     if (currentUserRole === 'owner' && d.user_id !== currentUser.id) {
-      const { data: userData } = await supabase
+      const { data: userData } = await sb
         .from('users')
         .select('nama')
         .eq('id', d.user_id)
@@ -2085,7 +2085,7 @@ async function deleteSelectedFullFollowup() {
   let deleted = 0;
   for (const id of selectedIds) {
     try {
-      await supabaseDelete('customers', id);
+      await sbDelete('customers', id);
       selectedFullFollowupIds.delete(id);
       deleted++;
       const percent = Math.floor((deleted / selectedIds.length) * 100);
@@ -2348,7 +2348,7 @@ async function deleteSelectedFullProspek() {
   
   for (const id of selectedIds) {
     try {
-      await supabaseDelete('prospek', id);
+      await sbDelete('prospek', id);
       selectedFullProspekIds.delete(id);
       deleted++;
       const percent = Math.floor((deleted / selectedIds.length) * 100);
@@ -2482,10 +2482,10 @@ function updateChartProspek(baru, dihubungi, negosiasi, tertarik) {
 window.updateCustomerStatus = async function(id, newStatus) {
   if (newStatus === 'followup') {
     try {
-      const d = await supabaseGetById('customers', id);
+      const d = await sbGetById('customers', id);
       const currentDeadline = d?.tanggal || getTodayDate();
       const newDeadline = addDaysToDate(currentDeadline, 1);
-      await supabaseUpdate('customers', id, {
+      await sbUpdate('customers', id, {
         status: 'followup',
         tanggal: newDeadline
       });
@@ -2502,7 +2502,7 @@ window.deleteCustomer = async function(id) {
   if (!confirm('Yakin hapus customer ini? Data akan dihapus permanen!')) return;
 
   try {
-    await supabaseDelete('customers', id);
+    await sbDelete('customers', id);
     closeModal('detailModal');
     showNotifTop('🗑️ Data customer berhasil dihapus');
     await loadCustomers();
@@ -2516,7 +2516,7 @@ window.deleteProspek = async function(id) {
   if (!confirm('Yakin hapus prospek ini? Data akan dihapus permanen!')) return;
 
   try {
-    await supabaseDelete('prospek', id);
+    await sbDelete('prospek', id);
     closeModal('detailModal');
     showNotifTop('🗑️ Data prospek berhasil dihapus');
     await loadProspek();
@@ -2570,7 +2570,7 @@ async function updatePesanBadge() {
   const badge = document.getElementById('pesanCount');
   if (!badge) return;
   try {
-    const { count, error } = await supabase
+    const { count, error } = await sb
       .from('messages')
       .select('id', { count: 'exact', head: true })
       .eq('to_id', currentUser.id)
@@ -2660,7 +2660,7 @@ function openFollowupConfirm(id) {
         
         setTimeout(async () => {
             try {
-                const doc = await supabaseGetById('customers', id);
+                const doc = await sbGetById('customers', id);
                 if (!doc) {
                     throw new Error('Data customer tidak ditemukan');
                 }
@@ -2668,7 +2668,7 @@ function openFollowupConfirm(id) {
                 const currentDeadline = doc.tanggal || getTodayDate();
                 const newDeadline = addDaysToDate(currentDeadline, 1);
                 
-                await supabaseUpdate('customers', id, {
+                await sbUpdate('customers', id, {
                     followup_data: {
                         terkirim: true,
                         dibalas: true,
@@ -2701,7 +2701,7 @@ function openFollowupConfirm(id) {
         
         setTimeout(async () => {
             try {
-                const doc = await supabaseGetById('customers', id);
+                const doc = await sbGetById('customers', id);
                 if (!doc) {
                     throw new Error('Data customer tidak ditemukan');
                 }
@@ -2717,7 +2717,7 @@ function openFollowupConfirm(id) {
                             deleted_at: new Date().toISOString(),
                             user_id: doc.user_id
                         }]);
-                        await supabaseDelete('customers', id);
+                        await sbDelete('customers', id);
                         safeCloseModal();
                         showNotifTop('📵 Data dipindahkan ke Database Nomor Salah');
                         setTimeout(() => {
@@ -2824,7 +2824,7 @@ function updatePendingButtons() {
             const newFinishBtn = finishBtn.cloneNode(true);
             finishBtn.parentNode.replaceChild(newFinishBtn, finishBtn);
             newFinishBtn.onclick = async () => {
-                await supabaseUpdate('customers', currentPendingId, { pending_data: pendingItems });
+                await sbUpdate('customers', currentPendingId, { pending_data: pendingItems });
                 await confirmClosing(currentPendingId);
                 closeModal('pendingModal');
                 await loadCustomers();
@@ -2848,7 +2848,7 @@ function updatePendingButtons() {
         saveBtn.parentNode.replaceChild(newSaveBtn, saveBtn);
         newSaveBtn.onclick = async () => {
             try {
-                const doc = await supabaseGetById('customers', currentPendingId);
+                const doc = await sbGetById('customers', currentPendingId);
                 const oldPendingData = doc.pending_data || [];
 
                 let hasChanges = false;
@@ -2878,7 +2878,7 @@ function updatePendingButtons() {
                 }
 
                 const newDeadline = addDaysToDate(doc.tanggal || getTodayDate(), 3);
-                await supabaseUpdate('customers', currentPendingId, {
+                await sbUpdate('customers', currentPendingId, {
                     pending_data: pendingItems,
                     tanggal: newDeadline
                 });
@@ -2907,7 +2907,7 @@ async function confirmClosing(id) {
         'Pindahkan ke Database Closing?',
         `Apakah Anda yakin ingin memindahkan data ini ke DATABASE CLOSING?\n\n⚠️ Data yang sudah dipindahkan TIDAK BISA dikembalikan ke Followup Agen!`,
         async () => {
-            const doc = await supabaseGetById('customers', id);
+            const doc = await sbGetById('customers', id);
             if (doc) {
                 await sb.from('db_closing').insert([{
                     nama: doc.nama,
@@ -2918,14 +2918,14 @@ async function confirmClosing(id) {
                     followup_data: doc.followup_data || null,
                     pending_data: doc.pending_data || []
                 }]);
-                await supabaseDelete('customers', id);
+                await sbDelete('customers', id);
                 showNotifTop('✅ Data berhasil dipindahkan ke Database Closing!');
                 await loadCustomers();
                 updateAllBadges();
             }
         },
         async () => {
-            await supabaseUpdate('customers', id, { status: 'closing' });
+            await sbUpdate('customers', id, { status: 'closing' });
             showNotifTop('📌 Data tetap di kolom Closing');
             await loadCustomers();
             updateAllBadges();
@@ -2939,7 +2939,7 @@ function saveToClosingNow(id) {
         `Apakah Anda yakin ingin memindahkan customer ini ke DATABASE CLOSING?\n\n⚠️ Data yang sudah dipindahkan TIDAK BISA dikembalikan ke Followup Agen!`,
         async () => {
             try {
-                const doc = await supabaseGetById('customers', id);
+                const doc = await sbGetById('customers', id);
                 if (doc) {
                     await sb.from('db_closing').insert([{
                         nama: doc.nama,
@@ -2950,7 +2950,7 @@ function saveToClosingNow(id) {
                         followup_data: doc.followup_data || null,
                         pending_data: doc.pending_data || []
                     }]);
-                    await supabaseDelete('customers', id);
+                    await sbDelete('customers', id);
                     closeModal('detailModal');
                     showNotifTop('✅ Data berhasil dipindahkan ke DB Closing');
                     await loadCustomers();
@@ -2968,7 +2968,7 @@ function lanjutKeDihubungi(id) {
     supabaseGetById('prospek', id).then(async (doc) => {
         const currentDeadline = doc.deadline || getTodayDate();
         const newDeadline = addDaysToDate(currentDeadline, 1);
-        await supabaseUpdate('prospek', id, {
+        await sbUpdate('prospek', id, {
             status: 'Dihubungi',
             deadline: newDeadline
         });
@@ -3026,10 +3026,10 @@ function openProspekDihubungiConfirm(id) {
             showNotifTop('⚠️ Harap centang "pesan terkirim" DAN "sudah dibalas" terlebih dahulu!', true);
             return;
         }
-        const doc = await supabaseGetById('prospek', id);
+        const doc = await sbGetById('prospek', id);
         const currentDeadline = doc.deadline || getTodayDate();
         const newDeadline = addDaysToDate(currentDeadline, 1);
-        await supabaseUpdate('prospek', id, {
+        await sbUpdate('prospek', id, {
             status: 'Negosiasi',
             deadline: newDeadline,
             dihubungi_data: {
@@ -3047,7 +3047,7 @@ function openProspekDihubungiConfirm(id) {
     };
 
     noBtn.onclick = async () => {
-        const data = await supabaseGetById('prospek', id);
+        const data = await sbGetById('prospek', id);
         if (data) {
             showConfirmDialog(
                 'Pindahkan ke Database Nomor Salah?',
@@ -3060,7 +3060,7 @@ function openProspekDihubungiConfirm(id) {
                         deleted_at: new Date().toISOString(),
                         user_id: data.user_id
                     }]);
-                    await supabaseDelete('prospek', id);
+                    await sbDelete('prospek', id);
                     showNotifTop('📵 Data dipindahkan ke Database Nomor Salah');
                     modal.remove();
                     document.body.classList.remove('modal-open');
@@ -3143,7 +3143,7 @@ function openProspekNegosiasiModal(id) {
                     timestamp: new Date().toISOString(),
                     is_complete: true
                 };
-                await supabaseUpdate('prospek', currentProspekId, {
+                await sbUpdate('prospek', currentProspekId, {
                     status: 'Tertarik',
                     negosiasi_data: negosiasi_data
                 });
@@ -3168,7 +3168,7 @@ function openProspekNegosiasiModal(id) {
             return;
         }
 
-        const data = await supabaseGetById('prospek', currentProspekId);
+        const data = await sbGetById('prospek', currentProspekId);
         if (data) {
             showConfirmDialog(
                 'Pindahkan ke Database Tidak Tertarik?',
@@ -3183,7 +3183,7 @@ function openProspekNegosiasiModal(id) {
                         status_sebelumnya: data.status,
                         negosiasi_data: data.negosiasi_data || null
                     }]);
-                    await supabaseDelete('prospek', currentProspekId);
+                    await sbDelete('prospek', currentProspekId);
                     showNotifTop('📵 Data dipindahkan ke Database Tidak Tertarik');
                     closeModal('prospekNegosiasiModal');
                     closeModal('detailModal');
@@ -3202,7 +3202,7 @@ function openProspekNegosiasiModal(id) {
         const tertarik = document.getElementById('prospek_tertarik').value;
         const penawaran = document.getElementById('prospek_penawaran').value;
 
-        const doc = await supabaseGetById('prospek', currentProspekId);
+        const doc = await sbGetById('prospek', currentProspekId);
         const existingData = doc.negosiasi_data || {};
 
         const hasChanges =
@@ -3239,7 +3239,7 @@ function openProspekNegosiasiModal(id) {
         const currentDeadline = doc.deadline || getTodayDate();
         const newDeadline = addDaysToDate(currentDeadline, 3);
 
-        await supabaseUpdate('prospek', currentProspekId, {
+        await sbUpdate('prospek', currentProspekId, {
             negosiasi_data: negosiasi_data,
             deadline: newDeadline
         });
@@ -3283,7 +3283,7 @@ function showConvertToCustomerModal(prospekId) {
                 return;
             }
 
-            const doc = await supabaseGetById('prospek', prospekId);
+            const doc = await sbGetById('prospek', prospekId);
             const cleanHp = doc.hp;
             const { duplicateAgent: dupAgent, duplicateHp: dupHp } = await checkDuplicateCustomer(values.inputAgentId, cleanHp);
 
@@ -3335,7 +3335,7 @@ function showConvertToCustomerModal(prospekId) {
                             pending_data: []
                         }]);
 
-                        await supabaseDelete('prospek', prospekId);
+                        await sbDelete('prospek', prospekId);
 
                         showNotifTop('✅ Berhasil! Customer telah ditambahkan ke Followup Agen dan disimpan ke DB Commitment');
                         closeModal('detailModal');
@@ -3401,7 +3401,7 @@ function openTambahProgres(customerId) {
         }
 
         try {
-            const doc = await supabaseGetById('customers', customerId);
+            const doc = await sbGetById('customers', customerId);
             const progresData = doc.progres_transaksi || { items: [], total_tercapai: 0 };
 
             let perubahan = jenis === 'naik' ? jumlah : -jumlah;
@@ -3415,7 +3415,7 @@ function openTambahProgres(customerId) {
                 created_at: new Date().toISOString()
             };
 
-            await supabaseUpdate('customers', customerId, {
+            await sbUpdate('customers', customerId, {
                 progres_transaksi: {
                     items: [...(progresData.items || []), newItem],
                     total_tercapai: newTotalTercapai
@@ -3592,7 +3592,7 @@ async function loadDBCommitment() {
 window.deleteDBItem = async function(collection, id) {
     if (!confirm('Yakin hapus data ini? Data akan dihapus permanen!')) return;
     try {
-        await supabaseDelete(collection, id);
+        await sbDelete(collection, id);
         showNotifTop('🗑️ Data berhasil dihapus');
         // Refresh the specific list
         if (collection === 'db_closing') await loadDBClosing();
@@ -3701,7 +3701,7 @@ async function checkSession() {
     console.log('User logged in:', currentUser.email);
     
     // Load user profile from users table
-    const { data: userData, error } = await supabase
+    const { data: userData, error } = await sb
       .from('users')
       .select('*')
       .eq('email', session.user.email)
@@ -3870,7 +3870,7 @@ function initFullModeSelection() {
         const { data, error } = await sb.from('customers').select('id');
         if (!error && data) {
           for (const item of data) {
-            await supabaseDelete('customers', item.id);
+            await sbDelete('customers', item.id);
           }
           await loadCustomers();
           showNotifTop('✅ Semua data Followup Agen berhasil dihapus');
@@ -3893,7 +3893,7 @@ function initFullModeSelection() {
         const { data, error } = await sb.from('prospek').select('id');
         if (!error && data) {
           for (const item of data) {
-            await supabaseDelete('prospek', item.id);
+            await sbDelete('prospek', item.id);
           }
           await loadProspek();
           showNotifTop('✅ Semua data Prospek Agen berhasil dihapus');
@@ -3936,7 +3936,7 @@ async function loadReminders() {
 
 window.deleteReminder = async function(id) {
   if (!confirm('Hapus pengingat ini?')) return;
-  await supabaseDelete('reminders', id);
+  await sbDelete('reminders', id);
   showNotifTop('🗑️ Pengingat dihapus');
   loadReminders();
 };
@@ -3945,7 +3945,7 @@ window.deleteReminder = async function(id) {
 async function loadPesan() {
   if (!currentUser) return;
   try {
-    const { data, error } = await supabase
+    const { data, error } = await sb
       .from('messages')
       .select('*')
       .eq('to_id', currentUser.id)
@@ -3963,7 +3963,7 @@ async function loadPesan() {
     for (const doc of data) {
       let fromName = 'Unknown';
       try {
-        const { data: fromUser } = await supabase
+        const { data: fromUser } = await sb
           .from('users')
           .select('nama, email')
           .eq('id', doc.from_id)
@@ -3995,7 +3995,7 @@ async function loadPesan() {
 }
 
 window.markAsRead = async function(id) {
-  await supabaseUpdate('messages', id, { is_read: true });
+  await sbUpdate('messages', id, { is_read: true });
   showNotif('Pesan ditandai dibaca');
   loadPesan();
   updateAllBadges();
@@ -4003,7 +4003,7 @@ window.markAsRead = async function(id) {
 
 window.deletePesan = async function(id) {
   if (confirm('Hapus pesan ini?')) {
-    await supabaseDelete('messages', id);
+    await sbDelete('messages', id);
     showNotif('Pesan dihapus');
     loadPesan();
     updateAllBadges();
@@ -4031,7 +4031,7 @@ async function loadDatabaseAgent() {
   for (const d of (data || [])) {
     let ownerName = '';
     if (isOwner && d.user_id !== currentUser.id) {
-      const { data: userData } = await supabase
+      const { data: userData } = await sb
         .from('users')
         .select('nama')
         .eq('id', d.user_id)
@@ -4227,7 +4227,7 @@ function updateSelectAllAgentButton() {
 }
 
 async function moveAgentToFollowup(agentId) {
-  const { data: doc, error } = await supabase
+  const { data: doc, error } = await sb
     .from('db_agent')
     .select('*')
     .eq('id', agentId)
@@ -4264,7 +4264,7 @@ async function moveAgentToFollowup(agentId) {
         followup_data: null,
         pending_data: []
       }]);
-      await supabaseDelete('db_agent', agentId);
+      await sbDelete('db_agent', agentId);
       showNotifTop('✅ Agent berhasil dipindahkan ke Followup Agen!');
       loadDatabaseAgent();
       loadCustomers();
@@ -4306,7 +4306,7 @@ function deleteAgentItem(id) {
 async function loadProduk() {
   if (!currentUser) return;
   
-  const { data, error } = await supabase
+  const { data, error } = await sb
     .from('produk')
     .select('*')
     .limit(200);
