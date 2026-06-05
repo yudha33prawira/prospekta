@@ -1,16 +1,8 @@
-// ========== SUPABASE SETUP ==========
-// Hapus properti supabase yang sudah ada dari CDN
-if (window.supabase && window.supabase.createClient) {
-    const originalCreateClient = window.supabase.createClient;
-    delete window.supabase;
-    window.supabase = originalCreateClient;
-}
+// ========== SUPABASE CONFIGURATION ==========
+const SUPABASE_URL = 'https://haylblhjzfavrfiyaicq.supabase.co';
+const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImhheWxibGhqemZhdnJmaXlhaWNxIiwicm9sZSI6ImFub24iLCJpYXQiOjE3Nzk3MzgyMDIsImV4cCI6MjA5NTMxNDIwMn0.j4yQa1ZttP5_Zg0ye5lK2OLecq39QhG3tPyv5PZ3r78';
 
-// Buat instance supabase
-const supabase = window.supabase.createClient(
-    'https://haylblhjzfavrfiyaicq.supabase.co',
-    'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImhheWxibGhqemZhdnJmaXlhaWNxIiwicm9sZSI6ImFub24iLCJpYXQiOjE3Nzk3MzgyMDIsImV4cCI6MjA5NTMxNDIwMn0.j4yQa1ZttP5_Zg0ye5lK2OLecq39QhG3tPyv5PZ3r78'
-);
+const sb = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
 
 // ========== PERFORMANCE CONFIGURATION ==========
 const DB_CONFIG = {
@@ -357,7 +349,7 @@ function getTargetName(customerData) {
 
 // ========== SUPABASE HELPER FUNCTIONS ==========
 async function supabaseGet(collection, filters = {}, options = {}) {
-  let query = supabase.from(collection).select('*');
+  let query = sb.from(collection).select('*');
   
   if (currentUser && currentUserRole !== 'owner' && filters.user_id !== undefined) {
     query = query.eq('user_id', currentUser.id);
@@ -615,7 +607,7 @@ async function openWAById(customerId) {
 async function checkDuplicateCustomer(agentId, hp, excludeId = null) {
   const isHpValid = hp && hp !== '+62' && hp !== '62' && hp !== '0' && hp.trim() !== '';
   
-  let query = supabase.from('customers').select('*');
+  let query = sb.from('customers').select('*');
   if (currentUser && currentUserRole !== 'owner') {
     query = query.eq('user_id', currentUser.id);
   }
@@ -667,7 +659,7 @@ async function checkDuplicateProspek(hp, excludeId = null) {
     return null;
   }
   
-  let query = supabase.from('prospek').select('*');
+  let query = sb.from('prospek').select('*');
   if (currentUser && currentUserRole !== 'owner') {
     query = query.eq('user_id', currentUser.id);
   }
@@ -1354,7 +1346,7 @@ function showTransaksiListModal() {
 }
 
 async function updateTotalTransaksiDariCustomer() {
-    let query = supabase.from('customers').select('progres_transaksi');
+    let query = sb.from('customers').select('progres_transaksi');
     
     if (currentUser && currentUserRole !== 'owner') {
         query = query.eq('user_id', currentUser.id);
@@ -1397,7 +1389,7 @@ async function loadAllData() {
 
 async function loadCustomers() {
   try {
-    let query = supabase.from('customers').select('*');
+    let query = sb.from('customers').select('*');
     if (currentUserRole !== 'owner') {
       query = query.eq('user_id', currentUser.id);
     }
@@ -1500,7 +1492,7 @@ function renderDashboardCustomers() {
 
 async function loadProspek() {
   try {
-    let query = supabase.from('prospek').select('*');
+    let query = sb.from('prospek').select('*');
     if (currentUserRole !== 'owner') {
       query = query.eq('user_id', currentUser.id);
     }
@@ -2546,14 +2538,14 @@ async function updateDeadlineBadge() {
     const today = getTodayDate();
     
     // Count overdue customers
-    let customerQuery = supabase.from('customers').select('id', { count: 'exact', head: true });
+    let customerQuery = sb.from('customers').select('id', { count: 'exact', head: true });
     if (currentUserRole !== 'owner') {
       customerQuery = customerQuery.eq('user_id', currentUser.id);
     }
     customerQuery = customerQuery.lt('tanggal', today);
     
     // Count overdue prospek
-    let prospekQuery = supabase.from('prospek').select('id', { count: 'exact', head: true });
+    let prospekQuery = sb.from('prospek').select('id', { count: 'exact', head: true });
     if (currentUserRole !== 'owner') {
       prospekQuery = prospekQuery.eq('user_id', currentUser.id);
     }
@@ -2716,7 +2708,7 @@ function openFollowupConfirm(id) {
                     'Pindahkan ke Database Nomor Salah?',
                     `Apakah Anda yakin nomor "${escapeHtml(doc.hp)}" milik "${escapeHtml(doc.nama)}" tidak dapat dihubungi?`,
                     async () => {
-                        await supabase.from('nomor_salah').insert([{
+                        await sb.from('nomor_salah').insert([{
                             nama: doc.nama,
                             hp: doc.hp,
                             alasan: 'Nomor tidak bisa dihubungi / tidak aktif',
@@ -2915,7 +2907,7 @@ async function confirmClosing(id) {
         async () => {
             const doc = await supabaseGetById('customers', id);
             if (doc) {
-                await supabase.from('db_closing').insert([{
+                await sb.from('db_closing').insert([{
                     nama: doc.nama,
                     hp: doc.hp,
                     tanggal: doc.tanggal || getTodayDate(),
@@ -2947,7 +2939,7 @@ function saveToClosingNow(id) {
             try {
                 const doc = await supabaseGetById('customers', id);
                 if (doc) {
-                    await supabase.from('db_closing').insert([{
+                    await sb.from('db_closing').insert([{
                         nama: doc.nama,
                         hp: doc.hp,
                         tanggal: doc.tanggal || getTodayDate(),
@@ -3059,7 +3051,7 @@ function openProspekDihubungiConfirm(id) {
                 'Pindahkan ke Database Nomor Salah?',
                 `Apakah Anda yakin nomor "${escapeHtml(data.hp)}" milik "${escapeHtml(data.nama)}" tidak dapat dihubungi?\n\n⚠️ Data yang sudah dipindahkan TIDAK BISA dikembalikan!`,
                 async () => {
-                    await supabase.from('nomor_salah').insert([{
+                    await sb.from('nomor_salah').insert([{
                         nama: data.nama,
                         hp: data.hp,
                         alasan: 'Nomor tidak bisa dihubungi / tidak aktif',
@@ -3180,7 +3172,7 @@ function openProspekNegosiasiModal(id) {
                 'Pindahkan ke Database Tidak Tertarik?',
                 `Apakah Anda yakin ingin memindahkan "${escapeHtml(data.nama)}" ke DATABASE TIDAK TERTARIK?\n\n⚠️ Data yang sudah dipindahkan TIDAK BISA dikembalikan!`,
                 async () => {
-                    await supabase.from('db_tidak_tertarik').insert([{
+                    await sb.from('db_tidak_tertarik').insert([{
                         nama: data.nama,
                         hp: data.hp,
                         tanggal: new Date().toISOString(),
@@ -3315,7 +3307,7 @@ function showConvertToCustomerModal(prospekId) {
                     try {
                         showNotifTop('⏳ Memproses pemindahan data...');
 
-                        await supabase.from('db_commitment').insert([{
+                        await sb.from('db_commitment').insert([{
                             nama: doc.nama,
                             hp: doc.hp,
                             negosiasi_data: doc.negosiasi_data || null,
@@ -3327,7 +3319,7 @@ function showConvertToCustomerModal(prospekId) {
                             followup_date: followupDate
                         }]);
 
-                        await supabase.from('customers').insert([{
+                        await sb.from('customers').insert([{
                             agent_id: values.inputAgentId,
                             nama: doc.nama,
                             hp: doc.hp,
@@ -3450,7 +3442,7 @@ function openTambahProgres(customerId) {
 async function loadDBClosing() {
     if (!currentUser) return;
     const isOwner = currentUserRole === 'owner';
-    let query = supabase.from('db_closing').select('*');
+    let query = sb.from('db_closing').select('*');
     if (!isOwner) {
         query = query.eq('user_id', currentUser.id);
     }
@@ -3487,7 +3479,7 @@ async function loadDBClosing() {
 async function loadDBTidak() {
     if (!currentUser) return;
     const isOwner = currentUserRole === 'owner';
-    let query = supabase.from('db_tidak_tertarik').select('*');
+    let query = sb.from('db_tidak_tertarik').select('*');
     if (!isOwner) {
         query = query.eq('user_id', currentUser.id);
     }
@@ -3524,7 +3516,7 @@ async function loadDBTidak() {
 async function loadDBNomorSalah() {
     if (!currentUser) return;
     const isOwner = currentUserRole === 'owner';
-    let query = supabase.from('nomor_salah').select('*');
+    let query = sb.from('nomor_salah').select('*');
     if (!isOwner) {
         query = query.eq('user_id', currentUser.id);
     }
@@ -3561,7 +3553,7 @@ async function loadDBNomorSalah() {
 async function loadDBCommitment() {
     if (!currentUser) return;
     const isOwner = currentUserRole === 'owner';
-    let query = supabase.from('db_commitment').select('*');
+    let query = sb.from('db_commitment').select('*');
     if (!isOwner) {
         query = query.eq('user_id', currentUser.id);
     }
@@ -3700,7 +3692,7 @@ async function checkSession() {
   const loginPage = document.getElementById('loginPage');
   const app = document.getElementById('app');
   
-  const { data: { session } } = await supabase.auth.getSession();
+  const { data: { session } } = await sb.auth.getSession();
   
   if (session) {
     currentUser = session.user;
@@ -3873,7 +3865,7 @@ function initFullModeSelection() {
     followupDeleteAllBtn.style.display = 'inline-block';
     followupDeleteAllBtn.onclick = async () => {
       if (confirm('⚠️ Hapus semua data Followup Agen? Tindakan ini tidak bisa dibatalkan!')) {
-        const { data, error } = await supabase.from('customers').select('id');
+        const { data, error } = await sb.from('customers').select('id');
         if (!error && data) {
           for (const item of data) {
             await supabaseDelete('customers', item.id);
@@ -3896,7 +3888,7 @@ function initFullModeSelection() {
     prospekDeleteAllBtn.style.display = 'inline-block';
     prospekDeleteAllBtn.onclick = async () => {
       if (confirm('⚠️ Hapus semua data Prospek Agen? Tindakan ini tidak bisa dibatalkan!')) {
-        const { data, error } = await supabase.from('prospek').select('id');
+        const { data, error } = await sb.from('prospek').select('id');
         if (!error && data) {
           for (const item of data) {
             await supabaseDelete('prospek', item.id);
@@ -3912,7 +3904,7 @@ function initFullModeSelection() {
 // ========== LOAD REMINDERS ==========
 async function loadReminders() {
   try {
-    let query = supabase.from('reminders').select('*');
+    let query = sb.from('reminders').select('*');
     if (currentUserRole !== 'owner') {
       query = query.eq('user_id', currentUser.id);
     }
@@ -4021,7 +4013,7 @@ async function loadDatabaseAgent() {
   if (!currentUser) return;
 
   const isOwner = currentUserRole === 'owner';
-  let query = supabase.from('db_agent').select('*');
+  let query = sb.from('db_agent').select('*');
   if (!isOwner) {
     query = query.eq('user_id', currentUser.id);
   }
@@ -4257,7 +4249,7 @@ async function moveAgentToFollowup(agentId) {
     'Pindahkan ke Followup Agen?',
     `Apakah Anda yakin ingin memindahkan agent "${escapeHtml(data.nama)}" ke FOLLOWUP AGEN?\n\nData akan dipindahkan dengan status "Baru".`,
     async () => {
-      await supabase.from('customers').insert([{
+      await sb.from('customers').insert([{
         agent_id: data.agent_id,
         nama: data.nama,
         hp: data.hp,
@@ -4599,7 +4591,7 @@ document.addEventListener('DOMContentLoaded', function() {
     }
     
     try {
-      await supabase.from('customers').insert([{
+      await sb.from('customers').insert([{
         agent_id: agentId,
         agent_type: agentType,
         nama: nama,
@@ -4652,7 +4644,7 @@ document.addEventListener('DOMContentLoaded', function() {
     }
     
     try {
-      await supabase.from('prospek').insert([{
+      await sb.from('prospek').insert([{
         agent_type: agentType,
         nama: nama,
         hp: hp,
@@ -4790,7 +4782,7 @@ document.querySelectorAll('.menu-item[data-page]').forEach(item => {
       this.disabled = true;
       
       try {
-        const { error } = await supabase.auth.signInWithPassword({
+        const { error } = await sb.auth.signInWithPassword({
           email: email,
           password: password
         });
@@ -4807,7 +4799,7 @@ document.querySelectorAll('.menu-item[data-page]').forEach(item => {
   const logoutBtn = document.getElementById('logoutBtn');
   if (logoutBtn) {
     logoutBtn.addEventListener('click', async () => {
-      await supabase.auth.signOut();
+      await sb.auth.signOut();
       location.reload();
     });
   }
@@ -4839,7 +4831,7 @@ document.querySelectorAll('.menu-item[data-page]').forEach(item => {
   checkSession();
   
   // Listen for auth changes
-  supabase.auth.onAuthStateChange((event, session) => {
+  sb.auth.onAuthStateChange((event, session) => {
     if (event === 'SIGNED_IN') {
       checkSession();
     } else if (event === 'SIGNED_OUT') {
