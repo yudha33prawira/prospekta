@@ -9061,6 +9061,38 @@ document.addEventListener('DOMContentLoaded', function() {
     document.getElementById('prospekModal').style.display = 'flex';
   });
 
+// ========== ADD CUSTOMER/PROSPEK BUTTONS ==========
+document.getElementById('addCustomerBtn')?.addEventListener('click', () => {
+    const today = getTodayDate();
+    document.getElementById('customerDate').value = today;
+    document.getElementById('customerModal').style.display = 'flex';
+});
+
+document.getElementById('addProspekBtn')?.addEventListener('click', () => {
+    const today = getTodayDate();
+    document.getElementById('prospekDeadline').value = today;
+    document.getElementById('prospekModal').style.display = 'flex';
+});
+
+// ========== FULL MODE BUTTONS ==========
+// Tombol Tambah Data di Full Mode Followup
+document.getElementById('addCustomerFullBtn')?.addEventListener('click', () => {
+    const today = getTodayDate();
+    const dateInput = document.getElementById('customerDate');
+    if (dateInput) dateInput.value = today;
+    const modal = document.getElementById('customerModal');
+    if (modal) modal.style.display = 'flex';
+});
+
+// Tombol Tambah Data di Full Mode Prospek
+document.getElementById('addProspekFullBtn')?.addEventListener('click', () => {
+    const today = getTodayDate();
+    const deadlineInput = document.getElementById('prospekDeadline');
+    if (deadlineInput) deadlineInput.value = today;
+    const modal = document.getElementById('prospekModal');
+    if (modal) modal.style.display = 'flex';
+});
+
 // ========== SAVE CUSTOMER ==========
 document.getElementById('saveCustomerBtn')?.addEventListener('click', async () => {
     console.log('Tombol saveCustomerBtn diklik'); // Debug
