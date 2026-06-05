@@ -9060,6 +9060,151 @@ document.addEventListener('DOMContentLoaded', function() {
     document.getElementById('prospekDeadline').value = today;
     document.getElementById('prospekModal').style.display = 'flex';
   });
+
+// ========== SAVE CUSTOMER ==========
+document.getElementById('saveCustomerBtn')?.addEventListener('click', async () => {
+    console.log('Tombol saveCustomerBtn diklik'); // Debug
+    
+    const agentId = document.getElementById('customerId')?.value;
+    const agentType = document.getElementById('customerType')?.value;
+    const nama = document.getElementById('customerName')?.value;
+    let hp = document.getElementById('customerPhone')?.value;
+    const apk = document.getElementById('customerApk')?.value;
+    const uplineName = document.getElementById('customerUplineName')?.value;
+    let uplinePhone = document.getElementById('customerUplinePhone')?.value;
+    const tanggal = document.getElementById('customerDate')?.value;
+    
+    // Validasi
+    if (!agentId || !agentType || !nama || !hp || !apk || !tanggal) {
+        showNotifTop('⚠️ Semua field wajib diisi!', true);
+        console.log('Validasi gagal:', { agentId, agentType, nama, hp, apk, tanggal });
+        return;
+    }
+    
+    // Format HP
+    hp = hp.replace(/\D/g, '');
+    if (hp.startsWith('0')) hp = hp.substring(1);
+    if (!hp.startsWith('62')) hp = '62' + hp;
+    hp = '+' + hp;
+    
+    if (uplinePhone) {
+        uplinePhone = uplinePhone.replace(/\D/g, '');
+        if (uplinePhone.startsWith('0')) uplinePhone = uplinePhone.substring(1);
+        if (!uplinePhone.startsWith('62')) uplinePhone = '62' + uplinePhone;
+        uplinePhone = '+' + uplinePhone;
+    }
+    
+    // Cek duplikat
+    const { duplicateAgent, duplicateHp } = await checkDuplicateCustomer(agentId, hp);
+    if (duplicateAgent) {
+        showNotifTop(`⚠️ ID Agent "${agentId}" sudah terdaftar oleh ${duplicateAgent.owner}!`, true);
+        return;
+    }
+    if (duplicateHp) {
+        showNotifTop(`⚠️ Nomor WhatsApp "${hp}" sudah terdaftar oleh ${duplicateHp.owner}!`, true);
+        return;
+    }
+    
+    try {
+        const { error } = await supabase.from('customers').insert([{
+            agent_id: agentId,
+            agent_type: agentType,
+            nama: nama,
+            hp: hp,
+            apk: apk,
+            upline_name: uplineName || '',
+            upline_phone: uplinePhone || '',
+            tanggal: tanggal,
+            status: 'baru',
+            user_id: currentUser.id,
+            created_at: new Date().toISOString(),
+            followup_data: null,
+            pending_data: []
+        }]);
+        
+        if (error) throw error;
+        
+        showNotifTop('✅ Customer berhasil ditambahkan!');
+        closeModal('customerModal');
+        
+        // Reset form
+        document.getElementById('customerId').value = '';
+        document.getElementById('customerType').value = '';
+        document.getElementById('customerName').value = '';
+        document.getElementById('customerPhone').value = '';
+        document.getElementById('customerApk').value = '';
+        document.getElementById('customerUplineName').value = '';
+        document.getElementById('customerUplinePhone').value = '';
+        document.getElementById('customerDate').value = getTodayDate();
+        
+        await loadAllData();
+        
+    } catch (e) {
+        console.error('Error save customer:', e);
+        showNotifTop('❌ Gagal: ' + e.message, true);
+    }
+});
+
+// ========== SAVE PROSPEK ==========
+document.getElementById('saveProspekBtn')?.addEventListener('click', async () => {
+    console.log('Tombol saveProspekBtn diklik'); // Debug
+    
+    const agentType = document.getElementById('prospekType')?.value;
+    const nama = document.getElementById('prospekName')?.value;
+    let hp = document.getElementById('prospekPhone')?.value;
+    const status = document.getElementById('prospekStatusSelect')?.value;
+    const deadline = document.getElementById('prospekDeadline')?.value;
+    
+    // Validasi
+    if (!agentType || !nama || !hp || !deadline) {
+        showNotifTop('⚠️ Semua field wajib diisi!', true);
+        console.log('Validasi gagal:', { agentType, nama, hp, deadline });
+        return;
+    }
+    
+    // Format HP
+    hp = hp.replace(/\D/g, '');
+    if (hp.startsWith('0')) hp = hp.substring(1);
+    if (!hp.startsWith('62')) hp = '62' + hp;
+    hp = '+' + hp;
+    
+    // Cek duplikat
+    const duplicateHp = await checkDuplicateProspek(hp);
+    if (duplicateHp) {
+        showNotifTop(`⚠️ Nomor WhatsApp "${hp}" sudah terdaftar oleh ${duplicateHp.owner}!`, true);
+        return;
+    }
+    
+    try {
+        const { error } = await supabase.from('prospek').insert([{
+            agent_type: agentType,
+            nama: nama,
+            hp: hp,
+            status: status,
+            deadline: deadline,
+            user_id: currentUser.id,
+            created_at: new Date().toISOString()
+        }]);
+        
+        if (error) throw error;
+        
+        showNotifTop('✅ Prospek berhasil ditambahkan!');
+        closeModal('prospekModal');
+        
+        // Reset form
+        document.getElementById('prospekType').value = '';
+        document.getElementById('prospekName').value = '';
+        document.getElementById('prospekPhone').value = '';
+        document.getElementById('prospekStatusSelect').value = 'Baru';
+        document.getElementById('prospekDeadline').value = getTodayDate();
+        
+        await loadAllData();
+        
+    } catch (e) {
+        console.error('Error save prospek:', e);
+        showNotifTop('❌ Gagal: ' + e.message, true);
+    }
+});
   
   // ========== PAGE NAVIGATION ==========
   document.querySelectorAll('.menu-item[data-page]').forEach(item => {
