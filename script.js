@@ -4766,30 +4766,6 @@ document.querySelectorAll('.menu-item[data-page]').forEach(item => {
   document.getElementById('searchInput')?.addEventListener('keypress', (e) => {
       if (e.key === 'Enter') performSearch();
   });
-    
-  const searchBtn = document.getElementById('searchBtn');
-  const clearSearchBtn = document.getElementById('clearSearchBtn');
-  const searchInput = document.getElementById('searchInput');
-  
-  if (searchBtn) {
-    searchBtn.addEventListener('click', performSearch);
-  }
-  if (clearSearchBtn) {
-    clearSearchBtn.addEventListener('click', clearSearch);
-  }
-  if (searchInput) {
-    searchInput.addEventListener('keypress', (e) => {
-      if (e.key === 'Enter') performSearch();
-    });
-  }
-  
-  // ========== TARGET TRANSAKSI CARD CLICK ==========
-  const targetTransaksiCard = document.getElementById('targetTransaksiCard');
-  if (targetTransaksiCard) {
-    targetTransaksiCard.addEventListener('click', () => {
-      showInputTransaksiModal();
-    });
-  }
   
   // ========== LOGIN BUTTON ==========
   const loginBtn = document.getElementById('loginBtn');
@@ -4866,45 +4842,3 @@ document.querySelectorAll('.menu-item[data-page]').forEach(item => {
     }
   });
 });
-
-// Placeholder functions yang diperlukan
-function lanjutKeDihubungi(id) {
-  supabaseUpdate('prospek', id, { status: 'Dihubungi' });
-  loadProspek();
-  closeModal('detailModal');
-}
-
-function openProspekDihubungiConfirm(id) {
-  // To be implemented
-  console.log('openProspekDihubungiConfirm for', id);
-}
-
-function openProspekNegosiasiModal(id) {
-  // To be implemented
-  console.log('openProspekNegosiasiModal for', id);
-}
-
-function showConvertToCustomerModal(id) {
-  // To be implemented
-  console.log('showConvertToCustomerModal for', id);
-}
-
-function saveToClosingNow(id) {
-  // To be implemented
-  console.log('saveToClosingNow for', id);
-}
-
-function openTambahProgres(id) {
-  // To be implemented
-  console.log('openTambahProgres for', id);
-}
-
-function openFollowupConfirm(id) {
-  // To be implemented
-  console.log('openFollowupConfirm for', id);
-}
-
-function openPendingModal(id) {
-  // To be implemented
-  console.log('openPendingModal for', id);
-}
