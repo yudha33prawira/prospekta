@@ -9614,6 +9614,85 @@ if (saveProfileBtn) {
   formatPhoneInput(document.getElementById('customerPhone'));
   formatPhoneInput(document.getElementById('prospekPhone'));
   formatPhoneInput(document.getElementById('profilePhone'));
+
+// ========== VALIDASI INPUT OTOMATIS ==========
+
+// Fungsi untuk format nomor HP (maksimal 13 angka, diawali 8)
+function formatPhoneNumber(inputElement) {
+    if (!inputElement) return;
+    
+    inputElement.addEventListener('input', function(e) {
+        let value = this.value.replace(/\D/g, ''); // Hanya angka
+        
+        // Batasi maksimal 13 angka
+        if (value.length > 13) {
+            value = value.slice(0, 13);
+        }
+        
+        // Jika tidak dimulai dengan 8, tambahkan 8 di depan
+        if (value.length > 0 && !value.startsWith('8')) {
+            value = '8' + value;
+            // Jika setelah ditambah 8 jadi kelebihan, potong lagi
+            if (value.length > 13) {
+                value = value.slice(0, 13);
+            }
+        }
+        
+        this.value = value;
+    });
+    
+    // Blur event: pastikan format benar saat keluar dari field
+    inputElement.addEventListener('blur', function() {
+        let value = this.value.replace(/\D/g, '');
+        if (value.length > 0 && !value.startsWith('8')) {
+            value = '8' + value;
+        }
+        if (value.length > 13) {
+            value = value.slice(0, 13);
+        }
+        this.value = value;
+    });
+}
+
+// Fungsi untuk format ID Agent (maksimal 16 karakter, huruf besar, boleh angka dan strip)
+function formatAgentId(inputElement) {
+    if (!inputElement) return;
+    
+    inputElement.addEventListener('input', function(e) {
+        let value = this.value.toUpperCase();
+        // Hanya huruf besar, angka, dan strip (-)
+        value = value.replace(/[^A-Z0-9-]/g, '');
+        // Batasi maksimal 16 karakter
+        if (value.length > 16) {
+            value = value.slice(0, 16);
+        }
+        this.value = value;
+    });
+}
+
+// ========== TERAPKAN KE SEMUA INPUT ==========
+
+// Customer Form
+const customerPhone = document.getElementById('customerPhone');
+const customerAgentId = document.getElementById('customerId');
+if (customerPhone) formatPhoneNumber(customerPhone);
+if (customerAgentId) formatAgentId(customerAgentId);
+
+// Prospek Form
+const prospekPhone = document.getElementById('prospekPhone');
+if (prospekPhone) formatPhoneNumber(prospekPhone);
+
+// Profile Form
+const profilePhone = document.getElementById('profilePhone');
+if (profilePhone) formatPhoneNumber(profilePhone);
+
+// Agent Form (di modal agent detail)
+const agentPhoneDetail = document.getElementById('agentDetailTlp');
+if (agentPhoneDetail) formatPhoneNumber(agentPhoneDetail);
+
+// Agent ID di Database Agent (jika ada input)
+const agentIdInputs = document.querySelectorAll('#customerId, #agentIdInput, .agent-id-input');
+agentIdInputs.forEach(input => formatAgentId(input));
   
   // ========== TARGET KPI BUTTONS ==========
   const saveTargetBtn = document.getElementById('saveTargetBtn');
