@@ -4,6 +4,8 @@ const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBh
 
 const sb = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
 
+window.supabase = sb;
+
 // ========== PERFORMANCE CONFIGURATION ==========
 const DB_CONFIG = {
   MAX_BATCH_SIZE: 15,
