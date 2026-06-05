@@ -4960,6 +4960,75 @@ function initBroadcast() {
     initTemplateFeature();
 }
 
+// ========== INIT UPLINE BROADCAST ==========
+function initUplineBroadcast() {
+    console.log('initUplineBroadcast dipanggil');
+    
+    // Setup radio buttons untuk sumber data
+    const radioButtons = document.querySelectorAll('input[name="uplineSourceType"]');
+    const customerFilter = document.getElementById('uplineCustomerFilter');
+    const transaksiFilter = document.getElementById('uplineTransaksiFilter');
+    const customCard = document.getElementById('uplineCustomCard');
+    
+    function updateUplineSourceDisplay() {
+        const selectedValue = document.querySelector('input[name="uplineSourceType"]:checked')?.value;
+        
+        // Sembunyikan semua filter terlebih dahulu
+        if (customerFilter) customerFilter.style.display = 'none';
+        if (transaksiFilter) transaksiFilter.style.display = 'none';
+        if (customCard) customCard.style.display = 'none';
+        
+        // Tampilkan filter sesuai pilihan
+        if (selectedValue === 'customer') {
+            if (customerFilter) customerFilter.style.display = 'block';
+        } else if (selectedValue === 'transaksi') {
+            if (transaksiFilter) transaksiFilter.style.display = 'block';
+        } else if (selectedValue === 'custom') {
+            if (customCard) customCard.style.display = 'block';
+        }
+    }
+    
+    // Tambahkan event listener ke radio buttons
+    radioButtons.forEach(radio => {
+        radio.removeEventListener('change', updateUplineSourceDisplay);
+        radio.addEventListener('change', updateUplineSourceDisplay);
+    });
+    
+    // Setup filter untuk customer (checkbox)
+    const customerCheckboxes = document.querySelectorAll('#uplineCustomerFilter input[type="checkbox"]');
+    customerCheckboxes.forEach(cb => {
+        cb.removeEventListener('change', loadUplineNumbers);
+        cb.addEventListener('change', loadUplineNumbers);
+    });
+    
+    // Setup refresh button
+    const refreshBtn = document.getElementById('refreshUplineBtn');
+    if (refreshBtn) {
+        refreshBtn.removeEventListener('click', loadUplineNumbers);
+        refreshBtn.addEventListener('click', loadUplineNumbers);
+    }
+    
+    // Setup send button
+    const sendBtn = document.getElementById('sendUplineBroadcastBtn');
+    if (sendBtn) {
+        sendBtn.removeEventListener('click', sendUplineBroadcast);
+        sendBtn.addEventListener('click', sendUplineBroadcast);
+    }
+    
+    // Setup custom numbers input
+    const customNumbers = document.getElementById('uplineCustomNumbers');
+    if (customNumbers) {
+        customNumbers.removeEventListener('input', loadUplineNumbers);
+        customNumbers.addEventListener('input', loadUplineNumbers);
+    }
+    
+    // Initial display
+    updateUplineSourceDisplay();
+    
+    // Load initial data
+    loadUplineNumbers();
+}
+
 // ========== SEARCH FUNCTIONS ==========
 async function performSearch() {
     const keyword = document.getElementById('searchInput').value.trim().toLowerCase();
