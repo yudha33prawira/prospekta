@@ -3357,7 +3357,7 @@ function updateFilterStatus() {
     }
 }
 
-function deleteSelectedAgentSafe() {
+async function deleteSelectedAgentSafe() {
   const selectedIds = Array.from(selectedAgentIds.keys());
   if (selectedIds.length === 0) {
     showNotifTop('⚠️ Tidak ada data yang dipilih', true);
@@ -3404,7 +3404,7 @@ function deleteSelectedAgentSafe() {
   }, 3000);
 }
 
-function deleteAgentItem(id) {
+async function deleteAgentItem(id) {
   if (!confirm('Yakin hapus data agent ini? Data akan dihapus permanen!')) return;
 
   const progress = showFloatingProgress('🗑️ Menghapus Data Agent', 1);
