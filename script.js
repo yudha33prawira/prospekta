@@ -260,9 +260,36 @@ function getStatusBadge(status) {
 // ========== AUTH FUNCTIONS ==========
 async function signIn(email, password) {
     const { data, error } = await supabase.auth.signInWithPassword({ email, password });
+    // Setelah login success
+    if (userData) {
+    currentUserRole = userData.role || 'cs';
+    currentUserName = userData.nama || userData.email?.split('@')[0] || 'CS Agent';
+    
+    // SIMPAN KE METADATA
+    await updateUserMetadata(currentUserRole, currentUserName);
+}
     if (error) throw error;
     return data.user;
 }
+
+async function updateUserMetadata(role, nama) {
+    if (!currentUser) return;
+    
+    const { error } = await supabase.auth.updateUser({
+        data: { 
+            role: role,
+            nama: nama,
+            updated_at: new Date().toISOString()
+        }
+    });
+    
+    if (error) {
+        console.error('Failed to update user metadata:', error);
+    } else {
+        console.log('✅ User metadata updated with role:', role);
+    }
+}
+
 async function signOut() { await supabase.auth.signOut(); }
 async function updateUserProfile(userId, updates) { await supabase.from('users').update(updates).eq('id', userId); }
 
