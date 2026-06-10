@@ -241,6 +241,68 @@ async function loadDatabaseAgent() {
     renderAgentList(items);
     return items;
 }
+// ========== SAVE AGENT DETAIL ==========
+async function saveAgentDetail() {
+    if (!currentAgentIdForProduct) {
+        showNotifTop('⚠️ Data agent tidak ditemukan!', true);
+        return;
+    }
+    
+    const agentId = document.getElementById('agentDetailId').value;
+    const nama = document.getElementById('agentDetailNama').value;
+    const agentType = document.getElementById('agentDetailType').value;
+    const pemilik = document.getElementById('agentDetailPemilik').value;
+    const alamat = document.getElementById('agentDetailAlamat').value;
+    const email = document.getElementById('agentDetailEmail').value;
+    const tlp = document.getElementById('agentDetailTlp').value;
+    const upline = document.getElementById('agentDetailUpline').value;
+    const noRekening = document.getElementById('agentDetailNoRekening').value;
+    const atasNama = document.getElementById('agentDetailAtasNama').value;
+    const jenisBank = document.getElementById('agentDetailBank').value;
+    const noKtp = document.getElementById('agentDetailNoKtp').value;
+    const cid = document.getElementById('agentDetailCid').value;
+    
+    if (!nama) {
+        showNotifTop('⚠️ Nama agent wajib diisi!', true);
+        return;
+    }
+    if (!agentType) {
+        showNotifTop('⚠️ Type/Class wajib dipilih!', true);
+        return;
+    }
+    
+    try {
+        const { error } = await supabase
+            .from('db_agent')
+            .update({
+                agent_id: agentId,
+                nama: nama,
+                agent_type: agentType,
+                pemilik: pemilik,
+                alamat: alamat,
+                email: email,
+                tlp: tlp,
+                upline: upline,
+                no_rekening: noRekening,
+                atas_nama: atasNama,
+                jenis_bank: jenisBank,
+                no_ktp: noKtp,
+                cid: cid,
+                produk: currentAgentProducts || [],
+                updated_at: new Date().toISOString()
+            })
+            .eq('id', currentAgentIdForProduct);
+        
+        if (error) throw error;
+        
+        showNotifTop('✅ Data agent berhasil disimpan!');
+        closeModal('agentDetailModal');
+        await loadDatabaseAgent();
+    } catch (e) {
+        showNotifTop('❌ Gagal menyimpan: ' + e.message, true);
+    }
+}
+
 async function loadProduk() {
     if (!currentUser) return;
     const { data, error } = await supabase.from('produk').select('*').order('created_at', { ascending: false }).limit(200);
