@@ -5255,78 +5255,109 @@ document.addEventListener('DOMContentLoaded', function() {
 
 // ========== AUTH STATE HANDLER ==========
 supabase.auth.onAuthStateChange(async (event, session) => {
-    // Abaikan event TOKEN_REFRESHED karena akan menyebabkan duplikasi
+    console.log('🔐 [1] AUTH EVENT:', event);
+    
+    // Abaikan TOKEN_REFRESHED
     if (event === 'TOKEN_REFRESHED') {
-        console.log('⏭️ Skipping TOKEN_REFRESHED event');
+        console.log('⏭️ Skipping TOKEN_REFRESHED');
         return;
     }
-    
-    console.log('🔐 [1] AUTH EVENT:', event);
-    console.log('🔐 [2] User email:', session?.user?.email);
     
     const loginPage = document.getElementById('loginPage');
     const app = document.getElementById('app');
     
-    if (session?.user) {
-        // Cegah eksekusi ganda dengan flag
+    // Cek session terlebih dahulu
+    const { data: { session: currentSession } } = await supabase.auth.getSession();
+    
+    if (!currentSession?.user) {
+        console.log('🔐 No valid session');
+        loginPage.style.display = 'flex';
+        app.style.display = 'none';
+        currentUser = null;
+        return;
+    }
+    
+    const user = currentSession.user;
+    console.log('🔐 [2] User email:', user.email);
+    
+    if (user) {
+        // Cegah eksekusi ganda
         if (window._authProcessing) {
-            console.log('⏭️ Auth already processing, skipping...');
+            console.log('⏭️ Already processing, skip');
             return;
         }
         window._authProcessing = true;
         
         try {
-            console.log('🔐 [3] User logged in, setting up...');
-            currentUser = session.user;
+            console.log('🔐 [3] Setting up UI...');
+            currentUser = user;
             loginPage.style.display = 'none';
             app.style.display = 'block';
             
-            console.log('🔐 [4] Fetching user data from database...');
-            const { data: userData, error } = await supabase
-                .from('users')
-                .select('*')
-                .eq('id', currentUser.id)
-                .maybeSingle();
+            // Gunakan fetch dengan timeout
+            console.log('🔐 [4] Fetching user data...');
             
-            console.log('🔐 [5] userData received:', userData);
-            console.log('🔐 [6] error:', error);
+            const controller = new AbortController();
+            const timeoutId = setTimeout(() => controller.abort(), 5000);
             
-            if (error || !userData) {
-                console.error('❌ [7] Error fetching user data:', error);
-                currentUserRole = 'cs';
-                currentUserName = currentUser.email?.split('@')[0] || 'CS Agent';
-                currentUserEmail = currentUser.email || '';
-            } else {
-                console.log('✅ [8] User data:', userData);
-                console.log('✅ [9] Role from database:', userData.role);
-                currentUserRole = userData.role || 'cs';
-                currentUserName = userData.nama || userData.email?.split('@')[0] || 'CS Agent';
-                currentUserEmail = userData.email || '';
-                console.log('✅ [10] currentUserRole SET TO:', currentUserRole);
+            try {
+                const { data: userData, error } = await supabase
+                    .from('users')
+                    .select('*')
+                    .eq('id', user.id)
+                    .maybeSingle();
                 
-                const foto = userData.foto || 'https://i.pravatar.cc/40';
-                const profileImg = document.getElementById('profileImg');
-                const previewFoto = document.getElementById('previewFoto');
-                if (profileImg) profileImg.src = foto;
-                if (previewFoto) previewFoto.src = foto;
+                clearTimeout(timeoutId);
+                
+                console.log('🔐 [5] userData:', userData);
+                console.log('🔐 [6] error:', error);
+                
+                if (error || !userData) {
+                    console.error('❌ Error:', error);
+                    currentUserRole = 'cs';
+                    currentUserName = user.email?.split('@')[0] || 'CS Agent';
+                } else {
+                    currentUserRole = userData.role || 'cs';
+                    currentUserName = userData.nama || user.email?.split('@')[0] || 'CS Agent';
+                    console.log('✅ Role:', currentUserRole);
+                    
+                    const foto = userData.foto || 'https://i.pravatar.cc/40';
+                    const profileImg = document.getElementById('profileImg');
+                    const previewFoto = document.getElementById('previewFoto');
+                    if (profileImg) profileImg.src = foto;
+                    if (previewFoto) previewFoto.src = foto;
+                }
+            } catch (fetchErr) {
+                clearTimeout(timeoutId);
+                console.error('❌ Fetch timeout/error:', fetchErr);
+                // Fallback: coba sekali lagi
+                console.log('🔄 Retrying...');
+                const { data: userData, error } = await supabase
+                    .from('users')
+                    .select('*')
+                    .eq('id', user.id)
+                    .maybeSingle();
+                    
+                if (userData) {
+                    currentUserRole = userData.role || 'cs';
+                    currentUserName = userData.nama || user.email?.split('@')[0] || 'CS Agent';
+                    console.log('✅ Retry success, Role:', currentUserRole);
+                } else {
+                    currentUserRole = 'cs';
+                    currentUserName = user.email?.split('@')[0] || 'CS Agent';
+                }
             }
             
-            console.log('🔐 [11] Updating UI elements...');
-            const topUserName = document.getElementById('topUserName');
-            const profileName = document.getElementById('profileName');
-            const profileEmail = document.getElementById('profileEmail');
+            // Update UI
+            document.getElementById('topUserName').innerText = currentUserName;
+            document.getElementById('profileName').value = currentUserName;
+            document.getElementById('profileEmail').value = user.email;
             
-            if (topUserName) topUserName.innerText = currentUserName;
-            if (profileName) profileName.value = currentUserName;
-            if (profileEmail) profileEmail.value = currentUser.email;
-            
-            // Set menu visibility
+            // Set menu
             const menuDbAgent = document.getElementById('menuDbAgent');
             const menuDbTransaksi = document.getElementById('menuDbTransaksi');
             const menuImport = document.getElementById('menuImport');
             const ownerMenu = document.getElementById('ownerMenu');
-            
-            console.log('🔐 [12] Setting menu for role:', currentUserRole);
             
             if (currentUserRole === 'owner') {
                 if (menuDbAgent) menuDbAgent.style.display = 'flex';
@@ -5340,6 +5371,7 @@ supabase.auth.onAuthStateChange(async (event, session) => {
                 if (ownerMenu) ownerMenu.style.display = 'none';
             }
             
+            // Show dashboard
             document.querySelectorAll('.page-content').forEach(p => p.style.display = 'none');
             const dashboardPage = document.getElementById('dashboardPage');
             if (dashboardPage) dashboardPage.style.display = 'block';
@@ -5348,7 +5380,7 @@ supabase.auth.onAuthStateChange(async (event, session) => {
             const dashboardMenu = document.querySelector('.menu-item[data-page="dashboard"]');
             if (dashboardMenu) dashboardMenu.classList.add('active');
             
-            console.log('🔐 [13] Loading data...');
+            // Load data
             await loadAllData();
             await loadTargetData();
             await loadTransaksiGlobal();
@@ -5357,19 +5389,12 @@ supabase.auth.onAuthStateChange(async (event, session) => {
             initFullModeSelection();
             updateAllBadges();
             
-            console.log('🏁 [14] FINAL currentUserRole:', currentUserRole);
+            console.log('🏁 FINAL currentUserRole:', currentUserRole);
             
         } catch (err) {
-            console.error('❌ CRITICAL ERROR in auth handler:', err);
-            console.error('❌ Error stack:', err.stack);
+            console.error('❌ CRITICAL ERROR:', err);
         } finally {
             window._authProcessing = false;
         }
-    } else {
-        console.log('🔐 [LOGOUT] No session, showing login page');
-        loginPage.style.display = 'flex';
-        app.style.display = 'none';
-        currentUser = null;
-        window._authProcessing = false;
     }
 });
