@@ -63,13 +63,6 @@ function escapeHtml(text) {
     return String(text).replace(/[&<>]/g, m => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;' }[m]));
 }
 
-function renderAgentProducts() {
-    // Implementasi dari kode asli
-    const container = document.getElementById('agentProductsContainer');
-    if (!container) return;
-    container.innerHTML = '<p style="text-align:center; padding:20px;">📦 Daftar produk akan muncul di sini</p>';
-}
-
 function getTodayDate() {
     return new Date().toISOString().split('T')[0];
 }
