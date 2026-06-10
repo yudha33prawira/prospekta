@@ -4855,6 +4855,105 @@ document.addEventListener('DOMContentLoaded', function() {
     
     // ========== PROFILE MODAL ==========
     document.getElementById('profileImg')?.addEventListener('click', () => showModal('profileModal'));
+
+    // ========== SAVE PROFILE BUTTON ==========
+const saveProfileBtn = document.getElementById('saveProfileBtn');
+if (saveProfileBtn) {
+    // Hapus event listener lama jika ada
+    const newSaveProfileBtn = saveProfileBtn.cloneNode(true);
+    saveProfileBtn.parentNode.replaceChild(newSaveProfileBtn, saveProfileBtn);
+    
+    newSaveProfileBtn.addEventListener('click', async () => {
+        const nama = document.getElementById('profileName').value;
+        let hp = document.getElementById('profilePhone').value;
+        const foto = document.getElementById('previewFoto').src;
+        
+        console.log('Saving profile...', { nama, hp });
+        
+        if (!nama) {
+            showNotifTop('Nama wajib diisi', true);
+            return;
+        }
+        
+        // Format HP: hapus non-digit, pastikan +62
+        if (hp) {
+            hp = hp.replace(/\D/g, '');
+            if (hp.startsWith('0')) hp = hp.substring(1);
+            if (hp.startsWith('62')) hp = hp.substring(2);
+            hp = '+62' + hp;
+        } else {
+            hp = '+62';
+        }
+        
+        // Nonaktifkan tombol sementara
+        newSaveProfileBtn.disabled = true;
+        newSaveProfileBtn.textContent = '⏳ Menyimpan...';
+        
+        try {
+            let finalFoto = foto;
+            const fileInput = document.getElementById('profileFoto');
+            
+            // Cek apakah ada file baru yang dipilih
+            if (fileInput && fileInput.files && fileInput.files[0]) {
+                const file = fileInput.files[0];
+                if (file.size > 1024 * 1024) {
+                    showNotifTop('Ukuran foto maksimal 1MB', true);
+                    newSaveProfileBtn.disabled = false;
+                    newSaveProfileBtn.textContent = '💾 Simpan';
+                    return;
+                }
+                
+                // Upload foto ke Supabase Storage
+                const fileExt = file.name.split('.').pop();
+                const fileName = `${currentUser.id}/profile_${Date.now()}.${fileExt}`;
+                
+                const { error: uploadError } = await supabase.storage
+                    .from('profiles')
+                    .upload(fileName, file, { upsert: true });
+                
+                if (!uploadError) {
+                    const { data: urlData } = supabase.storage
+                        .from('profiles')
+                        .getPublicUrl(fileName);
+                    finalFoto = urlData.publicUrl;
+                }
+            }
+            
+            // Update database users
+            const { error: updateError } = await supabase
+                .from('users')
+                .update({
+                    nama: nama,
+                    hp: hp,
+                    foto: finalFoto,
+                    updated_at: new Date().toISOString()
+                })
+                .eq('id', currentUser.id);
+            
+            if (updateError) throw updateError;
+            
+            // Update tampilan
+            document.getElementById('topUserName').innerText = nama;
+            document.getElementById('profileImg').src = finalFoto;
+            document.getElementById('previewFoto').src = finalFoto;
+            currentUserName = nama;
+            
+            // Reset file input
+            if (fileInput) fileInput.value = '';
+            
+            closeModal('profileModal');
+            showNotifTop('✅ Profile tersimpan');
+            console.log('Profile saved successfully!');
+            
+        } catch (e) {
+            console.error('Save profile error:', e);
+            showNotifTop('❌ Gagal menyimpan profile: ' + e.message, true);
+        } finally {
+            newSaveProfileBtn.disabled = false;
+            newSaveProfileBtn.textContent = '💾 Simpan';
+        }
+    });
+}
     
     // ========== CAMERA BUTTON ==========
     document.getElementById('cameraIconBtn')?.addEventListener('click', () => {
@@ -5424,12 +5523,21 @@ function formatNama(input) {
 }
 
 // ========== FORMAT PHONE INPUT ==========
-const phoneInputs = ['customerPhone', 'prospekPhone', 'profilePhone', 'customerUplinePhone'];
-phoneInputs.forEach(id => {
+const phoneFields = ['customerPhone', 'prospekPhone', 'profilePhone', 'customerUplinePhone'];
+phoneFields.forEach(id => {
     const input = document.getElementById(id);
     if (input) {
-        input.addEventListener('input', function() {
-            formatPhone(this);
+        // Hapus event listener lama
+        const newInput = input.cloneNode(true);
+        input.parentNode.replaceChild(newInput, input);
+        
+        newInput.addEventListener('input', function() {
+            let value = this.value.replace(/[^\d]/g, '');
+            if (value.startsWith('0')) value = value.substring(1);
+            if (value.startsWith('62')) value = value.substring(2);
+            if (value.length > 13) value = value.slice(0, 13);
+            if (value.length > 0 && !value.startsWith('8')) value = '8' + value;
+            this.value = value;
         });
     }
 });
