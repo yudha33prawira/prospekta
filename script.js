@@ -170,10 +170,6 @@ function updateSidebarBodyClass() {
     }
 }
 
-function isMobile() {
-    return window.innerWidth <= 768;
-}
-
 function escapeHtml(text) {
     if (!text) return '';
     return String(text).replace(/[&<>]/g, m => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;' }[m]));
@@ -4041,6 +4037,73 @@ function initDarkMode() {
         });
     }
 }
+
+// ========== SIDEBAR HOVER FUNCTIONALITY ==========
+const sidebar = document.getElementById('sidebar');
+const hoverZone = document.getElementById('hoverZone');
+const toggleBtn = document.getElementById('toggleSidebarBtn');
+let sidebarTimeout = null;
+
+function updateSidebarBodyClass() {
+    const sidebar = document.getElementById('sidebar');
+    if (sidebar && sidebar.classList.contains('active')) {
+        document.body.classList.add('sidebar-open');
+    } else {
+        document.body.classList.remove('sidebar-open');
+    }
+}
+
+function isMobile() {
+    return window.innerWidth <= 768;
+}
+
+// Setup hover functionality (non-mobile only)
+if (hoverZone) {
+    hoverZone.addEventListener('mouseenter', function() {
+        if (!isMobile() && sidebar) {
+            clearTimeout(sidebarTimeout);
+            sidebar.classList.add('active');
+            updateSidebarBodyClass();
+        }
+    });
+}
+
+if (sidebar) {
+    sidebar.addEventListener('mouseleave', function() {
+        if (!isMobile()) {
+            sidebarTimeout = setTimeout(() => {
+                sidebar.classList.remove('active');
+                updateSidebarBodyClass();
+            }, 200);
+        }
+    });
+    sidebar.addEventListener('mouseenter', () => clearTimeout(sidebarTimeout));
+}
+
+// Toggle button for mobile
+if (toggleBtn) {
+    toggleBtn.addEventListener('click', function(e) {
+        e.stopPropagation();
+        if (sidebar) sidebar.classList.toggle('active');
+        updateSidebarBodyClass();
+    });
+}
+
+// Close sidebar when clicking outside on mobile
+document.addEventListener('click', function(e) {
+    if (isMobile() && sidebar && toggleBtn && !sidebar.contains(e.target) && e.target !== toggleBtn && !toggleBtn.contains(e.target)) {
+        sidebar.classList.remove('active');
+        updateSidebarBodyClass();
+    }
+});
+
+// Reset sidebar on window resize
+window.addEventListener('resize', function() {
+    if (sidebar) sidebar.classList.remove('active');
+    updateSidebarBodyClass();
+});
+
+updateSidebarBodyClass();
 
 // ========== FULL MODE SELECTION FUNCTIONS ==========
 function initFullModeSelection() {
