@@ -4042,7 +4042,6 @@ function initDarkMode() {
 const sidebar = document.getElementById('sidebar');
 const hoverZone = document.getElementById('hoverZone');
 const toggleBtn = document.getElementById('toggleSidebarBtn');
-let sidebarTimeout = null;
 
 function updateSidebarBodyClass() {
     const sidebar = document.getElementById('sidebar');
