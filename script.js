@@ -73,6 +73,27 @@ document.addEventListener('DOMContentLoaded', function() {
                 });
                 
                 if (error) throw error;
+
+        if (data?.user) {
+            // Ambil data lengkap user dari tabel 'users'
+            const { data: userData, error: userError } = await supabase
+                .from('users')
+                .select('*')
+                .eq('id', data.user.id)
+                .single();
+            
+            if (!userError && userData) {
+                // SIMPAN ROLE KE METADATA USER
+                await supabase.auth.updateUser({
+                    data: { 
+                        role: userData.role,
+                        nama: userData.nama
+                    }
+                });
+                console.log('✅ User metadata updated with role:', userData.role);
+            }
+        }
+                
                 console.log('Login success:', data.user);
                 // Auth state change akan handle redirect
             } catch (err) {
@@ -260,14 +281,6 @@ function getStatusBadge(status) {
 // ========== AUTH FUNCTIONS ==========
 async function signIn(email, password) {
     const { data, error } = await supabase.auth.signInWithPassword({ email, password });
-    // Setelah login success
-    if (userData) {
-    currentUserRole = userData.role || 'cs';
-    currentUserName = userData.nama || userData.email?.split('@')[0] || 'CS Agent';
-    
-    // SIMPAN KE METADATA
-    await updateUserMetadata(currentUserRole, currentUserName);
-}
     if (error) throw error;
     return data.user;
 }
