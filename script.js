@@ -5254,35 +5254,18 @@ document.addEventListener('DOMContentLoaded', function() {
 });
 
 // ========== AUTH STATE HANDLER ==========
-let authInitialized = false;
-
 supabase.auth.onAuthStateChange(async (event, session) => {
     console.log('🔐 AUTH EVENT:', event, session?.user?.email);
-    
-    // Abaikan event TOKEN_REFRESHED
-    if (event === 'TOKEN_REFRESHED') return;
-    
-    // Cegah eksekusi ganda
-    if (authInitialized && event === 'SIGNED_IN') {
-        console.log('⏭️ Already initialized, skip');
-        return;
-    }
     
     const loginPage = document.getElementById('loginPage');
     const app = document.getElementById('app');
     
     if (session?.user) {
-        authInitialized = true;
         currentUser = session.user;
-        
-        console.log('✅ User logged in:', currentUser.email);
-        
-        // Sembunyikan login, tampilkan app
         loginPage.style.display = 'none';
         app.style.display = 'block';
         
-        // Ambil data user dari database
-        console.log('📡 Fetching user data...');
+        console.log('📡 Fetching user data from database...');
         const { data: userData, error } = await supabase
             .from('users')
             .select('*')
@@ -5290,96 +5273,68 @@ supabase.auth.onAuthStateChange(async (event, session) => {
             .single();
         
         if (error) {
-            console.error('❌ Error fetching user:', error);
+            console.error('❌ Error fetching user data:', error);
             currentUserRole = 'cs';
             currentUserName = currentUser.email?.split('@')[0] || 'CS Agent';
         } else {
-            console.log('✅ User data:', userData);
+            console.log('✅ User data from database:', userData);
+            console.log('✅ Role from database:', userData.role);
             currentUserRole = userData.role || 'cs';
             currentUserName = userData.nama || userData.email?.split('@')[0] || 'CS Agent';
-            console.log('✅ Role:', currentUserRole);
-            
-            // Update foto profile
-            const foto = userData.foto || 'https://i.pravatar.cc/40';
-            const profileImg = document.getElementById('profileImg');
-            const previewFoto = document.getElementById('previewFoto');
-            if (profileImg) profileImg.src = foto;
-            if (previewFoto) previewFoto.src = foto;
+            console.log('✅ currentUserRole SET TO:', currentUserRole);
         }
         
         currentUserEmail = currentUser.email || '';
+        const foto = userData?.foto || 'https://i.pravatar.cc/40';
+        document.getElementById('profileImg').src = foto;
+        document.getElementById('previewFoto').src = foto;
+        document.getElementById('topUserName').innerText = currentUserName;
+        document.getElementById('profileName').value = currentUserName;
+        document.getElementById('profileEmail').value = currentUser.email;
         
-        // Update UI dengan nama user
-        const topUserName = document.getElementById('topUserName');
-        const profileName = document.getElementById('profileName');
-        const profileEmail = document.getElementById('profileEmail');
-        
-        if (topUserName) topUserName.innerText = currentUserName;
-        if (profileName) profileName.value = currentUserName;
-        if (profileEmail) profileEmail.value = currentUser.email;
-        
-        // Set menu visibility berdasarkan role
+        // Set menu visibility based on role
         const menuDbAgent = document.getElementById('menuDbAgent');
         const menuDbTransaksi = document.getElementById('menuDbTransaksi');
         const menuImport = document.getElementById('menuImport');
         const ownerMenu = document.getElementById('ownerMenu');
         
-        console.log('🎯 Setting menu for role:', currentUserRole);
+        console.log('🎯 Setting menu visibility for role:', currentUserRole);
         
         if (currentUserRole === 'owner') {
+            console.log('👉 OWNER: Showing owner menus');
             if (menuDbAgent) menuDbAgent.style.display = 'flex';
             if (menuDbTransaksi) menuDbTransaksi.style.display = 'flex';
             if (menuImport) menuImport.style.display = 'flex';
             if (ownerMenu) ownerMenu.style.display = 'block';
         } else {
+            console.log('👉 CS: Hiding owner menus');
             if (menuDbAgent) menuDbAgent.style.display = 'none';
             if (menuDbTransaksi) menuDbTransaksi.style.display = 'none';
             if (menuImport) menuImport.style.display = 'none';
             if (ownerMenu) ownerMenu.style.display = 'none';
         }
         
-        // Tampilkan dashboard
         document.querySelectorAll('.page-content').forEach(p => p.style.display = 'none');
-        const dashboardPage = document.getElementById('dashboardPage');
-        if (dashboardPage) dashboardPage.style.display = 'block';
-        
-        // Set active menu
+        document.getElementById('dashboardPage').style.display = 'block';
         document.querySelectorAll('.menu-item').forEach(m => m.classList.remove('active'));
-        const dashboardMenu = document.querySelector('.menu-item[data-page="dashboard"]');
-        if (dashboardMenu) dashboardMenu.classList.add('active');
+        document.querySelector('.menu-item[data-page="dashboard"]')?.classList.add('active');
         
-        // Load semua data
-        console.log('📦 Loading data...');
-        try {
-            await loadAllData();
-            await loadTargetData();
-            await loadTransaksiGlobal();
-            await loadDbTransaksi();
-            await loadTarifAdmin();
-            initFullModeSelection();
-            updateAllBadges();
-            console.log('✅ All data loaded, role:', currentUserRole);
-        } catch (err) {
-            console.error('❌ Error loading data:', err);
-        }
+        console.log('📦 Loading data... currentUserRole BEFORE loadAllData:', currentUserRole);
+        await loadAllData();
+        console.log('📦 After loadAllData - currentUserRole:', currentUserRole);
         
+        await loadTargetData();
+        await loadTransaksiGlobal();
+        await loadDbTransaksi();
+        await loadTarifAdmin();
+        initFullModeSelection();
+        updateAllBadges();
+        
+        console.log('🏁 FINAL currentUserRole:', currentUserRole);
     } else {
-        // Tidak ada session - tampilkan login
         console.log('🚪 No session, showing login page');
-        authInitialized = false;
         loginPage.style.display = 'flex';
         app.style.display = 'none';
         currentUser = null;
-        currentUserRole = 'cs';
     }
 });
-
-// Inisialisasi tambahan untuk mengecek session saat load
-(async function checkInitialSession() {
-    const { data: { session } } = await supabase.auth.getSession();
-    if (session?.user) {
-        console.log('🔄 Initial session found, triggering auth handler...');
-        // Trigger onAuthStateChange manually
-        supabase.auth.onAuthStateChange(() => {});
-    }
-})();
