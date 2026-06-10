@@ -15,6 +15,76 @@ if (typeof window.supabase !== 'undefined' && window.supabase.createClient) {
     };
 }
 
+// ========== FIX: TOMBOL MATA DAN LOGIN ==========
+// Pastikan DOM sudah siap sebelum menambahkan event listener
+document.addEventListener('DOMContentLoaded', function() {
+    // Toggle Password Visibility
+    const togglePasswordBtn = document.getElementById('togglePasswordBtn');
+    const loginPassword = document.getElementById('loginPassword');
+    
+    if (togglePasswordBtn && loginPassword) {
+        // Hapus event listener lama jika ada
+        const newToggleBtn = togglePasswordBtn.cloneNode(true);
+        togglePasswordBtn.parentNode.replaceChild(newToggleBtn, togglePasswordBtn);
+        
+        newToggleBtn.addEventListener('click', function(e) {
+            e.preventDefault();
+            e.stopPropagation();
+            if (loginPassword.type === 'password') {
+                loginPassword.type = 'text';
+                this.textContent = '🙈';
+                console.log('Password visible');
+            } else {
+                loginPassword.type = 'password';
+                this.textContent = '👁️';
+                console.log('Password hidden');
+            }
+        });
+    }
+    
+    // Login Button
+    const loginBtn = document.getElementById('loginBtn');
+    if (loginBtn) {
+        const newLoginBtn = loginBtn.cloneNode(true);
+        loginBtn.parentNode.replaceChild(newLoginBtn, loginBtn);
+        
+        newLoginBtn.addEventListener('click', async function(e) {
+            e.preventDefault();
+            const email = document.getElementById('loginEmail').value.trim();
+            const password = document.getElementById('loginPassword').value;
+            const errorDiv = document.getElementById('loginError');
+            
+            console.log('Login button clicked', email);
+            
+            if (!email || !password) {
+                errorDiv.textContent = 'Email dan password harus diisi!';
+                return;
+            }
+            
+            errorDiv.textContent = '';
+            const originalText = this.textContent;
+            this.textContent = 'Loading...';
+            this.disabled = true;
+            
+            try {
+                const { data, error } = await supabase.auth.signInWithPassword({
+                    email: email,
+                    password: password
+                });
+                
+                if (error) throw error;
+                console.log('Login success:', data.user);
+                // Auth state change akan handle redirect
+            } catch (err) {
+                console.error('Login error:', err);
+                errorDiv.textContent = 'Login gagal: ' + err.message;
+                this.textContent = originalText;
+                this.disabled = false;
+            }
+        });
+    }
+});
+
 // ========== GLOBAL VARIABLES ==========
 let currentUser = null;
 let currentUserRole = 'cs';
