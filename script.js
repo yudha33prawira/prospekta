@@ -2,12 +2,17 @@
 const SUPABASE_URL = 'https://haylblhjzfavrfiyaicq.supabase.co';
 const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImhheWxibGhqemZhdnJmaXlhaWNxIiwicm9sZSI6ImFub24iLCJpYXQiOjE3Nzk3MzgyMDIsImV4cCI6MjA5NTMxNDIwMn0.j4yQa1ZttP5_Zg0ye5lK2OLecq39QhG3tPyv5PZ3r78';
 
-// Cek apakah supabase sudah ada dari CDN
+// Cek apakah supabase sudah tersedia dari CDN
 if (typeof window.supabase !== 'undefined' && window.supabase.createClient) {
     var supabase = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+    console.log('✅ Supabase client initialized successfully');
 } else {
-    // Fallback jika CDN tidak load
-    console.error('Supabase CDN not loaded!');
+    console.error('❌ Supabase CDN not loaded! Creating fallback...');
+    // Fallback: buat objek dummy untuk sementara (tapi ini tidak akan berfungsi penuh)
+    var supabase = {
+        auth: { onAuthStateChange: () => {}, signInWithPassword: () => Promise.reject('CDN not loaded') },
+        from: () => ({ select: () => ({ order: () => ({ limit: () => Promise.resolve({ data: [], error: null }) }) }) })
+    };
 }
 
 // ========== GLOBAL VARIABLES ==========
