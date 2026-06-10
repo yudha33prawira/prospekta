@@ -5255,33 +5255,84 @@ document.addEventListener('DOMContentLoaded', function() {
 
 // ========== AUTH STATE HANDLER ==========
 supabase.auth.onAuthStateChange(async (event, session) => {
+    console.log('🔐 AUTH EVENT:', event, session?.user?.email);
+    
     const loginPage = document.getElementById('loginPage');
     const app = document.getElementById('app');
+    
     if (session?.user) {
         currentUser = session.user;
         loginPage.style.display = 'none';
         app.style.display = 'block';
-        const { data: userData, error } = await supabase.from('users').select('*').eq('id', currentUser.id).single();
-        if (error) { currentUserRole='cs'; currentUserName=currentUser.email?.split('@')[0]||'CS Agent'; currentUserEmail=currentUser.email||''; }
-        else { currentUserRole=userData.role||'cs'; currentUserName=userData.nama||userData.email?.split('@')[0]||'CS Agent'; currentUserEmail=userData.email||''; const foto=userData.foto||'https://i.pravatar.cc/40'; document.getElementById('profileImg').src=foto; document.getElementById('previewFoto').src=foto; }
+        
+        console.log('📡 Fetching user data from database...');
+        const { data: userData, error } = await supabase
+            .from('users')
+            .select('*')
+            .eq('id', currentUser.id)
+            .single();
+        
+        if (error) {
+            console.error('❌ Error fetching user data:', error);
+            currentUserRole = 'cs';
+            currentUserName = currentUser.email?.split('@')[0] || 'CS Agent';
+        } else {
+            console.log('✅ User data from database:', userData);
+            console.log('✅ Role from database:', userData.role);
+            currentUserRole = userData.role || 'cs';
+            currentUserName = userData.nama || userData.email?.split('@')[0] || 'CS Agent';
+            console.log('✅ currentUserRole SET TO:', currentUserRole);
+        }
+        
+        currentUserEmail = currentUser.email || '';
+        const foto = userData?.foto || 'https://i.pravatar.cc/40';
+        document.getElementById('profileImg').src = foto;
+        document.getElementById('previewFoto').src = foto;
         document.getElementById('topUserName').innerText = currentUserName;
         document.getElementById('profileName').value = currentUserName;
         document.getElementById('profileEmail').value = currentUser.email;
-        const menuDbAgent = document.getElementById('menuDbAgent'), menuDbTransaksi = document.getElementById('menuDbTransaksi'), menuImport = document.getElementById('menuImport'), ownerMenu = document.getElementById('ownerMenu');
-        if(currentUserRole==='owner') { if(menuDbAgent) menuDbAgent.style.display='flex'; if(menuDbTransaksi) menuDbTransaksi.style.display='flex'; if(menuImport) menuImport.style.display='flex'; if(ownerMenu) ownerMenu.style.display='block'; }
-        else { if(menuDbAgent) menuDbAgent.style.display='none'; if(menuDbTransaksi) menuDbTransaksi.style.display='none'; if(menuImport) menuImport.style.display='none'; if(ownerMenu) ownerMenu.style.display='none'; }
-        document.querySelectorAll('.page-content').forEach(p => p.style.display='none');
-        document.getElementById('dashboardPage').style.display='block';
+        
+        // Set menu visibility based on role
+        const menuDbAgent = document.getElementById('menuDbAgent');
+        const menuDbTransaksi = document.getElementById('menuDbTransaksi');
+        const menuImport = document.getElementById('menuImport');
+        const ownerMenu = document.getElementById('ownerMenu');
+        
+        console.log('🎯 Setting menu visibility for role:', currentUserRole);
+        
+        if (currentUserRole === 'owner') {
+            console.log('👉 OWNER: Showing owner menus');
+            if (menuDbAgent) menuDbAgent.style.display = 'flex';
+            if (menuDbTransaksi) menuDbTransaksi.style.display = 'flex';
+            if (menuImport) menuImport.style.display = 'flex';
+            if (ownerMenu) ownerMenu.style.display = 'block';
+        } else {
+            console.log('👉 CS: Hiding owner menus');
+            if (menuDbAgent) menuDbAgent.style.display = 'none';
+            if (menuDbTransaksi) menuDbTransaksi.style.display = 'none';
+            if (menuImport) menuImport.style.display = 'none';
+            if (ownerMenu) ownerMenu.style.display = 'none';
+        }
+        
+        document.querySelectorAll('.page-content').forEach(p => p.style.display = 'none');
+        document.getElementById('dashboardPage').style.display = 'block';
         document.querySelectorAll('.menu-item').forEach(m => m.classList.remove('active'));
         document.querySelector('.menu-item[data-page="dashboard"]')?.classList.add('active');
+        
+        console.log('📦 Loading data... currentUserRole BEFORE loadAllData:', currentUserRole);
         await loadAllData();
+        console.log('📦 After loadAllData - currentUserRole:', currentUserRole);
+        
         await loadTargetData();
         await loadTransaksiGlobal();
         await loadDbTransaksi();
         await loadTarifAdmin();
         initFullModeSelection();
         updateAllBadges();
+        
+        console.log('🏁 FINAL currentUserRole:', currentUserRole);
     } else {
+        console.log('🚪 No session, showing login page');
         loginPage.style.display = 'flex';
         app.style.display = 'none';
         currentUser = null;
