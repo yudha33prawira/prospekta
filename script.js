@@ -160,6 +160,39 @@ let isLoadingMore = false;
 // ========== HELPER FUNCTIONS ==========
 const delay = (ms) => new Promise(resolve => setTimeout(resolve, ms));
 
+// ========== FORMAT FUNCTIONS ==========
+function formatPhone(input) {
+    let value = input.value.replace(/[^\d]/g, '');
+    // Hapus 0 di awal jika ada
+    if (value.startsWith('0')) {
+        value = value.substring(1);
+    }
+    // Hapus 62 di awal jika ada
+    if (value.startsWith('62')) {
+        value = value.substring(2);
+    }
+    // Batasi maksimal 13 digit
+    if (value.length > 13) {
+        value = value.slice(0, 13);
+    }
+    // Pastikan dimulai dengan 8
+    if (value.length > 0 && !value.startsWith('8')) {
+        value = '8' + value;
+    }
+    input.value = value;
+}
+
+function formatNama(input) {
+    let value = input.value;
+    // Batasi maksimal 20 karakter
+    if (value.length > 20) {
+        value = value.slice(0, 20);
+    }
+    // Format: huruf besar di awal setiap kata
+    value = value.toLowerCase().replace(/\b\w/g, char => char.toUpperCase());
+    input.value = value;
+}
+
 // ========== SIDEBAR FUNCTIONS ==========
 function updateSidebarBodyClass() {
     const sidebar = document.getElementById('sidebar');
@@ -5390,18 +5423,68 @@ document.getElementById('saveProfileBtn')?.addEventListener('click', async () =>
         renderMonthlyTargetList();
     });
     
-    // ========== PHONE FORMATTING ==========
-    const phoneInputs = ['customerPhone', 'prospekPhone', 'profilePhone', 'customerUplinePhone'];
-    phoneInputs.forEach(id => {
-        const input = document.getElementById(id);
-        if (input) {
-            input.addEventListener('input', function() {
-                let value = this.value.replace(/\D/g, '');
-                if (value.startsWith('0')) value = value.substring(1);
-                this.value = value;
-            });
-        }
+// ========== FORMAT FUNCTIONS ==========
+function formatPhone(input) {
+    let value = input.value.replace(/[^\d]/g, '');
+    // Hapus 0 di awal jika ada
+    if (value.startsWith('0')) {
+        value = value.substring(1);
+    }
+    // Hapus 62 di awal jika ada
+    if (value.startsWith('62')) {
+        value = value.substring(2);
+    }
+    // Batasi maksimal 13 digit
+    if (value.length > 13) {
+        value = value.slice(0, 13);
+    }
+    // Pastikan dimulai dengan 8 (jika ada input)
+    if (value.length > 0 && !value.startsWith('8')) {
+        value = '8' + value;
+    }
+    input.value = value;
+}
+
+function formatNama(input) {
+    let value = input.value;
+    // Batasi maksimal 20 karakter
+    if (value.length > 20) {
+        value = value.slice(0, 20);
+    }
+    // Format: huruf besar di awal setiap kata
+    value = value.toLowerCase().replace(/\b\w/g, char => char.toUpperCase());
+    input.value = value;
+}
+
+// ========== FORMAT PHONE INPUT (AWALAN 8, MAKS 13 ANGKA) ==========
+const phoneInputs = ['customerPhone', 'prospekPhone', 'profilePhone', 'customerUplinePhone'];
+phoneInputs.forEach(id => {
+    const input = document.getElementById(id);
+    if (input) {
+        input.addEventListener('input', function() {
+            formatPhone(this);
+        });
+    }
+});
+
+// ========== FORMAT NAMA UPLINE (HURUF BESAR AWAL, MAKS 20 KARAKTER) ==========
+const uplineNameInput = document.getElementById('customerUplineName');
+if (uplineNameInput) {
+    uplineNameInput.addEventListener('input', function() {
+        formatNama(this);
     });
+}
+
+// Juga untuk nama customer dan prospek
+const nameInputs = ['customerName', 'prospekName', 'profileName'];
+nameInputs.forEach(id => {
+    const input = document.getElementById(id);
+    if (input) {
+        input.addEventListener('input', function() {
+            formatNama(this);
+        });
+    }
+});
     
     // ========== AGENT ID FORMATTING ==========
     const agentIdInput = document.getElementById('customerId');
