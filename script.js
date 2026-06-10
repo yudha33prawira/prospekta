@@ -5254,133 +5254,103 @@ document.addEventListener('DOMContentLoaded', function() {
 });
 
 // ========== AUTH STATE HANDLER ==========
+let authInitialized = false;
+
 supabase.auth.onAuthStateChange(async (event, session) => {
-    console.log('🔐 [1] AUTH EVENT:', event);
+    console.log('🔐 AUTH EVENT:', event, session?.user?.email);
     
-    // Abaikan TOKEN_REFRESHED
-    if (event === 'TOKEN_REFRESHED') {
-        console.log('⏭️ Skipping TOKEN_REFRESHED');
+    // Abaikan event TOKEN_REFRESHED
+    if (event === 'TOKEN_REFRESHED') return;
+    
+    // Cegah eksekusi ganda
+    if (authInitialized && event === 'SIGNED_IN') {
+        console.log('⏭️ Already initialized, skip');
         return;
     }
     
     const loginPage = document.getElementById('loginPage');
     const app = document.getElementById('app');
     
-    // Cek session terlebih dahulu
-    const { data: { session: currentSession } } = await supabase.auth.getSession();
-    
-    if (!currentSession?.user) {
-        console.log('🔐 No valid session');
-        loginPage.style.display = 'flex';
-        app.style.display = 'none';
-        currentUser = null;
-        return;
-    }
-    
-    const user = currentSession.user;
-    console.log('🔐 [2] User email:', user.email);
-    
-    if (user) {
-        // Cegah eksekusi ganda
-        if (window._authProcessing) {
-            console.log('⏭️ Already processing, skip');
-            return;
-        }
-        window._authProcessing = true;
+    if (session?.user) {
+        authInitialized = true;
+        currentUser = session.user;
         
+        console.log('✅ User logged in:', currentUser.email);
+        
+        // Sembunyikan login, tampilkan app
+        loginPage.style.display = 'none';
+        app.style.display = 'block';
+        
+        // Ambil data user dari database
+        console.log('📡 Fetching user data...');
+        const { data: userData, error } = await supabase
+            .from('users')
+            .select('*')
+            .eq('id', currentUser.id)
+            .single();
+        
+        if (error) {
+            console.error('❌ Error fetching user:', error);
+            currentUserRole = 'cs';
+            currentUserName = currentUser.email?.split('@')[0] || 'CS Agent';
+        } else {
+            console.log('✅ User data:', userData);
+            currentUserRole = userData.role || 'cs';
+            currentUserName = userData.nama || userData.email?.split('@')[0] || 'CS Agent';
+            console.log('✅ Role:', currentUserRole);
+            
+            // Update foto profile
+            const foto = userData.foto || 'https://i.pravatar.cc/40';
+            const profileImg = document.getElementById('profileImg');
+            const previewFoto = document.getElementById('previewFoto');
+            if (profileImg) profileImg.src = foto;
+            if (previewFoto) previewFoto.src = foto;
+        }
+        
+        currentUserEmail = currentUser.email || '';
+        
+        // Update UI dengan nama user
+        const topUserName = document.getElementById('topUserName');
+        const profileName = document.getElementById('profileName');
+        const profileEmail = document.getElementById('profileEmail');
+        
+        if (topUserName) topUserName.innerText = currentUserName;
+        if (profileName) profileName.value = currentUserName;
+        if (profileEmail) profileEmail.value = currentUser.email;
+        
+        // Set menu visibility berdasarkan role
+        const menuDbAgent = document.getElementById('menuDbAgent');
+        const menuDbTransaksi = document.getElementById('menuDbTransaksi');
+        const menuImport = document.getElementById('menuImport');
+        const ownerMenu = document.getElementById('ownerMenu');
+        
+        console.log('🎯 Setting menu for role:', currentUserRole);
+        
+        if (currentUserRole === 'owner') {
+            if (menuDbAgent) menuDbAgent.style.display = 'flex';
+            if (menuDbTransaksi) menuDbTransaksi.style.display = 'flex';
+            if (menuImport) menuImport.style.display = 'flex';
+            if (ownerMenu) ownerMenu.style.display = 'block';
+        } else {
+            if (menuDbAgent) menuDbAgent.style.display = 'none';
+            if (menuDbTransaksi) menuDbTransaksi.style.display = 'none';
+            if (menuImport) menuImport.style.display = 'none';
+            if (ownerMenu) ownerMenu.style.display = 'none';
+        }
+        
+        // Tampilkan dashboard
+        document.querySelectorAll('.page-content').forEach(p => p.style.display = 'none');
+        const dashboardPage = document.getElementById('dashboardPage');
+        if (dashboardPage) dashboardPage.style.display = 'block';
+        
+        // Set active menu
+        document.querySelectorAll('.menu-item').forEach(m => m.classList.remove('active'));
+        const dashboardMenu = document.querySelector('.menu-item[data-page="dashboard"]');
+        if (dashboardMenu) dashboardMenu.classList.add('active');
+        
+        // Load semua data
+        console.log('📦 Loading data...');
         try {
-            console.log('🔐 [3] Setting up UI...');
-            currentUser = user;
-            loginPage.style.display = 'none';
-            app.style.display = 'block';
-            
-            // Gunakan fetch dengan timeout
-            console.log('🔐 [4] Fetching user data...');
-            
-            const controller = new AbortController();
-            const timeoutId = setTimeout(() => controller.abort(), 5000);
-            
-            try {
-                const { data: userData, error } = await supabase
-                    .from('users')
-                    .select('*')
-                    .eq('id', user.id)
-                    .maybeSingle();
-                
-                clearTimeout(timeoutId);
-                
-                console.log('🔐 [5] userData:', userData);
-                console.log('🔐 [6] error:', error);
-                
-                if (error || !userData) {
-                    console.error('❌ Error:', error);
-                    currentUserRole = 'cs';
-                    currentUserName = user.email?.split('@')[0] || 'CS Agent';
-                } else {
-                    currentUserRole = userData.role || 'cs';
-                    currentUserName = userData.nama || user.email?.split('@')[0] || 'CS Agent';
-                    console.log('✅ Role:', currentUserRole);
-                    
-                    const foto = userData.foto || 'https://i.pravatar.cc/40';
-                    const profileImg = document.getElementById('profileImg');
-                    const previewFoto = document.getElementById('previewFoto');
-                    if (profileImg) profileImg.src = foto;
-                    if (previewFoto) previewFoto.src = foto;
-                }
-            } catch (fetchErr) {
-                clearTimeout(timeoutId);
-                console.error('❌ Fetch timeout/error:', fetchErr);
-                // Fallback: coba sekali lagi
-                console.log('🔄 Retrying...');
-                const { data: userData, error } = await supabase
-                    .from('users')
-                    .select('*')
-                    .eq('id', user.id)
-                    .maybeSingle();
-                    
-                if (userData) {
-                    currentUserRole = userData.role || 'cs';
-                    currentUserName = userData.nama || user.email?.split('@')[0] || 'CS Agent';
-                    console.log('✅ Retry success, Role:', currentUserRole);
-                } else {
-                    currentUserRole = 'cs';
-                    currentUserName = user.email?.split('@')[0] || 'CS Agent';
-                }
-            }
-            
-            // Update UI
-            document.getElementById('topUserName').innerText = currentUserName;
-            document.getElementById('profileName').value = currentUserName;
-            document.getElementById('profileEmail').value = user.email;
-            
-            // Set menu
-            const menuDbAgent = document.getElementById('menuDbAgent');
-            const menuDbTransaksi = document.getElementById('menuDbTransaksi');
-            const menuImport = document.getElementById('menuImport');
-            const ownerMenu = document.getElementById('ownerMenu');
-            
-            if (currentUserRole === 'owner') {
-                if (menuDbAgent) menuDbAgent.style.display = 'flex';
-                if (menuDbTransaksi) menuDbTransaksi.style.display = 'flex';
-                if (menuImport) menuImport.style.display = 'flex';
-                if (ownerMenu) ownerMenu.style.display = 'block';
-            } else {
-                if (menuDbAgent) menuDbAgent.style.display = 'none';
-                if (menuDbTransaksi) menuDbTransaksi.style.display = 'none';
-                if (menuImport) menuImport.style.display = 'none';
-                if (ownerMenu) ownerMenu.style.display = 'none';
-            }
-            
-            // Show dashboard
-            document.querySelectorAll('.page-content').forEach(p => p.style.display = 'none');
-            const dashboardPage = document.getElementById('dashboardPage');
-            if (dashboardPage) dashboardPage.style.display = 'block';
-            
-            document.querySelectorAll('.menu-item').forEach(m => m.classList.remove('active'));
-            const dashboardMenu = document.querySelector('.menu-item[data-page="dashboard"]');
-            if (dashboardMenu) dashboardMenu.classList.add('active');
-            
-            // Load data
             await loadAllData();
             await loadTargetData();
             await loadTransaksiGlobal();
@@ -5388,13 +5358,28 @@ supabase.auth.onAuthStateChange(async (event, session) => {
             await loadTarifAdmin();
             initFullModeSelection();
             updateAllBadges();
-            
-            console.log('🏁 FINAL currentUserRole:', currentUserRole);
-            
+            console.log('✅ All data loaded, role:', currentUserRole);
         } catch (err) {
-            console.error('❌ CRITICAL ERROR:', err);
-        } finally {
-            window._authProcessing = false;
+            console.error('❌ Error loading data:', err);
         }
+        
+    } else {
+        // Tidak ada session - tampilkan login
+        console.log('🚪 No session, showing login page');
+        authInitialized = false;
+        loginPage.style.display = 'flex';
+        app.style.display = 'none';
+        currentUser = null;
+        currentUserRole = 'cs';
     }
 });
+
+// Inisialisasi tambahan untuk mengecek session saat load
+(async function checkInitialSession() {
+    const { data: { session } } = await supabase.auth.getSession();
+    if (session?.user) {
+        console.log('🔄 Initial session found, triggering auth handler...');
+        // Trigger onAuthStateChange manually
+        supabase.auth.onAuthStateChange(() => {});
+    }
+})();
