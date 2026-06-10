@@ -5253,7 +5253,7 @@ document.addEventListener('DOMContentLoaded', function() {
     }
 });
 
-// ========== AUTH STATE HANDLER ==========
+// ========== AUTH STATE HANDLER (DIPERBAIKI) ==========
 supabase.auth.onAuthStateChange(async (event, session) => {
     console.log('🔐 AUTH EVENT:', event, session?.user?.email);
     
@@ -5265,34 +5265,84 @@ supabase.auth.onAuthStateChange(async (event, session) => {
         loginPage.style.display = 'none';
         app.style.display = 'block';
         
-        console.log('📡 Fetching user data from database...');
-        const { data: userData, error } = await supabase
-            .from('users')
-            .select('*')
-            .eq('id', currentUser.id)
-            .single();
+        // TAMPILKAN LOADING STATE
+        document.getElementById('topUserName').innerText = 'Loading...';
         
-        if (error) {
-            console.error('❌ Error fetching user data:', error);
-            currentUserRole = 'cs';
-            currentUserName = currentUser.email?.split('@')[0] || 'CS Agent';
-        } else {
-            console.log('✅ User data from database:', userData);
-            console.log('✅ Role from database:', userData.role);
-            currentUserRole = userData.role || 'cs';
-            currentUserName = userData.nama || userData.email?.split('@')[0] || 'CS Agent';
-            console.log('✅ currentUserRole SET TO:', currentUserRole);
+        console.log('📡 Fetching user data from database...');
+        
+        // RETRY MECHANISM - coba ambil data user hingga 3 kali
+        let userData = null;
+        let retryCount = 0;
+        const maxRetries = 3;
+        
+        while (retryCount < maxRetries && !userData) {
+            try {
+                const { data, error } = await supabase
+                    .from('users')
+                    .select('*')
+                    .eq('id', currentUser.id)
+                    .maybeSingle(); // Gunakan maybeSingle() bukan single()
+                
+                if (error) {
+                    console.error(`❌ Attempt ${retryCount + 1} error:`, error);
+                    retryCount++;
+                    if (retryCount < maxRetries) {
+                        await new Promise(resolve => setTimeout(resolve, 500)); // delay 500ms
+                        continue;
+                    }
+                } else if (data) {
+                    userData = data;
+                    console.log('✅ User data found:', userData);
+                    break;
+                } else {
+                    console.log(`⚠️ Attempt ${retryCount + 1}: User data not found`);
+                    retryCount++;
+                    if (retryCount < maxRetries) {
+                        await new Promise(resolve => setTimeout(resolve, 500));
+                    }
+                }
+            } catch (err) {
+                console.error(`❌ Attempt ${retryCount + 1} exception:`, err);
+                retryCount++;
+                if (retryCount < maxRetries) {
+                    await new Promise(resolve => setTimeout(resolve, 500));
+                }
+            }
         }
         
+        if (userData) {
+            currentUserRole = userData.role || 'cs';
+            currentUserName = userData.nama || userData.email?.split('@')[0] || 'CS Agent';
+            console.log('✅ Role from database:', currentUserRole);
+        } else {
+            // LAST RESORT - coba ambil dari session user metadata
+            console.warn('⚠️ Could not fetch user data from users table, checking session metadata...');
+            const metadataRole = session.user.user_metadata?.role;
+            if (metadataRole) {
+                currentUserRole = metadataRole;
+                currentUserName = session.user.user_metadata?.nama || session.user.email?.split('@')[0] || 'CS Agent';
+                console.log('✅ Role from session metadata:', currentUserRole);
+            } else {
+                // Jika tetap tidak ada, jangan langsung set ke 'cs'
+                // Tampilkan error dan minta reload
+                console.error('❌ Cannot determine user role!');
+                showNotifTop('⚠️ Gagal memuat data user. Silakan refresh halaman.', true);
+                currentUserRole = 'cs'; // fallback terakhir
+                currentUserName = session.user.email?.split('@')[0] || 'CS Agent';
+            }
+        }
+        
+        console.log('🎯 FINAL currentUserRole:', currentUserRole);
+        
         currentUserEmail = currentUser.email || '';
-        const foto = userData?.foto || 'https://i.pravatar.cc/40';
+        const foto = userData?.foto || session.user.user_metadata?.foto || 'https://i.pravatar.cc/40';
         document.getElementById('profileImg').src = foto;
         document.getElementById('previewFoto').src = foto;
         document.getElementById('topUserName').innerText = currentUserName;
         document.getElementById('profileName').value = currentUserName;
         document.getElementById('profileEmail').value = currentUser.email;
         
-        // Set menu visibility based on role
+        // Set menu visibility based on role (pastikan ini berjalan setelah role ditetapkan)
         const menuDbAgent = document.getElementById('menuDbAgent');
         const menuDbTransaksi = document.getElementById('menuDbTransaksi');
         const menuImport = document.getElementById('menuImport');
@@ -5319,10 +5369,8 @@ supabase.auth.onAuthStateChange(async (event, session) => {
         document.querySelectorAll('.menu-item').forEach(m => m.classList.remove('active'));
         document.querySelector('.menu-item[data-page="dashboard"]')?.classList.add('active');
         
-        console.log('📦 Loading data... currentUserRole BEFORE loadAllData:', currentUserRole);
+        console.log('📦 Loading data...');
         await loadAllData();
-        console.log('📦 After loadAllData - currentUserRole:', currentUserRole);
-        
         await loadTargetData();
         await loadTransaksiGlobal();
         await loadDbTransaksi();
@@ -5330,7 +5378,6 @@ supabase.auth.onAuthStateChange(async (event, session) => {
         initFullModeSelection();
         updateAllBadges();
         
-        console.log('🏁 FINAL currentUserRole:', currentUserRole);
     } else {
         console.log('🚪 No session, showing login page');
         loginPage.style.display = 'flex';
