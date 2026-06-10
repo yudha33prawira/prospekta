@@ -5255,6 +5255,12 @@ document.addEventListener('DOMContentLoaded', function() {
 
 // ========== AUTH STATE HANDLER ==========
 supabase.auth.onAuthStateChange(async (event, session) => {
+    // Abaikan event TOKEN_REFRESHED karena akan menyebabkan duplikasi
+    if (event === 'TOKEN_REFRESHED') {
+        console.log('⏭️ Skipping TOKEN_REFRESHED event');
+        return;
+    }
+    
     console.log('🔐 [1] AUTH EVENT:', event);
     console.log('🔐 [2] User email:', session?.user?.email);
     
@@ -5262,56 +5268,25 @@ supabase.auth.onAuthStateChange(async (event, session) => {
     const app = document.getElementById('app');
     
     if (session?.user) {
+        // Cegah eksekusi ganda dengan flag
+        if (window._authProcessing) {
+            console.log('⏭️ Auth already processing, skipping...');
+            return;
+        }
+        window._authProcessing = true;
+        
         try {
             console.log('🔐 [3] User logged in, setting up...');
             currentUser = session.user;
             loginPage.style.display = 'none';
             app.style.display = 'block';
             
-            // Refresh session untuk memastikan token valid
-            try {
-                const { data: refreshed, error: refreshError } = await supabase.auth.refreshSession();
-                if (refreshError) {
-                    console.warn('⚠️ Session refresh warning:', refreshError.message);
-                } else {
-                    console.log('✅ Session refreshed');
-                }
-            } catch (e) {
-                console.warn('⚠️ Could not refresh session:', e.message);
-            }
-            
             console.log('🔐 [4] Fetching user data from database...');
-            
-            // Fetch dengan retry mechanism
-            let userData = null;
-            let error = null;
-            let retryCount = 0;
-            const maxRetries = 2;
-            
-            while (retryCount <= maxRetries && !userData) {
-                try {
-                    const { data, error: queryError } = await supabase
-                        .from('users')
-                        .select('*')
-                        .eq('id', currentUser.id)
-                        .maybeSingle();  // Gunakan maybeSingle instead of single
-                    
-                    if (queryError) {
-                        error = queryError;
-                        console.warn(`⚠️ Query attempt ${retryCount + 1} failed:`, queryError.message);
-                    } else {
-                        userData = data;
-                        error = null;
-                        break;
-                    }
-                } catch (err) {
-                    console.warn(`⚠️ Fetch attempt ${retryCount + 1} error:`, err.message);
-                }
-                retryCount++;
-                if (retryCount <= maxRetries) {
-                    await new Promise(r => setTimeout(r, 500));
-                }
-            }
+            const { data: userData, error } = await supabase
+                .from('users')
+                .select('*')
+                .eq('id', currentUser.id)
+                .maybeSingle();
             
             console.log('🔐 [5] userData received:', userData);
             console.log('🔐 [6] error:', error);
@@ -5336,7 +5311,6 @@ supabase.auth.onAuthStateChange(async (event, session) => {
                 if (previewFoto) previewFoto.src = foto;
             }
             
-            // Lanjutkan dengan update UI dan load data
             console.log('🔐 [11] Updating UI elements...');
             const topUserName = document.getElementById('topUserName');
             const profileName = document.getElementById('profileName');
@@ -5388,11 +5362,14 @@ supabase.auth.onAuthStateChange(async (event, session) => {
         } catch (err) {
             console.error('❌ CRITICAL ERROR in auth handler:', err);
             console.error('❌ Error stack:', err.stack);
+        } finally {
+            window._authProcessing = false;
         }
     } else {
         console.log('🔐 [LOGOUT] No session, showing login page');
         loginPage.style.display = 'flex';
         app.style.display = 'none';
         currentUser = null;
+        window._authProcessing = false;
     }
 });
