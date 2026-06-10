@@ -524,20 +524,21 @@ async function loadUsersForSelect() {
     select.innerHTML = '<option value="">Pilih CS Tujuan</option>';
     data?.forEach(user => select.innerHTML += `<option value="${user.id}">${escapeHtml(user.nama || user.email || 'CS Agent')}</option>`);
 }
+
 async function loadTargetData() {
     if (!currentUser) return;
 
     try {
         console.log('loadTargetData: Fetching target data...');
-        const { data, error } = await supabase
+        // Coba cek dulu tabel settings ada atau tidak
+        const { data: tableCheck, error: tableError } = await supabase
             .from('settings')
-            .select('value')
-            .eq('key', 'targetKPI')
-            .maybeSingle();  // Gunakan maybeSingle() bukan single()
+            .select('*')
+            .limit(1);
         
-        if (error) {
-            console.error('Error loading target:', error);
-            // Jika error, gunakan default
+        if (tableError && tableError.code === '42P01') {
+            // Tabel tidak ada, buat data default
+            console.log('Tabel settings belum ada, menggunakan data default');
             targetData = {
                 agent: 10,
                 ca: 20,
@@ -546,8 +547,39 @@ async function loadTargetData() {
                 monthlyTargets: [],
                 updated_at: new Date().toISOString()
             };
-        } else if (data && data.value) {
-            targetData = data.value;
+            await updateTargetDisplay();
+            return;
+        }
+        
+        // Coba ambil data targetKPI
+        const { data, error } = await supabase
+            .from('settings')
+            .select('*')
+            .eq('key', 'targetKPI')
+            .maybeSingle();
+        
+        if (error) {
+            console.error('Error loading target:', error);
+            targetData = {
+                agent: 10,
+                ca: 20,
+                koordinator: 5,
+                transaksi: 100,
+                monthlyTargets: [],
+                updated_at: new Date().toISOString()
+            };
+        } else if (data) {
+            // Coba cek kolom mana yang tersedia
+            if (data.value) {
+                targetData = data.value;
+            } else if (data.data) {
+                targetData = data.data;
+            } else if (data.content) {
+                targetData = data.content;
+            } else {
+                // Jika tidak ada kolom yang sesuai, gunakan data langsung
+                targetData = data;
+            }
             console.log('loadTargetData: Data ditemukan', targetData);
         } else {
             targetData = {
@@ -563,7 +595,6 @@ async function loadTargetData() {
         await updateTargetDisplay();
     } catch (e) {
         console.error('Error load target:', e);
-        // Jangan tampilkan error ke user untuk hal ini
         targetData = {
             agent: 10,
             ca: 20,
@@ -575,6 +606,7 @@ async function loadTargetData() {
         await updateTargetDisplay();
     }
 }
+
 async function loadTransaksiGlobal() {
     if (!currentUser) return 0;
     const { data, error } = await supabase.from('transaksi_global').select('*').order('tanggal', { ascending: false });
@@ -3847,9 +3879,29 @@ async function saveTargetData() {
     };
 
     try {
+        // Coba cek struktur tabel terlebih dahulu
+        const { data: sampleData, error: sampleError } = await supabase
+            .from('settings')
+            .select('*')
+            .limit(1);
+        
+        let columnName = 'value';
+        if (sampleData && sampleData[0]) {
+            // Cek kolom mana yang tersedia
+            if ('value' in sampleData[0]) columnName = 'value';
+            else if ('data' in sampleData[0]) columnName = 'data';
+            else if ('content' in sampleData[0]) columnName = 'content';
+        }
+        
+        console.log('Using column:', columnName);
+        
         const { error } = await supabase
             .from('settings')
-            .upsert({ key: 'targetKPI', value: newTarget }, { onConflict: 'key' });
+            .upsert({ 
+                key: 'targetKPI', 
+                [columnName]: newTarget,
+                updated_at: new Date().toISOString()
+            }, { onConflict: 'key' });
         
         if (error) throw error;
         
