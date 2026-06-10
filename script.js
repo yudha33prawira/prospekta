@@ -5467,22 +5467,18 @@ phoneInputs.forEach(id => {
     }
 });
 
-// ========== FORMAT NAMA UPLINE (HURUF BESAR AWAL, MAKS 20 KARAKTER) ==========
-const uplineNameInput = document.getElementById('customerUplineName');
-if (uplineNameInput) {
-    uplineNameInput.addEventListener('input', function() {
-        formatNama(this);
-    });
-}
-
-// Juga untuk nama customer dan prospek
-const nameInputs = ['customerName', 'prospekName', 'profileName'];
+// ========== FORMAT NAMA (HURUF BESAR AWAL, MAKS 20 KARAKTER) ==========
+// HANYA SATU DEKLARASI nameInputs
+const nameInputs = ['customerName', 'prospekName', 'profileName', 'customerUplineName'];
 nameInputs.forEach(id => {
     const input = document.getElementById(id);
     if (input) {
-        input.addEventListener('input', function() {
+        // Hapus event listener lama jika ada
+        input.removeEventListener('input', input._formatHandler);
+        input._formatHandler = function() {
             formatNama(this);
-        });
+        };
+        input.addEventListener('input', input._formatHandler);
     }
 });
     
