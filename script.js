@@ -526,10 +526,54 @@ async function loadUsersForSelect() {
 }
 async function loadTargetData() {
     if (!currentUser) return;
-    const { data, error } = await supabase.from('settings').select('value').eq('key', 'targetKPI').single();
-    if (data) targetData = data.value;
-    else targetData = { agent: 10, ca: 20, koordinator: 5, transaksi: 100, monthlyTargets: [], updated_at: new Date().toISOString() };
-    await updateTargetDisplay();
+
+    try {
+        console.log('loadTargetData: Fetching target data...');
+        const { data, error } = await supabase
+            .from('settings')
+            .select('value')
+            .eq('key', 'targetKPI')
+            .maybeSingle();  // Gunakan maybeSingle() bukan single()
+        
+        if (error) {
+            console.error('Error loading target:', error);
+            // Jika error, gunakan default
+            targetData = {
+                agent: 10,
+                ca: 20,
+                koordinator: 5,
+                transaksi: 100,
+                monthlyTargets: [],
+                updated_at: new Date().toISOString()
+            };
+        } else if (data && data.value) {
+            targetData = data.value;
+            console.log('loadTargetData: Data ditemukan', targetData);
+        } else {
+            targetData = {
+                agent: 10,
+                ca: 20,
+                koordinator: 5,
+                transaksi: 100,
+                monthlyTargets: [],
+                updated_at: new Date().toISOString()
+            };
+            console.log('loadTargetData: Data default digunakan');
+        }
+        await updateTargetDisplay();
+    } catch (e) {
+        console.error('Error load target:', e);
+        // Jangan tampilkan error ke user untuk hal ini
+        targetData = {
+            agent: 10,
+            ca: 20,
+            koordinator: 5,
+            transaksi: 100,
+            monthlyTargets: [],
+            updated_at: new Date().toISOString()
+        };
+        await updateTargetDisplay();
+    }
 }
 async function loadTransaksiGlobal() {
     if (!currentUser) return 0;
@@ -3785,17 +3829,40 @@ async function updateCustomerStatus(id, newStatus) {
 }
 
 async function saveTargetData() {
+    console.log('saveTargetData: Menyimpan target...');
+
     const agentVal = parseInt(document.getElementById('targetAgentInput')?.value) || 0;
     const koorVal = parseInt(document.getElementById('targetKoorInput')?.value) || 0;
     const caVal = parseInt(document.getElementById('targetCAInput')?.value) || 0;
     const transaksiVal = parseInt(document.getElementById('targetTransaksiInput')?.value) || 0;
-    const newTarget = { agent: agentVal, koordinator: koorVal, ca: caVal, transaksi: transaksiVal, monthlyTargets: targetData.monthlyTargets || [], updated_at: new Date().toISOString(), updated_by: currentUser?.id || 'unknown' };
-    await supabase.from('settings').upsert({ key: 'targetKPI', value: newTarget }, { onConflict: 'key' });
-    targetData = newTarget;
-    showNotifTop('✅ Target berhasil disimpan!');
-    closeModal('manageTargetModal');
-    await updateTargetDisplay();
+
+    const newTarget = {
+        agent: agentVal,
+        koordinator: koorVal,
+        ca: caVal,
+        transaksi: transaksiVal,
+        monthlyTargets: targetData.monthlyTargets || [],
+        updated_at: new Date().toISOString(),
+        updated_by: currentUser?.id || 'unknown'
+    };
+
+    try {
+        const { error } = await supabase
+            .from('settings')
+            .upsert({ key: 'targetKPI', value: newTarget }, { onConflict: 'key' });
+        
+        if (error) throw error;
+        
+        targetData = newTarget;
+        showNotifTop('✅ Target berhasil disimpan!');
+        closeModal('manageTargetModal');
+        await updateTargetDisplay();
+    } catch (error) {
+        console.error('Error saving target:', error);
+        showNotifTop('❌ Gagal menyimpan target: ' + error.message, true);
+    }
 }
+
 // ========== GLOBAL TRANSACTION FUNCTIONS ==========
 async function saveTransaksiGlobal(nominal, keterangan, tanggal, transaksiId = null) {
     if (!currentUser) {
