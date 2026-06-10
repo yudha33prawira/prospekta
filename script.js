@@ -63,6 +63,13 @@ function escapeHtml(text) {
     return String(text).replace(/[&<>]/g, m => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;' }[m]));
 }
 
+function renderAgentProducts() {
+    // Implementasi dari kode asli
+    const container = document.getElementById('agentProductsContainer');
+    if (!container) return;
+    container.innerHTML = '<p style="text-align:center; padding:20px;">📦 Daftar produk akan muncul di sini</p>';
+}
+
 function getTodayDate() {
     return new Date().toISOString().split('T')[0];
 }
@@ -3688,43 +3695,6 @@ window.editTransaksiGlobal = function(id) {
     document.getElementById('inputTransaksiModal').style.display = 'flex';
 };
 
-// ========== CHECKBOX EVENT FUNCTIONS ==========
-function attachCheckboxEvents(selector, map, selectAllId) {
-    const checkboxes = document.querySelectorAll(`${selector} .db-item-checkbox`);
-    checkboxes.forEach(cb => {
-        cb.onchange = (e) => {
-            const id = cb.dataset.id;
-            if (cb.checked) {
-                map.set(id, true);
-            } else {
-                map.delete(id);
-            }
-            const allChecked = checkboxes.length > 0 && Array.from(checkboxes).every(c => c.checked);
-            const btn = document.getElementById(selectAllId);
-            if (btn) {
-                btn.textContent = allChecked ? '⬜ Batal Semua' : '✅ Pilih Semua';
-            }
-        };
-    });
-    
-    const btn = document.getElementById(selectAllId);
-    if (btn) {
-        btn.onclick = () => {
-            const allChecked = checkboxes.length > 0 && Array.from(checkboxes).every(cb => cb.checked);
-            checkboxes.forEach(cb => {
-                cb.checked = !allChecked;
-                const id = cb.dataset.id;
-                if (!allChecked) {
-                    map.set(id, true);
-                } else {
-                    map.delete(id);
-                }
-            });
-            btn.textContent = !allChecked ? '⬜ Batal Semua' : '✅ Pilih Semua';
-        };
-    }
-}
-
 // ========== BADGE FUNCTIONS ==========
 async function updateDeadlineBadge() {
     if (!currentUser) return;
@@ -4251,6 +4221,160 @@ async function deleteTransaksiItem(id) {
         showNotifTop('❌ Gagal hapus: ' + e.message, true);
         progress.hide();
     }
+}
+
+// ========== CREATE USER FUNCTION ==========
+async function createUser(email, password, userData) {
+    const { data, error } = await supabase.auth.signUp({
+        email: email,
+        password: password,
+        options: {
+            data: {
+                nama: userData.nama,
+                hp: userData.hp,
+                role: userData.role || 'cs'
+            }
+        }
+    });
+    if (error) throw error;
+    if (data.user) {
+        const { error: insertError } = await supabase
+            .from('users')
+            .insert({
+                id: data.user.id,
+                email: email,
+                nama: userData.nama,
+                hp: userData.hp,
+                role: userData.role || 'cs',
+                foto: userData.foto || null,
+                created_at: new Date().toISOString()
+            });
+        if (insertError) throw insertError;
+    }
+    return data.user;
+}
+
+// ========== UPLOAD PROFILE PHOTO ==========
+async function uploadProfilePhoto(file, userId) {
+    if (!file || !userId) return null;
+    const fileExt = file.name.split('.').pop();
+    const fileName = `${userId}/profile_${Date.now()}.${fileExt}`;
+    const { error: uploadError } = await supabase.storage
+        .from('profiles')
+        .upload(fileName, file, { upsert: true });
+    if (uploadError) throw uploadError;
+    const { data: urlData } = supabase.storage
+        .from('profiles')
+        .getPublicUrl(fileName);
+    return urlData.publicUrl;
+}
+
+// ========== RENDER AGENT PRODUCTS ==========
+async function renderAgentProducts() {
+    const container = document.getElementById('agentProductsContainer');
+    if (!container) return;
+    if (!produkData || produkData.length === 0) {
+        container.innerHTML = '<p style="text-align:center; color:#9ca3af; padding:20px;">📦 Belum ada produk. Silakan tambah produk terlebih dahulu.</p>';
+        return;
+    }
+    const cid = document.getElementById('agentDetailCid')?.value || '';
+    let tarifData = null;
+    if (cid) {
+        const { data } = await supabase.from('tarif_admin').select('*').eq('cid', cid).maybeSingle();
+        tarifData = data;
+    }
+    const existingMap = new Map();
+    if (currentAgentProducts) currentAgentProducts.forEach(p => existingMap.set(p.produk_id, p));
+    let html = '<table style="width:100%; border-collapse: collapse;"><thead><tr style="background:#f8fafc;"><th style="padding:10px;">Produk</th><th style="padding:10px;">Admin</th><th style="padding:10px;">HPP</th><th style="padding:10px;">Profit</th><th style="padding:10px;">Fee Upline</th><th style="padding:10px;">Fee Agent</th></tr></thead><tbody>';
+    for (const produk of produkData) {
+        const isAdminBased = produk.jenis_produk === 'beradmin';
+        const existing = existingMap.get(produk.id);
+        let adminValue = 0, profit = existing?.profit || 0, feeUpline = existing?.fee_upline || 0;
+        if (isAdminBased) {
+            if (produk.cid_based && cid && tarifData) {
+                const namaLower = produk.nama.toLowerCase();
+                if (namaLower.includes('prepaid')) adminValue = tarifData.admin_prepaid || 0;
+                else if (namaLower.includes('postpaid')) adminValue = tarifData.admin_pospaid || 0;
+                else if (namaLower.includes('nontaglis')) adminValue = tarifData.admin_nontaglis || 0;
+                else adminValue = existing?.admin || produk.admin_default || 0;
+            } else adminValue = existing?.admin || produk.admin_default || 0;
+        }
+        const feeAgent = isAdminBased ? Math.max(0, adminValue - profit - feeUpline) : 0;
+        html += `<tr><td style="padding:10px;"><strong>${escapeHtml(produk.nama)}</strong><br><small>${isAdminBased ? '🏷️ Beradmin' : '💰 Tanpa Admin'}</small></td>
+            <td style="padding:10px;"><span class="admin-value" data-id="${produk.id}">${formatRupiah(adminValue)}</span></td>
+            <td style="padding:10px;">${formatRupiah(produk.hpp)}</td>
+            <td style="padding:10px;"><input type="number" class="profit-input" data-id="${produk.id}" value="${profit}" step="100" style="width:90px; padding:4px;"></td>
+            <td style="padding:10px;"><input type="number" class="fee-upline-input" data-id="${produk.id}" value="${feeUpline}" step="100" style="width:90px; padding:4px;"></td>
+            <td style="padding:10px;"><span class="fee-agent-value" data-id="${produk.id}">${formatRupiah(feeAgent)}</span></td></tr>`;
+    }
+    html += '</tbody></table>';
+    container.innerHTML = html;
+    document.querySelectorAll('.profit-input').forEach(inp => inp.addEventListener('change', (e) => updateAgentProductField(e.target.dataset.id, 'profit', parseInt(e.target.value)||0)));
+    document.querySelectorAll('.fee-upline-input').forEach(inp => inp.addEventListener('change', (e) => updateAgentProductField(e.target.dataset.id, 'fee_upline', parseInt(e.target.value)||0)));
+}
+
+function updateAgentProductField(produkId, field, value) {
+    if (!currentAgentProducts) currentAgentProducts = [];
+    const index = currentAgentProducts.findIndex(p => p.produk_id === produkId);
+    if (index >= 0) currentAgentProducts[index][field] = value;
+    else currentAgentProducts.push({ produk_id: produkId, [field]: value, added_at: new Date().toISOString() });
+    const adminSpan = document.querySelector(`.admin-value[data-id="${produkId}"]`);
+    if (adminSpan) {
+        const admin = parseInt(adminSpan.textContent.replace(/[^0-9]/g, '')) || 0;
+        const profit = currentAgentProducts.find(p => p.produk_id === produkId)?.profit || 0;
+        const feeUpline = currentAgentProducts.find(p => p.produk_id === produkId)?.fee_upline || 0;
+        const feeSpan = document.querySelector(`.fee-agent-value[data-id="${produkId}"]`);
+        if (feeSpan) feeSpan.innerHTML = formatRupiah(Math.max(0, admin - profit - feeUpline));
+    }
+}
+
+// ========== CLEAR TARIF FORM ==========
+function clearTarifForm() {
+    currentEditTarifId = null;
+    document.getElementById('tarifCid').value = '';
+    document.getElementById('tarifPospaid').value = '';
+    document.getElementById('tarifPrepaid').value = '';
+    document.getElementById('tarifNontaglis').value = '';
+}
+
+// ========== SETUP AGENT FILTERS ==========
+function setupAgentFilters() {
+    const searchInput = document.getElementById('searchAgentInput');
+    const filterUpline = document.getElementById('filterUplineAgent');
+    const filterCid = document.getElementById('filterCidAgent');
+    const filterBank = document.getElementById('filterBankAgent');
+    const filterDate = document.getElementById('filterDateAgent');
+    const filterHasHp = document.getElementById('filterHasHpAgent');
+    const filterHasApk = document.getElementById('filterHasApkAgent');
+    const resetBtn = document.getElementById('resetAgentFilterBtn');
+    const applyFilters = () => renderAgentList(agentsData);
+    if (searchInput) searchInput.addEventListener('input', applyFilters);
+    if (filterUpline) filterUpline.addEventListener('input', applyFilters);
+    if (filterCid) filterCid.addEventListener('input', applyFilters);
+    if (filterBank) filterBank.addEventListener('change', applyFilters);
+    if (filterDate) filterDate.addEventListener('change', applyFilters);
+    if (filterHasHp) filterHasHp.addEventListener('change', applyFilters);
+    if (filterHasApk) filterHasApk.addEventListener('change', applyFilters);
+    if (resetBtn) resetBtn.onclick = () => {
+        if (searchInput) searchInput.value = '';
+        if (filterUpline) filterUpline.value = '';
+        if (filterCid) filterCid.value = '';
+        if (filterBank) filterBank.value = '';
+        if (filterDate) filterDate.value = '';
+        if (filterHasHp) filterHasHp.checked = false;
+        if (filterHasApk) filterHasApk.checked = false;
+        applyFilters();
+    };
+}
+
+// ========== UPDATE PRODUCT SELECT ==========
+function updateProductSelect() {
+    const select = document.getElementById('productSelect');
+    if (!select) return;
+    select.innerHTML = '<option value="">Pilih Produk</option>';
+    produkData.forEach(produk => {
+        select.innerHTML += `<option value="${produk.id}" data-harga="${produk.harga_jual || 0}">${escapeHtml(produk.nama)} - ${formatRupiah(produk.harga_jual)}</option>`;
+    });
 }
 
 // ========== EVENT LISTENERS ==========
