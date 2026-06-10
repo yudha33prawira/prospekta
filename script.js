@@ -139,6 +139,20 @@ let isLoadingMore = false;
 // ========== HELPER FUNCTIONS ==========
 const delay = (ms) => new Promise(resolve => setTimeout(resolve, ms));
 
+// ========== SIDEBAR FUNCTIONS ==========
+function updateSidebarBodyClass() {
+    const sidebar = document.getElementById('sidebar');
+    if (sidebar && sidebar.classList.contains('active')) {
+        document.body.classList.add('sidebar-open');
+    } else {
+        document.body.classList.remove('sidebar-open');
+    }
+}
+
+function isMobile() {
+    return window.innerWidth <= 768;
+}
+
 function escapeHtml(text) {
     if (!text) return '';
     return String(text).replace(/[&<>]/g, m => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;' }[m]));
