@@ -5255,39 +5255,40 @@ document.addEventListener('DOMContentLoaded', function() {
 
 // ========== AUTH STATE HANDLER ==========
 supabase.auth.onAuthStateChange(async (event, session) => {
-    console.log('🔐 AUTH EVENT:', event, session?.user?.email);
+    console.log('🔐 [1] AUTH EVENT:', event);
+    console.log('🔐 [2] User email:', session?.user?.email);
     
     const loginPage = document.getElementById('loginPage');
     const app = document.getElementById('app');
     
     if (session?.user) {
         try {
+            console.log('🔐 [3] User logged in, setting up...');
             currentUser = session.user;
             loginPage.style.display = 'none';
             app.style.display = 'block';
             
-            console.log('📡 Fetching user data from database...');
+            console.log('🔐 [4] Fetching user data from database...');
             const { data: userData, error } = await supabase
                 .from('users')
                 .select('*')
                 .eq('id', currentUser.id)
                 .single();
             
-            console.log('📡 userData received:', userData);
-            console.log('📡 error:', error);
+            console.log('🔐 [5] userData received:', userData);
+            console.log('🔐 [6] error:', error);
             
             if (error) {
-                console.error('❌ Error fetching user data:', error);
+                console.error('❌ [7] Error fetching user data:', error);
                 currentUserRole = 'cs';
                 currentUserName = currentUser.email?.split('@')[0] || 'CS Agent';
-                currentUserEmail = currentUser.email || '';
             } else {
-                console.log('✅ User data:', userData);
-                console.log('✅ Role from database:', userData.role);
+                console.log('✅ [8] User data:', userData);
+                console.log('✅ [9] Role from database:', userData.role);
                 currentUserRole = userData.role || 'cs';
                 currentUserName = userData.nama || userData.email?.split('@')[0] || 'CS Agent';
                 currentUserEmail = userData.email || '';
-                console.log('✅ currentUserRole SET TO:', currentUserRole);
+                console.log('✅ [10] currentUserRole SET TO:', currentUserRole);
                 
                 const foto = userData.foto || 'https://i.pravatar.cc/40';
                 const profileImg = document.getElementById('profileImg');
@@ -5296,6 +5297,7 @@ supabase.auth.onAuthStateChange(async (event, session) => {
                 if (previewFoto) previewFoto.src = foto;
             }
             
+            console.log('🔐 [11] Updating UI elements...');
             const topUserName = document.getElementById('topUserName');
             const profileName = document.getElementById('profileName');
             const profileEmail = document.getElementById('profileEmail');
@@ -5310,21 +5312,23 @@ supabase.auth.onAuthStateChange(async (event, session) => {
             const menuImport = document.getElementById('menuImport');
             const ownerMenu = document.getElementById('ownerMenu');
             
-            console.log('🎯 Setting menu for role:', currentUserRole);
+            console.log('🔐 [12] Setting menu for role:', currentUserRole);
             
             if (currentUserRole === 'owner') {
+                console.log('🔐 [13] OWNER: Showing owner menus');
                 if (menuDbAgent) menuDbAgent.style.display = 'flex';
                 if (menuDbTransaksi) menuDbTransaksi.style.display = 'flex';
                 if (menuImport) menuImport.style.display = 'flex';
                 if (ownerMenu) ownerMenu.style.display = 'block';
             } else {
+                console.log('🔐 [13] CS: Hiding owner menus');
                 if (menuDbAgent) menuDbAgent.style.display = 'none';
                 if (menuDbTransaksi) menuDbTransaksi.style.display = 'none';
                 if (menuImport) menuImport.style.display = 'none';
                 if (ownerMenu) ownerMenu.style.display = 'none';
             }
             
-            // Show dashboard
+            console.log('🔐 [14] Showing dashboard...');
             document.querySelectorAll('.page-content').forEach(p => p.style.display = 'none');
             const dashboardPage = document.getElementById('dashboardPage');
             if (dashboardPage) dashboardPage.style.display = 'block';
@@ -5333,24 +5337,46 @@ supabase.auth.onAuthStateChange(async (event, session) => {
             const dashboardMenu = document.querySelector('.menu-item[data-page="dashboard"]');
             if (dashboardMenu) dashboardMenu.classList.add('active');
             
-            console.log('📦 Loading data...');
-            await loadAllData();
-            console.log('✅ loadAllData completed');
+            console.log('🔐 [15] Loading data...');
+            try {
+                await loadAllData();
+                console.log('🔐 [16] loadAllData completed');
+            } catch (loadErr) {
+                console.error('❌ [16a] loadAllData ERROR:', loadErr);
+            }
             
-            await loadTargetData();
-            await loadTransaksiGlobal();
-            await loadDbTransaksi();
-            await loadTarifAdmin();
+            try {
+                await loadTargetData();
+                console.log('🔐 [17] loadTargetData completed');
+            } catch (err) { console.error('loadTargetData error:', err); }
+            
+            try {
+                await loadTransaksiGlobal();
+                console.log('🔐 [18] loadTransaksiGlobal completed');
+            } catch (err) { console.error('loadTransaksiGlobal error:', err); }
+            
+            try {
+                await loadDbTransaksi();
+                console.log('🔐 [19] loadDbTransaksi completed');
+            } catch (err) { console.error('loadDbTransaksi error:', err); }
+            
+            try {
+                await loadTarifAdmin();
+                console.log('🔐 [20] loadTarifAdmin completed');
+            } catch (err) { console.error('loadTarifAdmin error:', err); }
+            
             initFullModeSelection();
             updateAllBadges();
             
-            console.log('🏁 FINAL currentUserRole:', currentUserRole);
+            console.log('🏁 [21] FINAL currentUserRole:', currentUserRole);
+            console.log('🏁 [22] FINAL menuDbAgent display:', menuDbAgent?.style.display);
             
         } catch (err) {
             console.error('❌ CRITICAL ERROR in auth handler:', err);
+            console.error('❌ Error stack:', err.stack);
         }
     } else {
-        console.log('🚪 No session, showing login page');
+        console.log('🔐 [LOGOUT] No session, showing login page');
         loginPage.style.display = 'flex';
         app.style.display = 'none';
         currentUser = null;
