@@ -2635,209 +2635,227 @@ function setupImportExcel() {
             this.classList.add('active');
         });
     });
-    if (importBtn) {
-        importBtn.addEventListener('click', async () => {
-            const file = excelFileInput?.files[0];
-            if (!file) { showNotifTop('Pilih file dulu!', true); return; }
-            const btn = importBtn;
-            const originalText = btn.textContent;
-            btn.textContent = '⏳ Memproses...';
-            btn.disabled = true;
-
-            const progress = showFloatingProgress('📥 Import Data', 0);
-            progress.update(0, '📥 Import Data', 'Membaca file Excel...');
-
-            const reader = new FileReader();
-            reader.onload = async function(e) {
-                try {
-                    progress.update(5, '📥 Import Data', 'Memproses file Excel...');
-                    const data = new Uint8Array(e.target.result);
-                    const workbook = XLSX.read(data, { type: 'array' });
-                    const sheetName = workbook.SheetNames[0];
-                    const worksheet = workbook.Sheets[sheetName];
-                    const rawData = XLSX.utils.sheet_to_json(worksheet, { header: 1, defval: "" });
-                    if (!rawData || rawData.length < 2) { showNotifTop('File Excel kosong!', true); return; }
-                    const headers = rawData[0];
-                    const dataRows = rawData.slice(1);
-                    const json = dataRows.map(row => {
-                        const obj = {};
-                        headers.forEach((header, idx) => obj[header] = row[idx]);
-                        return obj;
-                    }).filter(row => Object.values(row).some(v => v !== undefined && v !== null && v !== ''));
-                    
-                    if (!json.length) { showNotifTop('File Excel kosong!', true); return; }
-
-                    let success = 0, failed = 0;
-                    const firstRow = json[0];
-                    const columnMap = {};
-
-                    // Detect columns based on import type
-                    if (importType === 'customer') {
-                        const possibleAgentId = ['agent_id', 'Agent_ID', 'agentid', 'id'];
-                        const possibleNama = ['nama', 'Nama', 'name'];
-                        const possibleHp = ['hp', 'HP', 'phone', 'no_hp'];
-                        const possibleApk = ['apk', 'APK', 'aplikasi'];
-                        const possibleDeadline = ['deadline', 'tanggal'];
-                        const possibleUplineName = ['upline_name', 'nama_upline', 'upline'];
-                        const possibleUplinePhone = ['upline_phone', 'phone_upline', 'hp_upline'];
-                        const possibleAgentType = ['agent_type', 'type', 'class'];
-                        for (let key in firstRow) {
-                            const lowerKey = key.toLowerCase();
-                            if (possibleAgentId.some(p => p.toLowerCase() === lowerKey)) columnMap.agentId = key;
-                            if (possibleNama.some(p => p.toLowerCase() === lowerKey)) columnMap.nama = key;
-                            if (possibleHp.some(p => p.toLowerCase() === lowerKey)) columnMap.hp = key;
-                            if (possibleUplineName.some(p => p.toLowerCase() === lowerKey)) columnMap.uplineName = key;
-                            if (possibleUplinePhone.some(p => p.toLowerCase() === lowerKey)) columnMap.uplinePhone = key;
-                            if (possibleApk.some(p => p.toLowerCase() === lowerKey)) columnMap.apk = key;
-                            if (possibleDeadline.some(p => p.toLowerCase() === lowerKey)) columnMap.deadline = key;
-                            if (possibleAgentType.some(p => p.toLowerCase() === lowerKey)) columnMap.agentType = key;
-                        }
-                        if (!columnMap.agentId || !columnMap.nama || !columnMap.hp) {
-                            showNotifTop('❌ Kolom agent_id, nama, hp WAJIB ada!', true);
-                            return;
-                        }
-                    } else if (importType === 'transaksi') {
-                        const possibleAgentId = ['agent_id', 'Agent_ID', 'agentid'];
-                        const possibleNama = ['nama', 'Nama', 'name'];
-                        const possibleHp = ['hp', 'HP', 'phone'];
-                        const possibleApk = ['apk', 'APK', 'aplikasi'];
-                        const possibleUplineName = ['upline_name', 'nama_upline', 'upline'];
-                        const possibleUplinePhone = ['upline_phone', 'phone_upline', 'hp_upline'];
-                        const possibleProgresJenis = ['progres_jenis', 'jenis_progres', 'jenis'];
-                        const possibleProgresJumlah = ['progres_jumlah', 'jumlah_progres', 'jumlah'];
-                        const possibleTanggal = ['tanggal_transaksi', 'tanggal', 'date'];
-                        for (let key in firstRow) {
-                            const lowerKey = key.toLowerCase();
-                            if (possibleAgentId.some(p => p.toLowerCase() === lowerKey)) columnMap.agentId = key;
-                            if (possibleNama.some(p => p.toLowerCase() === lowerKey)) columnMap.nama = key;
-                            if (possibleHp.some(p => p.toLowerCase() === lowerKey)) columnMap.hp = key;
-                            if (possibleUplineName.some(p => p.toLowerCase() === lowerKey)) columnMap.uplineName = key;
-                            if (possibleUplinePhone.some(p => p.toLowerCase() === lowerKey)) columnMap.uplinePhone = key;
-                            if (possibleApk.some(p => p.toLowerCase() === lowerKey)) columnMap.apk = key;
-                            if (possibleProgresJenis.some(p => p.toLowerCase() === lowerKey)) columnMap.progresJenis = key;
-                            if (possibleProgresJumlah.some(p => p.toLowerCase() === lowerKey)) columnMap.progresJumlah = key;
-                            if (possibleTanggal.some(p => p.toLowerCase() === lowerKey)) columnMap.tanggal = key;
-                        }
-                        if (!columnMap.agentId) {
-                            showNotifTop('❌ Kolom agent_id WAJIB ada untuk DB Transaksi!', true);
-                            return;
-                        }
-                        if (!columnMap.progresJenis || !columnMap.progresJumlah) {
-                            showNotifTop('❌ Kolom progres_jenis dan progres_jumlah WAJIB ada!', true);
-                            return;
-                        }
-                    } else {
-                        const possibleNama = ['nama', 'Nama', 'name'];
-                        const possibleHp = ['hp', 'HP', 'phone'];
-                        const possibleDeadline = ['deadline', 'tanggal'];
-                        for (let key in firstRow) {
-                            const lowerKey = key.toLowerCase();
-                            if (possibleNama.some(p => p.toLowerCase() === lowerKey)) columnMap.nama = key;
-                            if (possibleHp.some(p => p.toLowerCase() === lowerKey)) columnMap.hp = key;
-                            if (possibleDeadline.some(p => p.toLowerCase() === lowerKey)) columnMap.deadline = key;
-                        }
-                        if (!columnMap.nama || !columnMap.hp) {
-                            showNotifTop('❌ Kolom nama dan hp WAJIB ada!', true);
-                            return;
-                        }
-                    }
-
-                    const totalRows = json.length;
-                    progress.update(15, '📥 Import Data', `Memproses ${totalRows} baris...`, 0, totalRows);
-                    progress.setTotal(totalRows);
-
-                    for (let i = 0; i < json.length; i++) {
-                        const row = json[i];
-                        if (i % 10 === 0 || i === totalRows - 1) {
-                            const percent = 15 + Math.floor((i / totalRows) * 80);
-                            progress.update(percent, '📥 Import Data', `Memproses data...`, i, totalRows);
-                            await delay(10);
-                        }
-                        try {
-                            if (importType === 'transaksi') {
-                                let agentId = row[columnMap.agentId] ? String(row[columnMap.agentId]).trim() : '';
-                                let nama = columnMap.nama ? String(row[columnMap.nama] || '').trim() : `Agent ${agentId}`;
-                                let hp = columnMap.hp ? String(row[columnMap.hp] || '').trim() : '';
-                                let apk = columnMap.apk ? String(row[columnMap.apk] || '').trim() : '';
-                                let uplineName = columnMap.uplineName ? String(row[columnMap.uplineName] || '').trim() : '';
-                                let uplinePhone = columnMap.uplinePhone ? String(row[columnMap.uplinePhone] || '').trim() : '';
-                                let progresJenis = String(row[columnMap.progresJenis] || 'normal').toLowerCase();
-                                if (progresJenis === 'up' || progresJenis === '+' || progresJenis === 'increase') progresJenis = 'naik';
-                                else if (progresJenis === 'down' || progresJenis === '-' || progresJenis === 'decrease') progresJenis = 'turun';
-                                let progresJumlah = parseFloat(row[columnMap.progresJumlah]) || 0;
-                                let tanggal = columnMap.tanggal ? row[columnMap.tanggal] : getTodayDate();
-                                if (tanggal && typeof tanggal === 'number') tanggal = new Date(tanggal).toISOString().split('T')[0];
-                                if (!agentId) { failed++; continue; }
-                                let cleanHp = '';
-                                if (hp && hp !== '0') {
-                                    cleanHp = hp.replace(/[^\d+]/g, '');
-                                    if (!cleanHp.startsWith('+')) cleanHp = cleanHp.replace(/^0+/, '');
-                                    cleanHp = cleanHp.startsWith('62') ? '+' + cleanHp : (cleanHp ? '+62' + cleanHp : '');
-                                }
-                                await supabase.from('db_transaksi').insert({
-                                    agent_id: agentId.toUpperCase(), nama: nama, hp: cleanHp, apk: apk,
-                                    upline_name: uplineName, upline_phone: uplinePhone,
-                                    progres_jenis: progresJenis, progres_jumlah: Math.abs(progresJumlah),
-                                    tanggal_transaksi: tanggal, status: 'pending_import',
-                                    user_id: currentUser.id, created_at: new Date().toISOString()
-                                });
-                                success++;
-                            } else if (importType === 'customer') {
-                                let agentId = String(row[columnMap.agentId] || '').trim().toUpperCase();
-                                let nama = String(row[columnMap.nama] || '').trim();
-                                let hpRaw = String(row[columnMap.hp] || '').trim();
-                                let apk = columnMap.apk ? String(row[columnMap.apk] || '').trim() : '';
-                                let agentType = columnMap.agentType ? String(row[columnMap.agentType] || '').trim() : '';
-                                let uplineName = columnMap.uplineName ? String(row[columnMap.uplineName] || '').trim() : '';
-                                let uplinePhone = columnMap.uplinePhone ? String(row[columnMap.uplinePhone] || '').trim() : '';
-                                let deadline = columnMap.deadline ? row[columnMap.deadline] : getTodayDate();
-                                if (!agentId || !nama || !hpRaw) { failed++; continue; }
-                                let hp = hpRaw.replace(/[^\d+]/g, '');
-                                if (!hp.startsWith('+')) hp = hp.replace(/^0+/, '');
-                                hp = hp.startsWith('62') ? '+' + hp : (hp ? '+62' + hp : '');
-                                if (!hp) { failed++; continue; }
-                                await supabase.from('customers').insert({
-                                    agent_id: agentId, nama: nama, hp: hp, apk: apk, agent_type: agentType,
-                                    tanggal: deadline, status: 'baru', upline_name: uplineName, upline_phone: uplinePhone,
-                                    user_id: currentUser.id, created_at: new Date().toISOString(),
-                                    followup_data: null, pending_data: [], progres_transaksi: { items: [], total_tercapai: 0 }
-                                });
-                                success++;
-                            } else {
-                                let nama = String(row[columnMap.nama] || '').trim();
-                                let hpRaw = String(row[columnMap.hp] || '').trim();
-                                let deadline = columnMap.deadline ? row[columnMap.deadline] : getTodayDate();
-                                if (!nama || !hpRaw) { failed++; continue; }
-                                let hp = hpRaw.replace(/[^\d+]/g, '');
-                                if (!hp.startsWith('+')) hp = hp.replace(/^0+/, '');
-                                hp = hp.startsWith('62') ? '+' + hp : (hp ? '+62' + hp : '');
-                                await supabase.from('prospek').insert({
-                                    nama: nama, hp: hp, status: 'Baru', deadline: deadline,
-                                    user_id: currentUser.id, created_at: new Date().toISOString(),
-                                    dihubungi_data: null, negosiasi_data: null
-                                });
-                                success++;
-                            }
-                        } catch (rowError) { failed++; }
-                    }
-                    progress.update(100, '✅ Selesai', `Berhasil: ${success}, Gagal: ${failed}`, success, totalRows);
-                    showNotifTop(`✅ Import selesai! Berhasil: ${success}, Gagal: ${failed}`);
-                    if (importType === 'transaksi') await loadDbTransaksi();
-                    else await loadAllData();
-                    excelFileInput.value = '';
-                    document.getElementById('fileInfo').innerHTML = '';
-                    setTimeout(() => progress.hide(), 3000);
-                } catch (err) {
-                    showNotifTop('❌ Gagal memproses file: ' + err.message, true);
-                    progress.hide();
-                } finally {
+// ========== IMPORT BUTTON ==========
+if (importBtn) {
+    importBtn.addEventListener('click', async () => {
+        const file = excelFileInput?.files[0];
+        if (!file) {
+            showNotifTop('Pilih file dulu!', true);
+            return;
+        }
+        
+        const btn = importBtn;
+        const originalText = btn.textContent;
+        btn.textContent = '⏳ Memproses...';
+        btn.disabled = true;
+        
+        const progress = showFloatingProgress('📥 Import Data', 0);
+        progress.update(0, '📥 Import Data', 'Membaca file Excel...');
+        
+        const reader = new FileReader();
+        
+        reader.onload = async function(e) {
+            try {
+                progress.update(5, '📥 Import Data', 'Memproses file Excel...');
+                
+                const data = new Uint8Array(e.target.result);
+                const workbook = XLSX.read(data, { type: 'array' });
+                const sheetName = workbook.SheetNames[0];
+                const worksheet = workbook.Sheets[sheetName];
+                
+                // Baca data dengan header
+                const json = XLSX.utils.sheet_to_json(worksheet, { defval: "" });
+                
+                console.log('Jumlah data:', json.length);
+                
+                if (!json || json.length === 0) {
+                    showNotifTop('File Excel kosong!', true);
                     btn.textContent = originalText;
                     btn.disabled = false;
+                    progress.hide();
+                    return;
                 }
-            };
-            reader.readAsArrayBuffer(file);
-        });
-    }
+                
+                let success = 0;
+                let failed = 0;
+                const totalRows = json.length;
+                
+                progress.update(10, '📥 Import Data', `Memproses ${totalRows} baris data...`, 0, totalRows);
+                progress.setTotal(totalRows);
+                
+                // Proses setiap baris dengan delay kecil
+                for (let i = 0; i < json.length; i++) {
+                    const row = json[i];
+                    
+                    try {
+                        if (importType === 'transaksi') {
+                            // Ambil data dari row
+                            let agentId = row.agent_id || row.Agent_ID || row.agentid || '';
+                            let nama = row.nama || row.Nama || row.name || `Agent ${agentId}`;
+                            let hp = row.hp || row.HP || row.phone || '';
+                            let apk = row.apk || row.APK || row.aplikasi || '';
+                            let uplineName = row.upline_name || row.nama_upline || row.upline || '';
+                            let uplinePhone = row.upline_phone || row.phone_upline || row.hp_upline || '';
+                            let progresJenis = row.progres_jenis || row.jenis_progres || row.jenis || 'normal';
+                            let progresJumlah = parseInt(row.progres_jumlah || row.jumlah_progres || row.jumlah || 0);
+                            let tanggal = row.tanggal_transaksi || row.tanggal || row.date || getTodayDate();
+                            
+                            // Format progresJenis
+                            progresJenis = progresJenis.toString().toLowerCase();
+                            if (progresJenis === 'up' || progresJenis === '+' || progresJenis === 'increase') progresJenis = 'naik';
+                            else if (progresJenis === 'down' || progresJenis === '-' || progresJenis === 'decrease') progresJenis = 'turun';
+                            else if (progresJenis !== 'naik' && progresJenis !== 'turun') progresJenis = 'normal';
+                            
+                            if (!agentId) {
+                                failed++;
+                                console.log(`Baris ${i+1}: agent_id kosong`);
+                                continue;
+                            }
+                            
+                            // Format tanggal
+                            if (tanggal && typeof tanggal === 'number') {
+                                tanggal = new Date(tanggal).toISOString().split('T')[0];
+                            }
+                            
+                            // Insert ke database
+                            const { error } = await supabase.from('db_transaksi').insert({
+                                agent_id: agentId.toString().toUpperCase().trim(),
+                                nama: nama.toString().trim(),
+                                hp: hp ? hp.toString().trim() : '',
+                                apk: apk ? apk.toString().trim() : '',
+                                upline_name: uplineName ? uplineName.toString().trim() : '',
+                                upline_phone: uplinePhone ? uplinePhone.toString().trim() : '',
+                                progres_jenis: progresJenis,
+                                progres_jumlah: Math.abs(progresJumlah),
+                                tanggal_transaksi: tanggal,
+                                status: 'pending_import',
+                                user_id: currentUser.id,
+                                created_at: new Date().toISOString()
+                            });
+                            
+                            if (error) throw error;
+                            success++;
+                            
+                        } else if (importType === 'customer') {
+                            // Handle customer import
+                            let agentId = row.agent_id || row.Agent_ID || '';
+                            let nama = row.nama || row.Nama || '';
+                            let hp = row.hp || row.HP || '';
+                            let apk = row.apk || row.APK || '';
+                            let agentType = row.agent_type || row.type || '';
+                            let deadline = row.deadline || row.tanggal || getTodayDate();
+                            let uplineName = row.upline_name || row.nama_upline || '';
+                            let uplinePhone = row.upline_phone || row.phone_upline || '';
+                            
+                            if (!agentId || !nama || !hp) {
+                                failed++;
+                                continue;
+                            }
+                            
+                            // Format hp
+                            let cleanHp = hp.toString().replace(/[^\d]/g, '');
+                            if (cleanHp.startsWith('0')) cleanHp = cleanHp.substring(1);
+                            if (!cleanHp.startsWith('62')) cleanHp = '+62' + cleanHp;
+                            else cleanHp = '+' + cleanHp;
+                            
+                            const { error } = await supabase.from('customers').insert({
+                                agent_id: agentId.toString().toUpperCase().trim(),
+                                nama: nama.toString().trim(),
+                                hp: cleanHp,
+                                apk: apk || '',
+                                agent_type: agentType || '',
+                                tanggal: deadline,
+                                status: 'baru',
+                                upline_name: uplineName || '',
+                                upline_phone: uplinePhone || '',
+                                user_id: currentUser.id,
+                                created_at: new Date().toISOString(),
+                                followup_data: null,
+                                pending_data: [],
+                                progres_transaksi: { items: [], total_tercapai: 0 }
+                            });
+                            
+                            if (error) throw error;
+                            success++;
+                            
+                        } else {
+                            // Handle prospek import
+                            let nama = row.nama || row.Nama || '';
+                            let hp = row.hp || row.HP || '';
+                            let deadline = row.deadline || row.tanggal || getTodayDate();
+                            
+                            if (!nama || !hp) {
+                                failed++;
+                                continue;
+                            }
+                            
+                            let cleanHp = hp.toString().replace(/[^\d]/g, '');
+                            if (cleanHp.startsWith('0')) cleanHp = cleanHp.substring(1);
+                            if (!cleanHp.startsWith('62')) cleanHp = '+62' + cleanHp;
+                            else cleanHp = '+' + cleanHp;
+                            
+                            const { error } = await supabase.from('prospek').insert({
+                                nama: nama.toString().trim(),
+                                hp: cleanHp,
+                                status: 'Baru',
+                                deadline: deadline,
+                                user_id: currentUser.id,
+                                created_at: new Date().toISOString(),
+                                dihubungi_data: null,
+                                negosiasi_data: null
+                            });
+                            
+                            if (error) throw error;
+                            success++;
+                        }
+                        
+                    } catch (rowError) {
+                        failed++;
+                        console.error(`Error baris ${i+1}:`, rowError);
+                    }
+                    
+                    // Update progress setiap 5 baris
+                    if ((i + 1) % 5 === 0 || i === totalRows - 1) {
+                        const percent = 10 + Math.floor(((i + 1) / totalRows) * 85);
+                        progress.update(percent, '📥 Import Data', `Memproses... (${i+1}/${totalRows})`, i+1, totalRows);
+                        await delay(10);
+                    }
+                }
+                
+                progress.update(100, '✅ Selesai', `Berhasil: ${success}, Gagal: ${failed}`, success, totalRows);
+                showNotifTop(`✅ Import selesai! Berhasil: ${success}, Gagal: ${failed}`);
+                
+                // Refresh data
+                if (importType === 'transaksi') {
+                    await loadDbTransaksi();
+                } else {
+                    await loadAllData();
+                }
+                
+                excelFileInput.value = '';
+                document.getElementById('fileInfo').innerHTML = '';
+                setTimeout(() => progress.hide(), 3000);
+                
+            } catch (err) {
+                console.error('Import error:', err);
+                showNotifTop('❌ Gagal memproses file: ' + err.message, true);
+                progress.hide();
+            } finally {
+                btn.textContent = originalText;
+                btn.disabled = false;
+            }
+        };
+        
+        reader.onerror = function() {
+            showNotifTop('❌ Gagal membaca file', true);
+            btn.textContent = originalText;
+            btn.disabled = false;
+            if (progress) progress.hide();
+        };
+        
+        reader.readAsArrayBuffer(file);
+    });
+}
 }
 // ========== BROADCAST FUNCTIONS ==========
 function initBroadcast() {
