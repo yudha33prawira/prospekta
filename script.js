@@ -2635,6 +2635,7 @@ function setupImportExcel() {
             this.classList.add('active');
         });
     });
+    
 // ========== IMPORT BUTTON ==========
 if (importBtn) {
     importBtn.addEventListener('click', async () => {
@@ -2683,143 +2684,156 @@ if (importBtn) {
                 progress.update(10, '📥 Import Data', `Memproses ${totalRows} baris data...`, 0, totalRows);
                 progress.setTotal(totalRows);
                 
-                // Proses setiap baris dengan delay kecil
-                for (let i = 0; i < json.length; i++) {
-                    const row = json[i];
+                // Proses dalam BATCH (10 baris per batch)
+                const BATCH_SIZE = 10;
+                
+                for (let batchStart = 0; batchStart < json.length; batchStart += BATCH_SIZE) {
+                    const batchEnd = Math.min(batchStart + BATCH_SIZE, json.length);
+                    const batch = json.slice(batchStart, batchEnd);
                     
-                    try {
-                        if (importType === 'transaksi') {
-                            // Ambil data dari row
-                            let agentId = row.agent_id || row.Agent_ID || row.agentid || '';
-                            let nama = row.nama || row.Nama || row.name || `Agent ${agentId}`;
-                            let hp = row.hp || row.HP || row.phone || '';
-                            let apk = row.apk || row.APK || row.aplikasi || '';
-                            let uplineName = row.upline_name || row.nama_upline || row.upline || '';
-                            let uplinePhone = row.upline_phone || row.phone_upline || row.hp_upline || '';
-                            let progresJenis = row.progres_jenis || row.jenis_progres || row.jenis || 'normal';
-                            let progresJumlah = parseInt(row.progres_jumlah || row.jumlah_progres || row.jumlah || 0);
-                            let tanggal = row.tanggal_transaksi || row.tanggal || row.date || getTodayDate();
-                            
-                            // Format progresJenis
-                            progresJenis = progresJenis.toString().toLowerCase();
-                            if (progresJenis === 'up' || progresJenis === '+' || progresJenis === 'increase') progresJenis = 'naik';
-                            else if (progresJenis === 'down' || progresJenis === '-' || progresJenis === 'decrease') progresJenis = 'turun';
-                            else if (progresJenis !== 'naik' && progresJenis !== 'turun') progresJenis = 'normal';
-                            
-                            if (!agentId) {
-                                failed++;
-                                console.log(`Baris ${i+1}: agent_id kosong`);
-                                continue;
+                    // Proses batch
+                    for (let j = 0; j < batch.length; j++) {
+                        const row = batch[j];
+                        const currentRowIndex = batchStart + j;
+                        
+                        try {
+                            if (importType === 'transaksi') {
+                                // Ambil data dari row
+                                let agentId = row.agent_id || row.Agent_ID || row.agentid || '';
+                                let nama = row.nama || row.Nama || row.name || `Agent ${agentId}`;
+                                let hp = row.hp || row.HP || row.phone || '';
+                                let apk = row.apk || row.APK || row.aplikasi || '';
+                                let uplineName = row.upline_name || row.nama_upline || row.upline || '';
+                                let uplinePhone = row.upline_phone || row.phone_upline || row.hp_upline || '';
+                                let progresJenis = row.progres_jenis || row.jenis_progres || row.jenis || 'normal';
+                                let progresJumlah = parseInt(row.progres_jumlah || row.jumlah_progres || row.jumlah || 0);
+                                let tanggal = row.tanggal_transaksi || row.tanggal || row.date || getTodayDate();
+                                
+                                // Format progresJenis
+                                progresJenis = progresJenis.toString().toLowerCase();
+                                if (progresJenis === 'up' || progresJenis === '+' || progresJenis === 'increase') progresJenis = 'naik';
+                                else if (progresJenis === 'down' || progresJenis === '-' || progresJenis === 'decrease') progresJenis = 'turun';
+                                else if (progresJenis !== 'naik' && progresJenis !== 'turun') progresJenis = 'normal';
+                                
+                                if (!agentId) {
+                                    failed++;
+                                    console.log(`Baris ${currentRowIndex+1}: agent_id kosong`);
+                                    continue;
+                                }
+                                
+                                // Format tanggal
+                                if (tanggal && typeof tanggal === 'number') {
+                                    tanggal = new Date(tanggal).toISOString().split('T')[0];
+                                }
+                                
+                                // Insert ke database
+                                const { error } = await supabase.from('db_transaksi').insert({
+                                    agent_id: agentId.toString().toUpperCase().trim(),
+                                    nama: nama.toString().trim(),
+                                    hp: hp ? hp.toString().trim() : '',
+                                    apk: apk ? apk.toString().trim() : '',
+                                    upline_name: uplineName ? uplineName.toString().trim() : '',
+                                    upline_phone: uplinePhone ? uplinePhone.toString().trim() : '',
+                                    progres_jenis: progresJenis,
+                                    progres_jumlah: Math.abs(progresJumlah),
+                                    tanggal_transaksi: tanggal,
+                                    status: 'pending_import',
+                                    user_id: currentUser.id,
+                                    created_at: new Date().toISOString()
+                                });
+                                
+                                if (error) throw error;
+                                success++;
+                                
+                            } else if (importType === 'customer') {
+                                // Handle customer import
+                                let agentId = row.agent_id || row.Agent_ID || '';
+                                let nama = row.nama || row.Nama || '';
+                                let hp = row.hp || row.HP || '';
+                                let apk = row.apk || row.APK || '';
+                                let agentType = row.agent_type || row.type || '';
+                                let deadline = row.deadline || row.tanggal || getTodayDate();
+                                let uplineName = row.upline_name || row.nama_upline || '';
+                                let uplinePhone = row.upline_phone || row.phone_upline || '';
+                                
+                                if (!agentId || !nama || !hp) {
+                                    failed++;
+                                    continue;
+                                }
+                                
+                                // Format hp
+                                let cleanHp = hp.toString().replace(/[^\d]/g, '');
+                                if (cleanHp.startsWith('0')) cleanHp = cleanHp.substring(1);
+                                if (cleanHp.startsWith('62')) cleanHp = cleanHp.substring(2);
+                                cleanHp = '+62' + cleanHp;
+                                
+                                const { error } = await supabase.from('customers').insert({
+                                    agent_id: agentId.toString().toUpperCase().trim(),
+                                    nama: nama.toString().trim(),
+                                    hp: cleanHp,
+                                    apk: apk || '',
+                                    agent_type: agentType || '',
+                                    tanggal: deadline,
+                                    status: 'baru',
+                                    upline_name: uplineName || '',
+                                    upline_phone: uplinePhone || '',
+                                    user_id: currentUser.id,
+                                    created_at: new Date().toISOString(),
+                                    followup_data: null,
+                                    pending_data: [],
+                                    progres_transaksi: { items: [], total_tercapai: 0 }
+                                });
+                                
+                                if (error) throw error;
+                                success++;
+                                
+                            } else {
+                                // Handle prospek import
+                                let nama = row.nama || row.Nama || '';
+                                let hp = row.hp || row.HP || '';
+                                let deadline = row.deadline || row.tanggal || getTodayDate();
+                                
+                                if (!nama || !hp) {
+                                    failed++;
+                                    continue;
+                                }
+                                
+                                let cleanHp = hp.toString().replace(/[^\d]/g, '');
+                                if (cleanHp.startsWith('0')) cleanHp = cleanHp.substring(1);
+                                if (cleanHp.startsWith('62')) cleanHp = cleanHp.substring(2);
+                                cleanHp = '+62' + cleanHp;
+                                
+                                const { error } = await supabase.from('prospek').insert({
+                                    nama: nama.toString().trim(),
+                                    hp: cleanHp,
+                                    status: 'Baru',
+                                    deadline: deadline,
+                                    user_id: currentUser.id,
+                                    created_at: new Date().toISOString(),
+                                    dihubungi_data: null,
+                                    negosiasi_data: null
+                                });
+                                
+                                if (error) throw error;
+                                success++;
                             }
                             
-                            // Format tanggal
-                            if (tanggal && typeof tanggal === 'number') {
-                                tanggal = new Date(tanggal).toISOString().split('T')[0];
-                            }
-                            
-                            // Insert ke database
-                            const { error } = await supabase.from('db_transaksi').insert({
-                                agent_id: agentId.toString().toUpperCase().trim(),
-                                nama: nama.toString().trim(),
-                                hp: hp ? hp.toString().trim() : '',
-                                apk: apk ? apk.toString().trim() : '',
-                                upline_name: uplineName ? uplineName.toString().trim() : '',
-                                upline_phone: uplinePhone ? uplinePhone.toString().trim() : '',
-                                progres_jenis: progresJenis,
-                                progres_jumlah: Math.abs(progresJumlah),
-                                tanggal_transaksi: tanggal,
-                                status: 'pending_import',
-                                user_id: currentUser.id,
-                                created_at: new Date().toISOString()
-                            });
-                            
-                            if (error) throw error;
-                            success++;
-                            
-                        } else if (importType === 'customer') {
-                            // Handle customer import
-                            let agentId = row.agent_id || row.Agent_ID || '';
-                            let nama = row.nama || row.Nama || '';
-                            let hp = row.hp || row.HP || '';
-                            let apk = row.apk || row.APK || '';
-                            let agentType = row.agent_type || row.type || '';
-                            let deadline = row.deadline || row.tanggal || getTodayDate();
-                            let uplineName = row.upline_name || row.nama_upline || '';
-                            let uplinePhone = row.upline_phone || row.phone_upline || '';
-                            
-                            if (!agentId || !nama || !hp) {
-                                failed++;
-                                continue;
-                            }
-                            
-                            // Format hp
-                            let cleanHp = hp.toString().replace(/[^\d]/g, '');
-                            if (cleanHp.startsWith('0')) cleanHp = cleanHp.substring(1);
-                            if (!cleanHp.startsWith('62')) cleanHp = '+62' + cleanHp;
-                            else cleanHp = '+' + cleanHp;
-                            
-                            const { error } = await supabase.from('customers').insert({
-                                agent_id: agentId.toString().toUpperCase().trim(),
-                                nama: nama.toString().trim(),
-                                hp: cleanHp,
-                                apk: apk || '',
-                                agent_type: agentType || '',
-                                tanggal: deadline,
-                                status: 'baru',
-                                upline_name: uplineName || '',
-                                upline_phone: uplinePhone || '',
-                                user_id: currentUser.id,
-                                created_at: new Date().toISOString(),
-                                followup_data: null,
-                                pending_data: [],
-                                progres_transaksi: { items: [], total_tercapai: 0 }
-                            });
-                            
-                            if (error) throw error;
-                            success++;
-                            
-                        } else {
-                            // Handle prospek import
-                            let nama = row.nama || row.Nama || '';
-                            let hp = row.hp || row.HP || '';
-                            let deadline = row.deadline || row.tanggal || getTodayDate();
-                            
-                            if (!nama || !hp) {
-                                failed++;
-                                continue;
-                            }
-                            
-                            let cleanHp = hp.toString().replace(/[^\d]/g, '');
-                            if (cleanHp.startsWith('0')) cleanHp = cleanHp.substring(1);
-                            if (!cleanHp.startsWith('62')) cleanHp = '+62' + cleanHp;
-                            else cleanHp = '+' + cleanHp;
-                            
-                            const { error } = await supabase.from('prospek').insert({
-                                nama: nama.toString().trim(),
-                                hp: cleanHp,
-                                status: 'Baru',
-                                deadline: deadline,
-                                user_id: currentUser.id,
-                                created_at: new Date().toISOString(),
-                                dihubungi_data: null,
-                                negosiasi_data: null
-                            });
-                            
-                            if (error) throw error;
-                            success++;
+                        } catch (rowError) {
+                            failed++;
+                            console.error(`Error baris ${currentRowIndex+1}:`, rowError);
                         }
                         
-                    } catch (rowError) {
-                        failed++;
-                        console.error(`Error baris ${i+1}:`, rowError);
+                        // Update progress setiap baris
+                        const processed = batchStart + j + 1;
+                        const percent = 10 + Math.floor((processed / totalRows) * 85);
+                        progress.update(percent, '📥 Import Data', `Memproses... (${processed}/${totalRows})`, processed, totalRows);
+                        
+                        // Delay kecil agar tidak overload
+                        await delay(20);
                     }
                     
-                    // Update progress setiap 5 baris
-                    if ((i + 1) % 5 === 0 || i === totalRows - 1) {
-                        const percent = 10 + Math.floor(((i + 1) / totalRows) * 85);
-                        progress.update(percent, '📥 Import Data', `Memproses... (${i+1}/${totalRows})`, i+1, totalRows);
-                        await delay(10);
-                    }
+                    // Delay antar batch
+                    await delay(100);
                 }
                 
                 progress.update(100, '✅ Selesai', `Berhasil: ${success}, Gagal: ${failed}`, success, totalRows);
@@ -2857,6 +2871,7 @@ if (importBtn) {
     });
 }
 }
+
 // ========== BROADCAST FUNCTIONS ==========
 function initBroadcast() {
     const sourceRadios = document.querySelectorAll('input[name="sourceType"]');
