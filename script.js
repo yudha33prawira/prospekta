@@ -5253,9 +5253,12 @@ document.addEventListener('DOMContentLoaded', function() {
     }
 });
 
-// ========== AUTH STATE HANDLER (DIPERBAIKI) ==========
+// ========== AUTH STATE HANDLER (DIPERBAIKI DENGAN LOGGING LENGKAP) ==========
 supabase.auth.onAuthStateChange(async (event, session) => {
-    console.log('🔐 AUTH EVENT:', event, session?.user?.email);
+    console.log('🔐 AUTH EVENT:', event);
+    console.log('🔐 Session user:', session?.user?.email);
+    console.log('🔐 Session expires at:', session?.expires_at);
+    console.log('🔐 Current timestamp:', Math.floor(Date.now() / 1000));
     
     const loginPage = document.getElementById('loginPage');
     const app = document.getElementById('app');
@@ -5265,84 +5268,78 @@ supabase.auth.onAuthStateChange(async (event, session) => {
         loginPage.style.display = 'none';
         app.style.display = 'block';
         
-        // TAMPILKAN LOADING STATE
-        document.getElementById('topUserName').innerText = 'Loading...';
+        // TAMPILKAN LOADING
+        document.getElementById('topUserName').innerHTML = '🔄 Memuat...';
         
-        console.log('📡 Fetching user data from database...');
+        console.log('📡 User ID from auth:', currentUser.id);
+        console.log('📡 User email from auth:', currentUser.email);
         
-        // RETRY MECHANISM - coba ambil data user hingga 3 kali
-        let userData = null;
-        let retryCount = 0;
-        const maxRetries = 3;
+        // COBA AMBIL DATA DARI USER METADATA DULU (LEBIH CEPAT)
+        const metadataRole = session.user.user_metadata?.role;
+        const metadataNama = session.user.user_metadata?.nama;
         
-        while (retryCount < maxRetries && !userData) {
-            try {
-                const { data, error } = await supabase
-                    .from('users')
-                    .select('*')
-                    .eq('id', currentUser.id)
-                    .maybeSingle(); // Gunakan maybeSingle() bukan single()
-                
-                if (error) {
-                    console.error(`❌ Attempt ${retryCount + 1} error:`, error);
-                    retryCount++;
-                    if (retryCount < maxRetries) {
-                        await new Promise(resolve => setTimeout(resolve, 500)); // delay 500ms
-                        continue;
+        if (metadataRole) {
+            console.log('✅ Role found in session metadata:', metadataRole);
+            currentUserRole = metadataRole;
+            currentUserName = metadataNama || currentUser.email?.split('@')[0] || 'CS Agent';
+        } else {
+            console.log('⏳ Role not in metadata, fetching from database...');
+            
+            // RETRY MECHANISM UNTUK DATABASE QUERY
+            let userData = null;
+            let retries = 0;
+            
+            while (retries < 3 && !userData) {
+                try {
+                    const { data, error } = await supabase
+                        .from('users')
+                        .select('*')
+                        .eq('id', currentUser.id)
+                        .maybeSingle();
+                    
+                    if (error) {
+                        console.error(`❌ Attempt ${retries + 1} error:`, error);
+                    } else if (data) {
+                        userData = data;
+                        console.log(`✅ User data found on attempt ${retries + 1}:`, data);
+                        break;
+                    } else {
+                        console.log(`⚠️ No user data on attempt ${retries + 1}`);
                     }
-                } else if (data) {
-                    userData = data;
-                    console.log('✅ User data found:', userData);
-                    break;
-                } else {
-                    console.log(`⚠️ Attempt ${retryCount + 1}: User data not found`);
-                    retryCount++;
-                    if (retryCount < maxRetries) {
-                        await new Promise(resolve => setTimeout(resolve, 500));
-                    }
+                } catch (err) {
+                    console.error(`❌ Exception on attempt ${retries + 1}:`, err);
                 }
-            } catch (err) {
-                console.error(`❌ Attempt ${retryCount + 1} exception:`, err);
-                retryCount++;
-                if (retryCount < maxRetries) {
+                
+                retries++;
+                if (retries < 3 && !userData) {
                     await new Promise(resolve => setTimeout(resolve, 500));
                 }
             }
-        }
-        
-        if (userData) {
-            currentUserRole = userData.role || 'cs';
-            currentUserName = userData.nama || userData.email?.split('@')[0] || 'CS Agent';
-            console.log('✅ Role from database:', currentUserRole);
-        } else {
-            // LAST RESORT - coba ambil dari session user metadata
-            console.warn('⚠️ Could not fetch user data from users table, checking session metadata...');
-            const metadataRole = session.user.user_metadata?.role;
-            if (metadataRole) {
-                currentUserRole = metadataRole;
-                currentUserName = session.user.user_metadata?.nama || session.user.email?.split('@')[0] || 'CS Agent';
-                console.log('✅ Role from session metadata:', currentUserRole);
+            
+            if (userData) {
+                currentUserRole = userData.role || 'cs';
+                currentUserName = userData.nama || userData.email?.split('@')[0] || 'CS Agent';
+                console.log('✅ Role from database:', currentUserRole);
             } else {
-                // Jika tetap tidak ada, jangan langsung set ke 'cs'
-                // Tampilkan error dan minta reload
-                console.error('❌ Cannot determine user role!');
-                showNotifTop('⚠️ Gagal memuat data user. Silakan refresh halaman.', true);
-                currentUserRole = 'cs'; // fallback terakhir
-                currentUserName = session.user.email?.split('@')[0] || 'CS Agent';
+                console.error('❌ CRITICAL: Could not fetch user data from database!');
+                console.error('❌ Using fallback role: cs');
+                currentUserRole = 'cs';
+                currentUserName = currentUser.email?.split('@')[0] || 'CS Agent';
             }
         }
         
         console.log('🎯 FINAL currentUserRole:', currentUserRole);
+        console.log('🎯 FINAL currentUserName:', currentUserName);
         
         currentUserEmail = currentUser.email || '';
-        const foto = userData?.foto || session.user.user_metadata?.foto || 'https://i.pravatar.cc/40';
+        const foto = session.user.user_metadata?.foto || 'https://i.pravatar.cc/40';
         document.getElementById('profileImg').src = foto;
         document.getElementById('previewFoto').src = foto;
-        document.getElementById('topUserName').innerText = currentUserName;
+        document.getElementById('topUserName').innerHTML = currentUserName;
         document.getElementById('profileName').value = currentUserName;
         document.getElementById('profileEmail').value = currentUser.email;
         
-        // Set menu visibility based on role (pastikan ini berjalan setelah role ditetapkan)
+        // SET MENU VISIBILITY
         const menuDbAgent = document.getElementById('menuDbAgent');
         const menuDbTransaksi = document.getElementById('menuDbTransaksi');
         const menuImport = document.getElementById('menuImport');
@@ -5351,7 +5348,7 @@ supabase.auth.onAuthStateChange(async (event, session) => {
         console.log('🎯 Setting menu visibility for role:', currentUserRole);
         
         if (currentUserRole === 'owner') {
-            console.log('👉 OWNER: Showing owner menus');
+            console.log('👉 OWNER: Showing owner menus - YES!');
             if (menuDbAgent) menuDbAgent.style.display = 'flex';
             if (menuDbTransaksi) menuDbTransaksi.style.display = 'flex';
             if (menuImport) menuImport.style.display = 'flex';
@@ -5369,7 +5366,6 @@ supabase.auth.onAuthStateChange(async (event, session) => {
         document.querySelectorAll('.menu-item').forEach(m => m.classList.remove('active'));
         document.querySelector('.menu-item[data-page="dashboard"]')?.classList.add('active');
         
-        console.log('📦 Loading data...');
         await loadAllData();
         await loadTargetData();
         await loadTransaksiGlobal();
