@@ -304,7 +304,47 @@ async function updateUserMetadata(role, nama) {
 }
 
 async function signOut() { await supabase.auth.signOut(); }
-async function updateUserProfile(userId, updates) { await supabase.from('users').update(updates).eq('id', userId); }
+// ========== UPDATE USER PROFILE FUNCTION ==========
+async function updateUserProfile(userId, updates) {
+    if (!userId) {
+        console.error('No userId provided');
+        return false;
+    }
+    
+    try {
+        // Update di tabel users
+        const { error: dbError } = await supabase
+            .from('users')
+            .update({
+                nama: updates.nama,
+                hp: updates.hp,
+                foto: updates.foto,
+                updated_at: new Date().toISOString()
+            })
+            .eq('id', userId);
+        
+        if (dbError) throw dbError;
+        
+        // Update juga di metadata auth user
+        const { error: authError } = await supabase.auth.updateUser({
+            data: {
+                nama: updates.nama,
+                hp: updates.hp,
+                foto: updates.foto,
+                updated_at: new Date().toISOString()
+            }
+        });
+        
+        if (authError) console.warn('Auth metadata update failed:', authError);
+        
+        console.log('✅ Profile updated successfully');
+        return true;
+    } catch (error) {
+        console.error('Error updating profile:', error);
+        showNotifTop('❌ Gagal update profile: ' + error.message, true);
+        return false;
+    }
+}
 
 // ========== LOAD DATA FUNCTIONS ==========
 async function loadCustomers() {
@@ -4777,45 +4817,92 @@ document.addEventListener('DOMContentLoaded', function() {
         }
     });
     
-    // ========== SAVE PROFILE BUTTON ==========
-    document.getElementById('saveProfileBtn')?.addEventListener('click', async () => {
-        const nama = document.getElementById('profileName').value;
-        let hp = document.getElementById('profilePhone').value;
-        const foto = document.getElementById('previewFoto').src;
+// ========== SAVE PROFILE BUTTON (DIPERBAIKI) ==========
+document.getElementById('saveProfileBtn')?.addEventListener('click', async () => {
+    console.log('✅ Save profile button clicked');
+    
+    const nama = document.getElementById('profileName')?.value;
+    let hp = document.getElementById('profilePhone')?.value;
+    const fotoPreview = document.getElementById('previewFoto')?.src;
+    
+    if (!nama) {
+        showNotifTop('⚠️ Nama wajib diisi!', true);
+        return;
+    }
+    
+    // Format nomor HP
+    if (hp) {
+        hp = hp.replace(/\D/g, '');
+        if (hp.startsWith('0')) hp = hp.substring(1);
+        hp = hp ? '+62' + hp : '';
+    }
+    
+    // Tampilkan loading state
+    const saveBtn = document.getElementById('saveProfileBtn');
+    const originalText = saveBtn.textContent;
+    saveBtn.textContent = '💾 Menyimpan...';
+    saveBtn.disabled = true;
+    
+    try {
+        let finalFoto = fotoPreview;
         
-        if (!nama) {
-            showNotifTop('Nama wajib diisi', true);
-            return;
-        }
-        
-        if (hp) {
-            hp = hp.replace(/\D/g, '');
-            if (hp.startsWith('0')) hp = hp.substring(1);
-            hp = '+62' + hp;
-        } else {
-            hp = '+62';
-        }
-        
-        try {
-            let finalFoto = foto;
-            const fileInput = document.getElementById('profileFoto');
-            if (fileInput.files && fileInput.files[0]) {
-                const file = fileInput.files[0];
-                finalFoto = await uploadProfilePhoto(file, currentUser.id);
+        // Upload foto jika ada file baru
+        const fileInput = document.getElementById('profileFoto');
+        if (fileInput && fileInput.files && fileInput.files[0]) {
+            const file = fileInput.files[0];
+            if (file.size > 1024 * 1024) {
+                showNotifTop('⚠️ Ukuran foto maksimal 1MB!', true);
+                saveBtn.textContent = originalText;
+                saveBtn.disabled = false;
+                return;
             }
             
-            await updateUserProfile(currentUser.id, { nama, hp, foto: finalFoto });
+            // Upload ke storage
+            const fileExt = file.name.split('.').pop();
+            const fileName = `${currentUser.id}/profile_${Date.now()}.${fileExt}`;
             
-            document.getElementById('topUserName').innerText = nama;
-            document.getElementById('profileImg').src = finalFoto;
+            const { error: uploadError } = await supabase.storage
+                .from('profiles')
+                .upload(fileName, file, { upsert: true });
+            
+            if (uploadError) {
+                console.error('Upload error:', uploadError);
+                showNotifTop('⚠️ Gagal upload foto: ' + uploadError.message, true);
+            } else {
+                const { data: urlData } = supabase.storage
+                    .from('profiles')
+                    .getPublicUrl(fileName);
+                finalFoto = urlData.publicUrl;
+            }
+        }
+        
+        // Update profile
+        const success = await updateUserProfile(currentUser.id, {
+            nama: nama,
+            hp: hp || '',
+            foto: finalFoto
+        });
+        
+        if (success) {
+            // Update global variables
             currentUserName = nama;
             
+            // Update UI
+            document.getElementById('topUserName').innerText = nama;
+            document.getElementById('profileImg').src = finalFoto;
+            document.getElementById('previewFoto').src = finalFoto;
+            
+            showNotifTop('✅ Profile berhasil disimpan!');
             closeModal('profileModal');
-            showNotifTop('✅ Profile tersimpan');
-        } catch (e) {
-            showNotifTop('❌ Gagal menyimpan profile: ' + e.message, true);
         }
-    });
+    } catch (error) {
+        console.error('Save profile error:', error);
+        showNotifTop('❌ Gagal menyimpan: ' + error.message, true);
+    } finally {
+        saveBtn.textContent = originalText;
+        saveBtn.disabled = false;
+    }
+});
     
     // ========== SEARCH BUTTONS ==========
     document.getElementById('searchBtn')?.addEventListener('click', performSearch);
