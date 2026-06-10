@@ -5268,20 +5268,59 @@ supabase.auth.onAuthStateChange(async (event, session) => {
             loginPage.style.display = 'none';
             app.style.display = 'block';
             
+            // Refresh session untuk memastikan token valid
+            try {
+                const { data: refreshed, error: refreshError } = await supabase.auth.refreshSession();
+                if (refreshError) {
+                    console.warn('⚠️ Session refresh warning:', refreshError.message);
+                } else {
+                    console.log('✅ Session refreshed');
+                }
+            } catch (e) {
+                console.warn('⚠️ Could not refresh session:', e.message);
+            }
+            
             console.log('🔐 [4] Fetching user data from database...');
-            const { data: userData, error } = await supabase
-                .from('users')
-                .select('*')
-                .eq('id', currentUser.id)
-                .single();
+            
+            // Fetch dengan retry mechanism
+            let userData = null;
+            let error = null;
+            let retryCount = 0;
+            const maxRetries = 2;
+            
+            while (retryCount <= maxRetries && !userData) {
+                try {
+                    const { data, error: queryError } = await supabase
+                        .from('users')
+                        .select('*')
+                        .eq('id', currentUser.id)
+                        .maybeSingle();  // Gunakan maybeSingle instead of single
+                    
+                    if (queryError) {
+                        error = queryError;
+                        console.warn(`⚠️ Query attempt ${retryCount + 1} failed:`, queryError.message);
+                    } else {
+                        userData = data;
+                        error = null;
+                        break;
+                    }
+                } catch (err) {
+                    console.warn(`⚠️ Fetch attempt ${retryCount + 1} error:`, err.message);
+                }
+                retryCount++;
+                if (retryCount <= maxRetries) {
+                    await new Promise(r => setTimeout(r, 500));
+                }
+            }
             
             console.log('🔐 [5] userData received:', userData);
             console.log('🔐 [6] error:', error);
             
-            if (error) {
+            if (error || !userData) {
                 console.error('❌ [7] Error fetching user data:', error);
                 currentUserRole = 'cs';
                 currentUserName = currentUser.email?.split('@')[0] || 'CS Agent';
+                currentUserEmail = currentUser.email || '';
             } else {
                 console.log('✅ [8] User data:', userData);
                 console.log('✅ [9] Role from database:', userData.role);
@@ -5297,6 +5336,7 @@ supabase.auth.onAuthStateChange(async (event, session) => {
                 if (previewFoto) previewFoto.src = foto;
             }
             
+            // Lanjutkan dengan update UI dan load data
             console.log('🔐 [11] Updating UI elements...');
             const topUserName = document.getElementById('topUserName');
             const profileName = document.getElementById('profileName');
@@ -5315,20 +5355,17 @@ supabase.auth.onAuthStateChange(async (event, session) => {
             console.log('🔐 [12] Setting menu for role:', currentUserRole);
             
             if (currentUserRole === 'owner') {
-                console.log('🔐 [13] OWNER: Showing owner menus');
                 if (menuDbAgent) menuDbAgent.style.display = 'flex';
                 if (menuDbTransaksi) menuDbTransaksi.style.display = 'flex';
                 if (menuImport) menuImport.style.display = 'flex';
                 if (ownerMenu) ownerMenu.style.display = 'block';
             } else {
-                console.log('🔐 [13] CS: Hiding owner menus');
                 if (menuDbAgent) menuDbAgent.style.display = 'none';
                 if (menuDbTransaksi) menuDbTransaksi.style.display = 'none';
                 if (menuImport) menuImport.style.display = 'none';
                 if (ownerMenu) ownerMenu.style.display = 'none';
             }
             
-            console.log('🔐 [14] Showing dashboard...');
             document.querySelectorAll('.page-content').forEach(p => p.style.display = 'none');
             const dashboardPage = document.getElementById('dashboardPage');
             if (dashboardPage) dashboardPage.style.display = 'block';
@@ -5337,39 +5374,16 @@ supabase.auth.onAuthStateChange(async (event, session) => {
             const dashboardMenu = document.querySelector('.menu-item[data-page="dashboard"]');
             if (dashboardMenu) dashboardMenu.classList.add('active');
             
-            console.log('🔐 [15] Loading data...');
-            try {
-                await loadAllData();
-                console.log('🔐 [16] loadAllData completed');
-            } catch (loadErr) {
-                console.error('❌ [16a] loadAllData ERROR:', loadErr);
-            }
-            
-            try {
-                await loadTargetData();
-                console.log('🔐 [17] loadTargetData completed');
-            } catch (err) { console.error('loadTargetData error:', err); }
-            
-            try {
-                await loadTransaksiGlobal();
-                console.log('🔐 [18] loadTransaksiGlobal completed');
-            } catch (err) { console.error('loadTransaksiGlobal error:', err); }
-            
-            try {
-                await loadDbTransaksi();
-                console.log('🔐 [19] loadDbTransaksi completed');
-            } catch (err) { console.error('loadDbTransaksi error:', err); }
-            
-            try {
-                await loadTarifAdmin();
-                console.log('🔐 [20] loadTarifAdmin completed');
-            } catch (err) { console.error('loadTarifAdmin error:', err); }
-            
+            console.log('🔐 [13] Loading data...');
+            await loadAllData();
+            await loadTargetData();
+            await loadTransaksiGlobal();
+            await loadDbTransaksi();
+            await loadTarifAdmin();
             initFullModeSelection();
             updateAllBadges();
             
-            console.log('🏁 [21] FINAL currentUserRole:', currentUserRole);
-            console.log('🏁 [22] FINAL menuDbAgent display:', menuDbAgent?.style.display);
+            console.log('🏁 [14] FINAL currentUserRole:', currentUserRole);
             
         } catch (err) {
             console.error('❌ CRITICAL ERROR in auth handler:', err);
