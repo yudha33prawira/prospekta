@@ -6992,96 +6992,8 @@ document.addEventListener('DOMContentLoaded', function() {
         });
     }
     
-    // Sidebar Hover
-    const sidebar = document.getElementById('sidebar');
-    const hoverZone = document.getElementById('hoverZone');
-    
-    if (hoverZone) {
-        hoverZone.addEventListener('mouseenter', function() {
-            if (!isMobile() && sidebar) {
-                clearTimeout(sidebarTimeout);
-                sidebar.classList.add('active');
-                updateSidebarBodyClass();
-            }
-        });
-    }
-    
-    if (sidebar) {
-        sidebar.addEventListener('mouseleave', function() {
-            if (!isMobile()) {
-                sidebarTimeout = setTimeout(() => {
-                    sidebar.classList.remove('active');
-                    updateSidebarBodyClass();
-                }, 200);
-            }
-        });
-        sidebar.addEventListener('mouseenter', () => clearTimeout(sidebarTimeout));
-    }
-
-    // ========== LOGIN FORM HANDLER ==========
-    const loginForm = document.getElementById('loginForm');
-    if (loginForm) {
-        loginForm.addEventListener('submit', async function(e) {
-            e.preventDefault();
-            
-            const email = document.getElementById('loginEmail')?.value;
-            const password = document.getElementById('loginPassword')?.value;
-            const loginBtn = document.getElementById('loginBtn');
-            
-            if (!email || !password) {
-                if (typeof showNotifTop !== 'undefined') {
-                    showNotifTop('⚠️ Email dan password harus diisi!', true);
-                } else {
-                    alert('Email dan password harus diisi!');
-                }
-                return;
-            }
-            
-            if (loginBtn) {
-                loginBtn.disabled = true;
-                loginBtn.textContent = '⏳ Memproses...';
-            }
-            
-            try {
-                const { data, error } = await supabase.auth.signInWithPassword({
-                    email: email,
-                    password: password
-                });
-                
-                if (error) throw error;
-                
-                if (typeof showNotifTop !== 'undefined') {
-                    showNotifTop('✅ Login berhasil!');
-                }
-                
-            } catch (err) {
-                if (typeof showNotifTop !== 'undefined') {
-                    showNotifTop('❌ Login gagal: ' + err.message, true);
-                } else {
-                    alert('Login gagal: ' + err.message);
-                }
-                if (loginBtn) {
-                    loginBtn.disabled = false;
-                    loginBtn.textContent = '🔓 Login';
-                }
-            }
-        });
-    }
-
-    // ========== TOGGLE PASSWORD ==========
-    const togglePasswordBtn = document.getElementById('togglePassword');
-    const loginPassword = document.getElementById('loginPassword');
-
-    if (togglePasswordBtn && loginPassword) {
-        togglePasswordBtn.addEventListener('click', function() {
-            const type = loginPassword.getAttribute('type') === 'password' ? 'text' : 'password';
-            loginPassword.setAttribute('type', type);
-            this.textContent = type === 'password' ? '👁️' : '🙈';
-        });
-    }
-    
     console.log('✅ DOMContentLoaded completed');
-});  // <-- INI SATU-SATUNYA YANG MENUTUP document.addEventListener
+});
 
 // ========== DARK MODE ==========
 function initDarkMode() {
@@ -7093,14 +7005,33 @@ function initDarkMode() {
     }
 }
 
-// ========== STYLE FOR FLOATING PROGRESS ANIMATION ==========
+// ========== STYLE ==========
 const style = document.createElement('style');
-style.textContent = `
-    @keyframes slideOutRight {
-        from { transform: translateX(0); opacity: 1; }
-        to { transform: translateX(100%); opacity: 0; }
-    }
-`;
+style.textContent = `@keyframes slideOutRight{from{transform:translateX(0);opacity:1;}to{transform:translateX(100%);opacity:0;}}`;
 document.head.appendChild(style);
 
-console.log('✅ Script loaded successfully');
+// ========== LOGIN ==========
+document.getElementById('loginForm')?.addEventListener('submit', async (e) => {
+    e.preventDefault();
+    const email = document.getElementById('loginEmail')?.value;
+    const password = document.getElementById('loginPassword')?.value;
+    if (!email || !password) return alert('Isi email dan password!');
+    const btn = document.getElementById('loginBtn');
+    if (btn) { btn.disabled = true; btn.textContent = '⏳...'; }
+    try {
+        await supabase.auth.signInWithPassword({ email, password });
+    } catch (err) { alert('Gagal: ' + err.message); if(btn){btn.disabled=false;btn.textContent='🔓 Login';} }
+});
+
+// ========== TOGGLE PASSWORD ==========
+const toggleBtn = document.getElementById('togglePassword');
+const passInput = document.getElementById('loginPassword');
+if (toggleBtn && passInput) {
+    toggleBtn.onclick = () => {
+        const type = passInput.type === 'password' ? 'text' : 'password';
+        passInput.type = type;
+        toggleBtn.textContent = type === 'password' ? '👁️' : '🙈';
+    };
+}
+
+console.log('✅ Script loaded');
