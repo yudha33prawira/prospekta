@@ -7016,7 +7016,6 @@ document.addEventListener('DOMContentLoaded', function() {
             }
         });
         sidebar.addEventListener('mouseenter', () => clearTimeout(sidebarTimeout));
-    }
 });
 
 // ========== DARK MODE ==========
