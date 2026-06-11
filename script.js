@@ -344,85 +344,97 @@ async function updateUserProfile(userId, updates) {
 
 // ========== LOAD DATA FUNCTIONS ==========
 async function loadCustomers() {
-    if (!currentUser) return [];
-    
-    console.log('📞 loadCustomers: Memuat customers...');
-    
-    let query = supabase.from('customers').select('*');
-    if (currentUserRole !== 'owner') {
-        query = query.eq('user_id', currentUser.id);
-    }
-    const { data, error } = await query.order('created_at', { ascending: false });
-    
-    if (error) {
-        console.error('Error loadCustomers:', error);
+    if (!currentUser) {
+        console.log('loadCustomers: No user');
         return [];
     }
     
-    let enriched = data || [];
+    console.log('📞 loadCustomers: Memulai...');
+    console.log('   currentUser.id:', currentUser.id);
+    console.log('   currentUserRole:', currentUserRole);
     
-    if (currentUserRole === 'owner' && enriched.length) {
-        const userIds = [...new Set(enriched.map(c => c.user_id).filter(Boolean))];
-        if (userIds.length) {
-            const { data: users } = await supabase.from('users').select('id,nama').in('id', userIds);
-            const map = new Map(users?.map(u => [u.id, u.nama]) || []);
-            enriched = enriched.map(c => ({ 
-                ...c, 
-                displayName: c.nama + (map.get(c.user_id) ? ` (${map.get(c.user_id)})` : '') 
-            }));
-        } else {
-            enriched = enriched.map(c => ({ ...c, displayName: c.nama }));
+    try {
+        let query = supabase.from('customers').select('*');
+        
+        if (currentUserRole !== 'owner') {
+            query = query.eq('user_id', currentUser.id);
         }
-    } else {
-        enriched = enriched.map(c => ({ ...c, displayName: c.nama }));
+        
+        const { data, error, status } = await query;
+        
+        console.log('   Response status:', status);
+        console.log('   Error:', error);
+        console.log('   Data length:', data?.length);
+        
+        if (error) {
+            console.error('Error loadCustomers:', error);
+            return [];
+        }
+        
+        if (!data || data.length === 0) {
+            console.log('   Tidak ada data customers');
+            customersData = [];
+            return [];
+        }
+        
+        customersData = data;
+        console.log('   Customers loaded:', customersData.length);
+        
+        // Update dashboard counts langsung
+        const totalDataEl = document.getElementById('totalData');
+        if (totalDataEl) totalDataEl.innerText = customersData.length;
+        
+        return customersData;
+        
+    } catch (err) {
+        console.error('Exception loadCustomers:', err);
+        return [];
     }
-    
-    customersData = enriched;
-    console.log('📞 loadCustomers: Selesai, total:', customersData.length);
-    
-    // Jangan panggil updateDashboardStats di sini, biarkan dipanggil di onAuthStateChange
-    
-    return enriched;
 }
 
 async function loadProspek() {
-    if (!currentUser) return [];
-    
-    console.log('📋 loadProspek: Memuat prospek...');
-    
-    let query = supabase.from('prospek').select('*');
-    if (currentUserRole !== 'owner') {
-        query = query.eq('user_id', currentUser.id);
-    }
-    const { data, error } = await query.order('created_at', { ascending: false });
-    
-    if (error) {
-        console.error('Error loadProspek:', error);
+    if (!currentUser) {
+        console.log('loadProspek: No user');
         return [];
     }
     
-    let enriched = data || [];
+    console.log('📋 loadProspek: Memulai...');
+    console.log('   currentUser.id:', currentUser.id);
+    console.log('   currentUserRole:', currentUserRole);
     
-    if (currentUserRole === 'owner' && enriched.length) {
-        const userIds = [...new Set(enriched.map(p => p.user_id).filter(Boolean))];
-        if (userIds.length) {
-            const { data: users } = await supabase.from('users').select('id,nama').in('id', userIds);
-            const map = new Map(users?.map(u => [u.id, u.nama]) || []);
-            enriched = enriched.map(p => ({ 
-                ...p, 
-                displayName: p.nama + (map.get(p.user_id) ? ` (${map.get(p.user_id)})` : '') 
-            }));
-        } else {
-            enriched = enriched.map(p => ({ ...p, displayName: p.nama }));
+    try {
+        let query = supabase.from('prospek').select('*');
+        
+        if (currentUserRole !== 'owner') {
+            query = query.eq('user_id', currentUser.id);
         }
-    } else {
-        enriched = enriched.map(p => ({ ...p, displayName: p.nama }));
+        
+        const { data, error, status } = await query;
+        
+        console.log('   Response status:', status);
+        console.log('   Error:', error);
+        console.log('   Data length:', data?.length);
+        
+        if (error) {
+            console.error('Error loadProspek:', error);
+            return [];
+        }
+        
+        if (!data || data.length === 0) {
+            console.log('   Tidak ada data prospek');
+            prospekData = [];
+            return [];
+        }
+        
+        prospekData = data;
+        console.log('   Prospek loaded:', prospekData.length);
+        
+        return prospekData;
+        
+    } catch (err) {
+        console.error('Exception loadProspek:', err);
+        return [];
     }
-    
-    prospekData = enriched;
-    console.log('📋 loadProspek: Selesai, total:', prospekData.length);
-    
-    return enriched;
 }
 
 async function loadDatabaseAgent() {
