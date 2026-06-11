@@ -6085,6 +6085,8 @@ async function retryLoadData(maxRetries = 3, delayMs = 1000) {
 }
 
 // ========== AUTH STATE HANDLER ==========
+let isInitialAuthProcessed = false;
+
 supabase.auth.onAuthStateChange(async (event, session) => {
     console.log('🔐 AUTH EVENT:', event);
     
@@ -6105,6 +6107,7 @@ supabase.auth.onAuthStateChange(async (event, session) => {
         if (app) app.style.display = 'block';
         
         try {
+            // Ambil data user dari tabel users
             const { data: userData, error: userError } = await supabase.from('users').select('*').eq('id', currentUser.id).maybeSingle();
             
             if (userError) throw userError;
@@ -6113,6 +6116,7 @@ supabase.auth.onAuthStateChange(async (event, session) => {
                 currentUserRole = userData.role || 'cs';
                 currentUserName = userData.nama || currentUser.email?.split('@')[0] || 'CS Agent';
             } else {
+                // Buat user baru jika belum ada
                 const { error: insertError } = await supabase.from('users').insert({
                     id: currentUser.id,
                     email: currentUser.email,
@@ -6127,43 +6131,15 @@ supabase.auth.onAuthStateChange(async (event, session) => {
             
             console.log('🎯 Role:', currentUserRole, 'Name:', currentUserName);
             
-            const topUserName = document.getElementById('topUserName');
-            if (topUserName) topUserName.innerText = currentUserName;
+            // Update UI dengan role yang benar
+            updateUIBasedOnRole();
             
-            const profileName = document.getElementById('profileName');
-            if (profileName) profileName.value = currentUserName;
-            
-            const profileEmail = document.getElementById('profileEmail');
-            if (profileEmail) profileEmail.value = currentUser.email;
-            
-            const menuDbAgent = document.getElementById('menuDbAgent');
-            const menuDbTransaksi = document.getElementById('menuDbTransaksi');
-            const menuImport = document.getElementById('menuImport');
-            const ownerMenu = document.getElementById('ownerMenu');
-            
-            if (currentUserRole === 'owner') {
-                if (menuDbAgent) menuDbAgent.style.display = 'flex';
-                if (menuDbTransaksi) menuDbTransaksi.style.display = 'flex';
-                if (menuImport) menuImport.style.display = 'flex';
-                if (ownerMenu) ownerMenu.style.display = 'block';
+            // Pastikan DOM sudah siap sebelum memuat data
+            if (document.readyState === 'loading') {
+                document.addEventListener('DOMContentLoaded', () => loadInitialData());
             } else {
-                if (menuDbAgent) menuDbAgent.style.display = 'none';
-                if (menuDbTransaksi) menuDbTransaksi.style.display = 'none';
-                if (menuImport) menuImport.style.display = 'none';
-                if (ownerMenu) ownerMenu.style.display = 'none';
+                await loadInitialData();
             }
-            
-            document.querySelectorAll('.page-content').forEach(p => p.style.display = 'none');
-            const dashboardPage = document.getElementById('dashboardPage');
-            if (dashboardPage) dashboardPage.style.display = 'block';
-            
-            document.querySelectorAll('.menu-item').forEach(m => m.classList.remove('active'));
-            const dashboardMenu = document.querySelector('.menu-item[data-page="dashboard"]');
-            if (dashboardMenu) dashboardMenu.classList.add('active');
-            
-            console.log('📦 Loading data...');
-            await retryLoadData();
-            console.log('✅ Initial data load complete');
             
         } catch (err) {
             console.error('Error in auth handler:', err);
@@ -6182,6 +6158,51 @@ supabase.auth.onAuthStateChange(async (event, session) => {
         isAuthProcessing = false;
     }
 });
+
+// Fungsi terpisah untuk update UI berdasarkan role
+function updateUIBasedOnRole() {
+    const topUserName = document.getElementById('topUserName');
+    if (topUserName) topUserName.innerText = currentUserName;
+    
+    const profileName = document.getElementById('profileName');
+    if (profileName) profileName.value = currentUserName;
+    
+    const profileEmail = document.getElementById('profileEmail');
+    if (profileEmail) profileEmail.value = currentUser.email;
+    
+    const menuDbAgent = document.getElementById('menuDbAgent');
+    const menuDbTransaksi = document.getElementById('menuDbTransaksi');
+    const menuImport = document.getElementById('menuImport');
+    const ownerMenu = document.getElementById('ownerMenu');
+    
+    if (currentUserRole === 'owner') {
+        if (menuDbAgent) menuDbAgent.style.display = 'flex';
+        if (menuDbTransaksi) menuDbTransaksi.style.display = 'flex';
+        if (menuImport) menuImport.style.display = 'flex';
+        if (ownerMenu) ownerMenu.style.display = 'block';
+    } else {
+        if (menuDbAgent) menuDbAgent.style.display = 'none';
+        if (menuDbTransaksi) menuDbTransaksi.style.display = 'none';
+        if (menuImport) menuImport.style.display = 'none';
+        if (ownerMenu) ownerMenu.style.display = 'none';
+    }
+}
+
+// Fungsi terpisah untuk load data awal
+async function loadInitialData() {
+    console.log('📦 Loading data...');
+    await retryLoadData();
+    console.log('✅ Initial data load complete');
+    
+    // Tampilkan dashboard setelah data loaded
+    document.querySelectorAll('.page-content').forEach(p => p.style.display = 'none');
+    const dashboardPage = document.getElementById('dashboardPage');
+    if (dashboardPage) dashboardPage.style.display = 'block';
+    
+    document.querySelectorAll('.menu-item').forEach(m => m.classList.remove('active'));
+    const dashboardMenu = document.querySelector('.menu-item[data-page="dashboard"]');
+    if (dashboardMenu) dashboardMenu.classList.add('active');
+}
 
 // ========== INITIAL SESSION CHECK ==========
 setTimeout(async () => {
