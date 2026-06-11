@@ -3,117 +3,22 @@ const SUPABASE_URL = 'https://haylblhjzfavrfiyaicq.supabase.co';
 const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImhheWxibGhqemZhdnJmaXlhaWNxIiwicm9sZSI6ImFub24iLCJpYXQiOjE3Nzk3MzgyMDIsImV4cCI6MjA5NTMxNDIwMn0.j4yQa1ZttP5_Zg0ye5lK2OLecq39QhG3tPyv5PZ3r78';
 
 // Cek apakah window.supabase tersedia
+let supabase = null;
+
 if (typeof window.supabase !== 'undefined' && window.supabase.createClient) {
-    // Buat client baru
-    window.supabaseClient = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+    supabase = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
     console.log('✅ Supabase client created');
-    
-    // Assign ke variabel global supabase
-    var supabase = window.supabaseClient;
 } else {
     console.error('❌ Supabase CDN not loaded yet!');
-    // Fallback: tunggu sebentar
     setTimeout(() => {
         if (typeof window.supabase !== 'undefined' && window.supabase.createClient) {
-            window.supabaseClient = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
-            var supabase = window.supabaseClient;
+            supabase = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
             console.log('✅ Supabase client created (delayed)');
         }
     }, 500);
 }
 
-// ========== FIX: TOMBOL MATA DAN LOGIN ==========
-// Pastikan DOM sudah siap sebelum menambahkan event listener
-document.addEventListener('DOMContentLoaded', function() {
-    // Toggle Password Visibility
-    const togglePasswordBtn = document.getElementById('togglePasswordBtn');
-    const loginPassword = document.getElementById('loginPassword');
-    
-    if (togglePasswordBtn && loginPassword) {
-        // Hapus event listener lama jika ada
-        const newToggleBtn = togglePasswordBtn.cloneNode(true);
-        togglePasswordBtn.parentNode.replaceChild(newToggleBtn, togglePasswordBtn);
-        
-        newToggleBtn.addEventListener('click', function(e) {
-            e.preventDefault();
-            e.stopPropagation();
-            if (loginPassword.type === 'password') {
-                loginPassword.type = 'text';
-                this.textContent = '🙈';
-                console.log('Password visible');
-            } else {
-                loginPassword.type = 'password';
-                this.textContent = '👁️';
-                console.log('Password hidden');
-            }
-        });
-    }
-    
-    // Login Button
-    const loginBtn = document.getElementById('loginBtn');
-    if (loginBtn) {
-        const newLoginBtn = loginBtn.cloneNode(true);
-        loginBtn.parentNode.replaceChild(newLoginBtn, loginBtn);
-        
-        newLoginBtn.addEventListener('click', async function(e) {
-            e.preventDefault();
-            const email = document.getElementById('loginEmail').value.trim();
-            const password = document.getElementById('loginPassword').value;
-            const errorDiv = document.getElementById('loginError');
-            
-            console.log('Login button clicked', email);
-            
-            if (!email || !password) {
-                errorDiv.textContent = 'Email dan password harus diisi!';
-                return;
-            }
-            
-            errorDiv.textContent = '';
-            const originalText = this.textContent;
-            this.textContent = 'Loading...';
-            this.disabled = true;
-            
-            try {
-                const { data, error } = await supabase.auth.signInWithPassword({
-                    email: email,
-                    password: password
-                });
-                
-                if (error) throw error;
-
-        if (data?.user) {
-            // Ambil data lengkap user dari tabel 'users'
-            const { data: userData, error: userError } = await supabase
-                .from('users')
-                .select('*')
-                .eq('id', data.user.id)
-                .single();
-            
-            if (!userError && userData) {
-                // SIMPAN ROLE KE METADATA USER
-                await supabase.auth.updateUser({
-                    data: { 
-                        role: userData.role,
-                        nama: userData.nama
-                    }
-                });
-                console.log('✅ User metadata updated with role:', userData.role);
-            }
-        }
-                
-                console.log('Login success:', data.user);
-                // Auth state change akan handle redirect
-            } catch (err) {
-                console.error('Login error:', err);
-                errorDiv.textContent = 'Login gagal: ' + err.message;
-                this.textContent = originalText;
-                this.disabled = false;
-            }
-        });
-    }
-});
-
-// ========== GLOBAL VARIABLES (HANYA SATU KALI) ==========
+// ========== GLOBAL VARIABLES ==========
 let currentUser = null;
 let currentUserRole = 'cs';
 let currentUserName = '';
@@ -164,19 +69,13 @@ let transaksiLastDoc = null;
 let transaksiHasMore = true;
 let isLoadingMore = false;
 let isLoadingData = false;
+let isAuthProcessing = false;
+let currentEditItem = null;
+let currentEditType = null;
+let currentBroadcastIndex = 0;
 
 // ========== HELPER FUNCTIONS ==========
 const delay = (ms) => new Promise(resolve => setTimeout(resolve, ms));
-
-// ========== SIDEBAR FUNCTIONS ==========
-function updateSidebarBodyClass() {
-    const sidebar = document.getElementById('sidebar');
-    if (sidebar && sidebar.classList.contains('active')) {
-        document.body.classList.add('sidebar-open');
-    } else {
-        document.body.classList.remove('sidebar-open');
-    }
-}
 
 function escapeHtml(text) {
     if (!text) return '';
@@ -203,7 +102,8 @@ function showNotif(msg, isError = false) {
     const notif = document.createElement('div');
     notif.textContent = msg;
     notif.className = `notif-toast ${isError ? 'notif-error' : 'notif-success'}`;
-    document.getElementById('notifBox').appendChild(notif);
+    const notifBox = document.getElementById('notifBox');
+    if (notifBox) notifBox.appendChild(notif);
     setTimeout(() => notif.remove(), 5000);
 }
 
@@ -212,7 +112,8 @@ function showNotifTop(msg, isError = false) {
     notif.textContent = msg;
     notif.className = `notif-toast ${isError ? 'notif-error' : 'notif-success'}`;
     notif.style.cssText = 'position: fixed; top: 20px; right: 20px; z-index: 999999; background: ' + (isError ? '#ef4444' : '#4f46e5') + '; color: white; padding: 10px 16px; border-radius: 12px; margin-bottom: 10px; box-shadow: 0 4px 15px rgba(0,0,0,0.2);';
-    document.getElementById('notifBox').appendChild(notif);
+    const notifBox = document.getElementById('notifBox');
+    if (notifBox) notifBox.appendChild(notif);
     setTimeout(() => notif.remove(), 5000);
 }
 
@@ -265,16 +166,27 @@ function setupModalClickOutside(modalId) {
     modal.addEventListener('click', function(e) { if (e.target === modal) closeModal(modalId); });
 }
 
+function updateSidebarBodyClass() {
+    const sidebar = document.getElementById('sidebar');
+    if (sidebar && sidebar.classList.contains('active')) {
+        document.body.classList.add('sidebar-open');
+    } else {
+        document.body.classList.remove('sidebar-open');
+    }
+}
+
 function getTargetPhone(customerData) {
     if (customerData.agent_type && customerData.agent_type !== 'AGENT' && customerData.upline_phone && customerData.upline_phone.trim())
         return customerData.upline_phone;
     return customerData.hp;
 }
+
 function getTargetName(customerData) {
     if (customerData.agent_type && customerData.agent_type !== 'AGENT' && customerData.upline_name && customerData.upline_name.trim())
         return customerData.upline_name;
     return customerData.nama;
 }
+
 function getStatusBadge(status) {
     const map = { 'baru':'status-baru', 'followup':'status-followup', 'pending':'status-pending', 'closing':'status-closing', 'Baru':'status-baru', 'Dihubungi':'status-dihubungi', 'Negosiasi':'status-negosiasi', 'Tertarik':'status-tertarik' };
     const className = map[status] || 'status-baru';
@@ -5942,81 +5854,42 @@ document.addEventListener('DOMContentLoaded', function() {
     }
 
 // ========== AUTH STATE HANDLER ==========
-let isAuthProcessing = false;
-
 supabase.auth.onAuthStateChange(async (event, session) => {
     console.log('🔐 AUTH EVENT:', event);
-    console.log('🔐 Session exists:', !!session);
     
     const loginPage = document.getElementById('loginPage');
     const app = document.getElementById('app');
     
-    if (event === 'SIGNED_IN' || (session?.user && !currentUser)) {
-        // Cegah processing ganda
+    if (event === 'SIGNED_IN' && session?.user) {
         if (isAuthProcessing) {
             console.log('Auth already processing, skipping');
             return;
         }
         isAuthProcessing = true;
         
-        const user = session?.user;
+        currentUser = session.user;
+        console.log('✅ User logged in:', currentUser.email);
         
-        if (!user) {
-            isAuthProcessing = false;
-            return;
-        }
-        
-        currentUser = user;
-        console.log('✅ User logged in:', user.email);
-        
-        // Tampilkan app dulu
         if (loginPage) loginPage.style.display = 'none';
         if (app) app.style.display = 'block';
         
-        // Ambil data user dari database
-        console.log('📡 Fetching user data...');
         try {
-            const { data: userData, error: userError } = await supabase
+            const { data: userData } = await supabase
                 .from('users')
                 .select('*')
-                .eq('id', user.id)
+                .eq('id', currentUser.id)
                 .maybeSingle();
             
-            if (userError) {
-                console.error('Error fetching user:', userError);
-                currentUserRole = 'cs';
-                currentUserName = user.email?.split('@')[0] || 'CS Agent';
-            } else if (userData) {
-                console.log('User data:', userData);
+            if (userData) {
                 currentUserRole = userData.role || 'cs';
-                currentUserName = userData.nama || user.email?.split('@')[0] || 'CS Agent';
+                currentUserName = userData.nama || currentUser.email?.split('@')[0] || 'CS Agent';
             } else {
-                console.log('User not in database, creating...');
-                const { data: newUser, error: insertError } = await supabase
-                    .from('users')
-                    .insert({
-                        id: user.id,
-                        email: user.email,
-                        nama: user.email?.split('@')[0] || 'User',
-                        role: 'cs',
-                        created_at: new Date().toISOString()
-                    })
-                    .select()
-                    .maybeSingle();
-                
-                if (insertError) {
-                    console.error('Failed to create user:', insertError);
-                    currentUserRole = 'cs';
-                } else {
-                    currentUserRole = 'cs';
-                    currentUserName = newUser?.nama || 'CS Agent';
-                }
+                currentUserRole = 'cs';
+                currentUserName = currentUser.email?.split('@')[0] || 'CS Agent';
             }
             
-            console.log('🎯 Role:', currentUserRole);
-            console.log('🎯 Name:', currentUserName);
+            console.log('🎯 Role:', currentUserRole, 'Name:', currentUserName);
             
-            // Update UI
             const topUserName = document.getElementById('topUserName');
             if (topUserName) topUserName.innerText = currentUserName;
             
@@ -6024,7 +5897,7 @@ supabase.auth.onAuthStateChange(async (event, session) => {
             if (profileName) profileName.value = currentUserName;
             
             const profileEmail = document.getElementById('profileEmail');
-            if (profileEmail) profileEmail.value = user.email;
+            if (profileEmail) profileEmail.value = currentUser.email;
             
             // Set menu visibility
             const menuDbAgent = document.getElementById('menuDbAgent');
@@ -6044,7 +5917,7 @@ supabase.auth.onAuthStateChange(async (event, session) => {
                 if (ownerMenu) ownerMenu.style.display = 'none';
             }
             
-            // Tampilkan dashboard
+            // Show dashboard
             document.querySelectorAll('.page-content').forEach(p => p.style.display = 'none');
             const dashboardPage = document.getElementById('dashboardPage');
             if (dashboardPage) dashboardPage.style.display = 'block';
@@ -6053,15 +5926,9 @@ supabase.auth.onAuthStateChange(async (event, session) => {
             const dashboardMenu = document.querySelector('.menu-item[data-page="dashboard"]');
             if (dashboardMenu) dashboardMenu.classList.add('active');
             
-            // Load data dengan delay untuk memastikan UI siap
+            // Load data with retry
             console.log('📦 Loading data...');
-            
-            // Reset data sebelum load
-            customersData = [];
-            prospekData = [];
-            
             await retryLoadData();
-            
             console.log('✅ Initial data load complete');
             
         } catch (err) {
@@ -6082,10 +5949,10 @@ supabase.auth.onAuthStateChange(async (event, session) => {
     }
 });
 
-// Cek session saat halaman dimuat dengan delay untuk memastikan Supabase siap
+// Initial session check
 setTimeout(async () => {
     const { data: { session } } = await supabase.auth.getSession();
-    console.log('Initial session check (delayed):', session ? 'Session exists' : 'No session');
+    console.log('Initial session check:', session ? 'Session exists' : 'No session');
     if (!session) {
         const loginPage = document.getElementById('loginPage');
         const app = document.getElementById('app');
