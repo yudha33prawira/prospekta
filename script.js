@@ -2,19 +2,13 @@
 const SUPABASE_URL = 'https://haylblhjzfavrfiyaicq.supabase.co';
 const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImhheWxibGhqemZhdnJmaXlhaWNxIiwicm9sZSI6ImFub24iLCJpYXQiOjE3Nzk3MzgyMDIsImV4cCI6MjA5NTMxNDIwMn0.j4yQa1ZttP5_Zg0ye5lK2OLecq39QhG3tPyv5PZ3r78';
 
+// JANGAN deklarasi ulang, langsung timpa
 if (typeof window.supabase !== 'undefined' && window.supabase.createClient) {
     window.supabase = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
-    console.log('✅ Supabase client created');
-} else {
-    console.error('❌ Supabase CDN not loaded yet!');
-    setTimeout(() => {
-        if (typeof window.supabase !== 'undefined' && window.supabase.createClient) {
-            window.supabase = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
-            console.log('✅ Supabase client created (delayed)');
-        }
-    }, 500);
+    console.log('✅ Supabase client re-initialized');
 }
 
+// Buat referensi (tanpa deklarasi ulang)
 const supabase = window.supabase;
 
 // ========== GLOBAL VARIABLES ==========
