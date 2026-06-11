@@ -5840,151 +5840,6 @@ nameFields.forEach(id => {
         });
     }
 });
-
-// ========== AUTH STATE HANDLER ==========
-supabase.auth.onAuthStateChange(async (event, session) => {
-    console.log('🔐 AUTH EVENT:', event, session?.user?.email);
-    
-    const loginPage = document.getElementById('loginPage');
-    const app = document.getElementById('app');
-    
-    if (session?.user) {
-        currentUser = session.user;
-        
-        // Reset semua data terlebih dahulu
-        customersData = [];
-        prospekData = [];
-        agentsData = [];
-        produkData = [];
-        
-        console.log('📡 Fetching user data from database for ID:', currentUser.id);
-        
-        // Ambil data user dari database
-        const { data: userData, error: userError } = await supabase
-            .from('users')
-            .select('*')
-            .eq('id', currentUser.id)
-            .maybeSingle(); // Gunakan maybeSingle() bukan single()
-        
-        if (userError) {
-            console.error('❌ Error fetching user data:', userError);
-            currentUserRole = 'cs';
-            currentUserName = currentUser.email?.split('@')[0] || 'CS Agent';
-        } else if (userData) {
-            console.log('✅ User data found:', userData);
-            currentUserRole = userData.role || 'cs';
-            currentUserName = userData.nama || userData.email?.split('@')[0] || 'CS Agent';
-        } else {
-            console.warn('⚠️ User not found in users table, creating entry...');
-            // Buat entry user jika belum ada
-            const { data: newUser, error: insertError } = await supabase
-                .from('users')
-                .insert({
-                    id: currentUser.id,
-                    email: currentUser.email,
-                    nama: currentUser.email?.split('@')[0] || 'User',
-                    role: 'cs',
-                    created_at: new Date().toISOString()
-                })
-                .select()
-                .maybeSingle();
-            
-            if (insertError) {
-                console.error('❌ Failed to create user:', insertError);
-                currentUserRole = 'cs';
-            } else {
-                currentUserRole = 'cs';
-                currentUserName = newUser?.nama || 'CS Agent';
-            }
-        }
-        
-        console.log('🎯 FINAL currentUserRole:', currentUserRole);
-        console.log('🎯 FINAL currentUserName:', currentUserName);
-        
-        currentUserEmail = currentUser.email || '';
-        const foto = userData?.foto || 'https://i.pravatar.cc/40';
-        
-        // Update UI
-        const profileImg = document.getElementById('profileImg');
-        const previewFoto = document.getElementById('previewFoto');
-        const topUserName = document.getElementById('topUserName');
-        const profileName = document.getElementById('profileName');
-        const profileEmail = document.getElementById('profileEmail');
-        
-        if (profileImg) profileImg.src = foto;
-        if (previewFoto) previewFoto.src = foto;
-        if (topUserName) topUserName.innerText = currentUserName;
-        if (profileName) profileName.value = currentUserName;
-        if (profileEmail) profileEmail.value = currentUser.email;
-        
-        // Set menu visibility
-        const menuDbAgent = document.getElementById('menuDbAgent');
-        const menuDbTransaksi = document.getElementById('menuDbTransaksi');
-        const menuImport = document.getElementById('menuImport');
-        const ownerMenu = document.getElementById('ownerMenu');
-        
-        if (currentUserRole === 'owner') {
-            if (menuDbAgent) menuDbAgent.style.display = 'flex';
-            if (menuDbTransaksi) menuDbTransaksi.style.display = 'flex';
-            if (menuImport) menuImport.style.display = 'flex';
-            if (ownerMenu) ownerMenu.style.display = 'block';
-        } else {
-            if (menuDbAgent) menuDbAgent.style.display = 'none';
-            if (menuDbTransaksi) menuDbTransaksi.style.display = 'none';
-            if (menuImport) menuImport.style.display = 'none';
-            if (ownerMenu) ownerMenu.style.display = 'none';
-        }
-        
-        // Tampilkan dashboard
-        document.querySelectorAll('.page-content').forEach(p => p.style.display = 'none');
-        const dashboardPage = document.getElementById('dashboardPage');
-        if (dashboardPage) dashboardPage.style.display = 'block';
-        
-        document.querySelectorAll('.menu-item').forEach(m => m.classList.remove('active'));
-        const dashboardMenu = document.querySelector('.menu-item[data-page="dashboard"]');
-        if (dashboardMenu) dashboardMenu.classList.add('active');
-        
-        // Load semua data dengan timeout
-        console.log('📦 Loading all data...');
-        
-        try {
-            await Promise.all([
-                loadCustomers(),
-                loadProspek(),
-                loadDatabaseAgent(),
-                loadProduk(),
-                loadReminders(),
-                loadPesan()
-            ]);
-            
-            await loadTargetData();
-            await loadTransaksiGlobal();
-            await loadDbTransaksi();
-            await loadTarifAdmin();
-            
-            updateDashboardStats();
-            renderFullFollowupKanban();
-            renderFullProspekKanban();
-            await updateAllBadges();
-            initFullModeSelection();
-            
-            console.log('✅ All data loaded. Customers:', customersData.length, 'Prospek:', prospekData.length);
-            
-        } catch (err) {
-            console.error('Error loading data:', err);
-            showNotifTop('❌ Gagal memuat data: ' + err.message, true);
-        }
-        
-        // Tampilkan app
-        if (loginPage) loginPage.style.display = 'none';
-        if (app) app.style.display = 'block';
-        
-    } else {
-        console.log('🚪 No session, showing login page');
-        if (loginPage) loginPage.style.display = 'flex';
-        if (app) app.style.display = 'none';
-        currentUser = null;
-    }
     
         // ========== LOGOUT BUTTON ==========
     const logoutBtn = document.getElementById('logoutBtn');
@@ -6024,5 +5879,147 @@ supabase.auth.onAuthStateChange(async (event, session) => {
     } else {
         console.log('Logout button NOT found in DOM');
     }
+
+// ========== AUTH STATE HANDLER ==========
+supabase.auth.onAuthStateChange(async (event, session) => {
+    console.log('🔐 AUTH EVENT:', event);
+    console.log('🔐 Session exists:', !!session);
     
+    const loginPage = document.getElementById('loginPage');
+    const app = document.getElementById('app');
+    
+    if (event === 'SIGNED_IN' || (session?.user)) {
+        // Gunakan session dari parameter, bukan dari getSession()
+        const user = session?.user;
+        
+        if (!user) {
+            console.log('No user in session');
+            return;
+        }
+        
+        currentUser = user;
+        console.log('✅ User logged in:', user.email);
+        
+        // Tampilkan app dulu
+        if (loginPage) loginPage.style.display = 'none';
+        if (app) app.style.display = 'block';
+        
+        // Ambil data user dari database
+        console.log('📡 Fetching user data...');
+        const { data: userData, error: userError } = await supabase
+            .from('users')
+            .select('*')
+            .eq('id', user.id)
+            .maybeSingle();
+        
+        if (userError) {
+            console.error('Error fetching user:', userError);
+            currentUserRole = 'cs';
+            currentUserName = user.email?.split('@')[0] || 'CS Agent';
+        } else if (userData) {
+            console.log('User data:', userData);
+            currentUserRole = userData.role || 'cs';
+            currentUserName = userData.nama || user.email?.split('@')[0] || 'CS Agent';
+        } else {
+            console.log('User not in database, creating...');
+            // Buat user jika belum ada
+            const { data: newUser, error: insertError } = await supabase
+                .from('users')
+                .insert({
+                    id: user.id,
+                    email: user.email,
+                    nama: user.email?.split('@')[0] || 'User',
+                    role: 'cs',
+                    created_at: new Date().toISOString()
+                })
+                .select()
+                .maybeSingle();
+            
+            if (insertError) {
+                console.error('Failed to create user:', insertError);
+                currentUserRole = 'cs';
+            } else {
+                currentUserRole = 'cs';
+                currentUserName = newUser?.nama || 'CS Agent';
+            }
+        }
+        
+        console.log('🎯 Role:', currentUserRole);
+        console.log('🎯 Name:', currentUserName);
+        
+        // Update UI
+        const topUserName = document.getElementById('topUserName');
+        if (topUserName) topUserName.innerText = currentUserName;
+        
+        const profileName = document.getElementById('profileName');
+        if (profileName) profileName.value = currentUserName;
+        
+        const profileEmail = document.getElementById('profileEmail');
+        if (profileEmail) profileEmail.value = user.email;
+        
+        // Set menu visibility
+        const menuDbAgent = document.getElementById('menuDbAgent');
+        const menuDbTransaksi = document.getElementById('menuDbTransaksi');
+        const menuImport = document.getElementById('menuImport');
+        const ownerMenu = document.getElementById('ownerMenu');
+        
+        if (currentUserRole === 'owner') {
+            if (menuDbAgent) menuDbAgent.style.display = 'flex';
+            if (menuDbTransaksi) menuDbTransaksi.style.display = 'flex';
+            if (menuImport) menuImport.style.display = 'flex';
+            if (ownerMenu) ownerMenu.style.display = 'block';
+        } else {
+            if (menuDbAgent) menuDbAgent.style.display = 'none';
+            if (menuDbTransaksi) menuDbTransaksi.style.display = 'none';
+            if (menuImport) menuImport.style.display = 'none';
+            if (ownerMenu) ownerMenu.style.display = 'none';
+        }
+        
+        // Tampilkan dashboard
+        document.querySelectorAll('.page-content').forEach(p => p.style.display = 'none');
+        const dashboardPage = document.getElementById('dashboardPage');
+        if (dashboardPage) dashboardPage.style.display = 'block';
+        
+        document.querySelectorAll('.menu-item').forEach(m => m.classList.remove('active'));
+        const dashboardMenu = document.querySelector('.menu-item[data-page="dashboard"]');
+        if (dashboardMenu) dashboardMenu.classList.add('active');
+        
+        // Load data
+        console.log('📦 Loading data...');
+        
+        try {
+            await Promise.all([
+                loadCustomers(),
+                loadProspek(),
+                loadDatabaseAgent(),
+                loadProduk()
+            ]);
+            
+            updateDashboardStats();
+            renderFullFollowupKanban();
+            renderFullProspekKanban();
+            
+            console.log('✅ Data loaded. Customers:', customersData.length, 'Prospek:', prospekData.length);
+            
+        } catch (err) {
+            console.error('Error loading data:', err);
+        }
+        
+    } else if (event === 'SIGNED_OUT') {
+        console.log('User signed out');
+        if (loginPage) loginPage.style.display = 'flex';
+        if (app) app.style.display = 'none';
+        currentUser = null;
+        customersData = [];
+        prospekData = [];
+    }
+});
+
+// Cek session saat halaman dimuat
+supabase.auth.getSession().then(({ data: { session } }) => {
+    console.log('Initial session check:', session ? 'Session exists' : 'No session');
+    if (!session) {
+        document.getElementById('loginPage').style.display = 'flex';
+        document.getElementById('app').style.display = 'none';
+    }
 });
