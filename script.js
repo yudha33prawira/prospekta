@@ -67,6 +67,56 @@ let currentBroadcastIndex = 0;
 let daftarCs = [];
 let pendingMoveData = [];
 
+// ========== FIX PERSISTENSI ROLE ==========
+// Fungsi untuk menyimpan role ke localStorage
+function saveUserRole(role, name, email) {
+    localStorage.setItem('userRole', role);
+    localStorage.setItem('userName', name);
+    localStorage.setItem('userEmail', email);
+    console.log('💾 Role saved to localStorage:', role);
+}
+
+// Fungsi untuk mengambil role dari localStorage
+function loadUserRoleFromStorage() {
+    const role = localStorage.getItem('userRole');
+    const name = localStorage.getItem('userName');
+    const email = localStorage.getItem('userEmail');
+    if (role) {
+        currentUserRole = role;
+        currentUserName = name;
+        console.log('📀 Role loaded from storage:', role);
+        return true;
+    }
+    return false;
+}
+
+// Fungsi untuk update UI berdasarkan role (panggil kapan saja)
+function applyUIBasedOnRole() {
+    console.log('🎨 Applying UI based on role:', currentUserRole);
+    
+    const menuDbAgent = document.getElementById('menuDbAgent');
+    const menuDbTransaksi = document.getElementById('menuDbTransaksi');
+    const menuImport = document.getElementById('menuImport');
+    const ownerMenu = document.getElementById('ownerMenu');
+    const topUserNameEl = document.getElementById('topUserName');
+    
+    if (topUserNameEl && currentUserName) {
+        topUserNameEl.innerText = currentUserName;
+    }
+    
+    if (currentUserRole === 'owner') {
+        if (menuDbAgent) menuDbAgent.style.display = 'flex';
+        if (menuDbTransaksi) menuDbTransaksi.style.display = 'flex';
+        if (menuImport) menuImport.style.display = 'flex';
+        if (ownerMenu) ownerMenu.style.display = 'block';
+    } else {
+        if (menuDbAgent) menuDbAgent.style.display = 'none';
+        if (menuDbTransaksi) menuDbTransaksi.style.display = 'none';
+        if (menuImport) menuImport.style.display = 'none';
+        if (ownerMenu) ownerMenu.style.display = 'none';
+    }
+}
+
 // ========== HELPER FUNCTIONS ==========
 const delay = (ms) => new Promise(resolve => setTimeout(resolve, ms));
 
@@ -6140,120 +6190,96 @@ async function loadInitialData() {
 }
 
 // ========== AUTH STATE HANDLER ==========
-let isInitialLoadDone = false;
-
 supabase.auth.onAuthStateChange(async (event, session) => {
     console.log('🔐 AUTH EVENT:', event);
     
     const loginPage = document.getElementById('loginPage');
     const app = document.getElementById('app');
     
-    // Tangani SIGNED_IN dan INITIAL_SESSION (untuk refresh)
-    if ((event === 'SIGNED_IN' || event === 'INITIAL_SESSION') && session?.user) {
-        if (isAuthProcessing) {
-            console.log('Auth already processing, skipping');
-            return;
-        }
-        isAuthProcessing = true;
-        
+    if (event === 'SIGNED_IN' && session?.user) {
         currentUser = session.user;
-        console.log('✅ User:', currentUser.email);
+        console.log('✅ User logged in:', currentUser.email);
         
         if (loginPage) loginPage.style.display = 'none';
         if (app) app.style.display = 'block';
         
-        try {
-            // Ambil data user dari tabel users
-            const { data: userData, error: userError } = await supabase.from('users').select('*').eq('id', currentUser.id).maybeSingle();
-            
-            if (userError) throw userError;
-            
-            if (userData) {
-                currentUserRole = userData.role || 'cs';
-                currentUserName = userData.nama || currentUser.email?.split('@')[0] || 'CS Agent';
-            } else {
-                const { error: insertError } = await supabase.from('users').insert({
-                    id: currentUser.id,
-                    email: currentUser.email,
-                    nama: currentUser.email?.split('@')[0] || 'User',
-                    role: 'cs',
-                    created_at: new Date().toISOString()
+        // Ambil data user
+        const { data: userData, error: userError } = await supabase.from('users').select('*').eq('id', currentUser.id).maybeSingle();
+        
+        if (userData) {
+            currentUserRole = userData.role || 'cs';
+            currentUserName = userData.nama || currentUser.email?.split('@')[0];
+        } else {
+            currentUserRole = 'cs';
+            currentUserName = currentUser.email?.split('@')[0];
+        }
+        
+        console.log('🎯 Role:', currentUserRole);
+        
+        // SIMPAN KE LOCALSTORAGE
+        saveUserRole(currentUserRole, currentUserName, currentUser.email);
+        
+        // APPLY UI
+        applyUIBasedOnRole();
+        
+        // Load data
+        if (document.readyState === 'loading') {
+            document.addEventListener('DOMContentLoaded', () => {
+                retryLoadData();
+            });
+        } else {
+            await retryLoadData();
+        }
+        
+    } else if (event === 'INITIAL_SESSION' && session?.user) {
+        // INI YANG TERJADI SAAT REFRESH!
+        console.log('🔄 INITIAL_SESSION - Refresh detected');
+        
+        currentUser = session.user;
+        
+        if (loginPage) loginPage.style.display = 'none';
+        if (app) app.style.display = 'block';
+        
+        // COBA LOAD ROLE DARI STORAGE DULU
+        if (loadUserRoleFromStorage()) {
+            console.log('✅ Role loaded from storage, applying UI');
+            applyUIBasedOnRole();
+        }
+        
+        // Tetap ambil dari database untuk memastikan
+        const { data: userData } = await supabase.from('users').select('role, nama').eq('id', currentUser.id).maybeSingle();
+        if (userData) {
+            currentUserRole = userData.role;
+            currentUserName = userData.nama;
+            saveUserRole(currentUserRole, currentUserName, currentUser.email);
+            applyUIBasedOnRole();
+            console.log('✅ Role refreshed from DB:', currentUserRole);
+        }
+        
+        // Load data jika belum
+        if (!isInitialLoadDone) {
+            isInitialLoadDone = true;
+            if (document.readyState === 'loading') {
+                document.addEventListener('DOMContentLoaded', () => {
+                    retryLoadData();
                 });
-                if (insertError) console.error('Failed to create user:', insertError);
-                currentUserRole = 'cs';
-                currentUserName = currentUser.email?.split('@')[0] || 'CS Agent';
-            }
-            
-            console.log('🎯 Role:', currentUserRole, 'Name:', currentUserName);
-            
-            // Update UI berdasarkan role (langsung, tanpa fungsi terpisah)
-            const topUserNameEl = document.getElementById('topUserName');
-            if (topUserNameEl) topUserNameEl.innerText = currentUserName;
-            
-            const menuDbAgent = document.getElementById('menuDbAgent');
-            const menuDbTransaksi = document.getElementById('menuDbTransaksi');
-            const menuImport = document.getElementById('menuImport');
-            const ownerMenu = document.getElementById('ownerMenu');
-            
-            if (currentUserRole === 'owner') {
-                console.log('Setting UI for OWNER role');
-                if (menuDbAgent) menuDbAgent.style.display = 'flex';
-                if (menuDbTransaksi) menuDbTransaksi.style.display = 'flex';
-                if (menuImport) menuImport.style.display = 'flex';
-                if (ownerMenu) ownerMenu.style.display = 'block';
             } else {
-                console.log('Setting UI for CS role');
-                if (menuDbAgent) menuDbAgent.style.display = 'none';
-                if (menuDbTransaksi) menuDbTransaksi.style.display = 'none';
-                if (menuImport) menuImport.style.display = 'none';
-                if (ownerMenu) ownerMenu.style.display = 'none';
+                await retryLoadData();
             }
-            
-            // Load data jika belum
-            if (!isInitialLoadDone) {
-                isInitialLoadDone = true;
-                
-                if (document.readyState === 'loading') {
-                    document.addEventListener('DOMContentLoaded', async () => {
-                        await retryLoadData();
-                        showDashboard();
-                    });
-                } else {
-                    await retryLoadData();
-                    showDashboard();
-                }
-            }
-            
-        } catch (err) {
-            console.error('Error in auth handler:', err);
-        } finally {
-            isAuthProcessing = false;
         }
         
     } else if (event === 'SIGNED_OUT') {
         console.log('User signed out');
+        localStorage.removeItem('userRole');
+        localStorage.removeItem('userName');
+        localStorage.removeItem('userEmail');
         if (loginPage) loginPage.style.display = 'flex';
         if (app) app.style.display = 'none';
         currentUser = null;
         currentUserRole = null;
-        customersData = [];
-        prospekData = [];
-        isLoadingData = false;
-        isAuthProcessing = false;
         isInitialLoadDone = false;
     }
 });
-
-// Fungsi helper untuk menampilkan dashboard
-function showDashboard() {
-    document.querySelectorAll('.page-content').forEach(p => p.style.display = 'none');
-    const dashboardPage = document.getElementById('dashboardPage');
-    if (dashboardPage) dashboardPage.style.display = 'block';
-    
-    document.querySelectorAll('.menu-item').forEach(m => m.classList.remove('active'));
-    const dashboardMenu = document.querySelector('.menu-item[data-page="dashboard"]');
-    if (dashboardMenu) dashboardMenu.classList.add('active');
-}
 
 // ========== INITIAL SESSION CHECK ==========
 setTimeout(async () => {
@@ -6270,6 +6296,12 @@ setTimeout(async () => {
 // ========== DOMContentLoaded ==========
 document.addEventListener('DOMContentLoaded', async function() {
     console.log('DOM fully loaded and parsed');
+    
+    // FIRST THING: Cek localStorage untuk role
+    if (loadUserRoleFromStorage() && currentUserRole === 'owner') {
+        console.log('🎯 DOMContentLoaded: Found owner role in storage, applying UI');
+        applyUIBasedOnRole();
+    }
     
     initDarkMode();
     setupImportExcel();
