@@ -6383,6 +6383,61 @@ document.addEventListener('DOMContentLoaded', function() {
             updateSidebarBodyClass();
         });
     });
+
+        // LOGIN FORM HANDLER
+    const loginForm = document.getElementById('loginForm');
+    if (loginForm) {
+        loginForm.addEventListener('submit', async function(e) {
+            e.preventDefault();
+            
+            const email = document.getElementById('loginEmail')?.value;
+            const password = document.getElementById('loginPassword')?.value;
+            const loginBtn = document.getElementById('loginBtn');
+            
+            if (!email || !password) {
+                showNotifTop('⚠️ Email dan password harus diisi!', true);
+                return;
+            }
+            
+            if (loginBtn) {
+                loginBtn.disabled = true;
+                loginBtn.textContent = '⏳ Memproses...';
+            }
+            
+            try {
+                const { data, error } = await supabase.auth.signInWithPassword({
+                    email: email,
+                    password: password
+                });
+                
+                if (error) throw error;
+                
+                showNotifTop('✅ Login berhasil!');
+                // Auth state change akan handle sisanya
+                
+            } catch (err) {
+                showNotifTop('❌ Login gagal: ' + err.message, true);
+                if (loginBtn) {
+                    loginBtn.disabled = false;
+                    loginBtn.textContent = '🔓 Login';
+                }
+            }
+        });
+    }
+    
+    // TOGGLE PASSWORD VISIBILITY
+    const togglePasswordBtn = document.getElementById('togglePassword');
+    const loginPassword = document.getElementById('loginPassword');
+    
+    if (togglePasswordBtn && loginPassword) {
+        togglePasswordBtn.addEventListener('click', function() {
+            const type = loginPassword.getAttribute('type') === 'password' ? 'text' : 'password';
+            loginPassword.setAttribute('type', type);
+            this.textContent = type === 'password' ? '👁️' : '🙈';
+            this.setAttribute('title', type === 'password' ? 'Tampilkan password' : 'Sembunyikan password');
+        });
+    }
+});
     
     // Info Modal
     document.getElementById('infoBtn')?.addEventListener('click', () => showModal('infoModal'));
