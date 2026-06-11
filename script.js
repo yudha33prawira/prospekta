@@ -6384,7 +6384,7 @@ document.addEventListener('DOMContentLoaded', function() {
         });
     });
 
-        // LOGIN FORM HANDLER
+    // LOGIN FORM HANDLER
     const loginForm = document.getElementById('loginForm');
     if (loginForm) {
         loginForm.addEventListener('submit', async function(e) {
@@ -6413,7 +6413,6 @@ document.addEventListener('DOMContentLoaded', function() {
                 if (error) throw error;
                 
                 showNotifTop('✅ Login berhasil!');
-                // Auth state change akan handle sisanya
                 
             } catch (err) {
                 showNotifTop('❌ Login gagal: ' + err.message, true);
@@ -6437,7 +6436,6 @@ document.addEventListener('DOMContentLoaded', function() {
             this.setAttribute('title', type === 'password' ? 'Tampilkan password' : 'Sembunyikan password');
         });
     }
-});
     
     // Info Modal
     document.getElementById('infoBtn')?.addEventListener('click', () => showModal('infoModal'));
@@ -7010,28 +7008,4 @@ const style = document.createElement('style');
 style.textContent = `@keyframes slideOutRight{from{transform:translateX(0);opacity:1;}to{transform:translateX(100%);opacity:0;}}`;
 document.head.appendChild(style);
 
-// ========== LOGIN ==========
-document.getElementById('loginForm')?.addEventListener('submit', async (e) => {
-    e.preventDefault();
-    const email = document.getElementById('loginEmail')?.value;
-    const password = document.getElementById('loginPassword')?.value;
-    if (!email || !password) return alert('Isi email dan password!');
-    const btn = document.getElementById('loginBtn');
-    if (btn) { btn.disabled = true; btn.textContent = '⏳...'; }
-    try {
-        await supabase.auth.signInWithPassword({ email, password });
-    } catch (err) { alert('Gagal: ' + err.message); if(btn){btn.disabled=false;btn.textContent='🔓 Login';} }
-});
-
-// ========== TOGGLE PASSWORD ==========
-const toggleBtn = document.getElementById('togglePassword');
-const passInput = document.getElementById('loginPassword');
-if (toggleBtn && passInput) {
-    toggleBtn.onclick = () => {
-        const type = passInput.type === 'password' ? 'text' : 'password';
-        passInput.type = type;
-        toggleBtn.textContent = type === 'password' ? '👁️' : '🙈';
-    };
-}
-
-console.log('✅ Script loaded');
+console.log('✅ Script loaded successfully');
