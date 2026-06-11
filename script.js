@@ -345,24 +345,52 @@ async function updateUserProfile(userId, updates) {
 // ========== LOAD DATA FUNCTIONS ==========
 async function loadCustomers() {
     if (!currentUser) return [];
+    
+    console.log('📞 loadCustomers: Memuat customers...');
+    
     let query = supabase.from('customers').select('*');
-    if (currentUserRole !== 'owner') query = query.eq('user_id', currentUser.id);
+    if (currentUserRole !== 'owner') {
+        query = query.eq('user_id', currentUser.id);
+    }
     const { data, error } = await query.order('created_at', { ascending: false }).limit(2000);
-    if (error) throw error;
+    
+    if (error) {
+        console.error('Error loadCustomers:', error);
+        return [];
+    }
+    
     let enriched = data || [];
+    
+    // Tambahkan displayName untuk owner
     if (currentUserRole === 'owner' && enriched.length) {
         const userIds = [...new Set(enriched.map(c => c.user_id).filter(Boolean))];
         if (userIds.length) {
             const { data: users } = await supabase.from('users').select('id,nama').in('id', userIds);
             const map = new Map(users?.map(u => [u.id, u.nama]) || []);
-            enriched = enriched.map(c => ({ ...c, displayName: c.nama + (map.get(c.user_id) ? ` (${map.get(c.user_id)})` : '') }));
-        } else enriched = enriched.map(c => ({ ...c, displayName: c.nama }));
-    } else enriched = enriched.map(c => ({ ...c, displayName: c.nama }));
+            enriched = enriched.map(c => ({ 
+                ...c, 
+                displayName: c.nama + (map.get(c.user_id) ? ` (${map.get(c.user_id)})` : '') 
+            }));
+        } else {
+            enriched = enriched.map(c => ({ ...c, displayName: c.nama }));
+        }
+    } else {
+        enriched = enriched.map(c => ({ ...c, displayName: c.nama }));
+    }
+    
     customersData = enriched;
+    console.log('📞 loadCustomers: Selesai, total:', customersData.length);
+    
+    // Update dashboard stats
     updateDashboardStats();
+    
+    // Render kanban
     renderFullFollowupKanban();
+    
     return enriched;
 }
+
+
 async function loadProspek() {
     if (!currentUser) return [];
     let query = supabase.from('prospek').select('*');
@@ -995,10 +1023,27 @@ async function deleteDBItem(type, id) {
     else if (type === 'nomor_salah') await loadDBNomorSalah();
     else if (type === 'db_commitment') await loadDBCommitment();
 }
+
 async function loadAllData() {
     if (!currentUser) return;
-    await Promise.all([loadCustomers(), loadProspek(), loadDatabaseAgent(), loadProduk(), loadReminders(), loadPesan(), updateTotalTransaksiDariDBTransaksi(), updateDeadlineBadge(), updatePesanBadge()]);
+    
+    console.log('🔄 loadAllData: Memuat semua data...');
+    
+    // Load data secara berurutan
+    await loadCustomers();
+    await loadProspek();
+    await loadDatabaseAgent();
+    await loadProduk();
+    await loadReminders();
+    await loadPesan();
+    await updateTotalTransaksiDariDBTransaksi();
+    await updateDeadlineBadge();
+    await updatePesanBadge();
+    
+    // Update dashboard stats setelah data dimuat
     updateDashboardStats();
+    
+    console.log('✅ loadAllData: Selesai, customers:', customersData.length, 'prospek:', prospekData.length);
 }
 
 // ========== RENDER FUNCTIONS ==========
@@ -1379,36 +1424,61 @@ function updateSelectAllFullProspekButton() {
 
 // ========== UPDATE DASHBOARD STATS ==========
 function updateDashboardStats() {
+    console.log('📊 updateDashboardStats: Updating dashboard...');
+    console.log('   customersData length:', customersData.length);
+    console.log('   prospekData length:', prospekData.length);
+    
     const total = customersData.length;
     const closing = customersData.filter(c => c.status === 'closing').length;
     const pending = customersData.filter(c => c.status === 'pending').length;
     const followup = customersData.filter(c => c.status === 'followup').length;
+    const baru = total - (closing + pending + followup);
     const activeProspek = total - closing;
     const rateClosing = total ? Math.round((closing / total) * 100) : 0;
-
-    document.getElementById('totalData').innerText = total;
-    document.getElementById('closingTotal').innerText = closing;
-    document.getElementById('activeProspek').innerText = activeProspek;
-    document.getElementById('rateClosing').innerText = rateClosing + '%';
-
-    updateChartCustomer(total, closing, pending, followup);
     
-    // Also update counts for dashboard kanban columns (already handled by loadCustomers, but ensure)
-    document.getElementById('countBaru').innerText = total - (closing + pending + followup);
-    document.getElementById('countFollowup').innerText = followup;
-    document.getElementById('countPending').innerText = pending;
-    document.getElementById('countClosing').innerText = closing;
-
-    // Prospek counts (from prospekData)
+    // Update dashboard cards
+    const totalDataEl = document.getElementById('totalData');
+    const closingTotalEl = document.getElementById('closingTotal');
+    const activeProspekEl = document.getElementById('activeProspek');
+    const rateClosingEl = document.getElementById('rateClosing');
+    
+    if (totalDataEl) totalDataEl.innerText = total;
+    if (closingTotalEl) closingTotalEl.innerText = closing;
+    if (activeProspekEl) activeProspekEl.innerText = activeProspek;
+    if (rateClosingEl) rateClosingEl.innerText = rateClosing + '%';
+    
+    // Update counts di kanban dashboard
+    const countBaruEl = document.getElementById('countBaru');
+    const countFollowupEl = document.getElementById('countFollowup');
+    const countPendingEl = document.getElementById('countPending');
+    const countClosingEl = document.getElementById('countClosing');
+    
+    if (countBaruEl) countBaruEl.innerText = baru;
+    if (countFollowupEl) countFollowupEl.innerText = followup;
+    if (countPendingEl) countPendingEl.innerText = pending;
+    if (countClosingEl) countClosingEl.innerText = closing;
+    
+    // Update prospek counts
     const baruCount = prospekData.filter(p => p.status === 'Baru').length;
     const dihubungiCount = prospekData.filter(p => p.status === 'Dihubungi').length;
     const negosiasiCount = prospekData.filter(p => p.status === 'Negosiasi').length;
     const tertarikCount = prospekData.filter(p => p.status === 'Tertarik').length;
-    document.getElementById('countProspekBaru').innerText = baruCount;
-    document.getElementById('countDihubungi').innerText = dihubungiCount;
-    document.getElementById('countNegosiasi').innerText = negosiasiCount;
-    document.getElementById('countTertarik').innerText = tertarikCount;
+    
+    const countProspekBaruEl = document.getElementById('countProspekBaru');
+    const countDihubungiEl = document.getElementById('countDihubungi');
+    const countNegosiasiEl = document.getElementById('countNegosiasi');
+    const countTertarikEl = document.getElementById('countTertarik');
+    
+    if (countProspekBaruEl) countProspekBaruEl.innerText = baruCount;
+    if (countDihubungiEl) countDihubungiEl.innerText = dihubungiCount;
+    if (countNegosiasiEl) countNegosiasiEl.innerText = negosiasiCount;
+    if (countTertarikEl) countTertarikEl.innerText = tertarikCount;
+    
+    // Update charts
+    updateChartCustomer(total, closing, pending, followup);
     updateChartProspek(baruCount, dihubungiCount, negosiasiCount, tertarikCount);
+    
+    console.log('📊 updateDashboardStats: Selesai');
 }
 
 // ========== UPDATE CHART CUSTOMER (Doughnut) ==========
