@@ -1,14 +1,15 @@
 // ========== SUPABASE CONFIG ==========
-// Hapus deklarasi const supabase karena sudah dideklarasikan oleh CDN
-// Gunakan window.supabase yang sudah ada
+// JANGAN deklarasikan ulang const supabase - gunakan yang sudah ada dari CDN
+// Langsung gunakan window.supabase yang sudah tersedia
+
 const SUPABASE_URL = 'https://haylblhjzfavrfiyaicq.supabase.co';
 const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImhheWxibGhqemZhdnJmaXlhaWNxIiwicm9sZSI6ImFub24iLCJpYXQiOjE3Nzk3MzgyMDIsImV4cCI6MjA5NTMxNDIwMn0.j4yQa1ZttP5_Zg0ye5lK2OLecq39QhG3tPyv5PZ3r78';
 
-// Gunakan window.supabase.createClient, bukan mendeklarasikan ulang
-const supabaseClient = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+// Inisialisasi Supabase client dengan nama variabel berbeda
+const _supabase = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
 
-// Untuk kemudahan, buat alias
-const supabase = supabaseClient;
+// Export ke global untuk digunakan di seluruh aplikasi
+window.db = _supabase;
 
 // ========== GLOBAL VARIABLES ==========
 let currentUser = null;
@@ -102,7 +103,7 @@ function updateSidebarBodyClass() {
 async function loadCustomers() {
     if (!currentUser) return;
     
-    let query = supabase.from('customers').select('*');
+    let query = window.db.from('customers').select('*');
     
     if (currentUserRole !== 'owner') {
         query = query.eq('user_id', currentUser.id);
@@ -125,7 +126,7 @@ async function loadCustomers() {
 async function loadProspek() {
     if (!currentUser) return;
     
-    let query = supabase.from('prospek').select('*');
+    let query = window.db.from('prospek').select('*');
     
     if (currentUserRole !== 'owner') {
         query = query.eq('user_id', currentUser.id);
@@ -543,7 +544,7 @@ async function updateCustomerStatus(id, newStatus) {
     const currentDeadline = customer.tanggal || getTodayDate();
     const newDeadline = addDaysToDate(currentDeadline, 1);
     
-    const { error } = await supabase
+    const { error } = await window.db
         .from('customers')
         .update({ status: newStatus, tanggal: newDeadline, updated_at: new Date().toISOString() })
         .eq('id', id);
@@ -566,7 +567,7 @@ async function updateProspekStatus(id, newStatus) {
     const currentDeadline = prospek.deadline || getTodayDate();
     const newDeadline = addDaysToDate(currentDeadline, 1);
     
-    const { error } = await supabase
+    const { error } = await window.db
         .from('prospek')
         .update({ status: newStatus, deadline: newDeadline, updated_at: new Date().toISOString() })
         .eq('id', id);
@@ -584,7 +585,7 @@ async function updateProspekStatus(id, newStatus) {
 async function deleteCustomer(id) {
     if (!confirm('Yakin hapus customer ini? Data akan dihapus permanen!')) return;
     
-    const { error } = await supabase.from('customers').delete().eq('id', id);
+    const { error } = await window.db.from('customers').delete().eq('id', id);
     if (error) {
         showNotif('❌ Gagal hapus: ' + error.message, true);
         return;
@@ -598,7 +599,7 @@ async function deleteCustomer(id) {
 async function deleteProspek(id) {
     if (!confirm('Yakin hapus prospek ini? Data akan dihapus permanen!')) return;
     
-    const { error } = await supabase.from('prospek').delete().eq('id', id);
+    const { error } = await window.db.from('prospek').delete().eq('id', id);
     if (error) {
         showNotif('❌ Gagal hapus: ' + error.message, true);
         return;
@@ -610,7 +611,7 @@ async function deleteProspek(id) {
 }
 
 async function addCustomer(agentId, nama, hp, apk, uplineName, deadline) {
-    const { data, error } = await supabase
+    const { data, error } = await window.db
         .from('customers')
         .insert({
             agent_id: agentId.toUpperCase(),
@@ -637,7 +638,7 @@ async function addCustomer(agentId, nama, hp, apk, uplineName, deadline) {
 }
 
 async function addProspek(nama, hp, deadline) {
-    const { data, error } = await supabase
+    const { data, error } = await window.db
         .from('prospek')
         .insert({
             nama: nama,
@@ -664,7 +665,7 @@ async function addProspek(nama, hp, deadline) {
 async function loadUserProfile() {
     if (!currentUser) return;
     
-    const { data, error } = await supabase
+    const { data, error } = await window.db
         .from('users')
         .select('*')
         .eq('id', currentUser.id)
@@ -682,7 +683,7 @@ async function loadUserProfile() {
 
 // ========== AUTH ==========
 async function handleLogin(email, password) {
-    const { data, error } = await supabase.auth.signInWithPassword({
+    const { data, error } = await window.db.auth.signInWithPassword({
         email: email,
         password: password
     });
@@ -691,7 +692,7 @@ async function handleLogin(email, password) {
 }
 
 async function handleLogout() {
-    await supabase.auth.signOut();
+    await window.db.auth.signOut();
     currentUser = null;
     document.getElementById('loginPage').style.display = 'flex';
     document.getElementById('app').style.display = 'none';
@@ -846,7 +847,7 @@ function initEventListeners() {
 }
 
 async function checkAuth() {
-    const { data: { session } } = await supabase.auth.getSession();
+    const { data: { session } } = await window.db.auth.getSession();
     
     if (session) {
         currentUser = session.user;
@@ -891,7 +892,7 @@ document.getElementById('loginBtn').addEventListener('click', async () => {
 });
 
 // Listen for auth changes
-supabase.auth.onAuthStateChange((event, session) => {
+window.db.auth.onAuthStateChange((event, session) => {
     if (event === 'SIGNED_OUT') {
         currentUser = null;
         document.getElementById('loginPage').style.display = 'flex';
