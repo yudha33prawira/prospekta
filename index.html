@@ -18,19 +18,21 @@
 <div id="loginPage">
     <div class="login-container">
          <h2>📊 PROSPEKTA</h2>
-        <div class="input-group">
-            <label for="loginEmail">Email</label>
-            <input type="email" id="loginEmail" placeholder="contoh@email.com">
-        </div>
-        <div class="input-group">
-            <label for="loginPassword">Password</label>
-            <div class="password-wrapper">
-                <input type="password" id="loginPassword" placeholder="******">
-                <button type="button" class="toggle-password" id="togglePasswordBtn" aria-label="Toggle password visibility">👁️</button>
+        <form id="loginForm">
+            <div class="input-group">
+                <label for="loginEmail">Email</label>
+                <input type="email" id="loginEmail" placeholder="contoh@email.com">
             </div>
-        </div>
-        <button class="login-btn" id="loginBtn">Masuk</button>
-        <div id="loginError" class="error-msg"></div>
+            <div class="input-group">
+                <label for="loginPassword">Password</label>
+                <div class="password-wrapper">
+                    <input type="password" id="loginPassword" placeholder="******">
+                    <button type="button" class="toggle-password" id="togglePassword" aria-label="Toggle password visibility">👁️</button>
+                </div>
+            </div>
+            <button type="submit" class="login-btn" id="loginBtn">Masuk</button>
+            <div id="loginError" class="error-msg"></div>
+        </form>
     </div>
 </div>
 
