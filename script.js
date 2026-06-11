@@ -7081,7 +7081,7 @@ document.addEventListener('DOMContentLoaded', function() {
     }
     
     console.log('✅ DOMContentLoaded completed');
-});
+});  // <-- INI SATU-SATUNYA YANG MENUTUP document.addEventListener
 
 // ========== DARK MODE ==========
 function initDarkMode() {
