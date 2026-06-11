@@ -6084,6 +6084,61 @@ async function retryLoadData(maxRetries = 3, delayMs = 1000) {
     return false;
 }
 
+// ========== UPDATE UI BASED ON ROLE ==========
+function updateUIBasedOnRole() {
+    console.log('🔄 updateUIBasedOnRole called, role:', currentUserRole);
+    
+    const topUserName = document.getElementById('topUserName');
+    if (topUserName) topUserName.innerText = currentUserName;
+    
+    const profileName = document.getElementById('profileName');
+    if (profileName) profileName.value = currentUserName;
+    
+    const profileEmail = document.getElementById('profileEmail');
+    if (profileEmail) profileEmail.value = currentUser?.email || '';
+    
+    const menuDbAgent = document.getElementById('menuDbAgent');
+    const menuDbTransaksi = document.getElementById('menuDbTransaksi');
+    const menuImport = document.getElementById('menuImport');
+    const ownerMenu = document.getElementById('ownerMenu');
+    
+    console.log('Menu elements found:', {
+        menuDbAgent: !!menuDbAgent,
+        menuDbTransaksi: !!menuDbTransaksi,
+        menuImport: !!menuImport,
+        ownerMenu: !!ownerMenu
+    });
+    
+    if (currentUserRole === 'owner') {
+        console.log('Setting UI for OWNER role');
+        if (menuDbAgent) menuDbAgent.style.display = 'flex';
+        if (menuDbTransaksi) menuDbTransaksi.style.display = 'flex';
+        if (menuImport) menuImport.style.display = 'flex';
+        if (ownerMenu) ownerMenu.style.display = 'block';
+    } else {
+        console.log('Setting UI for CS role');
+        if (menuDbAgent) menuDbAgent.style.display = 'none';
+        if (menuDbTransaksi) menuDbTransaksi.style.display = 'none';
+        if (menuImport) menuImport.style.display = 'none';
+        if (ownerMenu) ownerMenu.style.display = 'none';
+    }
+}
+
+// ========== LOAD INITIAL DATA ==========
+async function loadInitialData() {
+    console.log('📦 Loading data...');
+    await retryLoadData();
+    console.log('✅ Initial data load complete');
+    
+    document.querySelectorAll('.page-content').forEach(p => p.style.display = 'none');
+    const dashboardPage = document.getElementById('dashboardPage');
+    if (dashboardPage) dashboardPage.style.display = 'block';
+    
+    document.querySelectorAll('.menu-item').forEach(m => m.classList.remove('active'));
+    const dashboardMenu = document.querySelector('.menu-item[data-page="dashboard"]');
+    if (dashboardMenu) dashboardMenu.classList.add('active');
+}
+
 // ========== AUTH STATE HANDLER ==========
 // CATATAN: isAuthProcessing sudah dideklarasikan di baris 63
 let isInitialLoadDone = false;
