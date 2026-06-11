@@ -352,7 +352,7 @@ async function loadCustomers() {
     if (currentUserRole !== 'owner') {
         query = query.eq('user_id', currentUser.id);
     }
-    const { data, error } = await query.order('created_at', { ascending: false }).limit(2000);
+    const { data, error } = await query.order('created_at', { ascending: false });
     
     if (error) {
         console.error('Error loadCustomers:', error);
@@ -361,7 +361,6 @@ async function loadCustomers() {
     
     let enriched = data || [];
     
-    // Tambahkan displayName untuk owner
     if (currentUserRole === 'owner' && enriched.length) {
         const userIds = [...new Set(enriched.map(c => c.user_id).filter(Boolean))];
         if (userIds.length) {
@@ -381,35 +380,51 @@ async function loadCustomers() {
     customersData = enriched;
     console.log('📞 loadCustomers: Selesai, total:', customersData.length);
     
-    // Update dashboard stats
-    updateDashboardStats();
-    
-    // Render kanban
-    renderFullFollowupKanban();
+    // Jangan panggil updateDashboardStats di sini, biarkan dipanggil di onAuthStateChange
     
     return enriched;
 }
 
-
 async function loadProspek() {
     if (!currentUser) return [];
+    
+    console.log('📋 loadProspek: Memuat prospek...');
+    
     let query = supabase.from('prospek').select('*');
-    if (currentUserRole !== 'owner') query = query.eq('user_id', currentUser.id);
-    const { data, error } = await query.order('created_at', { ascending: false }).limit(2000);
-    if (error) throw error;
+    if (currentUserRole !== 'owner') {
+        query = query.eq('user_id', currentUser.id);
+    }
+    const { data, error } = await query.order('created_at', { ascending: false });
+    
+    if (error) {
+        console.error('Error loadProspek:', error);
+        return [];
+    }
+    
     let enriched = data || [];
+    
     if (currentUserRole === 'owner' && enriched.length) {
         const userIds = [...new Set(enriched.map(p => p.user_id).filter(Boolean))];
         if (userIds.length) {
             const { data: users } = await supabase.from('users').select('id,nama').in('id', userIds);
             const map = new Map(users?.map(u => [u.id, u.nama]) || []);
-            enriched = enriched.map(p => ({ ...p, displayName: p.nama + (map.get(p.user_id) ? ` (${map.get(p.user_id)})` : '') }));
-        } else enriched = enriched.map(p => ({ ...p, displayName: p.nama }));
-    } else enriched = enriched.map(p => ({ ...p, displayName: p.nama }));
+            enriched = enriched.map(p => ({ 
+                ...p, 
+                displayName: p.nama + (map.get(p.user_id) ? ` (${map.get(p.user_id)})` : '') 
+            }));
+        } else {
+            enriched = enriched.map(p => ({ ...p, displayName: p.nama }));
+        }
+    } else {
+        enriched = enriched.map(p => ({ ...p, displayName: p.nama }));
+    }
+    
     prospekData = enriched;
-    renderFullProspekKanban();
+    console.log('📋 loadProspek: Selesai, total:', prospekData.length);
+    
     return enriched;
 }
+
 async function loadDatabaseAgent() {
     if (!currentUser) return [];
     let query = supabase.from('db_agent').select('*');
@@ -5816,10 +5831,7 @@ nameFields.forEach(id => {
 
 // ========== AUTH STATE HANDLER (DIPERBAIKI DENGAN LOGGING LENGKAP) ==========
 supabase.auth.onAuthStateChange(async (event, session) => {
-    console.log('🔐 AUTH EVENT:', event);
-    console.log('🔐 Session user:', session?.user?.email);
-    console.log('🔐 Session expires at:', session?.expires_at);
-    console.log('🔐 Current timestamp:', Math.floor(Date.now() / 1000));
+    console.log('🔐 AUTH EVENT:', event, session?.user?.email);
     
     const loginPage = document.getElementById('loginPage');
     const app = document.getElementById('app');
@@ -5829,78 +5841,32 @@ supabase.auth.onAuthStateChange(async (event, session) => {
         loginPage.style.display = 'none';
         app.style.display = 'block';
         
-        // TAMPILKAN LOADING
-        document.getElementById('topUserName').innerHTML = '🔄 Memuat...';
+        console.log('📡 Fetching user data from database...');
+        const { data: userData, error } = await supabase
+            .from('users')
+            .select('*')
+            .eq('id', currentUser.id)
+            .single();
         
-        console.log('📡 User ID from auth:', currentUser.id);
-        console.log('📡 User email from auth:', currentUser.email);
-        
-        // COBA AMBIL DATA DARI USER METADATA DULU (LEBIH CEPAT)
-        const metadataRole = session.user.user_metadata?.role;
-        const metadataNama = session.user.user_metadata?.nama;
-        
-        if (metadataRole) {
-            console.log('✅ Role found in session metadata:', metadataRole);
-            currentUserRole = metadataRole;
-            currentUserName = metadataNama || currentUser.email?.split('@')[0] || 'CS Agent';
+        if (error) {
+            console.error('❌ Error fetching user data:', error);
+            currentUserRole = 'cs';
+            currentUserName = currentUser.email?.split('@')[0] || 'CS Agent';
         } else {
-            console.log('⏳ Role not in metadata, fetching from database...');
-            
-            // RETRY MECHANISM UNTUK DATABASE QUERY
-            let userData = null;
-            let retries = 0;
-            
-            while (retries < 3 && !userData) {
-                try {
-                    const { data, error } = await supabase
-                        .from('users')
-                        .select('*')
-                        .eq('id', currentUser.id)
-                        .maybeSingle();
-                    
-                    if (error) {
-                        console.error(`❌ Attempt ${retries + 1} error:`, error);
-                    } else if (data) {
-                        userData = data;
-                        console.log(`✅ User data found on attempt ${retries + 1}:`, data);
-                        break;
-                    } else {
-                        console.log(`⚠️ No user data on attempt ${retries + 1}`);
-                    }
-                } catch (err) {
-                    console.error(`❌ Exception on attempt ${retries + 1}:`, err);
-                }
-                
-                retries++;
-                if (retries < 3 && !userData) {
-                    await new Promise(resolve => setTimeout(resolve, 500));
-                }
-            }
-            
-            if (userData) {
-                currentUserRole = userData.role || 'cs';
-                currentUserName = userData.nama || userData.email?.split('@')[0] || 'CS Agent';
-                console.log('✅ Role from database:', currentUserRole);
-            } else {
-                console.error('❌ CRITICAL: Could not fetch user data from database!');
-                console.error('❌ Using fallback role: cs');
-                currentUserRole = 'cs';
-                currentUserName = currentUser.email?.split('@')[0] || 'CS Agent';
-            }
+            console.log('✅ User data from database:', userData);
+            currentUserRole = userData.role || 'cs';
+            currentUserName = userData.nama || userData.email?.split('@')[0] || 'CS Agent';
         }
         
-        console.log('🎯 FINAL currentUserRole:', currentUserRole);
-        console.log('🎯 FINAL currentUserName:', currentUserName);
-        
         currentUserEmail = currentUser.email || '';
-        const foto = session.user.user_metadata?.foto || 'https://i.pravatar.cc/40';
+        const foto = userData?.foto || 'https://i.pravatar.cc/40';
         document.getElementById('profileImg').src = foto;
         document.getElementById('previewFoto').src = foto;
-        document.getElementById('topUserName').innerHTML = currentUserName;
+        document.getElementById('topUserName').innerText = currentUserName;
         document.getElementById('profileName').value = currentUserName;
         document.getElementById('profileEmail').value = currentUser.email;
         
-        // SET MENU VISIBILITY
+        // Set menu visibility based on role
         const menuDbAgent = document.getElementById('menuDbAgent');
         const menuDbTransaksi = document.getElementById('menuDbTransaksi');
         const menuImport = document.getElementById('menuImport');
@@ -5909,31 +5875,58 @@ supabase.auth.onAuthStateChange(async (event, session) => {
         console.log('🎯 Setting menu visibility for role:', currentUserRole);
         
         if (currentUserRole === 'owner') {
-            console.log('👉 OWNER: Showing owner menus - YES!');
             if (menuDbAgent) menuDbAgent.style.display = 'flex';
             if (menuDbTransaksi) menuDbTransaksi.style.display = 'flex';
             if (menuImport) menuImport.style.display = 'flex';
             if (ownerMenu) ownerMenu.style.display = 'block';
         } else {
-            console.log('👉 CS: Hiding owner menus');
             if (menuDbAgent) menuDbAgent.style.display = 'none';
             if (menuDbTransaksi) menuDbTransaksi.style.display = 'none';
             if (menuImport) menuImport.style.display = 'none';
             if (ownerMenu) ownerMenu.style.display = 'none';
         }
         
+        // Sembunyikan semua page dulu
         document.querySelectorAll('.page-content').forEach(p => p.style.display = 'none');
         document.getElementById('dashboardPage').style.display = 'block';
         document.querySelectorAll('.menu-item').forEach(m => m.classList.remove('active'));
         document.querySelector('.menu-item[data-page="dashboard"]')?.classList.add('active');
         
-        await loadAllData();
+        // ========== LOAD SEMUA DATA ==========
+        console.log('📦 Loading all data...');
+        
+        // Reset data arrays terlebih dahulu
+        customersData = [];
+        prospekData = [];
+        agentsData = [];
+        produkData = [];
+        
+        // Load data secara sequential
+        await loadCustomers();
+        await loadProspek();
+        await loadDatabaseAgent();
+        await loadProduk();
+        await loadReminders();
+        await loadPesan();
         await loadTargetData();
         await loadTransaksiGlobal();
         await loadDbTransaksi();
         await loadTarifAdmin();
+        
+        // Update dashboard setelah semua data dimuat
+        updateDashboardStats();
+        
+        // Render kanban
+        renderFullFollowupKanban();
+        renderFullProspekKanban();
+        
+        // Update badges
+        await updateAllBadges();
+        
+        // Init full mode selection
         initFullModeSelection();
-        updateAllBadges();
+        
+        console.log('✅ All data loaded. Customers:', customersData.length, 'Prospek:', prospekData.length);
         
     } else {
         console.log('🚪 No session, showing login page');
