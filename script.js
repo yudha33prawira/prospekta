@@ -5732,7 +5732,6 @@ if (logoutBtn) {
 }
 
 // ========== AUTH STATE HANDLER ==========
-let isAuthProcessing = false;
 
 supabase.auth.onAuthStateChange(async (event, session) => {
     console.log('🔐 AUTH EVENT:', event);
