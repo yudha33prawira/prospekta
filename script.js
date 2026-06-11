@@ -6140,7 +6140,6 @@ async function loadInitialData() {
 }
 
 // ========== AUTH STATE HANDLER ==========
-// CATATAN: isAuthProcessing sudah dideklarasikan di baris 63
 let isInitialLoadDone = false;
 
 supabase.auth.onAuthStateChange(async (event, session) => {
@@ -6149,7 +6148,8 @@ supabase.auth.onAuthStateChange(async (event, session) => {
     const loginPage = document.getElementById('loginPage');
     const app = document.getElementById('app');
     
-    if (event === 'SIGNED_IN' && session?.user) {
+    // Tangani SIGNED_IN dan INITIAL_SESSION (untuk refresh)
+    if ((event === 'SIGNED_IN' || event === 'INITIAL_SESSION') && session?.user) {
         if (isAuthProcessing) {
             console.log('Auth already processing, skipping');
             return;
@@ -6157,12 +6157,13 @@ supabase.auth.onAuthStateChange(async (event, session) => {
         isAuthProcessing = true;
         
         currentUser = session.user;
-        console.log('✅ User logged in:', currentUser.email);
+        console.log('✅ User:', currentUser.email);
         
         if (loginPage) loginPage.style.display = 'none';
         if (app) app.style.display = 'block';
         
         try {
+            // Ambil data user dari tabel users
             const { data: userData, error: userError } = await supabase.from('users').select('*').eq('id', currentUser.id).maybeSingle();
             
             if (userError) throw userError;
@@ -6185,19 +6186,41 @@ supabase.auth.onAuthStateChange(async (event, session) => {
             
             console.log('🎯 Role:', currentUserRole, 'Name:', currentUserName);
             
-            updateUIBasedOnRole();
+            // Update UI berdasarkan role (langsung, tanpa fungsi terpisah)
+            const topUserNameEl = document.getElementById('topUserName');
+            if (topUserNameEl) topUserNameEl.innerText = currentUserName;
             
-            if (document.readyState === 'loading') {
-                document.addEventListener('DOMContentLoaded', () => {
-                    if (!isInitialLoadDone) {
-                        isInitialLoadDone = true;
-                        loadInitialData();
-                    }
-                });
+            const menuDbAgent = document.getElementById('menuDbAgent');
+            const menuDbTransaksi = document.getElementById('menuDbTransaksi');
+            const menuImport = document.getElementById('menuImport');
+            const ownerMenu = document.getElementById('ownerMenu');
+            
+            if (currentUserRole === 'owner') {
+                console.log('Setting UI for OWNER role');
+                if (menuDbAgent) menuDbAgent.style.display = 'flex';
+                if (menuDbTransaksi) menuDbTransaksi.style.display = 'flex';
+                if (menuImport) menuImport.style.display = 'flex';
+                if (ownerMenu) ownerMenu.style.display = 'block';
             } else {
-                if (!isInitialLoadDone) {
-                    isInitialLoadDone = true;
-                    await loadInitialData();
+                console.log('Setting UI for CS role');
+                if (menuDbAgent) menuDbAgent.style.display = 'none';
+                if (menuDbTransaksi) menuDbTransaksi.style.display = 'none';
+                if (menuImport) menuImport.style.display = 'none';
+                if (ownerMenu) ownerMenu.style.display = 'none';
+            }
+            
+            // Load data jika belum
+            if (!isInitialLoadDone) {
+                isInitialLoadDone = true;
+                
+                if (document.readyState === 'loading') {
+                    document.addEventListener('DOMContentLoaded', async () => {
+                        await retryLoadData();
+                        showDashboard();
+                    });
+                } else {
+                    await retryLoadData();
+                    showDashboard();
                 }
             }
             
@@ -6212,6 +6235,7 @@ supabase.auth.onAuthStateChange(async (event, session) => {
         if (loginPage) loginPage.style.display = 'flex';
         if (app) app.style.display = 'none';
         currentUser = null;
+        currentUserRole = null;
         customersData = [];
         prospekData = [];
         isLoadingData = false;
@@ -6219,6 +6243,17 @@ supabase.auth.onAuthStateChange(async (event, session) => {
         isInitialLoadDone = false;
     }
 });
+
+// Fungsi helper untuk menampilkan dashboard
+function showDashboard() {
+    document.querySelectorAll('.page-content').forEach(p => p.style.display = 'none');
+    const dashboardPage = document.getElementById('dashboardPage');
+    if (dashboardPage) dashboardPage.style.display = 'block';
+    
+    document.querySelectorAll('.menu-item').forEach(m => m.classList.remove('active'));
+    const dashboardMenu = document.querySelector('.menu-item[data-page="dashboard"]');
+    if (dashboardMenu) dashboardMenu.classList.add('active');
+}
 
 // ========== INITIAL SESSION CHECK ==========
 setTimeout(async () => {
@@ -6233,7 +6268,7 @@ setTimeout(async () => {
 }, 100);
 
 // ========== DOMContentLoaded ==========
-document.addEventListener('DOMContentLoaded', function() {
+document.addEventListener('DOMContentLoaded', async function() {
     console.log('DOM fully loaded and parsed');
     
     initDarkMode();
@@ -7049,7 +7084,7 @@ document.addEventListener('DOMContentLoaded', function() {
     
     console.log('✅ DOMContentLoaded completed');
 
-        // ========== FIX: Double-check role after DOM ready ==========
+    // ========== DOUBLE CHECK ROLE AFTER DOM READY ==========
     if (currentUser && currentUserRole) {
         console.log('🔄 DOMContentLoaded: Double-check role:', currentUserRole);
         
@@ -7068,6 +7103,26 @@ document.addEventListener('DOMContentLoaded', function() {
             if (menuDbTransaksi) menuDbTransaksi.style.display = 'none';
             if (menuImport) menuImport.style.display = 'none';
             if (ownerMenu) ownerMenu.style.display = 'none';
+        }
+    } else if (currentUser && !currentUserRole) {
+        console.log('⚠️ DOMContentLoaded: User exists but role not set, fetching...');
+        // Ambil ulang role jika belum ada
+        const { data: userData } = await supabase.from('users').select('role, nama').eq('id', currentUser.id).maybeSingle();
+        if (userData) {
+            currentUserRole = userData.role || 'cs';
+            currentUserName = userData.nama || currentUserName;
+            // Ulangi update UI
+            const menuDbAgent = document.getElementById('menuDbAgent');
+            const menuDbTransaksi = document.getElementById('menuDbTransaksi');
+            const menuImport = document.getElementById('menuImport');
+            const ownerMenu = document.getElementById('ownerMenu');
+            
+            if (currentUserRole === 'owner') {
+                if (menuDbAgent) menuDbAgent.style.display = 'flex';
+                if (menuDbTransaksi) menuDbTransaksi.style.display = 'flex';
+                if (menuImport) menuImport.style.display = 'flex';
+                if (ownerMenu) ownerMenu.style.display = 'block';
+            }
         }
     }
 });
