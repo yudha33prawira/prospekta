@@ -5691,7 +5691,49 @@ document.getElementById('saveProfileBtn')?.addEventListener('click', async () =>
         renderMonthlyTargetList();
     });
 
+}); // <-- INI PENUTUP DOMContentLoaded YANG BENAR (HANYA SATU)
+
+// ========== LOGOUT BUTTON ==========
+const logoutBtn = document.getElementById('logoutBtn');
+if (logoutBtn) {
+    console.log('Logout button found, adding event listener...');
+    
+    const newLogoutBtn = logoutBtn.cloneNode(true);
+    logoutBtn.parentNode.replaceChild(newLogoutBtn, logoutBtn);
+    
+    newLogoutBtn.addEventListener('click', async (e) => {
+        e.preventDefault();
+        e.stopPropagation();
+        
+        console.log('Logout button clicked');
+        
+        if (!confirm('Yakin ingin keluar?')) return;
+        
+        try {
+            const { error } = await supabase.auth.signOut();
+            if (error) throw error;
+            
+            console.log('Logout successful');
+            showNotifTop('✅ Berhasil keluar');
+            
+            setTimeout(() => {
+                window.location.reload();
+            }, 500);
+            
+        } catch (err) {
+            console.error('Logout error:', err);
+            showNotifTop('❌ Gagal logout: ' + err.message, true);
+        }
+    });
+    
+    console.log('Logout button event listener attached');
+} else {
+    console.log('Logout button NOT found in DOM');
+}
+
 // ========== AUTH STATE HANDLER ==========
+let isAuthProcessing = false;
+
 supabase.auth.onAuthStateChange(async (event, session) => {
     console.log('🔐 AUTH EVENT:', event);
     
@@ -5737,7 +5779,6 @@ supabase.auth.onAuthStateChange(async (event, session) => {
             const profileEmail = document.getElementById('profileEmail');
             if (profileEmail) profileEmail.value = currentUser.email;
             
-            // Set menu visibility
             const menuDbAgent = document.getElementById('menuDbAgent');
             const menuDbTransaksi = document.getElementById('menuDbTransaksi');
             const menuImport = document.getElementById('menuImport');
@@ -5755,7 +5796,6 @@ supabase.auth.onAuthStateChange(async (event, session) => {
                 if (ownerMenu) ownerMenu.style.display = 'none';
             }
             
-            // Show dashboard
             document.querySelectorAll('.page-content').forEach(p => p.style.display = 'none');
             const dashboardPage = document.getElementById('dashboardPage');
             if (dashboardPage) dashboardPage.style.display = 'block';
@@ -5764,7 +5804,6 @@ supabase.auth.onAuthStateChange(async (event, session) => {
             const dashboardMenu = document.querySelector('.menu-item[data-page="dashboard"]');
             if (dashboardMenu) dashboardMenu.classList.add('active');
             
-            // Load data with retry
             console.log('📦 Loading data...');
             await retryLoadData();
             console.log('✅ Initial data load complete');
