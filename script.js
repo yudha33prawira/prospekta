@@ -2,9 +2,25 @@
 const SUPABASE_URL = 'https://haylblhjzfavrfiyaicq.supabase.co';
 const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImhheWxibGhqemZhdnJmaXlhaWNxIiwicm9sZSI6ImFub24iLCJpYXQiOjE3Nzk3MzgyMDIsImV4cCI6MjA5NTMxNDIwMn0.j4yQa1ZttP5_Zg0ye5lK2OLecq39QhG3tPyv5PZ3r78';
 
-// Inisialisasi supabase client
-const supabase = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
-console.log('✅ Supabase client initialized:', supabase);
+// Cek apakah window.supabase tersedia
+if (typeof window.supabase !== 'undefined' && window.supabase.createClient) {
+    // Buat client baru
+    window.supabaseClient = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+    console.log('✅ Supabase client created');
+    
+    // Assign ke variabel global supabase
+    var supabase = window.supabaseClient;
+} else {
+    console.error('❌ Supabase CDN not loaded yet!');
+    // Fallback: tunggu sebentar
+    setTimeout(() => {
+        if (typeof window.supabase !== 'undefined' && window.supabase.createClient) {
+            window.supabaseClient = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+            var supabase = window.supabaseClient;
+            console.log('✅ Supabase client created (delayed)');
+        }
+    }, 500);
+}
 
 // ========== FIX: TOMBOL MATA DAN LOGIN ==========
 // Pastikan DOM sudah siap sebelum menambahkan event listener
