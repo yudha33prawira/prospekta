@@ -5946,4 +5946,44 @@ supabase.auth.onAuthStateChange(async (event, session) => {
         app.style.display = 'none';
         currentUser = null;
     }
+
+        // ========== LOGOUT BUTTON ==========
+    const logoutBtn = document.getElementById('logoutBtn');
+    if (logoutBtn) {
+        console.log('Logout button found, adding event listener...');
+        
+        // Hapus event listener lama dengan cloning
+        const newLogoutBtn = logoutBtn.cloneNode(true);
+        logoutBtn.parentNode.replaceChild(newLogoutBtn, logoutBtn);
+        
+        newLogoutBtn.addEventListener('click', async (e) => {
+            e.preventDefault();
+            e.stopPropagation();
+            
+            console.log('Logout button clicked');
+            
+            if (!confirm('Yakin ingin keluar?')) return;
+            
+            try {
+                const { error } = await supabase.auth.signOut();
+                if (error) throw error;
+                
+                console.log('Logout successful');
+                showNotifTop('✅ Berhasil keluar');
+                
+                setTimeout(() => {
+                    window.location.reload();
+                }, 500);
+                
+            } catch (err) {
+                console.error('Logout error:', err);
+                showNotifTop('❌ Gagal logout: ' + err.message, true);
+            }
+        });
+        
+        console.log('Logout button event listener attached');
+    } else {
+        console.log('Logout button NOT found in DOM');
+    }
+    
 });
