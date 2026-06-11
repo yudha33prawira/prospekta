@@ -163,6 +163,7 @@ let transaksiData = [];
 let transaksiLastDoc = null;
 let transaksiHasMore = true;
 let isLoadingMore = false;
+let isLoadingData = false;
 
 // ========== HELPER FUNCTIONS ==========
 const delay = (ms) => new Promise(resolve => setTimeout(resolve, ms));
@@ -356,8 +357,7 @@ async function loadCustomers() {
         return [];
     }
     
-    console.log('📞 loadCustomers: Memulai...');
-    console.log('   currentUser.id:', currentUser.id);
+    console.log('📞 loadCustomers: Memulai untuk user:', currentUser.id);
     console.log('   currentUserRole:', currentUserRole);
     
     try {
@@ -370,7 +370,6 @@ async function loadCustomers() {
         const { data, error, status } = await query;
         
         console.log('   Response status:', status);
-        console.log('   Error:', error);
         console.log('   Data length:', data?.length);
         
         if (error) {
@@ -387,10 +386,6 @@ async function loadCustomers() {
         customersData = data;
         console.log('   Customers loaded:', customersData.length);
         
-        // Update dashboard counts langsung
-        const totalDataEl = document.getElementById('totalData');
-        if (totalDataEl) totalDataEl.innerText = customersData.length;
-        
         return customersData;
         
     } catch (err) {
@@ -405,8 +400,7 @@ async function loadProspek() {
         return [];
     }
     
-    console.log('📋 loadProspek: Memulai...');
-    console.log('   currentUser.id:', currentUser.id);
+    console.log('📋 loadProspek: Memulai untuk user:', currentUser.id);
     console.log('   currentUserRole:', currentUserRole);
     
     try {
@@ -419,7 +413,6 @@ async function loadProspek() {
         const { data, error, status } = await query;
         
         console.log('   Response status:', status);
-        console.log('   Error:', error);
         console.log('   Data length:', data?.length);
         
         if (error) {
@@ -1059,25 +1052,66 @@ async function deleteDBItem(type, id) {
 }
 
 async function loadAllData() {
-    if (!currentUser) return;
+    if (!currentUser) {
+        console.log('⚠️ loadAllData: No currentUser');
+        return;
+    }
     
-    console.log('🔄 loadAllData: Memuat semua data...');
+    if (isLoadingData) {
+        console.log('⚠️ loadAllData: Already loading, skipping');
+        return;
+    }
     
-    // Load data secara berurutan
-    await loadCustomers();
-    await loadProspek();
-    await loadDatabaseAgent();
-    await loadProduk();
-    await loadReminders();
-    await loadPesan();
-    await updateTotalTransaksiDariDBTransaksi();
-    await updateDeadlineBadge();
-    await updatePesanBadge();
+    isLoadingData = true;
+    console.log('🔄 loadAllData: Memuat semua data untuk user:', currentUser.id);
     
-    // Update dashboard stats setelah data dimuat
-    updateDashboardStats();
-    
-    console.log('✅ loadAllData: Selesai, customers:', customersData.length, 'prospek:', prospekData.length);
+    try {
+        // Load data secara berurutan dengan timeout yang lebih lama
+        await Promise.all([
+            loadCustomers(),
+            loadProspek(),
+            loadDatabaseAgent(),
+            loadProduk()
+        ]);
+        
+        // Update dashboard stats setelah data dimuat
+        updateDashboardStats();
+        renderFullFollowupKanban();
+        renderFullProspekKanban();
+        await updateDeadlineBadge();
+        await updatePesanBadge();
+        
+        console.log('✅ loadAllData: Selesai, customers:', customersData.length, 'prospek:', prospekData.length);
+        
+    } catch (err) {
+        console.error('❌ loadAllData error:', err);
+    } finally {
+        isLoadingData = false;
+    }
+}
+
+// Tambahkan fungsi retry
+async function retryLoadData(maxRetries = 3, delayMs = 1000) {
+    for (let i = 0; i < maxRetries; i++) {
+        try {
+            console.log(`Loading data attempt ${i + 1}/${maxRetries}...`);
+            await loadAllData();
+            
+            // Verifikasi data sudah ter-load
+            if (customersData.length > 0 || prospekData.length > 0) {
+                console.log('✅ Data loaded successfully');
+                return true;
+            }
+            
+            console.log(`Data still empty, retrying... (${i + 1}/${maxRetries})`);
+            await new Promise(resolve => setTimeout(resolve, delayMs));
+        } catch (err) {
+            console.error(`Load attempt ${i + 1} failed:`, err);
+            if (i === maxRetries - 1) throw err;
+            await new Promise(resolve => setTimeout(resolve, delayMs));
+        }
+    }
+    return false;
 }
 
 // ========== RENDER FUNCTIONS ==========
@@ -5847,6 +5881,26 @@ nameFields.forEach(id => {
         });
     }
 });
+
+// Di bagian DOMContentLoaded, pastikan dashboard stats di-update setelah load
+document.addEventListener('DOMContentLoaded', function() {
+    // ... existing code ...
+    
+    // Tambahkan observer untuk memantau perubahan DOM
+    const observer = new MutationObserver(function(mutations) {
+        mutations.forEach(function(mutation) {
+            if (mutation.type === 'childList') {
+                // Jika dashboard page muncul, update stats
+                const dashboardPage = document.getElementById('dashboardPage');
+                if (dashboardPage && dashboardPage.style.display !== 'none') {
+                    updateDashboardStats();
+                }
+            }
+        });
+    });
+    
+    observer.observe(document.body, { childList: true, subtree: true });
+});
     
         // ========== LOGOUT BUTTON ==========
     const logoutBtn = document.getElementById('logoutBtn');
@@ -5888,6 +5942,8 @@ nameFields.forEach(id => {
     }
 
 // ========== AUTH STATE HANDLER ==========
+let isAuthProcessing = false;
+
 supabase.auth.onAuthStateChange(async (event, session) => {
     console.log('🔐 AUTH EVENT:', event);
     console.log('🔐 Session exists:', !!session);
@@ -5895,12 +5951,18 @@ supabase.auth.onAuthStateChange(async (event, session) => {
     const loginPage = document.getElementById('loginPage');
     const app = document.getElementById('app');
     
-    if (event === 'SIGNED_IN' || (session?.user)) {
-        // Gunakan session dari parameter, bukan dari getSession()
+    if (event === 'SIGNED_IN' || (session?.user && !currentUser)) {
+        // Cegah processing ganda
+        if (isAuthProcessing) {
+            console.log('Auth already processing, skipping');
+            return;
+        }
+        isAuthProcessing = true;
+        
         const user = session?.user;
         
         if (!user) {
-            console.log('No user in session');
+            isAuthProcessing = false;
             return;
         }
         
@@ -5913,103 +5975,99 @@ supabase.auth.onAuthStateChange(async (event, session) => {
         
         // Ambil data user dari database
         console.log('📡 Fetching user data...');
-        const { data: userData, error: userError } = await supabase
-            .from('users')
-            .select('*')
-            .eq('id', user.id)
-            .maybeSingle();
-        
-        if (userError) {
-            console.error('Error fetching user:', userError);
-            currentUserRole = 'cs';
-            currentUserName = user.email?.split('@')[0] || 'CS Agent';
-        } else if (userData) {
-            console.log('User data:', userData);
-            currentUserRole = userData.role || 'cs';
-            currentUserName = userData.nama || user.email?.split('@')[0] || 'CS Agent';
-        } else {
-            console.log('User not in database, creating...');
-            // Buat user jika belum ada
-            const { data: newUser, error: insertError } = await supabase
+        try {
+            const { data: userData, error: userError } = await supabase
                 .from('users')
-                .insert({
-                    id: user.id,
-                    email: user.email,
-                    nama: user.email?.split('@')[0] || 'User',
-                    role: 'cs',
-                    created_at: new Date().toISOString()
-                })
-                .select()
+                .select('*')
+                .eq('id', user.id)
                 .maybeSingle();
             
-            if (insertError) {
-                console.error('Failed to create user:', insertError);
+            if (userError) {
+                console.error('Error fetching user:', userError);
                 currentUserRole = 'cs';
+                currentUserName = user.email?.split('@')[0] || 'CS Agent';
+            } else if (userData) {
+                console.log('User data:', userData);
+                currentUserRole = userData.role || 'cs';
+                currentUserName = userData.nama || user.email?.split('@')[0] || 'CS Agent';
             } else {
-                currentUserRole = 'cs';
-                currentUserName = newUser?.nama || 'CS Agent';
+                console.log('User not in database, creating...');
+                const { data: newUser, error: insertError } = await supabase
+                    .from('users')
+                    .insert({
+                        id: user.id,
+                        email: user.email,
+                        nama: user.email?.split('@')[0] || 'User',
+                        role: 'cs',
+                        created_at: new Date().toISOString()
+                    })
+                    .select()
+                    .maybeSingle();
+                
+                if (insertError) {
+                    console.error('Failed to create user:', insertError);
+                    currentUserRole = 'cs';
+                } else {
+                    currentUserRole = 'cs';
+                    currentUserName = newUser?.nama || 'CS Agent';
+                }
             }
-        }
-        
-        console.log('🎯 Role:', currentUserRole);
-        console.log('🎯 Name:', currentUserName);
-        
-        // Update UI
-        const topUserName = document.getElementById('topUserName');
-        if (topUserName) topUserName.innerText = currentUserName;
-        
-        const profileName = document.getElementById('profileName');
-        if (profileName) profileName.value = currentUserName;
-        
-        const profileEmail = document.getElementById('profileEmail');
-        if (profileEmail) profileEmail.value = user.email;
-        
-        // Set menu visibility
-        const menuDbAgent = document.getElementById('menuDbAgent');
-        const menuDbTransaksi = document.getElementById('menuDbTransaksi');
-        const menuImport = document.getElementById('menuImport');
-        const ownerMenu = document.getElementById('ownerMenu');
-        
-        if (currentUserRole === 'owner') {
-            if (menuDbAgent) menuDbAgent.style.display = 'flex';
-            if (menuDbTransaksi) menuDbTransaksi.style.display = 'flex';
-            if (menuImport) menuImport.style.display = 'flex';
-            if (ownerMenu) ownerMenu.style.display = 'block';
-        } else {
-            if (menuDbAgent) menuDbAgent.style.display = 'none';
-            if (menuDbTransaksi) menuDbTransaksi.style.display = 'none';
-            if (menuImport) menuImport.style.display = 'none';
-            if (ownerMenu) ownerMenu.style.display = 'none';
-        }
-        
-        // Tampilkan dashboard
-        document.querySelectorAll('.page-content').forEach(p => p.style.display = 'none');
-        const dashboardPage = document.getElementById('dashboardPage');
-        if (dashboardPage) dashboardPage.style.display = 'block';
-        
-        document.querySelectorAll('.menu-item').forEach(m => m.classList.remove('active'));
-        const dashboardMenu = document.querySelector('.menu-item[data-page="dashboard"]');
-        if (dashboardMenu) dashboardMenu.classList.add('active');
-        
-        // Load data
-        console.log('📦 Loading data...');
-        
-        try {
-            await Promise.all([
-                loadCustomers(),
-                loadProspek(),
-                loadDatabaseAgent(),
-                loadProduk()
-            ]);
             
-            updateDashboardStats();
-            renderFullFollowupKanban();
-            renderFullProspekKanban();
+            console.log('🎯 Role:', currentUserRole);
+            console.log('🎯 Name:', currentUserName);
             
-            console.log('✅ Data loaded. Customers:', customersData.length, 'Prospek:', prospekData.length);
+            // Update UI
+            const topUserName = document.getElementById('topUserName');
+            if (topUserName) topUserName.innerText = currentUserName;
+            
+            const profileName = document.getElementById('profileName');
+            if (profileName) profileName.value = currentUserName;
+            
+            const profileEmail = document.getElementById('profileEmail');
+            if (profileEmail) profileEmail.value = user.email;
+            
+            // Set menu visibility
+            const menuDbAgent = document.getElementById('menuDbAgent');
+            const menuDbTransaksi = document.getElementById('menuDbTransaksi');
+            const menuImport = document.getElementById('menuImport');
+            const ownerMenu = document.getElementById('ownerMenu');
+            
+            if (currentUserRole === 'owner') {
+                if (menuDbAgent) menuDbAgent.style.display = 'flex';
+                if (menuDbTransaksi) menuDbTransaksi.style.display = 'flex';
+                if (menuImport) menuImport.style.display = 'flex';
+                if (ownerMenu) ownerMenu.style.display = 'block';
+            } else {
+                if (menuDbAgent) menuDbAgent.style.display = 'none';
+                if (menuDbTransaksi) menuDbTransaksi.style.display = 'none';
+                if (menuImport) menuImport.style.display = 'none';
+                if (ownerMenu) ownerMenu.style.display = 'none';
+            }
+            
+            // Tampilkan dashboard
+            document.querySelectorAll('.page-content').forEach(p => p.style.display = 'none');
+            const dashboardPage = document.getElementById('dashboardPage');
+            if (dashboardPage) dashboardPage.style.display = 'block';
+            
+            document.querySelectorAll('.menu-item').forEach(m => m.classList.remove('active'));
+            const dashboardMenu = document.querySelector('.menu-item[data-page="dashboard"]');
+            if (dashboardMenu) dashboardMenu.classList.add('active');
+            
+            // Load data dengan delay untuk memastikan UI siap
+            console.log('📦 Loading data...');
+            
+            // Reset data sebelum load
+            customersData = [];
+            prospekData = [];
+            
+            await retryLoadData();
+            
+            console.log('✅ Initial data load complete');
             
         } catch (err) {
-            console.error('Error loading data:', err);
+            console.error('Error in auth handler:', err);
+        } finally {
+            isAuthProcessing = false;
         }
         
     } else if (event === 'SIGNED_OUT') {
@@ -6019,14 +6077,19 @@ supabase.auth.onAuthStateChange(async (event, session) => {
         currentUser = null;
         customersData = [];
         prospekData = [];
+        isLoadingData = false;
+        isAuthProcessing = false;
     }
 });
 
-// Cek session saat halaman dimuat
-supabase.auth.getSession().then(({ data: { session } }) => {
-    console.log('Initial session check:', session ? 'Session exists' : 'No session');
+// Cek session saat halaman dimuat dengan delay untuk memastikan Supabase siap
+setTimeout(async () => {
+    const { data: { session } } = await supabase.auth.getSession();
+    console.log('Initial session check (delayed):', session ? 'Session exists' : 'No session');
     if (!session) {
-        document.getElementById('loginPage').style.display = 'flex';
-        document.getElementById('app').style.display = 'none';
+        const loginPage = document.getElementById('loginPage');
+        const app = document.getElementById('app');
+        if (loginPage) loginPage.style.display = 'flex';
+        if (app) app.style.display = 'none';
     }
-});
+}, 100);
