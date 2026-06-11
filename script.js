@@ -428,6 +428,7 @@ async function loadProduk() {
         
         produkData = data || [];
         renderProdukList();
+        updateProductSelect();
     } catch (err) {
         console.error('Error loadProduk:', err);
     }
