@@ -1,10 +1,9 @@
 // ========== SUPABASE CONFIGURATION ==========
-const SUPABASE_URL = 'https://haylblhjzfavrfiyaicq.supabase.co';
-const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImhheWxibGhqemZhdnJmaXlhaWNxIiwicm9sZSI6ImFub24iLCJpYXQiOjE3Nzk3MzgyMDIsImV4cCI6MjA5NTMxNDIwMn0.j4yQa1ZttP5_Zg0ye5lK2OLecq39QhG3tPyv5PZ3r78';
-
-// Timpa yang sudah ada (tanpa deklarasi let/const)
-window.supabase = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
-const supabase = window.supabase;
+// Pastikan supabase tersedia
+if (typeof supabase === 'undefined') {
+    var supabase = window.supabase;
+}
+console.log('✅ Supabase ready:', !!supabase);
 
 // ========== GLOBAL VARIABLES ==========
 let currentUser = null;
