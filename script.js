@@ -6085,7 +6085,9 @@ async function retryLoadData(maxRetries = 3, delayMs = 1000) {
 }
 
 // ========== AUTH STATE HANDLER ==========
-let isInitialAuthProcessed = false;
+// Definisikan variabel di awal
+let isAuthProcessing = false;
+let isInitialLoadDone = false;
 
 supabase.auth.onAuthStateChange(async (event, session) => {
     console.log('🔐 AUTH EVENT:', event);
@@ -6131,14 +6133,21 @@ supabase.auth.onAuthStateChange(async (event, session) => {
             
             console.log('🎯 Role:', currentUserRole, 'Name:', currentUserName);
             
-            // Update UI dengan role yang benar
-            updateUIBasedOnRole();
-            
-            // Pastikan DOM sudah siap sebelum memuat data
+            // Tunggu DOM siap sebelum update UI
             if (document.readyState === 'loading') {
-                document.addEventListener('DOMContentLoaded', () => loadInitialData());
+                document.addEventListener('DOMContentLoaded', () => {
+                    updateUIBasedOnRole();
+                    if (!isInitialLoadDone) {
+                        isInitialLoadDone = true;
+                        loadInitialData();
+                    }
+                });
             } else {
-                await loadInitialData();
+                updateUIBasedOnRole();
+                if (!isInitialLoadDone) {
+                    isInitialLoadDone = true;
+                    await loadInitialData();
+                }
             }
             
         } catch (err) {
@@ -6156,11 +6165,14 @@ supabase.auth.onAuthStateChange(async (event, session) => {
         prospekData = [];
         isLoadingData = false;
         isAuthProcessing = false;
+        isInitialLoadDone = false;
     }
 });
 
 // Fungsi terpisah untuk update UI berdasarkan role
 function updateUIBasedOnRole() {
+    console.log('🔄 updateUIBasedOnRole called, role:', currentUserRole);
+    
     const topUserName = document.getElementById('topUserName');
     if (topUserName) topUserName.innerText = currentUserName;
     
@@ -6168,19 +6180,28 @@ function updateUIBasedOnRole() {
     if (profileName) profileName.value = currentUserName;
     
     const profileEmail = document.getElementById('profileEmail');
-    if (profileEmail) profileEmail.value = currentUser.email;
+    if (profileEmail) profileEmail.value = currentUser?.email || '';
     
     const menuDbAgent = document.getElementById('menuDbAgent');
     const menuDbTransaksi = document.getElementById('menuDbTransaksi');
     const menuImport = document.getElementById('menuImport');
     const ownerMenu = document.getElementById('ownerMenu');
     
+    console.log('Menu elements found:', {
+        menuDbAgent: !!menuDbAgent,
+        menuDbTransaksi: !!menuDbTransaksi,
+        menuImport: !!menuImport,
+        ownerMenu: !!ownerMenu
+    });
+    
     if (currentUserRole === 'owner') {
+        console.log('Setting UI for OWNER role');
         if (menuDbAgent) menuDbAgent.style.display = 'flex';
         if (menuDbTransaksi) menuDbTransaksi.style.display = 'flex';
         if (menuImport) menuImport.style.display = 'flex';
         if (ownerMenu) ownerMenu.style.display = 'block';
     } else {
+        console.log('Setting UI for CS role');
         if (menuDbAgent) menuDbAgent.style.display = 'none';
         if (menuDbTransaksi) menuDbTransaksi.style.display = 'none';
         if (menuImport) menuImport.style.display = 'none';
@@ -7032,6 +7053,28 @@ document.addEventListener('DOMContentLoaded', function() {
     }
     
     console.log('✅ DOMContentLoaded completed');
+
+        // ========== FIX: Double-check role after DOM ready ==========
+    if (currentUser && currentUserRole) {
+        console.log('🔄 DOMContentLoaded: Double-check role:', currentUserRole);
+        
+        const menuDbAgent = document.getElementById('menuDbAgent');
+        const menuDbTransaksi = document.getElementById('menuDbTransaksi');
+        const menuImport = document.getElementById('menuImport');
+        const ownerMenu = document.getElementById('ownerMenu');
+        
+        if (currentUserRole === 'owner') {
+            if (menuDbAgent) menuDbAgent.style.display = 'flex';
+            if (menuDbTransaksi) menuDbTransaksi.style.display = 'flex';
+            if (menuImport) menuImport.style.display = 'flex';
+            if (ownerMenu) ownerMenu.style.display = 'block';
+        } else {
+            if (menuDbAgent) menuDbAgent.style.display = 'none';
+            if (menuDbTransaksi) menuDbTransaksi.style.display = 'none';
+            if (menuImport) menuImport.style.display = 'none';
+            if (ownerMenu) ownerMenu.style.display = 'none';
+        }
+    }
 });
 
 // ========== DARK MODE ==========
