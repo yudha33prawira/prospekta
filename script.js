@@ -106,7 +106,7 @@ document.addEventListener('DOMContentLoaded', function() {
     }
 });
 
-// ========== GLOBAL VARIABLES ==========
+// ========== GLOBAL VARIABLES (HANYA SATU KALI) ==========
 let currentUser = null;
 let currentUserRole = 'cs';
 let currentUserName = '';
@@ -156,14 +156,6 @@ let transaksiData = [];
 let transaksiLastDoc = null;
 let transaksiHasMore = true;
 let isLoadingMore = false;
-// ========== FIX: FORCE RESET STATE ON PAGE LOAD ==========
-// Reset semua data di awal
-let customersData = [];
-let prospekData = [];
-let agentsData = [];
-let produkData = [];
-let transaksiData = [];
-let tarifAdminData = [];
 
 // ========== HELPER FUNCTIONS ==========
 const delay = (ms) => new Promise(resolve => setTimeout(resolve, ms));
