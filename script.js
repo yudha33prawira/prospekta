@@ -2,18 +2,19 @@
 const SUPABASE_URL = 'https://haylblhjzfavrfiyaicq.supabase.co';
 const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImhheWxibGhqemZhdnJmaXlhaWNxIiwicm9sZSI6ImFub24iLCJpYXQiOjE3Nzk3MzgyMDIsImV4cCI6MjA5NTMxNDIwMn0.j4yQa1ZttP5_Zg0ye5lK2OLecq39QhG3tPyv5PZ3r78';
 
-// Cek apakah supabase sudah tersedia dari CDN
-if (typeof window.supabase !== 'undefined' && window.supabase.createClient) {
-    var supabase = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
-    console.log('✅ Supabase client initialized successfully');
+// Cek apakah supabase sudah tersedia
+if (typeof supabase !== 'undefined' && supabase.createClient) {
+    window.supabaseClient = supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+    console.log('✅ Supabase client created manually');
+} else if (window.supabase && window.supabase.createClient) {
+    window.supabaseClient = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+    console.log('✅ Supabase client created from window');
 } else {
-    console.error('❌ Supabase CDN not loaded! Creating fallback...');
-    // Fallback: buat objek dummy untuk sementara (tapi ini tidak akan berfungsi penuh)
-    var supabase = {
-        auth: { onAuthStateChange: () => {}, signInWithPassword: () => Promise.reject('CDN not loaded') },
-        from: () => ({ select: () => ({ order: () => ({ limit: () => Promise.resolve({ data: [], error: null }) }) }) })
-    };
+    console.error('❌ Supabase library not loaded!');
 }
+
+// Gunakan supabaseClient untuk semua query
+const supabase = window.supabaseClient;
 
 // ========== FIX: TOMBOL MATA DAN LOGIN ==========
 // Pastikan DOM sudah siap sebelum menambahkan event listener
