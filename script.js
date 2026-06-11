@@ -428,7 +428,6 @@ async function loadProduk() {
         
         produkData = data || [];
         renderProdukList();
-        updateProductSelect();
     } catch (err) {
         console.error('Error loadProduk:', err);
     }
@@ -2106,6 +2105,26 @@ function renderProdukList() {
     });
     
     updateSelectAllProdukButton();
+}
+
+// ========== UPDATE PRODUCT SELECT ==========
+function updateProductSelect() {
+    // Cek apakah ada select element dengan id productSelect
+    const productSelect = document.getElementById('productSelect');
+    if (!productSelect) return;
+    
+    // Kosongkan select
+    productSelect.innerHTML = '<option value="">Pilih Produk</option>';
+    
+    // Tambahkan option dari produkData
+    if (produkData && produkData.length > 0) {
+        produkData.forEach(produk => {
+            const option = document.createElement('option');
+            option.value = produk.id;
+            option.textContent = `${produk.nama} - ${formatRupiah(produk.hpp)}`;
+            productSelect.appendChild(option);
+        });
+    }
 }
 
 function updateSelectAllProdukButton() {
