@@ -2578,6 +2578,196 @@ async function deleteAllProduk() {
     await loadProduk();
 }
 
+// ========== AGENT FILTER FUNCTIONS ==========
+function setupAgentFilters() {
+    const searchInput = document.getElementById('searchAgentInput');
+    const filterUpline = document.getElementById('filterUplineAgent');
+    const filterCid = document.getElementById('filterCidAgent');
+    const filterBank = document.getElementById('filterBankAgent');
+    const filterDate = document.getElementById('filterDateAgent');
+    const filterHasHp = document.getElementById('filterHasHpAgent');
+    const filterHasApk = document.getElementById('filterHasApkAgent');
+    const resetBtn = document.getElementById('resetAgentFilterBtn');
+    
+    const applyFilters = () => {
+        const searchTerm = searchInput?.value.toLowerCase() || '';
+        const uplineFilter = filterUpline?.value.toLowerCase() || '';
+        const cidFilter = filterCid?.value.toLowerCase() || '';
+        const bankFilter = filterBank?.value || '';
+        const dateFilter = filterDate?.value || '';
+        const hasHp = filterHasHp?.checked || false;
+        const hasApk = filterHasApk?.checked || false;
+        
+        let filtered = [...agentsData];
+        
+        if (searchTerm) {
+            filtered = filtered.filter(item =>
+                (item.nama && item.nama.toLowerCase().includes(searchTerm)) ||
+                (item.agent_id && String(item.agent_id).toLowerCase().includes(searchTerm)) ||
+                (item.hp && String(item.hp).includes(searchTerm))
+            );
+        }
+        
+        if (uplineFilter) {
+            filtered = filtered.filter(item => 
+                item.upline && item.upline.toLowerCase().includes(uplineFilter)
+            );
+        }
+        
+        if (cidFilter) {
+            filtered = filtered.filter(item => 
+                item.cid && item.cid.toLowerCase().includes(cidFilter)
+            );
+        }
+        
+        if (bankFilter) {
+            filtered = filtered.filter(item => item.jenis_bank === bankFilter);
+        }
+        
+        if (dateFilter === 'today') {
+            filtered = filtered.filter(item => {
+                const date = new Date(item.created_at);
+                const today = new Date();
+                return date.toDateString() === today.toDateString();
+            });
+        } else if (dateFilter === 'week') {
+            const weekAgo = new Date();
+            weekAgo.setDate(weekAgo.getDate() - 7);
+            filtered = filtered.filter(item => new Date(item.created_at) >= weekAgo);
+        } else if (dateFilter === 'month') {
+            const monthAgo = new Date();
+            monthAgo.setMonth(monthAgo.getMonth() - 1);
+            filtered = filtered.filter(item => new Date(item.created_at) >= monthAgo);
+        }
+        
+        if (hasHp) {
+            filtered = filtered.filter(item => item.hp && item.hp.length >= 10);
+        }
+        
+        if (hasApk) {
+            filtered = filtered.filter(item => item.apk && item.apk !== '-' && item.apk !== '');
+        }
+        
+        agentsFilteredData = filtered;
+        const filteredSpan = document.getElementById('agentFilteredCount');
+        if (filteredSpan) filteredSpan.innerText = filtered.length;
+        
+        renderAgentList(agentsData);
+    };
+    
+    if (searchInput) searchInput.addEventListener('input', () => setTimeout(applyFilters, 300));
+    if (filterUpline) filterUpline.addEventListener('input', () => setTimeout(applyFilters, 300));
+    if (filterCid) filterCid.addEventListener('input', () => setTimeout(applyFilters, 300));
+    if (filterBank) filterBank.addEventListener('change', applyFilters);
+    if (filterDate) filterDate.addEventListener('change', applyFilters);
+    if (filterHasHp) filterHasHp.addEventListener('change', applyFilters);
+    if (filterHasApk) filterHasApk.addEventListener('change', applyFilters);
+    
+    if (resetBtn) {
+        resetBtn.onclick = () => {
+            if (searchInput) searchInput.value = '';
+            if (filterUpline) filterUpline.value = '';
+            if (filterCid) filterCid.value = '';
+            if (filterBank) filterBank.value = '';
+            if (filterDate) filterDate.value = '';
+            if (filterHasHp) filterHasHp.checked = false;
+            if (filterHasApk) filterHasApk.checked = false;
+            applyFilters();
+        };
+    }
+}
+
+// ========== GLOBAL TRANSACTION FUNCTIONS ==========
+async function saveTransaksiGlobal(nominal, keterangan, tanggal, editId = null) {
+    if (!nominal || parseInt(nominal) <= 0) {
+        showNotifTop('⚠️ Masukkan jumlah transaksi yang valid!', true);
+        return false;
+    }
+    
+    try {
+        const data = {
+            nominal: parseInt(nominal),
+            keterangan: keterangan || '',
+            tanggal: tanggal || getTodayDate(),
+            updated_at: new Date().toISOString()
+        };
+        
+        if (editId) {
+            // Update existing
+            const { error } = await supabase.from('transaksi_global')
+                .update(data)
+                .eq('id', editId);
+            if (error) throw error;
+            showNotifTop('✅ Transaksi berhasil diupdate!');
+        } else {
+            // Insert new
+            data.created_at = new Date().toISOString();
+            data.created_by = currentUser.id;
+            data.created_by_name = currentUserName;
+            
+            const { error } = await supabase.from('transaksi_global')
+                .insert(data);
+            if (error) throw error;
+            showNotifTop('✅ Transaksi berhasil ditambahkan!');
+        }
+        
+        await loadTransaksiGlobal();
+        await updateTargetDisplay();
+        return true;
+    } catch (err) {
+        showNotifTop('❌ Gagal menyimpan transaksi: ' + err.message, true);
+        return false;
+    }
+}
+
+async function deleteSelectedTransaksi() {
+    const selectedIds = Array.from(selectedTransaksiIds.keys());
+    if (selectedIds.length === 0) {
+        showNotifTop('⚠️ Tidak ada data yang dipilih', true);
+        return;
+    }
+    
+    if (!confirm(`Hapus ${selectedIds.length} data transaksi yang dipilih?`)) return;
+    
+    const progress = showFloatingProgress('🗑️ Menghapus Data Transaksi', selectedIds.length);
+    progress.update(0, '🗑️ Menghapus', 'Memulai proses hapus...');
+    
+    let deleted = 0, failed = 0;
+    
+    for (let i = 0; i < selectedIds.length; i++) {
+        const id = selectedIds[i];
+        try {
+            await supabase.from('db_transaksi').delete().eq('id', id);
+            selectedTransaksiIds.delete(id);
+            deleted++;
+        } catch (err) {
+            failed++;
+            console.error(`Gagal hapus ${id}:`, err);
+        }
+        const percent = Math.floor(((deleted + failed) / selectedIds.length) * 100);
+        progress.update(percent, '🗑️ Menghapus', `Memproses... (${deleted + failed}/${selectedIds.length})`, deleted + failed, selectedIds.length);
+        if ((i + 1) % 10 === 0) await loadDbTransaksi();
+    }
+    
+    await loadDbTransaksi();
+    progress.update(100, '✅ Selesai', `Berhasil: ${deleted}, Gagal: ${failed}`, selectedIds.length, selectedIds.length);
+    showNotifTop(`✅ ${deleted} data transaksi berhasil dihapus${failed > 0 ? `, ${failed} gagal` : ''}`);
+    setTimeout(() => progress.hide(), 3000);
+}
+
+function toggleProdukJenisFields(jenis) {
+    const tanpaAdminFields = document.getElementById('tanpaAdminFields');
+    const beradminFields = document.getElementById('beradminFields');
+    
+    if (jenis === 'tanpa_admin') {
+        if (tanpaAdminFields) tanpaAdminFields.style.display = 'block';
+        if (beradminFields) beradminFields.style.display = 'none';
+    } else {
+        if (tanpaAdminFields) tanpaAdminFields.style.display = 'none';
+        if (beradminFields) beradminFields.style.display = 'block';
+    }
+}
+
 // ========== IMPORT EXCEL FUNCTIONS ==========
 function setupImportExcel() {
     const dropZone = document.getElementById('dropZone');
