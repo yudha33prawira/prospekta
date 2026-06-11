@@ -2,19 +2,13 @@
 const SUPABASE_URL = 'https://haylblhjzfavrfiyaicq.supabase.co';
 const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImhheWxibGhqemZhdnJmaXlhaWNxIiwicm9sZSI6ImFub24iLCJpYXQiOjE3Nzk3MzgyMDIsImV4cCI6MjA5NTMxNDIwMn0.j4yQa1ZttP5_Zg0ye5lK2OLecq39QhG3tPyv5PZ3r78';
 
-// Cek apakah supabase sudah tersedia
-if (typeof supabase !== 'undefined' && supabase.createClient) {
-    window.supabaseClient = supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
-    console.log('✅ Supabase client created manually');
-} else if (window.supabase && window.supabase.createClient) {
-    window.supabaseClient = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
-    console.log('✅ Supabase client created from window');
+// JANGAN deklarasikan ulang supabase! Langsung gunakan yang sudah ada dari CDN
+// Hanya inisialisasi jika perlu
+if (typeof supabase === 'undefined') {
+    console.error('❌ Supabase not loaded from CDN');
 } else {
-    console.error('❌ Supabase library not loaded!');
+    console.log('✅ Supabase already available');
 }
-
-// Gunakan supabaseClient untuk semua query
-const supabase = window.supabaseClient;
 
 // ========== FIX: TOMBOL MATA DAN LOGIN ==========
 // Pastikan DOM sudah siap sebelum menambahkan event listener
