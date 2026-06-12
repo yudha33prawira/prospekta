@@ -862,11 +862,22 @@ function openFollowupConfirm(id) {
     const cancelBtn = modal.querySelector('#followupConfirmCancel');
     
     const updateYesButton = () => {
-        yesBtn.disabled = !(cb1.checked && cb2.checked);
+        const isChecked = cb1.checked && cb2.checked;
+        yesBtn.disabled = !isChecked;
+        if (isChecked) {
+            yesBtn.style.opacity = '1';
+            yesBtn.style.background = '#4f46e5';
+            yesBtn.style.cursor = 'pointer';
+        } else {
+            yesBtn.style.opacity = '0.6';
+            yesBtn.style.background = '#9ca3af';
+            yesBtn.style.cursor = 'not-allowed';
+        }
     };
     
     cb1.onclick = updateYesButton;
     cb2.onclick = updateYesButton;
+    updateYesButton();
     
     yesBtn.onclick = async () => {
         if (yesBtn.disabled) {
@@ -944,11 +955,22 @@ function openProspekDihubungiConfirm(id) {
     const cancelBtn = modal.querySelector('#prospekConfirmCancel');
     
     const updateYesButton = () => {
-        yesBtn.disabled = !(cb1.checked && cb2.checked);
+        const isChecked = cb1.checked && cb2.checked;
+        yesBtn.disabled = !isChecked;
+        if (isChecked) {
+            yesBtn.style.opacity = '1';
+            yesBtn.style.background = '#4f46e5';
+            yesBtn.style.cursor = 'pointer';
+        } else {
+            yesBtn.style.opacity = '0.6';
+            yesBtn.style.background = '#9ca3af';
+            yesBtn.style.cursor = 'not-allowed';
+        }
     };
     
     cb1.onclick = updateYesButton;
     cb2.onclick = updateYesButton;
+    updateYesButton();
     
     yesBtn.onclick = async () => {
         if (yesBtn.disabled) {
@@ -1166,20 +1188,12 @@ function updatePendingButtonsInModal(modal) {
 
 // ========== PROSPEK NEGOSIASI MODAL ==========
 function openProspekNegosiasiModal(id) {
-    console.log('openProspekNegosiasiModal dipanggil untuk ID:', id);
     currentProspekId = id;
     
-    // Hapus modal yang sudah ada
     const existingModal = document.getElementById('prospekNegosiasiModalFix');
-    if (existingModal) {
-        existingModal.remove();
-    }
+    if (existingModal) existingModal.remove();
     
-    // Ambil data prospek
     window.db.from('prospek').select('*').eq('id', id).single().then(({ data }) => {
-        console.log('Data prospek:', data);
-        
-        // Buat modal container dengan ID unik
         const modal = document.createElement('div');
         modal.id = 'prospekNegosiasiModalFix';
         modal.className = 'modal';
@@ -1197,11 +1211,24 @@ function openProspekNegosiasiModal(id) {
             backdrop-filter: blur(5px) !important;
         `;
         
+        // Hitung persentase kelengkapan data negosiasi
+        const negosiasiData = data.negosiasi_data || {};
+        const fields = ['aplikasi', 'domisili', 'transaksi', 'deposit', 'tertarik', 'penawaran'];
+        const filledFields = fields.filter(f => negosiasiData[f] && negosiasiData[f] !== '');
+        const completePercent = Math.round((filledFields.length / fields.length) * 100);
+        const isComplete = filledFields.length === fields.length;
+        
         modal.innerHTML = `
-            <div class="modal-content" style="max-width: 500px; max-height: 85vh; overflow-y: auto; background: #fff; border-radius: 24px; box-shadow: 0 25px 50px -12px rgba(0,0,0,0.25);">
+            <div class="modal-content" style="max-width: 500px; max-height: 85vh; overflow-y: auto; background: #fff; border-radius: 24px;">
                 <div style="position: sticky; top: 0; background: #fff; border-radius: 24px 24px 0 0; z-index: 10;">
                     <h3 style="font-size: 20px; padding: 20px 20px 0; color: #1f2937;">📋 Kuesioner Negosiasi</h3>
-                    <div class="modal-subtitle" style="font-size: 12px; color: #6b7280; padding: 0 20px 12px; border-bottom: 1px solid #f0f0f0;">Isi data kuesioner di bawah ini</div>
+                    <div class="modal-subtitle" style="font-size: 12px; color: #6b7280; padding: 0 20px 12px; border-bottom: 1px solid #f0f0f0;">
+                        Isi data kuesioner di bawah ini
+                        <div style="margin-top: 8px; background: #e5e7eb; border-radius: 10px; height: 6px; overflow: hidden;">
+                            <div style="width: ${completePercent}%; height: 100%; background: #10b981; border-radius: 10px; transition: width 0.3s;"></div>
+                        </div>
+                        <small>Kelengkapan data: ${completePercent}% (${filledFields.length}/${fields.length})</small>
+                    </div>
                 </div>
                 <div style="padding: 20px;">
                     <div class="form-group" style="margin-bottom: 16px;">
@@ -1233,11 +1260,11 @@ function openProspekNegosiasiModal(id) {
                         <input type="text" id="negosiasi_penawaran" placeholder="Penawaran" value="${escapeHtml(data.negosiasi_data?.penawaran || '')}" style="width:100%; padding: 12px 14px; border: 1.5px solid #e5e7eb; border-radius: 14px; font-size: 13px;">
                     </div>
                 </div>
-                <div class="modal-buttons" style="display: flex; gap: 10px; flex-wrap: wrap; padding: 16px 20px 20px; border-top: 1px solid #f0f0f0; background: #fff; border-radius: 0 0 24px 24px;">
-                    <button type="button" id="negosiasiTertarikBtnFix" class="btn-success" style="flex: 1; padding: 12px; border: 0; border-radius: 14px; cursor: pointer; font-weight: 600; font-size: 13px; background: #10b981; color: #fff;">⭐ Tertarik</button>
-                    <button type="button" id="negosiasiTidakTertarikBtnFix" class="btn-danger" style="flex: 1; padding: 12px; border: 0; border-radius: 14px; cursor: pointer; font-weight: 600; font-size: 13px; background: #ef4444; color: #fff;">❌ Tidak Tertarik</button>
-                    <button type="button" id="negosiasiSimpanBtnFix" class="btn-primary" style="flex: 1; padding: 12px; border: 0; border-radius: 14px; cursor: pointer; font-weight: 600; font-size: 13px; background: #4f46e5; color: #fff;">💾 Simpan</button>
-                    <button type="button" id="negosiasiBatalBtnFix" class="btn-outline" style="flex: 1; padding: 12px; border: 0; border-radius: 14px; cursor: pointer; font-weight: 600; font-size: 13px; background: #f3f4f6; color: #374151;">❌ Batal</button>
+                <div class="modal-buttons" style="display: flex; gap: 10px; flex-wrap: wrap; padding: 16px 20px 20px; border-top: 1px solid #f0f0f0;">
+                    <button type="button" id="negosiasiTertarikBtnFix" class="btn-success" style="flex: 1; padding: 12px; border: 0; border-radius: 14px; font-weight: 600; font-size: 13px; background: ${isComplete ? '#10b981' : '#9ca3af'}; color: white; cursor: ${isComplete ? 'pointer' : 'not-allowed'}; opacity: ${isComplete ? '1' : '0.6'};">⭐ Tertarik</button>
+                    <button type="button" id="negosiasiTidakTertarikBtnFix" class="btn-danger" style="flex: 1; padding: 12px; border: 0; border-radius: 14px; font-weight: 600; font-size: 13px; background: ${isComplete ? '#ef4444' : '#9ca3af'}; color: white; cursor: ${isComplete ? 'pointer' : 'not-allowed'}; opacity: ${isComplete ? '1' : '0.6'};">❌ Tidak Tertarik</button>
+                    <button type="button" id="negosiasiSimpanBtnFix" class="btn-primary" style="flex: 1; padding: 12px; border: 0; border-radius: 14px; font-weight: 600; font-size: 13px; background: #4f46e5; color: white; cursor: pointer;">💾 Simpan</button>
+                    <button type="button" id="negosiasiBatalBtnFix" class="btn-outline" style="flex: 1; padding: 12px; border: 0; border-radius: 14px; font-weight: 600; font-size: 13px; background: #f3f4f6; color: #374151; cursor: pointer;">❌ Batal</button>
                 </div>
             </div>
         `;
@@ -1246,22 +1273,68 @@ function openProspekNegosiasiModal(id) {
         document.body.classList.add('modal-open');
         document.body.style.overflow = 'hidden';
         
-        // Fungsi untuk menutup modal
         function closeModalFix() {
-            if (modal && modal.remove) {
-                modal.remove();
-            }
+            if (modal && modal.remove) modal.remove();
             document.body.classList.remove('modal-open');
             document.body.style.overflow = '';
         }
         
-        // ========== TOMBOL TERTARIK ==========
+        function updateCompleteStatus() {
+            const aplikasi = document.getElementById('negosiasi_aplikasi').value;
+            const domisili = document.getElementById('negosiasi_domisili').value;
+            const transaksi = document.getElementById('negosiasi_transaksi').value;
+            const deposit = document.getElementById('negosiasi_deposit').value;
+            const tertarik = document.getElementById('negosiasi_tertarik').value;
+            const penawaran = document.getElementById('negosiasi_penawaran').value;
+            
+            const filled = [aplikasi, domisili, transaksi, deposit, tertarik, penawaran].filter(v => v && v !== '').length;
+            const newIsComplete = filled === 6;
+            
+            const tertarikBtn = document.getElementById('negosiasiTertarikBtnFix');
+            const tidakTertarikBtn = document.getElementById('negosiasiTidakTertarikBtnFix');
+            
+            if (tertarikBtn) {
+                if (newIsComplete) {
+                    tertarikBtn.disabled = false;
+                    tertarikBtn.style.background = '#10b981';
+                    tertarikBtn.style.opacity = '1';
+                    tertarikBtn.style.cursor = 'pointer';
+                    tidakTertarikBtn.disabled = false;
+                    tidakTertarikBtn.style.background = '#ef4444';
+                    tidakTertarikBtn.style.opacity = '1';
+                    tidakTertarikBtn.style.cursor = 'pointer';
+                } else {
+                    tertarikBtn.disabled = true;
+                    tertarikBtn.style.background = '#9ca3af';
+                    tertarikBtn.style.opacity = '0.6';
+                    tertarikBtn.style.cursor = 'not-allowed';
+                    tidakTertarikBtn.disabled = true;
+                    tidakTertarikBtn.style.background = '#9ca3af';
+                    tidakTertarikBtn.style.opacity = '0.6';
+                    tidakTertarikBtn.style.cursor = 'not-allowed';
+                }
+            }
+        }
+        
+        // Tambahkan event listener ke semua input untuk update status
+        const inputs = ['negosiasi_aplikasi', 'negosiasi_domisili', 'negosiasi_transaksi', 'negosiasi_deposit', 'negosiasi_tertarik', 'negosiasi_penawaran'];
+        inputs.forEach(id => {
+            const el = document.getElementById(id);
+            if (el) el.addEventListener('input', updateCompleteStatus);
+            if (el && el.tagName === 'SELECT') el.addEventListener('change', updateCompleteStatus);
+        });
+        updateCompleteStatus();
+        
+        // Tombol Tertarik
         const tertarikBtn = document.getElementById('negosiasiTertarikBtnFix');
         if (tertarikBtn) {
             tertarikBtn.addEventListener('click', async function(e) {
                 e.preventDefault();
                 e.stopPropagation();
-                console.log('Tombol Tertarik diklik');
+                if (tertarikBtn.disabled) {
+                    showNotifTop('⚠️ Harap lengkapi semua data kuesioner terlebih dahulu!', true);
+                    return;
+                }
                 
                 const aplikasi = document.getElementById('negosiasi_aplikasi').value;
                 const domisili = document.getElementById('negosiasi_domisili').value;
@@ -1270,53 +1343,41 @@ function openProspekNegosiasiModal(id) {
                 const tertarik = document.getElementById('negosiasi_tertarik').value;
                 const penawaran = document.getElementById('negosiasi_penawaran').value;
                 
-                if (!aplikasi || !domisili || !transaksi || !deposit || !tertarik || !penawaran) {
-                    showNotifTop('⚠️ Semua field harus diisi!', true);
-                    return;
-                }
-                
-                if (!confirm('Apakah Anda yakin prospek ini TERTARIK?\n\nData akan dipindahkan ke status TERTARIK.')) {
-                    return;
-                }
+                if (!confirm('Apakah Anda yakin prospek ini TERTARIK?\n\nData akan dipindahkan ke status TERTARIK.')) return;
                 
                 const negosiasi_data = {
-                    aplikasi: aplikasi,
-                    domisili: domisili,
-                    transaksi: transaksi,
-                    deposit: deposit,
-                    tertarik: tertarik,
-                    penawaran: penawaran,
+                    aplikasi, domisili, transaksi, deposit, tertarik, penawaran,
                     timestamp: new Date().toISOString(),
                     is_complete: true
                 };
                 
                 try {
-                    const { error } = await window.db.from('prospek').update({
+                    await window.db.from('prospek').update({
                         status: 'Tertarik',
                         negosiasi_data: negosiasi_data,
                         updated_at: new Date().toISOString()
                     }).eq('id', currentProspekId);
-                    
-                    if (error) throw error;
                     
                     showNotifTop('✅ Prospek dipindahkan ke status TERTARIK');
                     closeModalFix();
                     await loadProspek();
                     closeModal('detailModal');
                 } catch (err) {
-                    console.error('Error:', err);
                     showNotifTop('❌ Gagal: ' + err.message, true);
                 }
             });
         }
         
-        // ========== TOMBOL TIDAK TERTARIK ==========
+        // Tombol Tidak Tertarik
         const tidakTertarikBtn = document.getElementById('negosiasiTidakTertarikBtnFix');
         if (tidakTertarikBtn) {
             tidakTertarikBtn.addEventListener('click', async function(e) {
                 e.preventDefault();
                 e.stopPropagation();
-                console.log('Tombol Tidak Tertarik diklik');
+                if (tidakTertarikBtn.disabled) {
+                    showNotifTop('⚠️ Harap lengkapi semua data kuesioner terlebih dahulu!', true);
+                    return;
+                }
                 
                 const aplikasi = document.getElementById('negosiasi_aplikasi').value;
                 const domisili = document.getElementById('negosiasi_domisili').value;
@@ -1325,14 +1386,7 @@ function openProspekNegosiasiModal(id) {
                 const tertarik = document.getElementById('negosiasi_tertarik').value;
                 const penawaran = document.getElementById('negosiasi_penawaran').value;
                 
-                if (!aplikasi || !domisili || !transaksi || !deposit || !tertarik || !penawaran) {
-                    showNotifTop('⚠️ Data kuesioner harus diisi LENGKAP!', true);
-                    return;
-                }
-                
-                if (!confirm('⚠️ PERINGATAN!\n\nData akan dipindahkan ke DATABASE TIDAK TERTARIK.\n\nData yang sudah dipindahkan TIDAK BISA dikembalikan ke Prospek Agen!\n\nLanjutkan?')) {
-                    return;
-                }
+                if (!confirm('⚠️ PERINGATAN!\n\nData akan dipindahkan ke DATABASE TIDAK TERTARIK.\n\nData yang sudah dipindahkan TIDAK BISA dikembalikan ke Prospek Agen!\n\nLanjutkan?')) return;
                 
                 try {
                     const { data: doc } = await window.db.from('prospek').select('*').eq('id', currentProspekId).single();
@@ -1358,19 +1412,17 @@ function openProspekNegosiasiModal(id) {
                     await loadDBTidak();
                     closeModal('detailModal');
                 } catch (err) {
-                    console.error('Error:', err);
                     showNotifTop('❌ Gagal: ' + err.message, true);
                 }
             });
         }
         
-        // ========== TOMBOL SIMPAN ==========
+        // Tombol Simpan
         const simpanBtn = document.getElementById('negosiasiSimpanBtnFix');
         if (simpanBtn) {
             simpanBtn.addEventListener('click', async function(e) {
                 e.preventDefault();
                 e.stopPropagation();
-                console.log('Tombol Simpan diklik');
                 
                 const aplikasi = document.getElementById('negosiasi_aplikasi').value;
                 const domisili = document.getElementById('negosiasi_domisili').value;
@@ -1415,41 +1467,34 @@ function openProspekNegosiasiModal(id) {
                     const currentDeadline = doc.deadline || getTodayDate();
                     const newDeadline = addDaysToDate(currentDeadline, 3);
                     
-                    const { error } = await window.db.from('prospek').update({
+                    await window.db.from('prospek').update({
                         negosiasi_data: negosiasi_data,
                         deadline: newDeadline,
                         updated_at: new Date().toISOString()
                     }).eq('id', currentProspekId);
-                    
-                    if (error) throw error;
                     
                     showNotifTop(`💾 Data kuesioner berhasil disimpan. Deadline +3 hari menjadi ${newDeadline}`);
                     closeModalFix();
                     await loadProspek();
                     closeModal('detailModal');
                 } catch (err) {
-                    console.error('Error:', err);
                     showNotifTop('❌ Gagal: ' + err.message, true);
                 }
             });
         }
         
-        // ========== TOMBOL BATAL ==========
+        // Tombol Batal
         const batalBtn = document.getElementById('negosiasiBatalBtnFix');
         if (batalBtn) {
             batalBtn.addEventListener('click', function(e) {
                 e.preventDefault();
                 e.stopPropagation();
-                console.log('Tombol Batal diklik');
                 closeModalFix();
             });
         }
         
-        // Klik di luar modal untuk menutup
         modal.addEventListener('click', (e) => {
-            if (e.target === modal) {
-                closeModalFix();
-            }
+            if (e.target === modal) closeModalFix();
         });
         
     }).catch(err => {
@@ -2193,7 +2238,7 @@ function renderFollowupKanban() {
     document.getElementById('countPending').innerText = lists.pending.length;
     document.getElementById('countClosing').innerText = lists.closing.length;
     
-    const renderColumn = (containerId, items) => {
+    const renderColumn = (containerId, items, columnType) => {
         const container = document.getElementById(containerId);
         if (!container) return;
         container.innerHTML = items.map(item => {
@@ -2202,6 +2247,29 @@ function renderFollowupKanban() {
             let deadlineClass = '';
             if (isOverdue) deadlineClass = 'deadline-overdue';
             else if (isToday) deadlineClass = 'deadline-today';
+            
+            // Validasi untuk tombol berdasarkan status
+            let canProceed = true;
+            let disabledReason = '';
+            
+            if (columnType === 'followup') {
+                // Untuk tombol Konfirmasi Follow Up, perlu checklist
+                canProceed = item.followup_data && item.followup_data.terkirim && item.followup_data.dibalas;
+                disabledReason = 'Harap lengkapi data follow up terlebih dahulu';
+            } else if (columnType === 'pending') {
+                // Untuk tombol Selesai & Closing, perlu semua pending items terisi dan tercentang
+                const pendingData = item.pending_data || [];
+                canProceed = pendingData.length > 0 && pendingData.every(p => p.checked === true && p.text && p.text.trim() !== '');
+                disabledReason = 'Harap isi semua balasan pending dan centang';
+            } else if (columnType === 'closing') {
+                // Untuk tombol Pindah ke DB Closing, selalu bisa
+                canProceed = true;
+            } else {
+                canProceed = true;
+            }
+            
+            const actionButton = getActionButtonForStatus(item.status, item.id, canProceed, disabledReason);
+            
             return `<div class="card-item ${deadlineClass}" data-id="${item.id}">
                 <div class="card-id">🆔 ${escapeHtml(item.agent_id || '-')}</div>
                 <div class="card-name" title="${escapeHtml(item.nama)}">${escapeHtml(item.nama)}</div>
@@ -2210,23 +2278,58 @@ function renderFollowupKanban() {
                     <span class="whatsapp-icon" onclick="event.stopPropagation(); openWA('${item.hp}')">💬</span>
                 </div>
                 <div class="card-deadline">📅 ${item.tanggal || '-'}</div>
+                ${actionButton}
             </div>`;
         }).join('');
         
         container.querySelectorAll('.card-item').forEach(card => {
             card.addEventListener('click', (e) => {
-                if (!e.target.classList.contains('whatsapp-icon')) {
-                    const id = card.dataset.id;
-                    openDetailCustomer(id);
+                if (!e.target.classList.contains('whatsapp-icon') && !e.target.classList.contains('action-btn')) {
+                    openDetailCustomer(card.dataset.id);
                 }
             });
         });
     };
     
-    renderColumn('baruList', lists.baru);
-    renderColumn('followupList', lists.followup);
-    renderColumn('pendingList', lists.pending);
-    renderColumn('closingList', lists.closing);
+    renderColumn('baruList', lists.baru, 'baru');
+    renderColumn('followupList', lists.followup, 'followup');
+    renderColumn('pendingList', lists.pending, 'pending');
+    renderColumn('closingList', lists.closing, 'closing');
+}
+
+function getActionButtonForStatus(status, id, canProceed, disabledReason) {
+    let buttonHtml = '';
+    let buttonText = '';
+    let buttonClass = '';
+    let onClickAction = '';
+    
+    if (status === 'baru') {
+        buttonText = '📞 Lanjut Follow Up';
+        buttonClass = 'action-btn followup-btn';
+        onClickAction = `updateCustomerStatus('${id}', 'followup')`;
+        buttonHtml = `<button class="${buttonClass}" onclick="event.stopPropagation(); ${onClickAction}" style="margin-top: 8px; width: 100%; padding: 4px 8px; font-size: 10px; border-radius: 6px; border: none; cursor: pointer; background: #4f46e5; color: white;">${buttonText}</button>`;
+    } else if (status === 'followup') {
+        buttonText = '✅ Konfirmasi Follow Up';
+        buttonClass = `action-btn confirm-followup-btn ${!canProceed ? 'disabled-btn' : ''}`;
+        onClickAction = `openFollowupConfirm('${id}')`;
+        const disabledAttr = !canProceed ? 'disabled' : '';
+        const titleAttr = !canProceed ? `title="${disabledReason}"` : '';
+        buttonHtml = `<button class="${buttonClass}" onclick="event.stopPropagation(); ${!canProceed ? 'return false;' : onClickAction}" ${disabledAttr} ${titleAttr} style="margin-top: 8px; width: 100%; padding: 4px 8px; font-size: 10px; border-radius: 6px; border: none; cursor: ${!canProceed ? 'not-allowed' : 'pointer'}; background: ${!canProceed ? '#9ca3af' : '#4f46e5'}; color: white; opacity: ${!canProceed ? '0.6' : '1'};">${buttonText}</button>`;
+    } else if (status === 'pending') {
+        buttonText = '✅ Selesai & Closing';
+        buttonClass = `action-btn pending-finish-btn ${!canProceed ? 'disabled-btn' : ''}`;
+        onClickAction = `openPendingModal('${id}')`;
+        const disabledAttr = !canProceed ? 'disabled' : '';
+        const titleAttr = !canProceed ? `title="${disabledReason}"` : '';
+        buttonHtml = `<button class="${buttonClass}" onclick="event.stopPropagation(); ${!canProceed ? 'return false;' : onClickAction}" ${disabledAttr} ${titleAttr} style="margin-top: 8px; width: 100%; padding: 4px 8px; font-size: 10px; border-radius: 6px; border: none; cursor: ${!canProceed ? 'not-allowed' : 'pointer'}; background: ${!canProceed ? '#9ca3af' : '#10b981'}; color: white; opacity: ${!canProceed ? '0.6' : '1'};">${buttonText}</button>`;
+    } else if (status === 'closing') {
+        buttonText = '📁 Pindah ke DB Closing';
+        buttonClass = 'action-btn closing-db-btn';
+        onClickAction = `confirmClosingToDB('${id}')`;
+        buttonHtml = `<button class="${buttonClass}" onclick="event.stopPropagation(); ${onClickAction}" style="margin-top: 8px; width: 100%; padding: 4px 8px; font-size: 10px; border-radius: 6px; border: none; cursor: pointer; background: #8b5cf6; color: white;">${buttonText}</button>`;
+    }
+    
+    return buttonHtml;
 }
 
 function renderProspekKanban() {
@@ -2251,7 +2354,7 @@ function renderProspekKanban() {
     document.getElementById('countNegosiasi').innerText = lists.negosiasi.length;
     document.getElementById('countTertarik').innerText = lists.tertarik.length;
     
-    const renderColumn = (containerId, items) => {
+    const renderColumn = (containerId, items, columnType) => {
         const container = document.getElementById(containerId);
         if (!container) return;
         container.innerHTML = items.map(item => {
@@ -2260,6 +2363,29 @@ function renderProspekKanban() {
             let deadlineClass = '';
             if (isOverdue) deadlineClass = 'deadline-overdue';
             else if (isToday) deadlineClass = 'deadline-today';
+            
+            // Validasi untuk tombol berdasarkan status
+            let canProceed = true;
+            let disabledReason = '';
+            
+            if (columnType === 'dihubungi') {
+                // Untuk tombol Konfirmasi Dihubungi, perlu checklist
+                canProceed = item.dihubungi_data && item.dihubungi_data.terkirim && item.dihubungi_data.dibalas;
+                disabledReason = 'Harap lengkapi data dihubungi terlebih dahulu';
+            } else if (columnType === 'negosiasi') {
+                // Untuk tombol Kelola Negosiasi, selalu bisa diklik
+                canProceed = true;
+                // Untuk tombol Tertarik, perlu data negosiasi lengkap
+                const negosiasiComplete = item.negosiasi_data && item.negosiasi_data.is_complete;
+                disabledReason = 'Harap lengkapi data kuesioner negosiasi terlebih dahulu';
+            } else if (columnType === 'tertarik') {
+                canProceed = true;
+            } else {
+                canProceed = true;
+            }
+            
+            const actionButton = getProspekActionButtonForStatus(item.status, item.id, item, canProceed, disabledReason);
+            
             return `<div class="card-item ${deadlineClass}" data-id="${item.id}">
                 <div class="card-name" title="${escapeHtml(item.nama)}">${escapeHtml(item.nama)}</div>
                 <div class="card-phone">
@@ -2267,23 +2393,61 @@ function renderProspekKanban() {
                     <span class="whatsapp-icon" onclick="event.stopPropagation(); openWA('${item.hp}')">💬</span>
                 </div>
                 <div class="card-deadline">📅 ${item.deadline || '-'}</div>
+                ${actionButton}
             </div>`;
         }).join('');
         
         container.querySelectorAll('.card-item').forEach(card => {
             card.addEventListener('click', (e) => {
-                if (!e.target.classList.contains('whatsapp-icon')) {
-                    const id = card.dataset.id;
-                    openDetailProspek(id);
+                if (!e.target.classList.contains('whatsapp-icon') && !e.target.classList.contains('action-btn')) {
+                    openDetailProspek(card.dataset.id);
                 }
             });
         });
     };
     
-    renderColumn('prospekBaruList', lists.baru);
-    renderColumn('prospekDihubungiList', lists.dihubungi);
-    renderColumn('prospekNegosiasiList', lists.negosiasi);
-    renderColumn('prospekTertarikList', lists.tertarik);
+    renderColumn('prospekBaruList', lists.baru, 'baru');
+    renderColumn('prospekDihubungiList', lists.dihubungi, 'dihubungi');
+    renderColumn('prospekNegosiasiList', lists.negosiasi, 'negosiasi');
+    renderColumn('prospekTertarikList', lists.tertarik, 'tertarik');
+}
+
+function getProspekActionButtonForStatus(status, id, item, canProceed, disabledReason) {
+    let buttonHtml = '';
+    let buttonText = '';
+    let buttonClass = '';
+    let onClickAction = '';
+    
+    if (status === 'Baru') {
+        buttonText = '📞 Dihubungi';
+        buttonClass = 'action-btn dihubungi-btn';
+        onClickAction = `updateProspekStatus('${id}', 'Dihubungi')`;
+        buttonHtml = `<button class="${buttonClass}" onclick="event.stopPropagation(); ${onClickAction}" style="margin-top: 8px; width: 100%; padding: 4px 8px; font-size: 10px; border-radius: 6px; border: none; cursor: pointer; background: #4f46e5; color: white;">${buttonText}</button>`;
+    } else if (status === 'Dihubungi') {
+        buttonText = '✅ Konfirmasi Dihubungi';
+        buttonClass = `action-btn confirm-dihubungi-btn ${!canProceed ? 'disabled-btn' : ''}`;
+        onClickAction = `openProspekDihubungiConfirm('${id}')`;
+        const disabledAttr = !canProceed ? 'disabled' : '';
+        const titleAttr = !canProceed ? `title="${disabledReason}"` : '';
+        buttonHtml = `<button class="${buttonClass}" onclick="event.stopPropagation(); ${!canProceed ? 'return false;' : onClickAction}" ${disabledAttr} ${titleAttr} style="margin-top: 8px; width: 100%; padding: 4px 8px; font-size: 10px; border-radius: 6px; border: none; cursor: ${!canProceed ? 'not-allowed' : 'pointer'}; background: ${!canProceed ? '#9ca3af' : '#4f46e5'}; color: white; opacity: ${!canProceed ? '0.6' : '1'};">${buttonText}</button>`;
+    } else if (status === 'Negosiasi') {
+        // Cek apakah data negosiasi sudah lengkap
+        const isComplete = item.negosiasi_data && item.negosiasi_data.is_complete;
+        buttonText = '⭐ Tertarik';
+        buttonClass = `action-btn tertarik-btn ${!isComplete ? 'disabled-btn' : ''}`;
+        onClickAction = `updateProspekStatus('${id}', 'Tertarik')`;
+        const disabledAttr = !isComplete ? 'disabled' : '';
+        const titleAttr = !isComplete ? 'title="Harap lengkapi data kuesioner negosiasi terlebih dahulu"' : '';
+        buttonHtml = `<button class="${buttonClass}" onclick="event.stopPropagation(); ${!isComplete ? 'return false;' : onClickAction}" ${disabledAttr} ${titleAttr} style="margin-top: 8px; width: 100%; padding: 4px 8px; font-size: 10px; border-radius: 6px; border: none; cursor: ${!isComplete ? 'not-allowed' : 'pointer'}; background: ${!isComplete ? '#9ca3af' : '#10b981'}; color: white; opacity: ${!isComplete ? '0.6' : '1'};">${buttonText}</button>
+                        <button class="action-btn negosiasi-btn" onclick="event.stopPropagation(); openProspekNegosiasiModal('${id}')" style="margin-top: 4px; width: 100%; padding: 4px 8px; font-size: 10px; border-radius: 6px; border: none; cursor: pointer; background: #f59e0b; color: white;">📝 Kelola Negosiasi</button>`;
+    } else if (status === 'Tertarik') {
+        buttonText = '📁 Pindah ke DB Commitment';
+        buttonClass = 'action-btn commitment-db-btn';
+        onClickAction = `confirmTertarikToDB('${id}')`;
+        buttonHtml = `<button class="${buttonClass}" onclick="event.stopPropagation(); ${onClickAction}" style="margin-top: 8px; width: 100%; padding: 4px 8px; font-size: 10px; border-radius: 6px; border: none; cursor: pointer; background: #8b5cf6; color: white;">${buttonText}</button>`;
+    }
+    
+    return buttonHtml;
 }
 
 // ========== FULL PAGE KANBAN ==========
