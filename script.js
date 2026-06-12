@@ -435,6 +435,238 @@ async function loadUsersForSelect() {
     }
 }
 
+// ========== SIDEBAR HOVER FUNCTION ==========
+function initSidebarHover() {
+    const hoverZone = document.getElementById('hoverZone');
+    const sidebar = document.getElementById('sidebar');
+    let sidebarTimeout = null;
+    
+    if (!hoverZone || !sidebar) return;
+    
+    // Mouse masuk ke hoverZone - tampilkan sidebar
+    hoverZone.addEventListener('mouseenter', function() {
+        if (window.innerWidth > 768) { // Hanya untuk desktop
+            clearTimeout(sidebarTimeout);
+            sidebar.classList.add('active');
+            updateSidebarBodyClass();
+        }
+    });
+    
+    // Mouse keluar dari sidebar - sembunyikan setelah delay
+    sidebar.addEventListener('mouseleave', function() {
+        if (window.innerWidth > 768) {
+            sidebarTimeout = setTimeout(() => {
+                sidebar.classList.remove('active');
+                updateSidebarBodyClass();
+            }, 300);
+        }
+    });
+    
+    // Mouse masuk ke sidebar - batalkan timeout
+    sidebar.addEventListener('mouseenter', function() {
+        clearTimeout(sidebarTimeout);
+    });
+    
+    // Untuk mobile, tetap pakai toggle button
+    const toggleBtn = document.getElementById('toggleSidebarBtn');
+    if (toggleBtn) {
+        toggleBtn.addEventListener('click', function(e) {
+            e.stopPropagation();
+            sidebar.classList.toggle('active');
+            updateSidebarBodyClass();
+        });
+    }
+    
+    // Klik di luar sidebar pada mobile untuk menutup
+    document.addEventListener('click', function(e) {
+        if (window.innerWidth <= 768 && sidebar && toggleBtn && 
+            !sidebar.contains(e.target) && e.target !== toggleBtn && !toggleBtn.contains(e.target)) {
+            sidebar.classList.remove('active');
+            updateSidebarBodyClass();
+        }
+    });
+}
+
+// ========== PROFILE PHOTO FUNCTIONS ==========
+function initProfilePhoto() {
+    const profileImg = document.getElementById('profileImg');
+    const previewFoto = document.getElementById('previewFoto');
+    const cameraIconBtn = document.getElementById('cameraIconBtn');
+    const profileFotoInput = document.getElementById('profileFoto');
+    const previewPhotoLarge = document.getElementById('previewPhotoLarge');
+    
+    if (!profileImg) return;
+    
+    // Klik profile image untuk buka modal
+    profileImg.addEventListener('click', () => {
+        showModal('profileModal');
+        loadProfileData();
+    });
+    
+    // Klik camera icon atau preview foto untuk upload
+    if (cameraIconBtn) {
+        cameraIconBtn.addEventListener('click', (e) => {
+            e.preventDefault();
+            e.stopPropagation();
+            if (profileFotoInput) profileFotoInput.click();
+        });
+    }
+    
+    if (previewFoto) {
+        previewFoto.addEventListener('click', (e) => {
+            e.stopPropagation();
+            showPhotoPreview(previewFoto.src);
+        });
+    }
+    
+    // Handle file upload
+    if (profileFotoInput) {
+        profileFotoInput.addEventListener('change', function(e) {
+            const file = e.target.files[0];
+            if (file && file.type.startsWith('image/')) {
+                if (file.size > 2 * 1024 * 1024) { // 2MB max
+                    showNotifTop('⚠️ Ukuran foto maksimal 2MB!', true);
+                    return;
+                }
+                
+                const reader = new FileReader();
+                reader.onload = function(e) {
+                    const imageUrl = e.target.result;
+                    if (previewFoto) previewFoto.src = imageUrl;
+                    if (profileImg) profileImg.src = imageUrl;
+                    showNotifTop('📷 Foto baru dipilih. Klik Simpan untuk menyimpan perubahan.');
+                };
+                reader.readAsDataURL(file);
+            } else {
+                showNotifTop('⚠️ Silakan pilih file gambar!', true);
+            }
+        });
+    }
+}
+
+function loadProfileData() {
+    const profileName = document.getElementById('profileName');
+    const profileEmail = document.getElementById('profileEmail');
+    const profilePhone = document.getElementById('profilePhone');
+    const previewFoto = document.getElementById('previewFoto');
+    const profileImg = document.getElementById('profileImg');
+    
+    if (profileName) profileName.value = currentUserName || '';
+    if (profileEmail && currentUser) profileEmail.value = currentUser.email || '';
+    if (profilePhone && currentUser) {
+        // Load phone from users table
+        window.db.from('users').select('hp').eq('id', currentUser.id).single().then(({ data }) => {
+            if (data && data.hp) {
+                profilePhone.value = data.hp.replace('+62', '');
+            }
+        });
+    }
+    if (previewFoto && profileImg) {
+        previewFoto.src = profileImg.src;
+    }
+}
+
+function showPhotoPreview(imageUrl) {
+    const previewModal = document.getElementById('previewPhotoModal');
+    const previewImage = document.getElementById('previewPhotoLarge');
+    
+    if (!previewModal) {
+        // Create modal if not exists
+        const modal = document.createElement('div');
+        modal.id = 'previewPhotoModal';
+        modal.className = 'modal';
+        modal.innerHTML = `
+            <div class="modal-content" style="max-width: 90vw; max-height: 90vh; background: rgba(0,0,0,0.9);">
+                <div style="display: flex; justify-content: space-between; align-items: center; padding: 16px;">
+                    <h3 style="color: white; margin: 0;">📸 Foto Profile</h3>
+                    <button onclick="closeModal('previewPhotoModal')" style="background: none; border: none; color: white; font-size: 24px; cursor: pointer;">✕</button>
+                </div>
+                <div style="text-align: center; padding: 20px;">
+                    <img id="previewPhotoLarge" src="" alt="Foto Profile" style="max-width: 80vw; max-height: 70vh; object-fit: contain; border-radius: 12px;">
+                </div>
+                <div style="text-align: center; padding: 16px;">
+                    <button onclick="closeModal('previewPhotoModal')" style="background: #4f46e5; color: white; border: none; border-radius: 10px; padding: 10px 20px; cursor: pointer;">Tutup</button>
+                </div>
+            </div>
+        `;
+        document.body.appendChild(modal);
+        setupModalClickOutside('previewPhotoModal');
+    }
+    
+    const previewImageEl = document.getElementById('previewPhotoLarge');
+    if (previewImageEl) previewImageEl.src = imageUrl;
+    showModal('previewPhotoModal');
+}
+
+async function saveUserProfile() {
+    const nama = document.getElementById('profileName')?.value;
+    let hp = document.getElementById('profilePhone')?.value;
+    const foto = document.getElementById('previewFoto')?.src;
+    const profileImg = document.getElementById('profileImg');
+    
+    if (!nama) {
+        showNotifTop('⚠️ Nama wajib diisi!', true);
+        return false;
+    }
+    
+    // Format phone number
+    if (hp) {
+        hp = hp.replace(/[^\d]/g, '');
+        if (hp.startsWith('0')) hp = hp.substring(1);
+        if (hp && !hp.startsWith('62')) hp = '62' + hp;
+        hp = '+' + hp;
+    }
+    
+    try {
+        // Get current user data
+        const { data: existingUser, error: fetchError } = await window.db
+            .from('users')
+            .select('*')
+            .eq('id', currentUser.id)
+            .single();
+        
+        let finalFoto = foto;
+        
+        // If photo is new (base64), upload to storage or save as is
+        if (foto && foto.startsWith('data:image')) {
+            // For now, save base64 directly (you can also upload to Supabase Storage)
+            finalFoto = foto;
+        } else if (!foto && existingUser?.foto) {
+            finalFoto = existingUser.foto;
+        } else if (!foto) {
+            finalFoto = 'https://i.pravatar.cc/40';
+        }
+        
+        const { error } = await window.db
+            .from('users')
+            .upsert({
+                id: currentUser.id,
+                nama: nama,
+                hp: hp || null,
+                foto: finalFoto,
+                email: currentUser.email,
+                role: existingUser?.role || 'cs',
+                updated_at: new Date().toISOString()
+            });
+        
+        if (error) throw error;
+        
+        // Update global variables
+        currentUserName = nama;
+        document.getElementById('topUserName').innerText = nama;
+        if (profileImg) profileImg.src = finalFoto;
+        
+        showNotifTop('✅ Profile berhasil disimpan!');
+        closeModal('profileModal');
+        return true;
+        
+    } catch (error) {
+        console.error('Save profile error:', error);
+        showNotifTop('❌ Gagal menyimpan profile: ' + error.message, true);
+        return false;
+    }
+}
+
 // ========== RENDER FUNCTIONS - FOLLOWUP KANBAN ==========
 function renderFollowupKanban() {
     const today = getTodayDate();
@@ -3134,6 +3366,36 @@ function initEventListeners() {
         await updateUserProfile(nama, hp, foto);
         closeModal('profileModal');
     });
+
+    // Sidebar hover
+    initSidebarHover();
+    
+    // Profile photo
+    initProfilePhoto();
+    
+    // Save profile button
+    const saveProfileBtn = document.getElementById('saveProfileBtn');
+    if (saveProfileBtn) {
+        saveProfileBtn.addEventListener('click', saveUserProfile);
+    }
+    
+    // Dark mode toggle
+    const darkModeToggle = document.getElementById('darkModeToggle');
+    if (darkModeToggle) {
+        darkModeToggle.addEventListener('click', function() {
+            document.body.classList.toggle('dark-mode');
+            this.classList.toggle('active');
+            const isDark = document.body.classList.contains('dark-mode');
+            localStorage.setItem('darkMode', isDark ? 'enabled' : 'disabled');
+            showNotifTop(isDark ? '🌙 Mode Gelap diaktifkan' : '☀️ Mode Terang diaktifkan');
+        });
+        
+        // Set initial dark mode state
+        if (localStorage.getItem('darkMode') === 'enabled') {
+            document.body.classList.add('dark-mode');
+            darkModeToggle.classList.add('active');
+        }
+    }
     
     // Info button
     document.getElementById('infoBtn')?.addEventListener('click', () => showModal('infoModal'));
