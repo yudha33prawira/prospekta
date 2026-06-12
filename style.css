@@ -3132,3 +3132,19 @@ body.dark-mode .floating-progress .progress-detail {
         font-size: 11px;
     }
 }
+
+#hoverZone {
+    position: fixed;
+    left: 0;
+    top: 60px;
+    width: 20px;
+    height: calc(100vh - 60px);
+    z-index: 2000;
+    background: transparent;
+    transition: all 0.2s;
+}
+
+#hoverZone:hover {
+    width: 30px;
+    background: linear-gradient(90deg, rgba(79, 70, 229, 0.1), transparent);
+}
