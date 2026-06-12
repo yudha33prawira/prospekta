@@ -934,6 +934,7 @@ body {
     transform: translateY(-2px);
 }
 
+/* Warna kolom Followup Agen - disamakan dengan Prospek Agen */
 .kanban-column[data-status="baru"],
 .kanban-column[data-status="Baru"] {
     background: #f3e8ff;
@@ -1088,7 +1089,72 @@ body {
     100% { border-color: #ef4444; background: #fef2f2; box-shadow: 0 0 0px #ef4444; }
 }
 
-/* ========== MODAL - SEMUA MODAL Z-INDEX TERTINGGI ========== */
+/* ========== ACTION BUTTONS ========== */
+.action-btn {
+    transition: all 0.2s ease;
+    font-size: 10px;
+    padding: 4px 8px;
+    border-radius: 6px;
+    border: none;
+    cursor: pointer;
+    width: 100%;
+    margin-top: 8px;
+}
+
+.action-btn.disabled-btn,
+.action-btn:disabled {
+    opacity: 0.6 !important;
+    cursor: not-allowed !important;
+    background: #9ca3af !important;
+}
+
+.action-btn.disabled-btn:hover,
+.action-btn:disabled:hover {
+    transform: none !important;
+    opacity: 0.6 !important;
+}
+
+.action-btn:disabled {
+    position: relative;
+}
+
+.action-btn:disabled:hover::after {
+    content: attr(title);
+    position: absolute;
+    bottom: 100%;
+    left: 50%;
+    transform: translateX(-50%);
+    background: #1f2937;
+    color: white;
+    padding: 4px 8px;
+    border-radius: 6px;
+    font-size: 10px;
+    white-space: nowrap;
+    z-index: 1000;
+    margin-bottom: 5px;
+}
+
+.followup-btn, .dihubungi-btn, .negosiasi-btn, .tertarik-btn, .closing-db-btn, .commitment-db-btn {
+    background: #4f46e5;
+    color: white;
+}
+
+.followup-btn:hover, .dihubungi-btn:hover, .negosiasi-btn:hover, .tertarik-btn:hover, .closing-db-btn:hover, .commitment-db-btn:hover {
+    transform: translateY(-1px);
+    opacity: 0.9;
+}
+
+.confirm-followup-btn, .confirm-dihubungi-btn, .pending-finish-btn {
+    background: #10b981;
+    color: white;
+}
+
+.confirm-followup-btn:not(:disabled):hover, .confirm-dihubungi-btn:not(:disabled):hover, .pending-finish-btn:not(:disabled):hover {
+    transform: translateY(-1px);
+    opacity: 0.9;
+}
+
+/* ========== MODAL ========== */
 .modal {
     position: fixed;
     top: 0;
@@ -1142,104 +1208,6 @@ body.modal-open {
     color: #6b7280;
     padding: 0 20px 12px;
     border-bottom: 1px solid #f0f0f0;
-}
-
-/* Modal spesifik */
-#customerModal,
-#prospekModal,
-#profileModal,
-#detailModal,
-#infoModal,
-#manageTargetModal,
-#inputTransaksiModal,
-#transaksiListModal,
-#reminderModal,
-#pesanModal,
-#addCsModal,
-#pilihNomorModal,
-#editDeadlineModal,
-#previewPhotoModal,
-#followupConfirmModal,
-#prospekDihubungiModal,
-#prospekNegosiasiModal,
-#convertModal,
-#tarifAdminModal,
-#produkMasterModal,
-#pilihCsTujuanModal,
-#pendingModal {
-    z-index: 999999999 !important;
-    pointer-events: auto !important;
-}
-
-/* Modal dinamis */
-.modal[style*="display: flex"] {
-    z-index: 999999999 !important;
-    pointer-events: auto !important;
-}
-
-/* ========== PERBAIKAN UNTUK MODAL NEGOSIASI ========== */
-#prospekNegosiasiModalFix {
-    position: fixed !important;
-    top: 0 !important;
-    left: 0 !important;
-    width: 100% !important;
-    height: 100% !important;
-    background: rgba(0, 0, 0, 0.8) !important;
-    display: flex !important;
-    justify-content: center !important;
-    align-items: center !important;
-    z-index: 999999999 !important;
-    backdrop-filter: blur(5px) !important;
-}
-
-#prospekNegosiasiModalFix .modal-content {
-    background: #fff !important;
-    border-radius: 24px !important;
-    width: 90% !important;
-    max-width: 500px !important;
-    max-height: 85vh !important;
-    overflow-y: auto !important;
-    box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.25) !important;
-}
-
-/* Tombol-tombol di modal negosiasi */
-#negosiasiTertarikBtnFix,
-#negosiasiTidakTertarikBtnFix,
-#negosiasiSimpanBtnFix,
-#negosiasiBatalBtnFix {
-    cursor: pointer !important;
-    transition: all 0.2s ease !important;
-    border: none !important;
-}
-
-#negosiasiTertarikBtnFix:hover {
-    background: #059669 !important;
-    transform: translateY(-2px);
-}
-
-#negosiasiTidakTertarikBtnFix:hover {
-    background: #dc2626 !important;
-    transform: translateY(-2px);
-}
-
-#negosiasiSimpanBtnFix:hover {
-    background: #4338ca !important;
-    transform: translateY(-2px);
-}
-
-#negosiasiBatalBtnFix:hover {
-    background: #e5e7eb !important;
-    transform: translateY(-2px);
-}
-
-/* Form input di modal negosiasi */
-#negosiasi_aplikasi,
-#negosiasi_domisili,
-#negosiasi_transaksi,
-#negosiasi_deposit,
-#negosiasi_tertarik,
-#negosiasi_penawaran {
-    cursor: text !important;
 }
 
 /* ========== FORM GROUP ========== */
@@ -2081,7 +2049,8 @@ body.modal-open {
     transform: translateX(2px);
 }
 
-#customNumbers {
+#customNumbers,
+#uplineCustomNumbers {
     width: 100%;
     padding: 12px;
     border: 1.5px solid #e5e7eb;
@@ -2091,7 +2060,8 @@ body.modal-open {
     transition: all 0.3s;
 }
 
-#customNumbers:focus {
+#customNumbers:focus,
+#uplineCustomNumbers:focus {
     outline: none;
     border-color: #4f46e5;
     box-shadow: 0 0 0 3px rgba(79, 70, 229, 0.1);
@@ -2112,7 +2082,8 @@ body.modal-open {
     border-bottom: 1px solid #f0f0f0;
 }
 
-#broadcastMessage {
+#broadcastMessage,
+#uplineBroadcastMessage {
     width: 100%;
     padding: 12px;
     border: 1.5px solid #e5e7eb;
@@ -2121,7 +2092,8 @@ body.modal-open {
     transition: all 0.3s;
 }
 
-#broadcastMessage:focus {
+#broadcastMessage:focus,
+#uplineBroadcastMessage:focus {
     outline: none;
     border-color: #4f46e5;
     box-shadow: 0 0 0 3px rgba(79, 70, 229, 0.1);
@@ -2732,31 +2704,6 @@ body.dark-mode .fullpage-header h2 {
     color: #f1f5f9;
 }
 
-/* Dark mode text colors */
-body.dark-mode,
-body.dark-mode .card-name,
-body.dark-mode .db-item-info h4,
-body.dark-mode .db-item-info p,
-body.dark-mode .db-item-info small,
-body.dark-mode .search-result-info h4,
-body.dark-mode .search-result-info p,
-body.dark-mode .broadcast-card h4,
-body.dark-mode .radio-group label,
-body.dark-mode .form-group label,
-body.dark-mode .modal-subtitle,
-body.dark-mode .detail-info-item strong,
-body.dark-mode .column-header,
-body.dark-mode .card-deadline,
-body.dark-mode .card-phone,
-body.dark-mode .target-header h3,
-body.dark-mode .import-header h3,
-body.dark-mode .broadcast-header h3,
-body.dark-mode .search-header h3,
-body.dark-mode .info-content p,
-body.dark-mode .info-content h4 {
-    color: #cbd5e1 !important;
-}
-
 body.dark-mode .card-item {
     background: #0f172a;
     border-color: #334155;
@@ -2765,6 +2712,10 @@ body.dark-mode .card-item {
 body.dark-mode .card-item:hover {
     background: #1e293b;
     border-color: #818cf8;
+}
+
+body.dark-mode .card-name {
+    color: #f1f5f9;
 }
 
 body.dark-mode .card-id {
@@ -2939,7 +2890,6 @@ body.dark-mode .floating-progress .progress-detail {
     color: #94a3b8;
 }
 
-/* Dark mode untuk tombol */
 body.dark-mode .modal-buttons button:last-child {
     background: #334155;
     color: #f1f5f9;
@@ -2992,111 +2942,4 @@ body.dark-mode .edit-deadline-btn {
 
 body.dark-mode .edit-deadline-btn:hover {
     color: #c4b5fd;
-}
-
-/* Dark mode untuk modal negosiasi */
-body.dark-mode #prospekNegosiasiModalFix .modal-content {
-    background: #1e293b !important;
-    border-color: #334155 !important;
-}
-
-body.dark-mode #prospekNegosiasiModalFix h3 {
-    color: #f1f5f9 !important;
-}
-
-body.dark-mode #prospekNegosiasiModalFix .modal-subtitle {
-    color: #94a3b8 !important;
-    border-bottom-color: #334155;
-}
-
-body.dark-mode #prospekNegosiasiModalFix .form-group label {
-    color: #cbd5e1 !important;
-}
-
-body.dark-mode #prospekNegosiasiModalFix input,
-body.dark-mode #prospekNegosiasiModalFix select {
-    background: #0f172a !important;
-    border-color: #334155 !important;
-    color: #f1f5f9 !important;
-}
-
-body.dark-mode #prospekNegosiasiModalFix .btn-outline {
-    background: #334155 !important;
-    color: #f1f5f9 !important;
-}
-
-body.dark-mode #prospekNegosiasiModalFix .btn-outline:hover {
-    background: #475569 !important;
-}
-
-/* ========== STYLING UNTUK TOMBOL DISABLED ========== */
-.action-btn {
-    transition: all 0.2s ease;
-}
-
-.action-btn.disabled-btn,
-.action-btn:disabled {
-    opacity: 0.6 !important;
-    cursor: not-allowed !important;
-    background: #9ca3af !important;
-}
-
-.action-btn.disabled-btn:hover,
-.action-btn:disabled:hover {
-    transform: none !important;
-    opacity: 0.6 !important;
-}
-
-/* Tooltip untuk tombol disabled */
-.action-btn:disabled {
-    position: relative;
-}
-
-.action-btn:disabled:hover::after {
-    content: attr(title);
-    position: absolute;
-    bottom: 100%;
-    left: 50%;
-    transform: translateX(-50%);
-    background: #1f2937;
-    color: white;
-    padding: 4px 8px;
-    border-radius: 6px;
-    font-size: 10px;
-    white-space: nowrap;
-    z-index: 1000;
-    margin-bottom: 5px;
-}
-
-/* Tombol followup dan prospek */
-.followup-btn,
-.dihubungi-btn,
-.negosiasi-btn,
-.tertarik-btn,
-.closing-db-btn,
-.commitment-db-btn {
-    transition: all 0.2s ease;
-}
-
-.followup-btn:hover,
-.dihubungi-btn:hover,
-.negosiasi-btn:hover,
-.closing-db-btn:hover,
-.commitment-db-btn:hover {
-    transform: translateY(-1px);
-    opacity: 0.9;
-}
-
-/* Tombol konfirmasi */
-.confirm-followup-btn,
-.confirm-dihubungi-btn,
-.pending-finish-btn {
-    transition: all 0.2s ease;
-}
-
-.confirm-followup-btn:not(:disabled):hover,
-.confirm-dihubungi-btn:not(:disabled):hover,
-.pending-finish-btn:not(:disabled):hover {
-    transform: translateY(-1px);
-    opacity: 0.9;
 }
