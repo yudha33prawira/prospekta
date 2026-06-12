@@ -1170,7 +1170,7 @@ function openProspekNegosiasiModal(id) {
     currentProspekId = id;
     
     // Hapus modal yang sudah ada
-    const existingModal = document.querySelector('.negosiasi-modal');
+    const existingModal = document.getElementById('prospekNegosiasiModalFix');
     if (existingModal) {
         existingModal.remove();
     }
@@ -1179,48 +1179,49 @@ function openProspekNegosiasiModal(id) {
     window.db.from('prospek').select('*').eq('id', id).single().then(({ data }) => {
         console.log('Data prospek:', data);
         
-        // Buat modal container
+        // Buat modal container dengan ID unik
         const modal = document.createElement('div');
-        modal.className = 'modal negosiasi-modal';
-        modal.id = 'prospekNegosiasiModalDynamic';
+        modal.id = 'prospekNegosiasiModalFix';
+        modal.className = 'modal';
         modal.style.cssText = `
             position: fixed !important;
             top: 0 !important;
             left: 0 !important;
             width: 100% !important;
             height: 100% !important;
-            background: rgba(0, 0, 0, 0.7) !important;
+            background: rgba(0, 0, 0, 0.8) !important;
             display: flex !important;
             justify-content: center !important;
             align-items: center !important;
             z-index: 999999999 !important;
             backdrop-filter: blur(5px) !important;
-            pointer-events: auto !important;
         `;
         
         modal.innerHTML = `
-            <div class="modal-content" style="max-width: 500px; max-height: 85vh; overflow-y: auto; z-index: 999999999; pointer-events: auto; background: #fff; border-radius: 24px;">
-                <h3 style="font-size: 20px; padding: 20px 20px 0; color: #1f2937;">📋 Kuesioner Negosiasi</h3>
-                <div class="modal-subtitle" style="font-size: 12px; color: #6b7280; padding: 0 20px 12px; border-bottom: 1px solid #f0f0f0;">Isi data kuesioner di bawah ini</div>
-                <div style="padding: 0 20px;">
+            <div class="modal-content" style="max-width: 500px; max-height: 85vh; overflow-y: auto; background: #fff; border-radius: 24px; box-shadow: 0 25px 50px -12px rgba(0,0,0,0.25);">
+                <div style="position: sticky; top: 0; background: #fff; border-radius: 24px 24px 0 0; z-index: 10;">
+                    <h3 style="font-size: 20px; padding: 20px 20px 0; color: #1f2937;">📋 Kuesioner Negosiasi</h3>
+                    <div class="modal-subtitle" style="font-size: 12px; color: #6b7280; padding: 0 20px 12px; border-bottom: 1px solid #f0f0f0;">Isi data kuesioner di bawah ini</div>
+                </div>
+                <div style="padding: 20px;">
                     <div class="form-group" style="margin-bottom: 16px;">
-                        <label style="display: block; font-size: 12px; font-weight: 600; color: #374151; margin-bottom: 6px;">Aplikasi yang dipakai? <span class="required" style="color: #ef4444;">*</span></label>
+                        <label style="display: block; font-size: 12px; font-weight: 600; color: #374151; margin-bottom: 6px;">Aplikasi yang dipakai? <span style="color: #ef4444;">*</span></label>
                         <input type="text" id="negosiasi_aplikasi" placeholder="Contoh: GNP, BSB, BTN" value="${escapeHtml(data.negosiasi_data?.aplikasi || '')}" style="width:100%; padding: 12px 14px; border: 1.5px solid #e5e7eb; border-radius: 14px; font-size: 13px;">
                     </div>
                     <div class="form-group" style="margin-bottom: 16px;">
-                        <label style="display: block; font-size: 12px; font-weight: 600; color: #374151; margin-bottom: 6px;">Domisili dimana? <span class="required" style="color: #ef4444;">*</span></label>
+                        <label style="display: block; font-size: 12px; font-weight: 600; color: #374151; margin-bottom: 6px;">Domisili dimana? <span style="color: #ef4444;">*</span></label>
                         <input type="text" id="negosiasi_domisili" placeholder="Kota/Kabupaten" value="${escapeHtml(data.negosiasi_data?.domisili || '')}" style="width:100%; padding: 12px 14px; border: 1.5px solid #e5e7eb; border-radius: 14px; font-size: 13px;">
                     </div>
                     <div class="form-group" style="margin-bottom: 16px;">
-                        <label style="display: block; font-size: 12px; font-weight: 600; color: #374151; margin-bottom: 6px;">Total transaksi per bulan? <span class="required" style="color: #ef4444;">*</span></label>
+                        <label style="display: block; font-size: 12px; font-weight: 600; color: #374151; margin-bottom: 6px;">Total transaksi per bulan? <span style="color: #ef4444;">*</span></label>
                         <input type="text" id="negosiasi_transaksi" placeholder="Nominal" value="${escapeHtml(data.negosiasi_data?.transaksi || '')}" style="width:100%; padding: 12px 14px; border: 1.5px solid #e5e7eb; border-radius: 14px; font-size: 13px;">
                     </div>
                     <div class="form-group" style="margin-bottom: 16px;">
-                        <label style="display: block; font-size: 12px; font-weight: 600; color: #374151; margin-bottom: 6px;">Apakah deposit atau saldo pinjaman? <span class="required" style="color: #ef4444;">*</span></label>
+                        <label style="display: block; font-size: 12px; font-weight: 600; color: #374151; margin-bottom: 6px;">Apakah deposit atau saldo pinjaman? <span style="color: #ef4444;">*</span></label>
                         <input type="text" id="negosiasi_deposit" placeholder="Deposit / Saldo Pinjaman" value="${escapeHtml(data.negosiasi_data?.deposit || '')}" style="width:100%; padding: 12px 14px; border: 1.5px solid #e5e7eb; border-radius: 14px; font-size: 13px;">
                     </div>
                     <div class="form-group" style="margin-bottom: 16px;">
-                        <label style="display: block; font-size: 12px; font-weight: 600; color: #374151; margin-bottom: 6px;">Apakah tertarik dengan penawaran kamu? <span class="required" style="color: #ef4444;">*</span></label>
+                        <label style="display: block; font-size: 12px; font-weight: 600; color: #374151; margin-bottom: 6px;">Apakah tertarik dengan penawaran kamu? <span style="color: #ef4444;">*</span></label>
                         <select id="negosiasi_tertarik" style="width:100%; padding: 12px 14px; border: 1.5px solid #e5e7eb; border-radius: 14px; font-size: 13px;">
                             <option value="">Pilih</option>
                             <option value="Ya" ${data.negosiasi_data?.tertarik === 'Ya' ? 'selected' : ''}>Ya</option>
@@ -1228,15 +1229,15 @@ function openProspekNegosiasiModal(id) {
                         </select>
                     </div>
                     <div class="form-group" style="margin-bottom: 16px;">
-                        <label style="display: block; font-size: 12px; font-weight: 600; color: #374151; margin-bottom: 6px;">Penawaran apa yang diberikan? <span class="required" style="color: #ef4444;">*</span></label>
+                        <label style="display: block; font-size: 12px; font-weight: 600; color: #374151; margin-bottom: 6px;">Penawaran apa yang diberikan? <span style="color: #ef4444;">*</span></label>
                         <input type="text" id="negosiasi_penawaran" placeholder="Penawaran" value="${escapeHtml(data.negosiasi_data?.penawaran || '')}" style="width:100%; padding: 12px 14px; border: 1.5px solid #e5e7eb; border-radius: 14px; font-size: 13px;">
                     </div>
                 </div>
-                <div class="modal-buttons" style="display: flex; gap: 10px; flex-wrap: wrap; padding: 16px 20px 20px; border-top: 1px solid #f0f0f0;">
-                    <button id="negosiasiTertarikBtn" class="btn-success" style="flex: 1; padding: 12px; border: 0; border-radius: 14px; cursor: pointer; font-weight: 600; font-size: 13px; background: #10b981; color: #fff;">⭐ Tertarik</button>
-                    <button id="negosiasiTidakTertarikBtn" class="btn-danger" style="flex: 1; padding: 12px; border: 0; border-radius: 14px; cursor: pointer; font-weight: 600; font-size: 13px; background: #ef4444; color: #fff;">❌ Tidak Tertarik</button>
-                    <button id="negosiasiSimpanBtn" class="btn-primary" style="flex: 1; padding: 12px; border: 0; border-radius: 14px; cursor: pointer; font-weight: 600; font-size: 13px; background: #4f46e5; color: #fff;">💾 Simpan</button>
-                    <button id="negosiasiBatalBtn" class="btn-outline" style="flex: 1; padding: 12px; border: 0; border-radius: 14px; cursor: pointer; font-weight: 600; font-size: 13px; background: #f3f4f6; color: #374151;">❌ Batal</button>
+                <div class="modal-buttons" style="display: flex; gap: 10px; flex-wrap: wrap; padding: 16px 20px 20px; border-top: 1px solid #f0f0f0; background: #fff; border-radius: 0 0 24px 24px;">
+                    <button type="button" id="negosiasiTertarikBtnFix" class="btn-success" style="flex: 1; padding: 12px; border: 0; border-radius: 14px; cursor: pointer; font-weight: 600; font-size: 13px; background: #10b981; color: #fff;">⭐ Tertarik</button>
+                    <button type="button" id="negosiasiTidakTertarikBtnFix" class="btn-danger" style="flex: 1; padding: 12px; border: 0; border-radius: 14px; cursor: pointer; font-weight: 600; font-size: 13px; background: #ef4444; color: #fff;">❌ Tidak Tertarik</button>
+                    <button type="button" id="negosiasiSimpanBtnFix" class="btn-primary" style="flex: 1; padding: 12px; border: 0; border-radius: 14px; cursor: pointer; font-weight: 600; font-size: 13px; background: #4f46e5; color: #fff;">💾 Simpan</button>
+                    <button type="button" id="negosiasiBatalBtnFix" class="btn-outline" style="flex: 1; padding: 12px; border: 0; border-radius: 14px; cursor: pointer; font-weight: 600; font-size: 13px; background: #f3f4f6; color: #374151;">❌ Batal</button>
                 </div>
             </div>
         `;
@@ -1245,14 +1246,19 @@ function openProspekNegosiasiModal(id) {
         document.body.classList.add('modal-open');
         document.body.style.overflow = 'hidden';
         
+        // Fungsi untuk menutup modal
+        function closeModalFix() {
+            if (modal && modal.remove) {
+                modal.remove();
+            }
+            document.body.classList.remove('modal-open');
+            document.body.style.overflow = '';
+        }
+        
         // ========== TOMBOL TERTARIK ==========
-        const tertarikBtn = document.getElementById('negosiasiTertarikBtn');
+        const tertarikBtn = document.getElementById('negosiasiTertarikBtnFix');
         if (tertarikBtn) {
-            // Hapus event listener lama jika ada
-            const newTertarikBtn = tertarikBtn.cloneNode(true);
-            tertarikBtn.parentNode.replaceChild(newTertarikBtn, tertarikBtn);
-            
-            newTertarikBtn.onclick = async function(e) {
+            tertarikBtn.addEventListener('click', async function(e) {
                 e.preventDefault();
                 e.stopPropagation();
                 console.log('Tombol Tertarik diklik');
@@ -1264,13 +1270,11 @@ function openProspekNegosiasiModal(id) {
                 const tertarik = document.getElementById('negosiasi_tertarik').value;
                 const penawaran = document.getElementById('negosiasi_penawaran').value;
                 
-                // Validasi
                 if (!aplikasi || !domisili || !transaksi || !deposit || !tertarik || !penawaran) {
                     showNotifTop('⚠️ Semua field harus diisi!', true);
                     return;
                 }
                 
-                // Konfirmasi
                 if (!confirm('Apakah Anda yakin prospek ini TERTARIK?\n\nData akan dipindahkan ke status TERTARIK.')) {
                     return;
                 }
@@ -1296,25 +1300,20 @@ function openProspekNegosiasiModal(id) {
                     if (error) throw error;
                     
                     showNotifTop('✅ Prospek dipindahkan ke status TERTARIK');
-                    modal.remove();
-                    document.body.classList.remove('modal-open');
-                    document.body.style.overflow = '';
+                    closeModalFix();
                     await loadProspek();
                     closeModal('detailModal');
                 } catch (err) {
                     console.error('Error:', err);
                     showNotifTop('❌ Gagal: ' + err.message, true);
                 }
-            };
+            });
         }
         
         // ========== TOMBOL TIDAK TERTARIK ==========
-        const tidakTertarikBtn = document.getElementById('negosiasiTidakTertarikBtn');
+        const tidakTertarikBtn = document.getElementById('negosiasiTidakTertarikBtnFix');
         if (tidakTertarikBtn) {
-            const newTidakTertarikBtn = tidakTertarikBtn.cloneNode(true);
-            tidakTertarikBtn.parentNode.replaceChild(newTidakTertarikBtn, tidakTertarikBtn);
-            
-            newTidakTertarikBtn.onclick = async function(e) {
+            tidakTertarikBtn.addEventListener('click', async function(e) {
                 e.preventDefault();
                 e.stopPropagation();
                 console.log('Tombol Tidak Tertarik diklik');
@@ -1326,13 +1325,11 @@ function openProspekNegosiasiModal(id) {
                 const tertarik = document.getElementById('negosiasi_tertarik').value;
                 const penawaran = document.getElementById('negosiasi_penawaran').value;
                 
-                // Validasi
                 if (!aplikasi || !domisili || !transaksi || !deposit || !tertarik || !penawaran) {
                     showNotifTop('⚠️ Data kuesioner harus diisi LENGKAP!', true);
                     return;
                 }
                 
-                // Konfirmasi pindah ke DB Tidak Tertarik
                 if (!confirm('⚠️ PERINGATAN!\n\nData akan dipindahkan ke DATABASE TIDAK TERTARIK.\n\nData yang sudah dipindahkan TIDAK BISA dikembalikan ke Prospek Agen!\n\nLanjutkan?')) {
                     return;
                 }
@@ -1356,9 +1353,7 @@ function openProspekNegosiasiModal(id) {
                     await window.db.from('prospek').delete().eq('id', currentProspekId);
                     
                     showNotifTop('📵 Data dipindahkan ke Database Tidak Tertarik');
-                    modal.remove();
-                    document.body.classList.remove('modal-open');
-                    document.body.style.overflow = '';
+                    closeModalFix();
                     await loadProspek();
                     await loadDBTidak();
                     closeModal('detailModal');
@@ -1366,16 +1361,13 @@ function openProspekNegosiasiModal(id) {
                     console.error('Error:', err);
                     showNotifTop('❌ Gagal: ' + err.message, true);
                 }
-            };
+            });
         }
         
         // ========== TOMBOL SIMPAN ==========
-        const simpanBtn = document.getElementById('negosiasiSimpanBtn');
+        const simpanBtn = document.getElementById('negosiasiSimpanBtnFix');
         if (simpanBtn) {
-            const newSimpanBtn = simpanBtn.cloneNode(true);
-            simpanBtn.parentNode.replaceChild(newSimpanBtn, simpanBtn);
-            
-            newSimpanBtn.onclick = async function(e) {
+            simpanBtn.addEventListener('click', async function(e) {
                 e.preventDefault();
                 e.stopPropagation();
                 console.log('Tombol Simpan diklik');
@@ -1387,7 +1379,6 @@ function openProspekNegosiasiModal(id) {
                 const tertarik = document.getElementById('negosiasi_tertarik').value;
                 const penawaran = document.getElementById('negosiasi_penawaran').value;
                 
-                // Cek apakah ada data yang diisi
                 const hasAnyData = aplikasi || domisili || transaksi || deposit || tertarik || penawaran;
                 if (!hasAnyData) {
                     showNotifTop('⚠️ Tidak ada data untuk disimpan!', true);
@@ -1398,7 +1389,6 @@ function openProspekNegosiasiModal(id) {
                     const { data: doc } = await window.db.from('prospek').select('*').eq('id', currentProspekId).single();
                     const existingData = doc.negosiasi_data || {};
                     
-                    // Cek apakah ada perubahan
                     const hasChanges = aplikasi !== (existingData.aplikasi || '') ||
                         domisili !== (existingData.domisili || '') ||
                         transaksi !== (existingData.transaksi || '') ||
@@ -1434,46 +1424,37 @@ function openProspekNegosiasiModal(id) {
                     if (error) throw error;
                     
                     showNotifTop(`💾 Data kuesioner berhasil disimpan. Deadline +3 hari menjadi ${newDeadline}`);
-                    modal.remove();
-                    document.body.classList.remove('modal-open');
-                    document.body.style.overflow = '';
+                    closeModalFix();
                     await loadProspek();
                     closeModal('detailModal');
                 } catch (err) {
                     console.error('Error:', err);
                     showNotifTop('❌ Gagal: ' + err.message, true);
                 }
-            };
+            });
         }
         
         // ========== TOMBOL BATAL ==========
-        const batalBtn = document.getElementById('negosiasiBatalBtn');
+        const batalBtn = document.getElementById('negosiasiBatalBtnFix');
         if (batalBtn) {
-            const newBatalBtn = batalBtn.cloneNode(true);
-            batalBtn.parentNode.replaceChild(newBatalBtn, batalBtn);
-            
-            newBatalBtn.onclick = function(e) {
+            batalBtn.addEventListener('click', function(e) {
                 e.preventDefault();
                 e.stopPropagation();
                 console.log('Tombol Batal diklik');
-                modal.remove();
-                document.body.classList.remove('modal-open');
-                document.body.style.overflow = '';
-            };
+                closeModalFix();
+            });
         }
         
         // Klik di luar modal untuk menutup
-        modal.onclick = (e) => {
+        modal.addEventListener('click', (e) => {
             if (e.target === modal) {
-                modal.remove();
-                document.body.classList.remove('modal-open');
-                document.body.style.overflow = '';
+                closeModalFix();
             }
-        };
+        });
         
     }).catch(err => {
         console.error('Error loading prospek data:', err);
-        showNotifTop('❌ Gagal memuat data prospek', true);
+        showNotifTop('❌ Gagal memuat data prospek: ' + err.message, true);
     });
 }
 
