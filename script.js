@@ -597,7 +597,8 @@ async function openDetailCustomer(id) {
                 ${customer.status === 'baru' ? `<button class="btn-primary" onclick="updateCustomerStatus('${id}', 'followup')">📞 Lanjut Follow Up</button>` : ''}
                 ${customer.status === 'followup' ? `<button class="btn-primary" onclick="openFollowupConfirm('${id}')">✅ Konfirmasi Follow Up</button>` : ''}
                 ${customer.status === 'pending' ? `<button class="btn-primary" onclick="openPendingModal('${id}')">📝 Kelola Pending</button>` : ''}
-                ${customer.status === 'pending' && customer.pending_data && customer.pending_data.length > 0 && customer.pending_data.every(i => i.checked && i.text) ? `<button class="btn-primary" onclick="updateCustomerStatus('${id}', 'closing')">🎉 Jadikan Closing</button>` : ''}
+                ${customer.status === 'pending' ? `<button class="btn-primary" onclick="updateCustomerStatus('${id}', 'closing')">🎉 Closing</button>` : ''}
+                ${customer.status === 'closing' ? `<button class="btn-primary" onclick="confirmClosingToDB('${id}')">📁 Pindah ke DB Closing</button>` : ''}
             </div>
         </div>
         <div class="detail-footer">
@@ -659,7 +660,8 @@ async function openDetailProspek(id) {
                 ${prospek.status === 'Baru' ? `<button class="btn-primary" onclick="updateProspekStatus('${id}', 'Dihubungi')">📞 Dihubungi</button>` : ''}
                 ${prospek.status === 'Dihubungi' ? `<button class="btn-primary" onclick="openProspekDihubungiConfirm('${id}')">✅ Konfirmasi Dihubungi</button>` : ''}
                 ${prospek.status === 'Negosiasi' ? `<button class="btn-primary" onclick="openProspekNegosiasiModal('${id}')">📝 Kelola Negosiasi</button>` : ''}
-                ${prospek.status === 'Tertarik' ? `<button class="btn-primary" onclick="showConvertToCustomerModal('${id}')">🔄 Jadikan Customer</button>` : ''}
+                ${prospek.status === 'Negosiasi' && prospek.negosiasi_data?.is_complete ? `<button class="btn-primary" onclick="updateProspekStatus('${id}', 'Tertarik')">⭐ Tertarik</button>` : ''}
+                ${prospek.status === 'Tertarik' ? `<button class="btn-primary" onclick="confirmTertarikToDB('${id}')">📁 Pindah ke DB Commitment</button>` : ''}
             </div>
         </div>
         <div class="detail-footer">
@@ -676,7 +678,7 @@ function openFollowupConfirm(id) {
     
     const modal = document.getElementById('followupConfirmModal');
     if (!modal) return;
-    modal.style.zIndex = '9999999';
+    modal.style.zIndex = '99999999';
     
     const cb1 = document.getElementById('followup_terkirim');
     const cb2 = document.getElementById('followup_dibalas');
@@ -746,7 +748,7 @@ function openProspekDihubungiConfirm(id) {
     
     const modal = document.getElementById('prospekDihubungiModal');
     if (!modal) return;
-    modal.style.zIndex = '9999999';
+    modal.style.zIndex = '99999999';
     
     const cb1 = document.getElementById('prospek_terkirim');
     const cb2 = document.getElementById('prospek_dibalas');
@@ -814,7 +816,7 @@ function openProspekDihubungiConfirm(id) {
 function openPendingModal(id) {
     currentPendingId = id;
     const modal = document.getElementById('pendingModal');
-    if (modal) modal.style.zIndex = '9999999';
+    if (modal) modal.style.zIndex = '99999999';
     
     window.db.from('customers').select('*').eq('id', id).single().then(({ data }) => {
         pendingItems = data.pending_data || [];
@@ -1270,14 +1272,159 @@ async function addProspek(nama, hp, deadline) {
     return true;
 }
 
+// ========== KONFIRMASI CLOSING KE DB ==========
+function confirmClosingToDB(id) {
+    const modal = document.createElement('div');
+    modal.className = 'modal';
+    modal.style.zIndex = '99999999';
+    modal.style.display = 'flex';
+    modal.innerHTML = `
+        <div class="modal-content" style="max-width: 400px;">
+            <h3>📋 Pindahkan ke Database Closing</h3>
+            <div class="modal-subtitle">Data customer akan dipindahkan ke Database Closing</div>
+            <div style="padding: 0 20px 20px 20px;">
+                <p style="margin-bottom: 16px;">Apakah Anda yakin ingin memindahkan customer ini ke <strong>DATABASE CLOSING</strong>?</p>
+                <div style="background: #fef3c7; padding: 12px; border-radius: 10px; margin-bottom: 16px;">
+                    <p style="font-size: 12px; color: #d97706; margin: 0;">⚠️ <strong>Peringatan:</strong> Data yang sudah dipindahkan TIDAK BISA dikembalikan ke Followup Agen!</p>
+                </div>
+                <div class="form-group">
+                    <label>Catatan Closing (Opsional)</label>
+                    <textarea id="closingNote" rows="3" placeholder="Contoh: Berhasil closing dengan produk A..." style="width:100%; padding: 10px; border-radius: 10px; border: 1px solid #e5e7eb;"></textarea>
+                </div>
+            </div>
+            <div class="modal-buttons">
+                <button id="confirmClosingToDBBtn" class="btn-primary">✅ Ya, Pindahkan ke Closing</button>
+                <button id="cancelClosingToDBBtn" class="btn-outline">❌ Batal</button>
+            </div>
+        </div>
+    `;
+    document.body.appendChild(modal);
+    
+    document.getElementById('confirmClosingToDBBtn').onclick = async () => {
+        const note = document.getElementById('closingNote').value;
+        const { data: doc } = await window.db.from('customers').select('*').eq('id', id).single();
+        if (doc) {
+            await window.db.from('db_closing').insert({
+                nama: doc.nama,
+                hp: doc.hp,
+                closing_date: new Date().toISOString(),
+                closing_note: note,
+                user_id: doc.user_id,
+                followup_data: doc.followup_data || null,
+                pending_data: doc.pending_data || []
+            });
+            await window.db.from('customers').delete().eq('id', id);
+            showNotifTop('✅ Data berhasil dipindahkan ke Database Closing!');
+            modal.remove();
+            await loadCustomers();
+            await loadDBClosing();
+            closeModal('detailModal');
+        }
+    };
+    
+    document.getElementById('cancelClosingToDBBtn').onclick = () => modal.remove();
+    modal.onclick = (e) => { if (e.target === modal) modal.remove(); };
+}
+
+// ========== KONFIRMASI PROSPEK TERTARIK KE DB COMMITMENT ==========
+function confirmTertarikToDB(prospekId) {
+    const modal = document.createElement('div');
+    modal.className = 'modal';
+    modal.style.zIndex = '99999999';
+    modal.style.display = 'flex';
+    modal.innerHTML = `
+        <div class="modal-content" style="max-width: 400px;">
+            <h3>📋 Pindahkan ke Database Commitment</h3>
+            <div class="modal-subtitle">Data prospek akan dipindahkan ke Database Commitment</div>
+            <div style="padding: 0 20px 20px 20px;">
+                <p style="margin-bottom: 16px;">Apakah Anda yakin ingin memindahkan prospek ini ke <strong>DATABASE COMMITMENT</strong>?</p>
+                <div style="background: #fef3c7; padding: 12px; border-radius: 10px; margin-bottom: 16px;">
+                    <p style="font-size: 12px; color: #d97706; margin: 0;">⚠️ <strong>Peringatan:</strong> Data yang sudah dipindahkan TIDAK BISA dikembalikan ke Prospek Agen!</p>
+                </div>
+                <div class="form-group">
+                    <label>ID Agent <span class="required">*</span></label>
+                    <input type="text" id="commitmentAgentId" placeholder="Contoh: AG-001" maxlength="17" style="width:100%; padding: 10px; border-radius: 10px; border: 1px solid #e5e7eb;">
+                    <small>ID Agent untuk customer yang commit</small>
+                </div>
+                <div class="form-group">
+                    <label>Aplikasi <span class="required">*</span></label>
+                    <select id="commitmentAplikasi" style="width:100%; padding: 10px; border-radius: 10px; border: 1px solid #e5e7eb;">
+                        <option value="">Pilih Aplikasi</option>
+                        <option value="GNP">GNP</option>
+                        <option value="BSB">BSB</option>
+                        <option value="BTN">BTN</option>
+                    </select>
+                </div>
+                <div class="form-group">
+                    <label>Catatan Commitment (Opsional)</label>
+                    <textarea id="commitmentNote" rows="2" placeholder="Contoh: Akan followup bulan depan..." style="width:100%; padding: 10px; border-radius: 10px; border: 1px solid #e5e7eb;"></textarea>
+                </div>
+            </div>
+            <div class="modal-buttons">
+                <button id="confirmTertarikToDBBtn" class="btn-primary">✅ Ya, Pindahkan ke Commitment</button>
+                <button id="cancelTertarikToDBBtn" class="btn-outline">❌ Batal</button>
+            </div>
+        </div>
+    `;
+    document.body.appendChild(modal);
+    
+    document.getElementById('confirmTertarikToDBBtn').onclick = async () => {
+        const agentId = document.getElementById('commitmentAgentId').value;
+        const aplikasi = document.getElementById('commitmentAplikasi').value;
+        const note = document.getElementById('commitmentNote').value;
+        
+        if (!agentId || !aplikasi) {
+            showNotifTop('⚠️ ID Agent dan Aplikasi wajib diisi!', true);
+            return;
+        }
+        
+        const { data: prospekDoc } = await window.db.from('prospek').select('*').eq('id', prospekId).single();
+        const data = prospekDoc;
+        
+        const { data: existing } = await window.db.from('db_commitment').select('id').eq('agent_id', agentId).maybeSingle();
+        if (existing) {
+            showNotifTop(`⚠️ ID Agent "${agentId}" sudah terdaftar di Commitment!`, true);
+            return;
+        }
+        
+        await window.db.from('db_commitment').insert({
+            nama: data.nama,
+            hp: data.hp,
+            negosiasi_data: data.negosiasi_data || null,
+            agent_id: agentId,
+            aplikasi: aplikasi,
+            commitment_note: note,
+            committed_at: new Date().toISOString(),
+            user_id: data.user_id,
+            original_prospek_id: prospekId
+        });
+        
+        await window.db.from('prospek').delete().eq('id', prospekId);
+        showNotifTop('✅ Data berhasil dipindahkan ke Database Commitment!');
+        modal.remove();
+        await loadProspek();
+        await loadDBCommitment();
+        closeModal('detailModal');
+    };
+    
+    document.getElementById('cancelTertarikToDBBtn').onclick = () => modal.remove();
+    modal.onclick = (e) => { if (e.target === modal) modal.remove(); };
+}
+
+
 async function updateCustomerStatus(id, newStatus) {
     const customer = customersData.find(c => c.id === id);
     if (!customer) return;
     
+    // Jika status closing, tampilkan konfirmasi pindah ke DB Closing
+    if (newStatus === 'closing') {
+        confirmClosingToDB(id);
+        return;
+    }
+    
     let daysToAdd = 1;
     if (newStatus === 'followup') daysToAdd = 3;
     else if (newStatus === 'pending') daysToAdd = 5;
-    else if (newStatus === 'closing') daysToAdd = 7;
     
     const newDeadline = addDaysToDate(customer.tanggal || getTodayDate(), daysToAdd);
     
@@ -1301,10 +1448,15 @@ async function updateProspekStatus(id, newStatus) {
     const prospek = prospekData.find(p => p.id === id);
     if (!prospek) return;
     
+    // Jika status Tertarik, tampilkan konfirmasi pindah ke DB Commitment
+    if (newStatus === 'Tertarik') {
+        confirmTertarikToDB(id);
+        return;
+    }
+    
     let daysToAdd = 1;
     if (newStatus === 'Dihubungi') daysToAdd = 3;
     else if (newStatus === 'Negosiasi') daysToAdd = 5;
-    else if (newStatus === 'Tertarik') daysToAdd = 7;
     
     const newDeadline = addDaysToDate(prospek.deadline || getTodayDate(), daysToAdd);
     
