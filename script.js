@@ -68,6 +68,7 @@ let currentTransaksiId = null;
 // Progress
 let activeProgress = null;
 let sidebarTimeout = null;
+let pendingItems = [];
 
 // ========== HELPER FUNCTIONS ==========
 function showNotif(msg, isError = false) {
@@ -152,6 +153,43 @@ function setupModalClickOutside(modalId) {
     modal.addEventListener('click', (e) => {
         if (e.target === modal) closeModal(modalId);
     });
+}
+
+// ========== VALIDATION FUNCTIONS ==========
+function validateAgentId(agentId) {
+    const regex = /^[A-Z0-9-]+$/;
+    if (!agentId) return false;
+    if (!regex.test(agentId)) return false;
+    if (agentId.length > 17) return false;
+    return true;
+}
+
+function validateNama(nama) {
+    const regex = /^[A-Za-z\s]+$/;
+    if (!nama) return false;
+    if (nama.length < 2) return false;
+    if (nama.length > 25) return false;
+    if (!regex.test(nama)) return false;
+    return true;
+}
+
+function validatePhone(hp) {
+    if (!hp) return false;
+    const cleanHp = hp.replace(/[^\d]/g, '');
+    if (!cleanHp.startsWith('8')) return false;
+    if (cleanHp.length < 9) return false;
+    if (cleanHp.length > 12) return false;
+    return true;
+}
+
+function formatNamaToCapital(input) {
+    if (!input) return '';
+    return input.toLowerCase().replace(/\b\w/g, char => char.toUpperCase());
+}
+
+function formatAgentIdToUpper(input) {
+    if (!input) return '';
+    return input.toUpperCase();
 }
 
 // ========== FLOATING PROGRESS ==========
@@ -487,30 +525,6 @@ function openWAById(customerId) {
     if (customer && customer.hp) openWA(customer.hp);
     const prospek = prospekData.find(p => p.id === customerId);
     if (prospek && prospek.hp) openWA(prospek.hp);
-}
-
-// ========== VALIDATION FUNCTIONS ==========
-function validateAgentId(agentId) {
-    const regex = /^[A-Z0-9-]+$/;
-    if (!agentId) return false;
-    if (!regex.test(agentId)) return false;
-    if (agentId.length > 20) return false;
-    return true;
-}
-
-function validateNama(nama) {
-    if (!nama) return false;
-    if (nama.length < 2) return false;
-    if (nama.length > 50) return false;
-    return true;
-}
-
-function validatePhone(hp) {
-    if (!hp) return false;
-    const cleanHp = hp.replace(/[^\d]/g, '');
-    if (cleanHp.length < 9) return false;
-    if (cleanHp.length > 13) return false;
-    return true;
 }
 
 // ========== LOAD DATA FUNCTIONS ==========
@@ -1103,6 +1117,182 @@ function toggleSelectAllFullProspek() {
     });
 }
 
+async function deleteSelectedFullFollowup() {
+    if (currentUserRole !== 'owner') {
+        showNotifTop('⚠️ Hanya Owner yang dapat menghapus massal!', true);
+        return;
+    }
+    
+    const selectedIds = Array.from(selectedFullFollowupIds.keys());
+    if (selectedIds.length === 0) {
+        showNotifTop('⚠️ Tidak ada data yang dipilih', true);
+        return;
+    }
+    
+    if (!confirm(`Hapus ${selectedIds.length} data customer?`)) return;
+    
+    const progress = showFloatingProgress('🗑️ Menghapus Data', selectedIds.length);
+    let deleted = 0;
+    
+    for (const id of selectedIds) {
+        try {
+            await window.db.from('customers').delete().eq('id', id);
+            selectedFullFollowupIds.delete(id);
+            deleted++;
+            progress.update(Math.floor((deleted / selectedIds.length) * 100), 'Menghapus', `Memproses...`, deleted, selectedIds.length);
+            await delay(50);
+        } catch (e) {
+            console.error(`Gagal hapus ${id}:`, e);
+        }
+    }
+    
+    progress.update(100, 'Selesai', `Berhasil menghapus ${deleted} data`, deleted, selectedIds.length);
+    showNotifTop(`✅ ${deleted} data berhasil dihapus`);
+    setTimeout(() => progress.hide(), 2000);
+    
+    await loadCustomers();
+    renderFullFollowupKanban();
+}
+
+async function deleteSelectedFullProspek() {
+    if (currentUserRole !== 'owner') {
+        showNotifTop('⚠️ Hanya Owner yang dapat menghapus massal!', true);
+        return;
+    }
+    
+    const selectedIds = Array.from(selectedFullProspekIds.keys());
+    if (selectedIds.length === 0) {
+        showNotifTop('⚠️ Tidak ada data yang dipilih', true);
+        return;
+    }
+    
+    if (!confirm(`Hapus ${selectedIds.length} data prospek?`)) return;
+    
+    const progress = showFloatingProgress('🗑️ Menghapus Data Prospek', selectedIds.length);
+    let deleted = 0;
+    
+    for (const id of selectedIds) {
+        try {
+            await window.db.from('prospek').delete().eq('id', id);
+            selectedFullProspekIds.delete(id);
+            deleted++;
+            progress.update(Math.floor((deleted / selectedIds.length) * 100), 'Menghapus', `Memproses...`, deleted, selectedIds.length);
+            await delay(50);
+        } catch (e) {
+            console.error(`Gagal hapus ${id}:`, e);
+        }
+    }
+    
+    progress.update(100, 'Selesai', `Berhasil menghapus ${deleted} data`, deleted, selectedIds.length);
+    showNotifTop(`✅ ${deleted} data berhasil dihapus`);
+    setTimeout(() => progress.hide(), 2000);
+    
+    await loadProspek();
+    renderFullProspekKanban();
+}
+
+async function deleteAllFullFollowup() {
+    if (currentUserRole !== 'owner') {
+        showNotifTop('⚠️ Hanya Owner yang dapat menghapus semua data!', true);
+        return;
+    }
+    
+    if (!confirm('⚠️ PERINGATAN! Anda akan menghapus SEMUA data Followup Agen. Tidak bisa dibatalkan!')) return;
+    
+    const progress = showFloatingProgress('🗑️ Menghapus Semua Followup', 0);
+    progress.update(0, 'Menghapus', 'Mengambil data...');
+    
+    let query = window.db.from('customers').select('id');
+    if (currentUserRole !== 'owner') query = query.eq('user_id', currentUser.id);
+    
+    const { data, error } = await query;
+    if (error) {
+        showNotifTop('❌ Gagal: ' + error.message, true);
+        progress.hide();
+        return;
+    }
+    
+    const totalData = data.length;
+    progress.setTotal(totalData);
+    
+    if (totalData === 0) {
+        showNotifTop('📭 Tidak ada data untuk dihapus', true);
+        progress.hide();
+        return;
+    }
+    
+    let deleted = 0;
+    for (const item of data) {
+        try {
+            await window.db.from('customers').delete().eq('id', item.id);
+            deleted++;
+            progress.update(Math.floor((deleted / totalData) * 100), 'Menghapus', `Memproses...`, deleted, totalData);
+            await delay(30);
+        } catch (e) {
+            console.error('Gagal hapus:', e);
+        }
+    }
+    
+    selectedFullFollowupIds.clear();
+    progress.update(100, 'Selesai', `Berhasil menghapus ${deleted} data`, deleted, totalData);
+    showNotifTop(`✅ ${deleted} data Followup berhasil dihapus`);
+    setTimeout(() => progress.hide(), 2000);
+    
+    await loadCustomers();
+    renderFullFollowupKanban();
+}
+
+async function deleteAllFullProspek() {
+    if (currentUserRole !== 'owner') {
+        showNotifTop('⚠️ Hanya Owner yang dapat menghapus semua data!', true);
+        return;
+    }
+    
+    if (!confirm('⚠️ PERINGATAN! Anda akan menghapus SEMUA data Prospek Agen. Tidak bisa dibatalkan!')) return;
+    
+    const progress = showFloatingProgress('🗑️ Menghapus Semua Prospek', 0);
+    progress.update(0, 'Menghapus', 'Mengambil data...');
+    
+    let query = window.db.from('prospek').select('id');
+    if (currentUserRole !== 'owner') query = query.eq('user_id', currentUser.id);
+    
+    const { data, error } = await query;
+    if (error) {
+        showNotifTop('❌ Gagal: ' + error.message, true);
+        progress.hide();
+        return;
+    }
+    
+    const totalData = data.length;
+    progress.setTotal(totalData);
+    
+    if (totalData === 0) {
+        showNotifTop('📭 Tidak ada data untuk dihapus', true);
+        progress.hide();
+        return;
+    }
+    
+    let deleted = 0;
+    for (const item of data) {
+        try {
+            await window.db.from('prospek').delete().eq('id', item.id);
+            deleted++;
+            progress.update(Math.floor((deleted / totalData) * 100), 'Menghapus', `Memproses...`, deleted, totalData);
+            await delay(30);
+        } catch (e) {
+            console.error('Gagal hapus:', e);
+        }
+    }
+    
+    selectedFullProspekIds.clear();
+    progress.update(100, 'Selesai', `Berhasil menghapus ${deleted} data`, deleted, totalData);
+    showNotifTop(`✅ ${deleted} data Prospek berhasil dihapus`);
+    setTimeout(() => progress.hide(), 2000);
+    
+    await loadProspek();
+    renderFullProspekKanban();
+}
+
 // ========== DATABASE RENDER FUNCTIONS ==========
 function renderAgentList(items) {
     const container = document.getElementById('dbAgentList');
@@ -1297,6 +1487,7 @@ function updateSelectAllTransaksiButton() {
     btn.textContent = allChecked ? '⬜ Batal Semua' : '✅ Pilih Semua';
 }
 
+// ========== DATABASE RENDER FUNCTIONS (LANJUTAN) ==========
 function renderDBClosing(items) {
     const container = document.getElementById('dbClosingList');
     if (!container) return;
@@ -1685,27 +1876,24 @@ async function deleteDBItem(collection, id) {
     else if (collection === 'db_commitment') await loadDBCommitment();
 }
 
-async function deleteSelectedFullFollowup() {
-    if (currentUserRole !== 'owner') {
-        showNotifTop('⚠️ Hanya Owner yang dapat menghapus massal!', true);
-        return;
-    }
-    
-    const selectedIds = Array.from(selectedFullFollowupIds.keys());
+async function deleteSelectedProduk() {
+    const selectedIds = Array.from(selectedProdukIds.keys());
     if (selectedIds.length === 0) {
-        showNotifTop('⚠️ Tidak ada data yang dipilih', true);
+        showNotifTop('⚠️ Tidak ada produk yang dipilih', true);
         return;
     }
     
-    if (!confirm(`Hapus ${selectedIds.length} data customer?`)) return;
+    if (!confirm(`Hapus ${selectedIds.length} produk yang dipilih?`)) return;
     
-    const progress = showFloatingProgress('🗑️ Menghapus Data', selectedIds.length);
+    const progress = showFloatingProgress('🗑️ Menghapus Produk', selectedIds.length);
     let deleted = 0;
     
     for (const id of selectedIds) {
         try {
-            await window.db.from('customers').delete().eq('id', id);
-            selectedFullFollowupIds.delete(id);
+            await window.db.from('produk').delete().eq('id', id);
+            selectedProdukIds.delete(id);
+            const index = produkData.findIndex(p => p.id === id);
+            if (index !== -1) produkData.splice(index, 1);
             deleted++;
             progress.update(Math.floor((deleted / selectedIds.length) * 100), 'Menghapus', `Memproses...`, deleted, selectedIds.length);
             await delay(50);
@@ -1714,166 +1902,61 @@ async function deleteSelectedFullFollowup() {
         }
     }
     
-    progress.update(100, 'Selesai', `Berhasil menghapus ${deleted} data`, deleted, selectedIds.length);
-    showNotifTop(`✅ ${deleted} data berhasil dihapus`);
+    renderProdukList();
+    progress.update(100, 'Selesai', `Berhasil menghapus ${selectedIds.length} produk`, selectedIds.length, selectedIds.length);
+    showNotifTop(`✅ ${selectedIds.length} produk berhasil dihapus`);
     setTimeout(() => progress.hide(), 2000);
-    
-    await loadCustomers();
-    renderFullFollowupKanban();
 }
 
-async function deleteSelectedFullProspek() {
-    if (currentUserRole !== 'owner') {
-        showNotifTop('⚠️ Hanya Owner yang dapat menghapus massal!', true);
-        return;
-    }
+async function deleteAllProduk() {
+    if (!confirm('⚠️ Hapus SEMUA data Produk? Tidak bisa dibatalkan!')) return;
     
-    const selectedIds = Array.from(selectedFullProspekIds.keys());
-    if (selectedIds.length === 0) {
-        showNotifTop('⚠️ Tidak ada data yang dipilih', true);
-        return;
-    }
-    
-    if (!confirm(`Hapus ${selectedIds.length} data prospek?`)) return;
-    
-    const progress = showFloatingProgress('🗑️ Menghapus Data Prospek', selectedIds.length);
-    let deleted = 0;
-    
-    for (const id of selectedIds) {
-        try {
-            await window.db.from('prospek').delete().eq('id', id);
-            selectedFullProspekIds.delete(id);
-            deleted++;
-            progress.update(Math.floor((deleted / selectedIds.length) * 100), 'Menghapus', `Memproses...`, deleted, selectedIds.length);
-            await delay(50);
-        } catch (e) {
-            console.error(`Gagal hapus ${id}:`, e);
-        }
-    }
-    
-    progress.update(100, 'Selesai', `Berhasil menghapus ${deleted} data`, deleted, selectedIds.length);
-    showNotifTop(`✅ ${deleted} data berhasil dihapus`);
-    setTimeout(() => progress.hide(), 2000);
-    
-    await loadProspek();
-    renderFullProspekKanban();
-}
-
-async function deleteAllFullFollowup() {
-    if (currentUserRole !== 'owner') {
-        showNotifTop('⚠️ Hanya Owner yang dapat menghapus semua data!', true);
-        return;
-    }
-    
-    if (!confirm('⚠️ PERINGATAN! Anda akan menghapus SEMUA data Followup Agen. Tidak bisa dibatalkan!')) return;
-    
-    const progress = showFloatingProgress('🗑️ Menghapus Semua Followup', 0);
-    progress.update(0, 'Menghapus', 'Mengambil data...');
-    
-    let query = window.db.from('customers').select('id');
-    if (currentUserRole !== 'owner') query = query.eq('user_id', currentUser.id);
-    
-    const { data, error } = await query;
+    const { data, error } = await window.db.from('produk').select('id');
     if (error) {
         showNotifTop('❌ Gagal: ' + error.message, true);
-        progress.hide();
         return;
     }
     
-    const totalData = data.length;
-    progress.setTotal(totalData);
-    
-    if (totalData === 0) {
-        showNotifTop('📭 Tidak ada data untuk dihapus', true);
-        progress.hide();
-        return;
-    }
-    
+    const progress = showFloatingProgress('🗑️ Menghapus Semua Produk', data.length);
     let deleted = 0;
+    
     for (const item of data) {
         try {
-            await window.db.from('customers').delete().eq('id', item.id);
+            await window.db.from('produk').delete().eq('id', item.id);
             deleted++;
-            progress.update(Math.floor((deleted / totalData) * 100), 'Menghapus', `Memproses...`, deleted, totalData);
+            progress.update(Math.floor((deleted / data.length) * 100), 'Menghapus', `Memproses...`, deleted, data.length);
             await delay(30);
         } catch (e) {
             console.error('Gagal hapus:', e);
         }
     }
     
-    selectedFullFollowupIds.clear();
-    progress.update(100, 'Selesai', `Berhasil menghapus ${deleted} data`, deleted, totalData);
-    showNotifTop(`✅ ${deleted} data Followup berhasil dihapus`);
+    selectedProdukIds.clear();
+    produkData = [];
+    renderProdukList();
+    progress.update(100, 'Selesai', `Berhasil menghapus ${deleted} data`, deleted, data.length);
+    showNotifTop(`✅ ${deleted} data Produk berhasil dihapus`);
     setTimeout(() => progress.hide(), 2000);
-    
-    await loadCustomers();
-    renderFullFollowupKanban();
-}
-
-async function deleteAllFullProspek() {
-    if (currentUserRole !== 'owner') {
-        showNotifTop('⚠️ Hanya Owner yang dapat menghapus semua data!', true);
-        return;
-    }
-    
-    if (!confirm('⚠️ PERINGATAN! Anda akan menghapus SEMUA data Prospek Agen. Tidak bisa dibatalkan!')) return;
-    
-    const progress = showFloatingProgress('🗑️ Menghapus Semua Prospek', 0);
-    progress.update(0, 'Menghapus', 'Mengambil data...');
-    
-    let query = window.db.from('prospek').select('id');
-    if (currentUserRole !== 'owner') query = query.eq('user_id', currentUser.id);
-    
-    const { data, error } = await query;
-    if (error) {
-        showNotifTop('❌ Gagal: ' + error.message, true);
-        progress.hide();
-        return;
-    }
-    
-    const totalData = data.length;
-    progress.setTotal(totalData);
-    
-    if (totalData === 0) {
-        showNotifTop('📭 Tidak ada data untuk dihapus', true);
-        progress.hide();
-        return;
-    }
-    
-    let deleted = 0;
-    for (const item of data) {
-        try {
-            await window.db.from('prospek').delete().eq('id', item.id);
-            deleted++;
-            progress.update(Math.floor((deleted / totalData) * 100), 'Menghapus', `Memproses...`, deleted, totalData);
-            await delay(30);
-        } catch (e) {
-            console.error('Gagal hapus:', e);
-        }
-    }
-    
-    selectedFullProspekIds.clear();
-    progress.update(100, 'Selesai', `Berhasil menghapus ${deleted} data`, deleted, totalData);
-    showNotifTop(`✅ ${deleted} data Prospek berhasil dihapus`);
-    setTimeout(() => progress.hide(), 2000);
-    
-    await loadProspek();
-    renderFullProspekKanban();
 }
 
 // ========== CRUD OPERATIONS ==========
 async function addCustomer(agentId, nama, hp, apk, uplineName, deadline) {
+    // Format input
+    const formattedAgentId = formatAgentIdToUpper(agentId);
+    const formattedNama = formatNamaToCapital(nama);
+    let formattedHp = hp || '';
+    
     // Validasi input
-    if (!validateAgentId(agentId)) {
-        showNotifTop('⚠️ ID Agent hanya boleh huruf besar, angka, dan tanda hubung (max 20 karakter)!', true);
+    if (!validateAgentId(formattedAgentId)) {
+        showNotifTop('⚠️ ID Agent hanya boleh huruf besar, angka, dan tanda hubung (max 17 karakter)!', true);
         return false;
     }
-    if (!validateNama(nama)) {
-        showNotifTop('⚠️ Nama harus minimal 2 karakter dan maksimal 50 karakter!', true);
+    if (!validateNama(formattedNama)) {
+        showNotifTop('⚠️ Nama harus huruf saja, minimal 2 karakter, maksimal 25 karakter!', true);
         return false;
     }
-    if (hp && !validatePhone(hp)) {
-        showNotifTop('⚠️ Nomor WhatsApp harus 9-13 digit angka!', true);
+    if (formattedHp && !validatePhone(formattedHp)) {
+        showNotifTop('⚠️ Nomor WhatsApp harus diawali angka 8, 9-12 digit angka!', true);
         return false;
     }
     
@@ -1881,18 +1964,18 @@ async function addCustomer(agentId, nama, hp, apk, uplineName, deadline) {
     const { data: existing } = await window.db
         .from('customers')
         .select('id')
-        .eq('agent_id', agentId.toUpperCase())
+        .eq('agent_id', formattedAgentId)
         .maybeSingle();
     
     if (existing) {
-        showNotifTop(`⚠️ ID Agent "${agentId}" sudah terdaftar!`, true);
+        showNotifTop(`⚠️ ID Agent "${formattedAgentId}" sudah terdaftar!`, true);
         return false;
     }
     
     const { error } = await window.db.from('customers').insert({
-        agent_id: agentId.toUpperCase(),
-        nama: nama,
-        hp: hp || '',
+        agent_id: formattedAgentId,
+        nama: formattedNama,
+        hp: formattedHp,
         apk: apk || null,
         upline_name: uplineName || null,
         tanggal: deadline,
@@ -1913,19 +1996,23 @@ async function addCustomer(agentId, nama, hp, apk, uplineName, deadline) {
 }
 
 async function addProspek(nama, hp, deadline) {
+    // Format input
+    const formattedNama = formatNamaToCapital(nama);
+    let formattedHp = hp || '';
+    
     // Validasi input
-    if (!validateNama(nama)) {
-        showNotifTop('⚠️ Nama harus minimal 2 karakter dan maksimal 50 karakter!', true);
+    if (!validateNama(formattedNama)) {
+        showNotifTop('⚠️ Nama harus huruf saja, minimal 2 karakter, maksimal 25 karakter!', true);
         return false;
     }
-    if (hp && !validatePhone(hp)) {
-        showNotifTop('⚠️ Nomor WhatsApp harus 9-13 digit angka!', true);
+    if (formattedHp && !validatePhone(formattedHp)) {
+        showNotifTop('⚠️ Nomor WhatsApp harus diawali angka 8, 9-12 digit angka!', true);
         return false;
     }
     
     const { error } = await window.db.from('prospek').insert({
-        nama: nama,
-        hp: hp || '',
+        nama: formattedNama,
+        hp: formattedHp,
         deadline: deadline,
         status: 'Baru',
         user_id: currentUser.id,
@@ -1948,9 +2035,30 @@ async function updateCustomerStatus(id, newStatus) {
     if (!customer) return;
     
     let daysToAdd = 1;
-    if (newStatus === 'followup') daysToAdd = 3;
-    else if (newStatus === 'pending') daysToAdd = 5;
-    else if (newStatus === 'closing') daysToAdd = 7;
+    let showConfirm = false;
+    
+    if (newStatus === 'followup') {
+        daysToAdd = 3;
+        showConfirm = true;
+    } else if (newStatus === 'pending') {
+        daysToAdd = 5;
+        showConfirm = true;
+    } else if (newStatus === 'closing') {
+        daysToAdd = 7;
+        showConfirm = true;
+    }
+    
+    if (showConfirm) {
+        // Untuk followup ke pending, tampilkan modal konfirmasi
+        if (newStatus === 'pending') {
+            openFollowupConfirm(id);
+            return;
+        }
+        
+        if (!confirm(`Lanjutkan ke ${newStatus === 'followup' ? 'Follow Up' : newStatus}? Deadline akan bertambah ${daysToAdd} hari.`)) {
+            return;
+        }
+    }
     
     const newDeadline = addDaysToDate(customer.tanggal || getTodayDate(), daysToAdd);
     
@@ -1975,9 +2083,18 @@ async function updateProspekStatus(id, newStatus) {
     if (!prospek) return;
     
     let daysToAdd = 1;
-    if (newStatus === 'Dihubungi') daysToAdd = 3;
-    else if (newStatus === 'Negosiasi') daysToAdd = 5;
-    else if (newStatus === 'Tertarik') daysToAdd = 7;
+    
+    if (newStatus === 'Dihubungi') {
+        daysToAdd = 3;
+        openProspekDihubungiConfirm(id);
+        return;
+    } else if (newStatus === 'Negosiasi') {
+        daysToAdd = 5;
+        if (!confirm(`Lanjutkan ke Negosiasi? Deadline akan bertambah ${daysToAdd} hari.`)) return;
+    } else if (newStatus === 'Tertarik') {
+        daysToAdd = 7;
+        if (!confirm(`Lanjutkan ke Tertarik? Deadline akan bertambah ${daysToAdd} hari.`)) return;
+    }
     
     const newDeadline = addDaysToDate(prospek.deadline || getTodayDate(), daysToAdd);
     
@@ -2341,6 +2458,568 @@ function clearTarifForm() {
     document.getElementById('tarifNontaglis').value = '';
 }
 
+// ========== FOLLOWUP CONFIRMATION FUNCTIONS ==========
+function openFollowupConfirm(id) {
+    currentPendingId = id;
+    
+    const modal = document.getElementById('followupConfirmModal');
+    if (!modal) return;
+    
+    const cb1 = document.getElementById('followup_terkirim');
+    const cb2 = document.getElementById('followup_dibalas');
+    const yesBtn = document.getElementById('followupConfirmYes');
+    const noBtn = document.getElementById('followupConfirmNo');
+    
+    if (!cb1 || !cb2 || !yesBtn || !noBtn) return;
+    
+    cb1.checked = false;
+    cb2.checked = false;
+    yesBtn.disabled = true;
+    noBtn.disabled = false;
+    
+    function updateYesButton() {
+        yesBtn.disabled = !(cb1.checked && cb2.checked);
+    }
+    
+    cb1.onclick = updateYesButton;
+    cb2.onclick = updateYesButton;
+    
+    yesBtn.onclick = async () => {
+        if (yesBtn.disabled) {
+            showNotifTop('⚠️ Harap centang kedua checklist terlebih dahulu!', true);
+            return;
+        }
+        
+        const doc = await window.db.from('customers').select('*').eq('id', id).single();
+        const currentDeadline = doc.data.tanggal || getTodayDate();
+        const newDeadline = addDaysToDate(currentDeadline, 5);
+        
+        await window.db.from('customers').update({
+            followup_data: { terkirim: true, dibalas: true, timestamp: new Date().toISOString() },
+            status: 'pending',
+            tanggal: newDeadline
+        }).eq('id', id);
+        
+        closeModal('followupConfirmModal');
+        showNotifTop(`✅ Customer dipindahkan ke Pending. Deadline +5 hari menjadi ${newDeadline}`);
+        await loadCustomers();
+        closeModal('detailModal');
+    };
+    
+    noBtn.onclick = async () => {
+        const doc = await window.db.from('customers').select('*').eq('id', id).single();
+        const data = doc.data;
+        
+        if (confirm(`Pindahkan "${escapeHtml(data.nama)}" ke Database Nomor Salah?`)) {
+            await window.db.from('nomor_salah').insert({
+                nama: data.nama,
+                hp: data.hp,
+                alasan: 'Nomor tidak bisa dihubungi / tidak aktif',
+                deleted_at: new Date().toISOString(),
+                user_id: data.user_id
+            });
+            await window.db.from('customers').delete().eq('id', id);
+            showNotifTop('📵 Data dipindahkan ke Database Nomor Salah');
+            closeModal('followupConfirmModal');
+            await loadCustomers();
+            closeModal('detailModal');
+        }
+    };
+    
+    showModal('followupConfirmModal');
+}
+
+// ========== PROSPEK DIHUBUNGI CONFIRMATION ==========
+function openProspekDihubungiConfirm(id) {
+    currentProspekId = id;
+    
+    const modal = document.getElementById('prospekDihubungiModal');
+    if (!modal) return;
+    
+    const cb1 = document.getElementById('prospek_terkirim');
+    const cb2 = document.getElementById('prospek_dibalas');
+    const yesBtn = document.getElementById('prospekConfirmYes');
+    const noBtn = document.getElementById('prospekConfirmNo');
+    
+    if (!cb1 || !cb2 || !yesBtn || !noBtn) return;
+    
+    cb1.checked = false;
+    cb2.checked = false;
+    yesBtn.disabled = true;
+    noBtn.disabled = false;
+    
+    function updateYesButton() {
+        yesBtn.disabled = !(cb1.checked && cb2.checked);
+    }
+    
+    cb1.onclick = updateYesButton;
+    cb2.onclick = updateYesButton;
+    
+    yesBtn.onclick = async () => {
+        if (yesBtn.disabled) {
+            showNotifTop('⚠️ Harap centang kedua checklist terlebih dahulu!', true);
+            return;
+        }
+        
+        const doc = await window.db.from('prospek').select('*').eq('id', id).single();
+        const currentDeadline = doc.data.deadline || getTodayDate();
+        const newDeadline = addDaysToDate(currentDeadline, 5);
+        
+        await window.db.from('prospek').update({
+            dihubungi_data: { terkirim: true, dibalas: true, timestamp: new Date().toISOString() },
+            status: 'Negosiasi',
+            deadline: newDeadline
+        }).eq('id', id);
+        
+        closeModal('prospekDihubungiModal');
+        showNotifTop(`✅ Prospek dipindahkan ke Negosiasi. Deadline +5 hari menjadi ${newDeadline}`);
+        await loadProspek();
+        closeModal('detailModal');
+    };
+    
+    noBtn.onclick = async () => {
+        const doc = await window.db.from('prospek').select('*').eq('id', id).single();
+        const data = doc.data;
+        
+        if (confirm(`Pindahkan "${escapeHtml(data.nama)}" ke Database Nomor Salah?`)) {
+            await window.db.from('nomor_salah').insert({
+                nama: data.nama,
+                hp: data.hp,
+                alasan: 'Nomor tidak bisa dihubungi / tidak aktif',
+                deleted_at: new Date().toISOString(),
+                user_id: data.user_id
+            });
+            await window.db.from('prospek').delete().eq('id', id);
+            showNotifTop('📵 Data dipindahkan ke Database Nomor Salah');
+            closeModal('prospekDihubungiModal');
+            await loadProspek();
+            closeModal('detailModal');
+        }
+    };
+    
+    showModal('prospekDihubungiModal');
+}
+
+// ========== PENDING MODAL FUNCTIONS ==========
+function openPendingModal(id) {
+    currentPendingId = id;
+    window.db.from('customers').select('*').eq('id', id).single().then(({ data }) => {
+        pendingItems = data.pending_data || [];
+        renderPendingModal();
+        showModal('pendingModal');
+    });
+}
+
+function renderPendingModal() {
+    const container = document.getElementById('pendingItemsContainer');
+    if (!container) return;
+    
+    container.innerHTML = '';
+    
+    if (pendingItems.length === 0) {
+        const emptyDiv = document.createElement('div');
+        emptyDiv.style.textAlign = 'center';
+        emptyDiv.style.padding = '20px';
+        emptyDiv.style.color = '#9ca3af';
+        emptyDiv.innerHTML = 'Belum ada catatan pending. Klik "+ Tambah Balasan" untuk menambahkan.';
+        container.appendChild(emptyDiv);
+    }
+    
+    pendingItems.forEach((item, idx) => {
+        const div = document.createElement('div');
+        div.className = 'pending-item';
+        div.style.display = 'flex';
+        div.style.alignItems = 'center';
+        div.style.gap = '8px';
+        div.style.marginBottom = '8px';
+        div.style.padding = '8px';
+        div.style.background = '#f9fafb';
+        div.style.borderRadius = '8px';
+        div.innerHTML = `
+            <input type="text" value="${escapeHtml(item.text)}" placeholder="Balasan/respon..." style="flex:1; padding: 6px; border-radius: 6px; border: 1px solid #e5e7eb;">
+            <input type="checkbox" ${item.checked ? 'checked' : ''} style="width: 20px; height: 20px;">
+            <button class="delete-pending-item" data-idx="${idx}" style="background: none; border: none; cursor: pointer; font-size: 16px;">🗑️</button>
+        `;
+        const textInput = div.querySelector('input[type="text"]');
+        const checkBox = div.querySelector('input[type="checkbox"]');
+        const delBtn = div.querySelector('.delete-pending-item');
+        
+        textInput.addEventListener('change', (e) => {
+            pendingItems[idx].text = e.target.value;
+            updatePendingButtons();
+        });
+        checkBox.addEventListener('change', (e) => {
+            pendingItems[idx].checked = e.target.checked;
+            updatePendingButtons();
+        });
+        delBtn.addEventListener('click', () => {
+            pendingItems.splice(idx, 1);
+            renderPendingModal();
+            updatePendingButtons();
+        });
+        container.appendChild(div);
+    });
+    
+    const addBtn = document.getElementById('addPendingItemBtn');
+    if (addBtn) {
+        const newAddBtn = addBtn.cloneNode(true);
+        addBtn.parentNode.replaceChild(newAddBtn, addBtn);
+        newAddBtn.onclick = () => {
+            pendingItems.push({ text: '', checked: false });
+            renderPendingModal();
+            updatePendingButtons();
+        };
+    }
+    
+    updatePendingButtons();
+}
+
+function updatePendingButtons() {
+    const allFilledAndChecked = pendingItems.length > 0 && pendingItems.every(item => item.checked === true && item.text.trim() !== '');
+    
+    const finishBtn = document.getElementById('pendingFinishBtn');
+    if (finishBtn) {
+        if (allFilledAndChecked) {
+            finishBtn.disabled = false;
+            const newFinishBtn = finishBtn.cloneNode(true);
+            finishBtn.parentNode.replaceChild(newFinishBtn, finishBtn);
+            newFinishBtn.onclick = async () => {
+                await window.db.from('customers').doc(currentPendingId).update({ pending_data: pendingItems });
+                await confirmClosing(currentPendingId);
+                closeModal('pendingModal');
+            };
+        } else {
+            finishBtn.disabled = true;
+        }
+    }
+    
+    const saveBtn = document.getElementById('pendingSaveBtn');
+    if (saveBtn) {
+        const newSaveBtn = saveBtn.cloneNode(true);
+        saveBtn.parentNode.replaceChild(newSaveBtn, saveBtn);
+        newSaveBtn.onclick = async () => {
+            const { data: doc } = await window.db.from('customers').select('*').eq('id', currentPendingId).single();
+            const oldPendingData = doc.pending_data || [];
+            
+            let hasChanges = false;
+            if (pendingItems.length !== oldPendingData.length) {
+                hasChanges = true;
+            } else {
+                for (let i = 0; i < pendingItems.length; i++) {
+                    const newItem = pendingItems[i];
+                    const oldItem = oldPendingData[i] || {};
+                    if (newItem.text !== oldItem.text || newItem.checked !== oldItem.checked) {
+                        hasChanges = true;
+                        break;
+                    }
+                }
+            }
+            
+            const hasAnyData = pendingItems.some(item => item.text && item.text.trim() !== '');
+            
+            if (!hasAnyData) {
+                showNotifTop('⚠️ Minimal isi satu balasan sebelum menyimpan!', true);
+                return;
+            }
+            
+            if (!hasChanges) {
+                showNotifTop('⚠️ Tidak ada perubahan data!', true);
+                return;
+            }
+            
+            const newDeadline = addDaysToDate(doc.tanggal || getTodayDate(), 3);
+            await window.db.from('customers').update({
+                pending_data: pendingItems,
+                tanggal: newDeadline
+            }).eq('id', currentPendingId);
+            
+            showNotifTop(`💾 Data pending berhasil disimpan. Deadline +3 hari menjadi ${newDeadline}`);
+            closeModal('pendingModal');
+            await loadCustomers();
+        };
+    }
+    
+    const cancelBtn = document.getElementById('pendingCancelBtn');
+    if (cancelBtn) {
+        const newCancelBtn = cancelBtn.cloneNode(true);
+        cancelBtn.parentNode.replaceChild(newCancelBtn, cancelBtn);
+        newCancelBtn.onclick = () => {
+            closeModal('pendingModal');
+        };
+    }
+}
+
+async function confirmClosing(id) {
+    if (!confirm('Apakah Anda yakin ingin memindahkan data ini ke DATABASE CLOSING?')) return;
+    
+    const { data: doc } = await window.db.from('customers').select('*').eq('id', id).single();
+    if (doc) {
+        await window.db.from('db_closing').insert({
+            nama: doc.nama,
+            hp: doc.hp,
+            closing_date: new Date().toISOString(),
+            user_id: doc.user_id,
+            followup_data: doc.followup_data || null,
+            pending_data: doc.pending_data || []
+        });
+        await window.db.from('customers').delete().eq('id', id);
+        showNotifTop('✅ Data berhasil masuk Database Closing!');
+        await loadCustomers();
+        await loadDBClosing();
+    }
+}
+
+// ========== PROSPEK NEGOSIASI MODAL ==========
+function openProspekNegosiasiModal(id) {
+    currentProspekId = id;
+    
+    const fields = ['prospek_aplikasi', 'prospek_domisili', 'prospek_transaksi', 'prospek_deposit', 'prospek_tertarik', 'prospek_penawaran'];
+    fields.forEach(f => document.getElementById(f).value = '');
+    
+    window.db.from('prospek').select('*').eq('id', id).single().then(({ data }) => {
+        if (data.negosiasi_data) {
+            document.getElementById('prospek_aplikasi').value = data.negosiasi_data.aplikasi || '';
+            document.getElementById('prospek_domisili').value = data.negosiasi_data.domisili || '';
+            document.getElementById('prospek_transaksi').value = data.negosiasi_data.transaksi || '';
+            document.getElementById('prospek_deposit').value = data.negosiasi_data.deposit || '';
+            document.getElementById('prospek_tertarik').value = data.negosiasi_data.tertarik || '';
+            document.getElementById('prospek_penawaran').value = data.negosiasi_data.penawaran || '';
+        }
+    });
+    
+    const modal = document.getElementById('prospekNegosiasiModal');
+    if (!modal) return;
+    
+    document.getElementById('negosiasiTertarikBtn').onclick = async () => {
+        const aplikasi = document.getElementById('prospek_aplikasi').value;
+        const domisili = document.getElementById('prospek_domisili').value;
+        const transaksi = document.getElementById('prospek_transaksi').value;
+        const deposit = document.getElementById('prospek_deposit').value;
+        const tertarik = document.getElementById('prospek_tertarik').value;
+        const penawaran = document.getElementById('prospek_penawaran').value;
+        
+        if (!aplikasi || !domisili || !transaksi || !deposit || !tertarik || !penawaran) {
+            showNotifTop('⚠️ Semua field harus diisi!', true);
+            return;
+        }
+        
+        if (confirm('Apakah data kuesioner sudah lengkap dan prospek tertarik?')) {
+            const negosiasi_data = {
+                aplikasi, domisili, transaksi, deposit, tertarik, penawaran,
+                timestamp: new Date().toISOString()
+            };
+            await window.db.from('prospek').update({
+                status: 'Tertarik',
+                negosiasi_data: negosiasi_data
+            }).eq('id', currentProspekId);
+            showNotifTop('✅ Prospek dipindahkan ke Tertarik');
+            closeModal('prospekNegosiasiModal');
+            await loadProspek();
+            closeModal('detailModal');
+        }
+    };
+    
+    document.getElementById('negosiasiTidakTertarikBtn').onclick = async () => {
+        const aplikasi = document.getElementById('prospek_aplikasi').value;
+        const domisili = document.getElementById('prospek_domisili').value;
+        const transaksi = document.getElementById('prospek_transaksi').value;
+        const deposit = document.getElementById('prospek_deposit').value;
+        const tertarik = document.getElementById('prospek_tertarik').value;
+        const penawaran = document.getElementById('prospek_penawaran').value;
+        
+        if (!aplikasi || !domisili || !transaksi || !deposit || !tertarik || !penawaran) {
+            showNotifTop('⚠️ Data kuesioner harus diisi LENGKAP!', true);
+            return;
+        }
+        
+        if (confirm('Pindahkan ke Database Tidak Tertarik?')) {
+            const { data: doc } = await window.db.from('prospek').select('*').eq('id', currentProspekId).single();
+            await window.db.from('db_tidak_tertarik').insert({
+                nama: doc.nama,
+                hp: doc.hp,
+                tanggal: new Date().toISOString(),
+                user_id: doc.user_id,
+                alasan: 'Tidak tertarik setelah negosiasi',
+                status_sebelumnya: doc.status,
+                negosiasi_data: doc.negosiasi_data || null
+            });
+            await window.db.from('prospek').delete().eq('id', currentProspekId);
+            showNotifTop('📵 Data dipindahkan ke Database Tidak Tertarik');
+            closeModal('prospekNegosiasiModal');
+            await loadProspek();
+            closeModal('detailModal');
+        }
+    };
+    
+    document.getElementById('negosiasiSimpanBtn').onclick = async () => {
+        const aplikasi = document.getElementById('prospek_aplikasi').value;
+        const domisili = document.getElementById('prospek_domisili').value;
+        const transaksi = document.getElementById('prospek_transaksi').value;
+        const deposit = document.getElementById('prospek_deposit').value;
+        const tertarik = document.getElementById('prospek_tertarik').value;
+        const penawaran = document.getElementById('prospek_penawaran').value;
+        
+        const { data: doc } = await window.db.from('prospek').select('*').eq('id', currentProspekId).single();
+        const existingData = doc.negosiasi_data || {};
+        
+        const hasChanges = aplikasi !== (existingData.aplikasi || '') ||
+            domisili !== (existingData.domisili || '') ||
+            transaksi !== (existingData.transaksi || '') ||
+            deposit !== (existingData.deposit || '') ||
+            tertarik !== (existingData.tertarik || '') ||
+            penawaran !== (existingData.penawaran || '');
+        
+        const hasAnyData = aplikasi || domisili || transaksi || deposit || tertarik || penawaran;
+        
+        if (!hasAnyData) {
+            showNotifTop('⚠️ Tidak ada data untuk disimpan!', true);
+            return;
+        }
+        
+        if (!hasChanges) {
+            showNotifTop('⚠️ Tidak ada perubahan data!', true);
+            return;
+        }
+        
+        const negosiasi_data = {
+            aplikasi: aplikasi || '',
+            domisili: domisili || '',
+            transaksi: transaksi || '',
+            deposit: deposit || '',
+            tertarik: tertarik || '',
+            penawaran: penawaran || '',
+            timestamp: new Date().toISOString(),
+            is_complete: !!(aplikasi && domisili && transaksi && deposit && tertarik && penawaran)
+        };
+        
+        const currentDeadline = doc.deadline || getTodayDate();
+        const newDeadline = addDaysToDate(currentDeadline, 3);
+        
+        await window.db.from('prospek').update({
+            negosiasi_data: negosiasi_data,
+            deadline: newDeadline
+        }).eq('id', currentProspekId);
+        
+        showNotifTop(`💾 Data kuesioner berhasil disimpan. Deadline +3 hari menjadi ${newDeadline}`);
+        closeModal('prospekNegosiasiModal');
+        await loadProspek();
+        closeModal('detailModal');
+    };
+    
+    document.getElementById('negosiasiBatalBtn').onclick = () => {
+        closeModal('prospekNegosiasiModal');
+    };
+    
+    showModal('prospekNegosiasiModal');
+}
+
+// ========== SHOW CONVERT TO CUSTOMER MODAL ==========
+function showConvertToCustomerModal(prospekId) {
+    const today = new Date();
+    const nextMonth = new Date(today);
+    nextMonth.setMonth(today.getMonth() + 1);
+    const followupDate = nextMonth.toISOString().split('T')[0];
+    
+    const modal = document.createElement('div');
+    modal.className = 'modal';
+    modal.style.display = 'flex';
+    modal.innerHTML = `
+        <div class="modal-content" style="max-width: 400px;">
+            <h3>📋 Lengkapi Data Customer</h3>
+            <div class="modal-subtitle">Data prospek akan dipindahkan ke Followup Agen</div>
+            <div style="padding: 0 20px;">
+                <div class="form-group">
+                    <label>ID Agent <span class="required">*</span></label>
+                    <input type="text" id="convertAgentId" placeholder="Contoh: AG-001" maxlength="17">
+                    <small>Huruf besar, angka, max 17 karakter</small>
+                </div>
+                <div class="form-group">
+                    <label>Aplikasi <span class="required">*</span></label>
+                    <select id="convertAplikasi">
+                        <option value="">Pilih Aplikasi</option>
+                        <option value="GNP">GNP</option>
+                        <option value="BSB">BSB</option>
+                        <option value="BTN">BTN</option>
+                    </select>
+                </div>
+                <div class="form-group">
+                    <label>Tanggal Followup</label>
+                    <input type="date" id="convertFollowupDate" value="${followupDate}">
+                </div>
+            </div>
+            <div class="modal-buttons">
+                <button id="confirmConvertBtn" class="btn-primary">✅ Konfirmasi Pindah</button>
+                <button id="cancelConvertBtn" class="btn-outline">Batal</button>
+            </div>
+        </div>
+    `;
+    document.body.appendChild(modal);
+    
+    document.getElementById('confirmConvertBtn').onclick = async () => {
+        const agentId = document.getElementById('convertAgentId').value;
+        const aplikasi = document.getElementById('convertAplikasi').value;
+        const followupDate = document.getElementById('convertFollowupDate').value;
+        
+        if (!agentId || !aplikasi) {
+            showNotifTop('⚠️ ID Agent dan Aplikasi wajib diisi!', true);
+            return;
+        }
+        
+        const formattedAgentId = formatAgentIdToUpper(agentId);
+        if (!validateAgentId(formattedAgentId)) {
+            showNotifTop('⚠️ ID Agent hanya boleh huruf besar, angka, dan tanda hubung (max 17 karakter)!', true);
+            return;
+        }
+        
+        const { data: prospekDoc } = await window.db.from('prospek').select('*').eq('id', prospekId).single();
+        const data = prospekDoc;
+        
+        const { data: existing } = await window.db.from('customers').select('id').eq('agent_id', formattedAgentId).maybeSingle();
+        if (existing) {
+            showNotifTop(`⚠️ ID Agent "${formattedAgentId}" sudah terdaftar!`, true);
+            return;
+        }
+        
+        if (confirm(`Jadikan "${escapeHtml(data.nama)}" sebagai Customer?`)) {
+            await window.db.from('db_commitment').insert({
+                nama: data.nama,
+                hp: data.hp,
+                negosiasi_data: data.negosiasi_data || null,
+                agent_id: formattedAgentId,
+                aplikasi: aplikasi,
+                committed_at: new Date().toISOString(),
+                user_id: data.user_id,
+                original_prospek_id: prospekId,
+                followup_date: followupDate
+            });
+            
+            await window.db.from('customers').insert({
+                agent_id: formattedAgentId,
+                nama: data.nama,
+                hp: data.hp,
+                apk: aplikasi,
+                tanggal: followupDate,
+                status: 'baru',
+                user_id: data.user_id,
+                created_at: new Date().toISOString(),
+                converted_from: 'prospek_commitment'
+            });
+            
+            await window.db.from('prospek').delete().eq('id', prospekId);
+            
+            showNotifTop('✅ Berhasil! Customer telah ditambahkan ke Followup Agen');
+            modal.remove();
+            await loadCustomers();
+            await loadProspek();
+            await loadDBCommitment();
+            closeModal('detailModal');
+        }
+    };
+    
+    document.getElementById('cancelConvertBtn').onclick = () => modal.remove();
+    modal.onclick = (e) => { if (e.target === modal) modal.remove(); };
+}
+
 // ========== AGENT DETAIL FUNCTIONS ==========
 function openAgentDetail(id) {
     const agent = agentsData.find(a => a.id === id);
@@ -2420,7 +3099,7 @@ function openTambahProgres(customerId) {
             updated_at: new Date().toISOString()
         }).eq('id', customerId);
         
-        showNotifTop(`✅ Progres berhasil ditambahkan! Total transaksi tercapai: ${newTotalTercapai > 0 ? '+' : ''}${newTotalTercapai} Transaksi`);
+        showNotifTop(`✅ Progres berhasil ditambahkan! Total transaksi tercapai: ${newTotalTercapai > 0 ? '+' : ''}${newTotalTercapai.toLocaleString()} Transaksi`);
         modal.remove();
         
         await loadCustomers();
@@ -2531,6 +3210,42 @@ async function performSearch() {
         });
     }
     
+    if (searchClosing) {
+        const { data } = await window.db.from('db_closing').select('*');
+        (data || []).forEach(item => {
+            if (item.nama?.toLowerCase().includes(keyword) || item.hp?.includes(keyword)) {
+                results.push({ id: item.id, type: 'closing', title: item.nama, subtitle: item.hp, badge: 'DB Closing', badgeClass: 'badge-closing' });
+            }
+        });
+    }
+    
+    if (searchTidak) {
+        const { data } = await window.db.from('db_tidak_tertarik').select('*');
+        (data || []).forEach(item => {
+            if (item.nama?.toLowerCase().includes(keyword) || item.hp?.includes(keyword)) {
+                results.push({ id: item.id, type: 'tidak', title: item.nama, subtitle: item.hp, badge: 'DB Tidak Tertarik', badgeClass: 'badge-tidak' });
+            }
+        });
+    }
+    
+    if (searchNomorSalah) {
+        const { data } = await window.db.from('nomor_salah').select('*');
+        (data || []).forEach(item => {
+            if (item.nama?.toLowerCase().includes(keyword) || item.hp?.includes(keyword)) {
+                results.push({ id: item.id, type: 'nomor_salah', title: item.nama, subtitle: item.hp, badge: 'DB Nomor Salah', badgeClass: 'badge-nomor-salah' });
+            }
+        });
+    }
+    
+    if (searchCommitment) {
+        const { data } = await window.db.from('db_commitment').select('*');
+        (data || []).forEach(item => {
+            if (item.nama?.toLowerCase().includes(keyword) || item.hp?.includes(keyword)) {
+                results.push({ id: item.id, type: 'commitment', title: item.nama, subtitle: item.hp, badge: 'DB Commitment', badgeClass: 'badge-commitment' });
+            }
+        });
+    }
+    
     const resultsContainer = document.getElementById('searchResults');
     if (results.length === 0) {
         resultsContainer.innerHTML = '<p style="text-align:center;padding:40px;color:#9ca3af;">🔍 Tidak ada data yang ditemukan</p>';
@@ -2553,6 +3268,7 @@ async function performSearch() {
             const type = el.dataset.type;
             if (type === 'customer') openDetailCustomer(id);
             else if (type === 'prospek') openDetailProspek(id);
+            else openDBDetailModal(id, type);
         };
     });
 }
@@ -2560,6 +3276,94 @@ async function performSearch() {
 function clearSearch() {
     document.getElementById('searchInput').value = '';
     document.getElementById('searchResults').innerHTML = '<p style="text-align:center;padding:40px;color:#9ca3af;">🔍 Masukkan kata kunci untuk mencari data</p>';
+}
+
+function openDBDetailModal(id, type) {
+    let collectionName = '';
+    let title = '';
+    
+    switch (type) {
+        case 'closing':
+            collectionName = 'db_closing';
+            title = 'Detail Database Closing';
+            break;
+        case 'tidak':
+            collectionName = 'db_tidak_tertarik';
+            title = 'Detail Database Tidak Tertarik';
+            break;
+        case 'nomor_salah':
+            collectionName = 'nomor_salah';
+            title = 'Detail Database Nomor Salah';
+            break;
+        case 'commitment':
+            collectionName = 'db_commitment';
+            title = 'Detail Database Commitment';
+            break;
+        default:
+            return;
+    }
+    
+    window.db.from(collectionName).select('*').eq('id', id).single().then(async ({ data: d }) => {
+        if (!d) return;
+        
+        let ownerInfo = '';
+        if (currentUserRole === 'owner' && d.user_id !== currentUser.id) {
+            const { data: userDoc } = await window.db.from('users').select('nama').eq('id', d.user_id).single();
+            const ownerName = userDoc?.nama || 'CS Agent';
+            ownerInfo = `<div class="detail-info-item"><strong>👤 Pemilik Data:</strong> ${escapeHtml(ownerName)}</div>`;
+        }
+        
+        let detailHtml = '';
+        if (type === 'closing') {
+            let pendingHtml = '';
+            if (d.pending_data && d.pending_data.length > 0) {
+                pendingHtml = `<div class="detail-info-item"><strong>📝 Pending Responses:</strong><br><div style="margin-top:5px; padding-left:15px;">${d.pending_data.map(item => `${item.checked ? '✅' : '⭕'} ${escapeHtml(item.text || '(kosong)')}`).join('<br>')}</div></div>`;
+            }
+            detailHtml = `${ownerInfo}
+                <div class="detail-info-item"><strong>👤 Nama:</strong> ${escapeHtml(d.nama)}</div>
+                <div class="detail-info-item"><strong>📱 Nomor WA:</strong> ${escapeHtml(d.hp)}</div>
+                <div class="detail-info-item"><strong>📅 Tanggal Closing:</strong> ${new Date(d.closing_date).toLocaleDateString('id-ID')}</div>
+                ${pendingHtml}
+                <div class="detail-info-item"><strong>📌 Catatan Followup:</strong> ${d.followup_data ? `Terkirim: ${d.followup_data.terkirim ? 'Ya' : 'Tidak'} | Dibalas: ${d.followup_data.dibalas ? 'Ya' : 'Tidak'}` : '-'}</div>`;
+        } else if (type === 'tidak') {
+            detailHtml = `${ownerInfo}
+                <div class="detail-info-item"><strong>👤 Nama:</strong> ${escapeHtml(d.nama)}</div>
+                <div class="detail-info-item"><strong>📱 Nomor WA:</strong> ${escapeHtml(d.hp)}</div>
+                <div class="detail-info-item"><strong>📅 Tanggal:</strong> ${new Date(d.tanggal).toLocaleDateString('id-ID')}</div>
+                <div class="detail-info-item"><strong>❌ Alasan:</strong> ${d.alasan || 'Tidak tertarik'}</div>`;
+        } else if (type === 'nomor_salah') {
+            detailHtml = `${ownerInfo}
+                <div class="detail-info-item"><strong>👤 Nama:</strong> ${escapeHtml(d.nama)}</div>
+                <div class="detail-info-item"><strong>📱 Nomor WA:</strong> ${escapeHtml(d.hp)}</div>
+                <div class="detail-info-item"><strong>📅 Tanggal Dihapus:</strong> ${new Date(d.deleted_at).toLocaleDateString('id-ID')}</div>
+                <div class="detail-info-item"><strong>📵 Alasan:</strong> ${d.alasan || 'Nomor tidak bisa dihubungi'}</div>`;
+        } else if (type === 'commitment') {
+            detailHtml = `${ownerInfo}
+                <div class="detail-info-item"><strong>👤 Nama:</strong> ${escapeHtml(d.nama)}</div>
+                <div class="detail-info-item"><strong>📱 Nomor WA:</strong> ${escapeHtml(d.hp)}</div>
+                <div class="detail-info-item"><strong>📅 Tanggal Komitmen:</strong> ${new Date(d.committed_at).toLocaleDateString('id-ID')}</div>
+                <div class="detail-info-item"><strong>🆔 ID Agent:</strong> ${d.agent_id || '-'}</div>
+                <div class="detail-info-item"><strong>📱 Aplikasi:</strong> ${d.aplikasi || '-'}</div>`;
+        }
+        
+        document.getElementById('detailContent').innerHTML = `
+            <div class="detail-header">
+                <h3>${title}</h3>
+                <div class="status-badge">Arsip</div>
+            </div>
+            <div class="detail-body">
+                <div class="detail-info">${detailHtml}</div>
+                <div class="detail-actions">
+                    <button class="btn-success" onclick="openWA('${d.hp}')">💬 WhatsApp</button>
+                </div>
+            </div>
+            <div class="detail-footer">
+                <button class="btn-outline" onclick="closeModal('detailModal')">Tutup</button>
+                <button class="btn-danger" onclick="deleteDBItem('${collectionName}', '${id}'); closeModal('detailModal');">🗑️ Hapus</button>
+            </div>
+        `;
+        showModal('detailModal');
+    });
 }
 
 // ========== BROADCAST FUNCTIONS ==========
@@ -2617,6 +3421,7 @@ async function loadBroadcastNumbers() {
 
 async function sendBroadcast() {
     const messageTemplate = document.getElementById('broadcastMessage')?.value;
+    const sendOneByOne = document.getElementById('sendOneByOne')?.checked;
     
     if (!messageTemplate) {
         showNotifTop('⚠️ Pesan tidak boleh kosong!', true);
@@ -2634,7 +3439,7 @@ async function sendBroadcast() {
         const message = messageTemplate.replace(/{nama}/g, nama || 'Customer');
         const nomor = hp.toString().replace('+', '').replace(/^0/, '62').replace(/[^\d]/g, '');
         window.open('https://wa.me/' + nomor + '?text=' + encodeURIComponent(message), '_blank');
-        await delay(500);
+        if (sendOneByOne) await delay(800);
     }
     
     showNotifTop(`✅ Broadcast selesai! ${currentNumbers.length} pesan telah dibuka.`);
@@ -2737,7 +3542,6 @@ function updateTrendChart() {
     const months = ['Jan', 'Feb', 'Mar', 'Apr', 'Mei', 'Jun', 'Jul', 'Ags', 'Sep', 'Okt', 'Nov', 'Des'];
     const currentMonth = new Date().getMonth();
     
-    // Generate data berdasarkan target bulanan atau random
     const agentData = [];
     const caData = [];
     const koorData = [];
@@ -2799,6 +3603,143 @@ async function saveTargetData() {
     showNotifTop('✅ Target berhasil disimpan!');
     closeModal('manageTargetModal');
     await updateTargetDisplay();
+}
+
+// ========== BADGE FUNCTIONS ==========
+async function updateDeadlineBadge() {
+    if (!currentUser) return;
+    const badge = document.getElementById('deadlineCount');
+    if (!badge) return;
+    
+    const today = getTodayDate();
+    let overdueCount = 0;
+    
+    customersData.forEach(c => {
+        if (c.tanggal && c.tanggal < today && c.status !== 'closing') overdueCount++;
+    });
+    prospekData.forEach(p => {
+        if (p.deadline && p.deadline < today) overdueCount++;
+    });
+    
+    badge.innerText = overdueCount;
+}
+
+async function updatePesanBadge() {
+    if (!currentUser) return;
+    const badge = document.getElementById('pesanCount');
+    if (!badge) return;
+    
+    const unreadCount = messagesData.filter(m => !m.is_read).length;
+    badge.innerText = unreadCount;
+}
+
+// ========== UPDATE STATS & CHARTS ==========
+function updateStats() {
+    const total = customersData.length;
+    const closing = customersData.filter(c => c.status === 'closing').length;
+    const active = total - closing;
+    
+    document.getElementById('totalData').innerText = total;
+    document.getElementById('closingTotal').innerText = closing;
+    document.getElementById('activeProspek').innerText = active;
+    document.getElementById('rateClosing').innerText = total ? Math.round((closing / total) * 100) + '%' : '0%';
+}
+
+function updateChartCustomer() {
+    const ctx = document.getElementById('chartCustomer');
+    if (!ctx) return;
+    
+    const closing = customersData.filter(c => c.status === 'closing').length;
+    const pending = customersData.filter(c => c.status === 'pending').length;
+    const followup = customersData.filter(c => c.status === 'followup').length;
+    const baru = customersData.length - (closing + pending + followup);
+    
+    let totalTercapai = 0;
+    customersData.forEach(customer => {
+        const progres = customer.progres_transaksi;
+        if (progres && progres.total_tercapai !== undefined) {
+            totalTercapai += progres.total_tercapai;
+        }
+    });
+    
+    const chartTitle = document.querySelector('#chartCustomer h3');
+    if (chartTitle) {
+        chartTitle.innerHTML = `📊 Followup Agen | 🎯 Total Tercapai: ${totalTercapai.toLocaleString()} Transaksi`;
+    }
+    
+    if (chartCustomer) chartCustomer.destroy();
+    
+    chartCustomer = new Chart(ctx, {
+        type: 'doughnut',
+        data: {
+            labels: ['Closing', 'Pending', 'Follow Up', 'Baru'],
+            datasets: [{
+                data: [closing, pending, followup, baru],
+                backgroundColor: ['#10b981', '#f59e0b', '#3b82f6', '#8b5cf6'],
+                borderWidth: 0,
+                cutout: '65%'
+            }]
+        },
+        options: {
+            responsive: true,
+            maintainAspectRatio: true,
+            plugins: {
+                legend: { position: 'right', labels: { font: { size: 11 } } },
+                tooltip: {
+                    callbacks: {
+                        label: function(context) {
+                            const label = context.label || '';
+                            const value = context.raw || 0;
+                            const total = context.dataset.data.reduce((a, b) => a + b, 0);
+                            return `${label}: ${value} (${total ? ((value / total) * 100).toFixed(1) : 0}%)`;
+                        }
+                    }
+                }
+            }
+        }
+    });
+}
+
+function updateChartProspek() {
+    const ctx = document.getElementById('chartProspek');
+    if (!ctx) return;
+    
+    const baru = prospekData.filter(p => p.status === 'Baru').length;
+    const dihubungi = prospekData.filter(p => p.status === 'Dihubungi').length;
+    const negosiasi = prospekData.filter(p => p.status === 'Negosiasi').length;
+    const tertarik = prospekData.filter(p => p.status === 'Tertarik').length;
+    
+    if (chartProspek) chartProspek.destroy();
+    
+    chartProspek = new Chart(ctx, {
+        type: 'doughnut',
+        data: {
+            labels: ['Baru', 'Dihubungi', 'Negosiasi', 'Tertarik'],
+            datasets: [{
+                data: [baru, dihubungi, negosiasi, tertarik],
+                backgroundColor: ['#8b5cf6', '#3b82f6', '#f59e0b', '#10b981'],
+                borderWidth: 0,
+                cutout: '65%'
+            }]
+        },
+        options: {
+            responsive: true,
+            maintainAspectRatio: true,
+            plugins: {
+                legend: { position: 'right', labels: { font: { size: 11 } } },
+                tooltip: {
+                    callbacks: {
+                        label: function(context) {
+                            const label = context.label || '';
+                            const value = context.raw || 0;
+                            const total = context.dataset.data.reduce((a, b) => a + b, 0);
+                            return `${label}: ${value} (${total ? ((value / total) * 100).toFixed(1) : 0}%)`;
+                        }
+                    }
+                }
+            }
+        }
+    });
 }
 
 // ========== IMPORT FUNCTIONS ==========
@@ -2890,8 +3831,8 @@ function setupImportExcel() {
                                 if (hp && !hp.startsWith('62')) hp = '62' + hp;
                                 
                                 await window.db.from('customers').insert({
-                                    agent_id: agentId.toUpperCase(),
-                                    nama: nama,
+                                    agent_id: formatAgentIdToUpper(agentId),
+                                    nama: formatNamaToCapital(nama),
                                     hp: hp || '',
                                     apk: apk,
                                     upline_name: upline,
@@ -2916,7 +3857,7 @@ function setupImportExcel() {
                                 if (hp && !hp.startsWith('62')) hp = '62' + hp;
                                 
                                 await window.db.from('prospek').insert({
-                                    nama: nama,
+                                    nama: formatNamaToCapital(nama),
                                     hp: hp || '',
                                     deadline: getTodayDate(),
                                     status: 'Baru',
@@ -2936,7 +3877,7 @@ function setupImportExcel() {
                                 }
                                 
                                 await window.db.from('db_transaksi').insert({
-                                    agent_id: agentId.toUpperCase(),
+                                    agent_id: formatAgentIdToUpper(agentId),
                                     nama: row.nama || `Agent ${agentId}`,
                                     hp: String(row.hp || '').replace(/[^\d]/g, ''),
                                     apk: row.apk || '',
@@ -3070,8 +4011,8 @@ function setupAgentImport() {
                         if (hp && !hp.startsWith('62')) hp = '62' + hp;
                         
                         await window.db.from('db_agent').insert({
-                            agent_id: agentId.toUpperCase(),
-                            nama: nama,
+                            agent_id: formatAgentIdToUpper(agentId),
+                            nama: formatNamaToCapital(nama),
                             hp: hp || '',
                             user_id: currentUser.id,
                             created_at: new Date().toISOString()
@@ -3239,320 +4180,6 @@ function exportProdukToExcel() {
     showNotifTop('✅ Export produk berhasil!');
 }
 
-// ========== OPEN DETAILS ==========
-async function openDetailCustomer(id) {
-    const customer = customersData.find(c => c.id === id);
-    if (!customer) return;
-    
-    const statusText = customer.status === 'followup' ? 'Follow Up' : customer.status;
-    const statusClass = customer.status === 'followup' ? 'status-followup' : `status-${customer.status}`;
-    
-    const progresData = customer.progres_transaksi || { items: [], total_tercapai: 0 };
-    const totalTercapai = progresData.total_tercapai || 0;
-    
-    let ownerInfo = '';
-    if (currentUserRole === 'owner' && customer.user_id !== currentUser.id) {
-        const { data: userDoc } = await window.db.from('users').select('nama').eq('id', customer.user_id).single();
-        const ownerName = userDoc?.nama || 'CS Agent';
-        ownerInfo = `<div class="detail-info-item"><strong>👤 Pemilik Data:</strong> ${escapeHtml(ownerName)}</div>`;
-    }
-    
-    let followupInfo = '';
-    if (customer.followup_data) {
-        followupInfo = `<div class="detail-info-item"><strong>✅ Follow Up:</strong> Terkirim: ${customer.followup_data.terkirim ? 'Ya' : 'Tidak'} | Dibalas: ${customer.followup_data.dibalas ? 'Ya' : 'Tidak'}</div>`;
-    }
-    
-    let pendingInfo = '';
-    if (customer.pending_data && customer.pending_data.length > 0) {
-        const completedCount = customer.pending_data.filter(item => item.checked === true && item.text?.trim() !== '').length;
-        const totalCount = customer.pending_data.length;
-        pendingInfo = `<div class="detail-info-item"><strong>📝 Pending Responses (${completedCount}/${totalCount}):</strong><br>
-            <div style="margin-top: 5px; padding-left: 15px;">${customer.pending_data.slice(0, 5).map(item => `${item.checked ? '✅' : '⭕'} ${escapeHtml(item.text || '(kosong)')}`).join('<br>')}</div>
-            ${customer.pending_data.length > 5 ? `<small>... dan ${customer.pending_data.length - 5} balasan lainnya</small>` : ''}
-        </div>`;
-    }
-    
-    document.getElementById('detailContent').innerHTML = `
-        <div class="detail-header">
-            <h3>${escapeHtml(customer.nama)}</h3>
-            <div class="status-badge ${statusClass}">${statusText}</div>
-        </div>
-        <div class="detail-body">
-            <div class="detail-info">
-                ${ownerInfo}
-                <div class="detail-info-item"><strong>🆔 ID Agent:</strong> ${escapeHtml(customer.agent_id || '-')}</div>
-                <div class="detail-info-item"><strong>📱 Nomor WA:</strong> ${escapeHtml(customer.hp)}</div>
-                <div class="detail-info-item"><strong>📱 Aplikasi:</strong> ${escapeHtml(customer.apk || '-')}</div>
-                <div class="detail-info-item"><strong>👤 Upline:</strong> ${escapeHtml(customer.upline_name || '-')}</div>
-                <div class="detail-info-item"><strong>📅 Deadline:</strong> ${customer.tanggal || '-'} <button class="edit-deadline-btn" onclick="openEditDeadlineModal('${id}','customer','${customer.tanggal || ''}')">✏️ Edit</button></div>
-                <div class="detail-info-item"><strong>🎯 Total Transaksi Tercapai:</strong> <span style="color: ${totalTercapai >= 0 ? '#10b981' : '#ef4444'}; font-weight: 700;">${totalTercapai > 0 ? '+' : ''}${totalTercapai.toLocaleString()} Transaksi</span></div>
-                ${followupInfo}
-                ${pendingInfo}
-            </div>
-            <div class="detail-actions">
-                <button class="btn-success" onclick="openWA('${customer.hp}')">💬 WhatsApp</button>
-                <button class="btn-primary" onclick="openTambahProgres('${id}')">📊 Tambah Progres</button>
-                ${customer.status === 'baru' ? `<button class="btn-primary" onclick="updateCustomerStatus('${id}', 'followup')">📞 Lanjut Follow Up</button>` : ''}
-                ${customer.status === 'followup' ? `<button class="btn-primary" onclick="updateCustomerStatus('${id}', 'pending')">✅ Konfirmasi Follow Up</button>` : ''}
-                ${customer.status === 'pending' ? `<button class="btn-primary" onclick="updateCustomerStatus('${id}', 'closing')">🎉 Jadikan Closing</button>` : ''}
-            </div>
-        </div>
-        <div class="detail-footer">
-            <button class="btn-outline" onclick="closeModal('detailModal')">Tutup</button>
-            <button class="btn-danger" onclick="deleteCustomer('${id}')">Hapus</button>
-        </div>
-    `;
-    showModal('detailModal');
-}
-
-async function openDetailProspek(id) {
-    const prospek = prospekData.find(p => p.id === id);
-    if (!prospek) return;
-    
-    let ownerInfo = '';
-    if (currentUserRole === 'owner' && prospek.user_id !== currentUser.id) {
-        const { data: userDoc } = await window.db.from('users').select('nama').eq('id', prospek.user_id).single();
-        const ownerName = userDoc?.nama || 'CS Agent';
-        ownerInfo = `<div class="detail-info-item"><strong>👤 Pemilik Data:</strong> ${escapeHtml(ownerName)}</div>`;
-    }
-    
-    let negosiasiInfo = '';
-    if (prospek.negosiasi_data) {
-        const nd = prospek.negosiasi_data;
-        negosiasiInfo = `<div class="detail-info-item"><strong>📋 Data Negosiasi:</strong><br>
-            <div style="margin-top: 5px; padding-left: 15px;">
-                Aplikasi: ${escapeHtml(nd.aplikasi || '-')}<br>
-                Domisili: ${escapeHtml(nd.domisili || '-')}<br>
-                Transaksi: ${escapeHtml(nd.transaksi || '-')}<br>
-                Deposit: ${escapeHtml(nd.deposit || '-')}<br>
-                Tertarik: ${escapeHtml(nd.tertarik || '-')}<br>
-                Penawaran: ${escapeHtml(nd.penawaran || '-')}
-            </div>
-        </div>`;
-    }
-    
-    let dihubungiInfo = '';
-    if (prospek.dihubungi_data) {
-        dihubungiInfo = `<div class="detail-info-item"><strong>✅ Dihubungi:</strong> Terkirim: ${prospek.dihubungi_data.terkirim ? 'Ya' : 'Tidak'} | Dibalas: ${prospek.dihubungi_data.dibalas ? 'Ya' : 'Tidak'}</div>`;
-    }
-    
-    document.getElementById('detailContent').innerHTML = `
-        <div class="detail-header">
-            <h3>${escapeHtml(prospek.nama)}</h3>
-            <div class="status-badge">${prospek.status || 'Baru'}</div>
-        </div>
-        <div class="detail-body">
-            <div class="detail-info">
-                ${ownerInfo}
-                <div class="detail-info-item"><strong>📱 Nomor WA:</strong> ${escapeHtml(prospek.hp)}</div>
-                <div class="detail-info-item"><strong>📅 Deadline:</strong> ${prospek.deadline || '-'} <button class="edit-deadline-btn" onclick="openEditDeadlineModal('${id}','prospek','${prospek.deadline || ''}')">✏️ Edit</button></div>
-                ${dihubungiInfo}
-                ${negosiasiInfo}
-            </div>
-            <div class="detail-actions">
-                <button class="btn-success" onclick="openWA('${prospek.hp}')">💬 WhatsApp</button>
-                ${prospek.status === 'Baru' ? `<button class="btn-primary" onclick="updateProspekStatus('${id}', 'Dihubungi')">📞 Dihubungi</button>` : ''}
-                ${prospek.status === 'Dihubungi' ? `<button class="btn-primary" onclick="updateProspekStatus('${id}', 'Negosiasi')">📋 Negosiasi</button>` : ''}
-                ${prospek.status === 'Negosiasi' ? `<button class="btn-primary" onclick="updateProspekStatus('${id}', 'Tertarik')">⭐ Tertarik</button>` : ''}
-            </div>
-        </div>
-        <div class="detail-footer">
-            <button class="btn-outline" onclick="closeModal('detailModal')">Tutup</button>
-            <button class="btn-danger" onclick="deleteProspek('${id}')">Hapus</button>
-        </div>
-    `;
-    showModal('detailModal');
-}
-
-// ========== BADGE FUNCTIONS ==========
-async function updateDeadlineBadge() {
-    if (!currentUser) return;
-    const badge = document.getElementById('deadlineCount');
-    if (!badge) return;
-    
-    const today = getTodayDate();
-    let overdueCount = 0;
-    
-    customersData.forEach(c => {
-        if (c.tanggal && c.tanggal < today && c.status !== 'closing') overdueCount++;
-    });
-    prospekData.forEach(p => {
-        if (p.deadline && p.deadline < today) overdueCount++;
-    });
-    
-    badge.innerText = overdueCount;
-}
-
-async function updatePesanBadge() {
-    if (!currentUser) return;
-    const badge = document.getElementById('pesanCount');
-    if (!badge) return;
-    
-    const unreadCount = messagesData.filter(m => !m.is_read).length;
-    badge.innerText = unreadCount;
-}
-
-// ========== UPDATE STATS & CHARTS ==========
-function updateStats() {
-    const total = customersData.length;
-    const closing = customersData.filter(c => c.status === 'closing').length;
-    const active = total - closing;
-    
-    document.getElementById('totalData').innerText = total;
-    document.getElementById('closingTotal').innerText = closing;
-    document.getElementById('activeProspek').innerText = active;
-    document.getElementById('rateClosing').innerText = total ? Math.round((closing / total) * 100) + '%' : '0%';
-}
-
-function updateChartCustomer() {
-    const ctx = document.getElementById('chartCustomer');
-    if (!ctx) return;
-    
-    const closing = customersData.filter(c => c.status === 'closing').length;
-    const pending = customersData.filter(c => c.status === 'pending').length;
-    const followup = customersData.filter(c => c.status === 'followup').length;
-    const baru = customersData.length - (closing + pending + followup);
-    
-    let totalTercapai = 0;
-    customersData.forEach(customer => {
-        const progres = customer.progres_transaksi;
-        if (progres && progres.total_tercapai !== undefined) {
-            totalTercapai += progres.total_tercapai;
-        }
-    });
-    
-    const chartTitle = document.querySelector('#chartCustomer h3');
-    if (chartTitle) {
-        chartTitle.innerHTML = `📊 Followup Agen | 🎯 Total Tercapai: ${totalTercapai.toLocaleString()} Transaksi`;
-    }
-    
-    if (chartCustomer) chartCustomer.destroy();
-    
-    chartCustomer = new Chart(ctx, {
-        type: 'doughnut',
-        data: {
-            labels: ['Closing', 'Pending', 'Follow Up', 'Baru'],
-            datasets: [{
-                data: [closing, pending, followup, baru],
-                backgroundColor: ['#10b981', '#f59e0b', '#3b82f6', '#8b5cf6'],
-                borderWidth: 0,
-                cutout: '65%'
-            }]
-        },
-        options: {
-            responsive: true,
-            maintainAspectRatio: true,
-            plugins: {
-                legend: { position: 'right', labels: { font: { size: 11 } } },
-                tooltip: {
-                    callbacks: {
-                        label: function(context) {
-                            const label = context.label || '';
-                            const value = context.raw || 0;
-                            const total = context.dataset.data.reduce((a, b) => a + b, 0);
-                            return `${label}: ${value} (${total ? ((value / total) * 100).toFixed(1) : 0}%)`;
-                        }
-                    }
-                }
-            }
-        }
-    });
-}
-
-function updateChartProspek() {
-    const ctx = document.getElementById('chartProspek');
-    if (!ctx) return;
-    
-    const baru = prospekData.filter(p => p.status === 'Baru').length;
-    const dihubungi = prospekData.filter(p => p.status === 'Dihubungi').length;
-    const negosiasi = prospekData.filter(p => p.status === 'Negosiasi').length;
-    const tertarik = prospekData.filter(p => p.status === 'Tertarik').length;
-    
-    if (chartProspek) chartProspek.destroy();
-    
-    chartProspek = new Chart(ctx, {
-        type: 'doughnut',
-        data: {
-            labels: ['Baru', 'Dihubungi', 'Negosiasi', 'Tertarik'],
-            datasets: [{
-                data: [baru, dihubungi, negosiasi, tertarik],
-                backgroundColor: ['#8b5cf6', '#3b82f6', '#f59e0b', '#10b981'],
-                borderWidth: 0,
-                cutout: '65%'
-            }]
-        },
-        options: {
-            responsive: true,
-            maintainAspectRatio: true,
-            plugins: {
-                legend: { position: 'right', labels: { font: { size: 11 } } },
-                tooltip: {
-                    callbacks: {
-                        label: function(context) {
-                            const label = context.label || '';
-                            const value = context.raw || 0;
-                            const total = context.dataset.data.reduce((a, b) => a + b, 0);
-                            return `${label}: ${value} (${total ? ((value / total) * 100).toFixed(1) : 0}%)`;
-                        }
-                    }
-                }
-            }
-        }
-    });
-}
-
-// ========== FULL MODE SELECTION ==========
-function initFullModeSelection() {
-    if (currentUserRole !== 'owner') {
-        const followupSelectBtn = document.getElementById('selectAllFullFollowup');
-        const followupDeleteBtn = document.getElementById('deleteSelectedFullFollowup');
-        const followupDeleteAllBtn = document.getElementById('deleteAllFullFollowup');
-        const prospekSelectBtn = document.getElementById('selectAllFullProspek');
-        const prospekDeleteBtn = document.getElementById('deleteSelectedFullProspek');
-        const prospekDeleteAllBtn = document.getElementById('deleteAllFullProspek');
-        
-        if (followupSelectBtn) followupSelectBtn.style.display = 'none';
-        if (followupDeleteBtn) followupDeleteBtn.style.display = 'none';
-        if (followupDeleteAllBtn) followupDeleteAllBtn.style.display = 'none';
-        if (prospekSelectBtn) prospekSelectBtn.style.display = 'none';
-        if (prospekDeleteBtn) prospekDeleteBtn.style.display = 'none';
-        if (prospekDeleteAllBtn) prospekDeleteAllBtn.style.display = 'none';
-        return;
-    }
-    
-    const followupSelectBtn = document.getElementById('selectAllFullFollowup');
-    const followupDeleteBtn = document.getElementById('deleteSelectedFullFollowup');
-    const followupDeleteAllBtn = document.getElementById('deleteAllFullFollowup');
-    const prospekSelectBtn = document.getElementById('selectAllFullProspek');
-    const prospekDeleteBtn = document.getElementById('deleteSelectedFullProspek');
-    const prospekDeleteAllBtn = document.getElementById('deleteAllFullProspek');
-    
-    if (followupSelectBtn) {
-        followupSelectBtn.style.display = 'inline-block';
-        followupSelectBtn.onclick = () => toggleSelectAllFullFollowup();
-    }
-    if (followupDeleteBtn) {
-        followupDeleteBtn.style.display = 'inline-block';
-        followupDeleteBtn.onclick = () => deleteSelectedFullFollowup();
-    }
-    if (followupDeleteAllBtn) {
-        followupDeleteAllBtn.style.display = 'inline-block';
-        followupDeleteAllBtn.onclick = () => deleteAllFullFollowup();
-    }
-    if (prospekSelectBtn) {
-        prospekSelectBtn.style.display = 'inline-block';
-        prospekSelectBtn.onclick = () => toggleSelectAllFullProspek();
-    }
-    if (prospekDeleteBtn) {
-        prospekDeleteBtn.style.display = 'inline-block';
-        prospekDeleteBtn.onclick = () => deleteSelectedFullProspek();
-    }
-    if (prospekDeleteAllBtn) {
-        prospekDeleteAllBtn.style.display = 'inline-block';
-        prospekDeleteAllBtn.onclick = () => deleteAllFullProspek();
-    }
-}
-
 // ========== AUTH & LOAD USER PROFILE ==========
 async function loadUserProfile() {
     if (!currentUser) return;
@@ -3652,9 +4279,8 @@ function initEventListeners() {
         
         hp = hp.replace(/[^\d]/g, '');
         if (hp.startsWith('0')) hp = hp.substring(1);
-        if (hp && !hp.startsWith('62')) hp = '62' + hp;
         
-        await addCustomer(agentId, nama, hp || '', apk, upline, deadline);
+        await addCustomer(agentId, nama, hp, apk, upline, deadline);
         closeModal('customerModal');
         document.getElementById('customerId').value = '';
         document.getElementById('customerName').value = '';
@@ -3684,9 +4310,8 @@ function initEventListeners() {
         
         hp = hp.replace(/[^\d]/g, '');
         if (hp.startsWith('0')) hp = hp.substring(1);
-        if (hp && !hp.startsWith('62')) hp = '62' + hp;
         
-        await addProspek(nama, hp || '', deadline);
+        await addProspek(nama, hp, deadline);
         closeModal('prospekModal');
         document.getElementById('prospekName').value = '';
         document.getElementById('prospekPhone').value = '';
@@ -3828,7 +4453,8 @@ function initEventListeners() {
     // Modal click outside
     const modals = ['customerModal', 'prospekModal', 'profileModal', 'detailModal', 'infoModal', 
                     'manageTargetModal', 'inputTransaksiModal', 'transaksiListModal', 'reminderModal', 
-                    'pesanModal', 'addCsModal', 'pilihNomorModal', 'editDeadlineModal', 'previewPhotoModal'];
+                    'pesanModal', 'addCsModal', 'pilihNomorModal', 'editDeadlineModal', 'previewPhotoModal',
+                    'followupConfirmModal', 'prospekDihubungiModal', 'prospekNegosiasiModal', 'convertModal'];
     modals.forEach(id => setupModalClickOutside(id));
     
     // Broadcast
@@ -4072,6 +4698,9 @@ window.openDetailCustomer = openDetailCustomer;
 window.openDetailProspek = openDetailProspek;
 window.openEditDeadlineModal = openEditDeadlineModal;
 window.openTambahProgres = openTambahProgres;
+window.openFollowupConfirm = openFollowupConfirm;
+window.openProspekNegosiasiModal = openProspekNegosiasiModal;
+window.showConvertToCustomerModal = showConvertToCustomerModal;
 window.closeModal = closeModal;
 window.formatPhone = formatPhone;
 window.saveTarifAdmin = saveTarifAdmin;
