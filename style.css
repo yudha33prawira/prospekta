@@ -3028,3 +3028,75 @@ body.dark-mode #prospekNegosiasiModalFix .btn-outline {
 body.dark-mode #prospekNegosiasiModalFix .btn-outline:hover {
     background: #475569 !important;
 }
+
+/* ========== STYLING UNTUK TOMBOL DISABLED ========== */
+.action-btn {
+    transition: all 0.2s ease;
+}
+
+.action-btn.disabled-btn,
+.action-btn:disabled {
+    opacity: 0.6 !important;
+    cursor: not-allowed !important;
+    background: #9ca3af !important;
+}
+
+.action-btn.disabled-btn:hover,
+.action-btn:disabled:hover {
+    transform: none !important;
+    opacity: 0.6 !important;
+}
+
+/* Tooltip untuk tombol disabled */
+.action-btn:disabled {
+    position: relative;
+}
+
+.action-btn:disabled:hover::after {
+    content: attr(title);
+    position: absolute;
+    bottom: 100%;
+    left: 50%;
+    transform: translateX(-50%);
+    background: #1f2937;
+    color: white;
+    padding: 4px 8px;
+    border-radius: 6px;
+    font-size: 10px;
+    white-space: nowrap;
+    z-index: 1000;
+    margin-bottom: 5px;
+}
+
+/* Tombol followup dan prospek */
+.followup-btn,
+.dihubungi-btn,
+.negosiasi-btn,
+.tertarik-btn,
+.closing-db-btn,
+.commitment-db-btn {
+    transition: all 0.2s ease;
+}
+
+.followup-btn:hover,
+.dihubungi-btn:hover,
+.negosiasi-btn:hover,
+.closing-db-btn:hover,
+.commitment-db-btn:hover {
+    transform: translateY(-1px);
+    opacity: 0.9;
+}
+
+/* Tombol konfirmasi */
+.confirm-followup-btn,
+.confirm-dihubungi-btn,
+.pending-finish-btn {
+    transition: all 0.2s ease;
+}
+
+.confirm-followup-btn:not(:disabled):hover,
+.confirm-dihubungi-btn:not(:disabled):hover,
+.pending-finish-btn:not(:disabled):hover {
+    transform: translateY(-1px);
+    opacity: 0.9;
+}
