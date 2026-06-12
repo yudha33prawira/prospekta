@@ -96,9 +96,16 @@ function showNotifTop(msg, isError = false) {
     }, 3000);
 }
 
-function createModalWithHighZIndex(htmlContent) {
+// ========== FUNGSI UNTUK MEMBUAT MODAL DINAMIS YANG BISA DIKLIK ==========
+function createModalWithHighZIndex(htmlContent, onClose = null) {
+    // Hapus modal yang sudah ada dengan id yang sama
+    const existingModal = document.querySelector('.dynamic-modal');
+    if (existingModal) {
+        existingModal.remove();
+    }
+    
     const modal = document.createElement('div');
-    modal.className = 'modal';
+    modal.className = 'modal dynamic-modal';
     modal.style.display = 'flex';
     modal.style.zIndex = '999999999';
     modal.style.position = 'fixed';
@@ -108,20 +115,46 @@ function createModalWithHighZIndex(htmlContent) {
     modal.style.height = '100%';
     modal.style.backgroundColor = 'rgba(0, 0, 0, 0.7)';
     modal.style.backdropFilter = 'blur(5px)';
+    modal.style.pointerEvents = 'auto';
     modal.innerHTML = htmlContent;
     
-    // Pastikan modal content memiliki z-index tinggi
+    // Pastikan modal content memiliki z-index tinggi dan bisa diklik
     const modalContent = modal.querySelector('.modal-content');
     if (modalContent) {
         modalContent.style.zIndex = '999999999';
         modalContent.style.position = 'relative';
+        modalContent.style.pointerEvents = 'auto';
     }
+    
+    // Pastikan semua tombol di modal bisa diklik
+    const buttons = modal.querySelectorAll('button');
+    buttons.forEach(btn => {
+        btn.style.pointerEvents = 'auto';
+        btn.style.cursor = 'pointer';
+    });
+    
+    // Klik di luar modal untuk menutup (hanya jika onClose tersedia)
+    modal.addEventListener('click', (e) => {
+        if (e.target === modal && onClose) {
+            onClose();
+        }
+    });
     
     document.body.appendChild(modal);
     document.body.classList.add('modal-open');
     document.body.style.overflow = 'hidden';
+    document.body.style.pointerEvents = 'auto';
     
     return modal;
+}
+
+function closeDynamicModal(modal) {
+    if (modal) {
+        modal.remove();
+    }
+    document.body.style.overflow = '';
+    document.body.classList.remove('modal-open');
+    document.body.style.pointerEvents = '';
 }
 
 function escapeHtml(text) {
@@ -174,12 +207,13 @@ function closeModal(modalId) {
     }
     document.body.style.overflow = '';
     document.body.classList.remove('modal-open');
+    document.body.style.pointerEvents = '';
 }
 
 function showModal(modalId) {
     const modal = document.getElementById(modalId);
     if (modal) {
-        // Pastikan modal memiliki z-index tertinggi
+        // Pastikan modal memiliki z-index tertinggi dan bisa diklik
         modal.style.display = 'flex';
         modal.style.zIndex = '999999999';
         modal.style.position = 'fixed';
@@ -189,19 +223,28 @@ function showModal(modalId) {
         modal.style.height = '100%';
         modal.style.backgroundColor = 'rgba(0, 0, 0, 0.7)';
         modal.style.backdropFilter = 'blur(5px)';
+        modal.style.pointerEvents = 'auto';
         
-        // Pastikan modal content juga memiliki z-index tinggi
+        // Pastikan modal content juga memiliki z-index tinggi dan bisa diklik
         const modalContent = modal.querySelector('.modal-content');
         if (modalContent) {
             modalContent.style.zIndex = '999999999';
             modalContent.style.position = 'relative';
+            modalContent.style.pointerEvents = 'auto';
         }
+        
+        // Pastikan semua tombol di modal bisa diklik
+        const buttons = modal.querySelectorAll('button');
+        buttons.forEach(btn => {
+            btn.style.pointerEvents = 'auto';
+            btn.style.cursor = 'pointer';
+        });
         
         document.body.classList.add('modal-open');
         document.body.style.overflow = 'hidden';
+        document.body.style.pointerEvents = 'auto';
     }
 }
-
 
 function setupModalClickOutside(modalId) {
     const modal = document.getElementById(modalId);
@@ -516,7 +559,7 @@ function openEditDeadlineModal(id, type, currentDeadline) {
     currentEditType = type;
     
     const modal = createModalWithHighZIndex(`
-        <div class="modal-content" style="max-width: 400px; z-index: 999999999;">
+        <div class="modal-content" style="max-width: 400px;">
             <h3>📅 Edit Deadline</h3>
             <div class="modal-subtitle">Ubah tanggal deadline untuk data ini</div>
             <div style="padding: 0 20px 20px 20px;">
@@ -531,7 +574,7 @@ function openEditDeadlineModal(id, type, currentDeadline) {
                 <button id="cancelDeadlineBtn" class="btn-outline">Batal</button>
             </div>
         </div>
-    `);
+    `, () => closeDynamicModal(modal));
     
     document.getElementById('editDeadlineDate').value = currentDeadline || getTodayDate();
     
@@ -552,18 +595,14 @@ function openEditDeadlineModal(id, type, currentDeadline) {
                 showNotifTop(`✅ Deadline prospek berhasil diubah menjadi ${newDeadline}`);
                 await loadProspek();
             }
-            modal.remove();
-            document.body.classList.remove('modal-open');
-            document.body.style.overflow = '';
+            closeDynamicModal(modal);
         } catch (e) {
             showNotifTop('❌ Gagal: ' + e.message, true);
         }
     };
     
     document.getElementById('cancelDeadlineBtn').onclick = () => {
-        modal.remove();
-        document.body.classList.remove('modal-open');
-        document.body.style.overflow = '';
+        closeDynamicModal(modal);
     };
 }
 
@@ -749,25 +788,35 @@ async function openDetailProspek(id) {
 function openFollowupConfirm(id) {
     currentPendingId = id;
     
-    const modal = document.getElementById('followupConfirmModal');
-    if (!modal) return;
-    modal.style.zIndex = '99999999';
+    const modal = createModalWithHighZIndex(`
+        <div class="modal-content" style="max-width: 400px;">
+            <h3>✅ Konfirmasi Follow Up</h3>
+            <div class="modal-subtitle">Pastikan sudah melakukan komunikasi dengan customer</div>
+            <div style="padding: 0 20px;">
+                <div class="form-group">
+                    <label><input type="checkbox" id="followup_terkirim" style="margin-right: 8px;"> Apakah pesan sudah terkirim dan terbaca?</label>
+                </div>
+                <div class="form-group">
+                    <label><input type="checkbox" id="followup_dibalas" style="margin-right: 8px;"> Apakah sudah di balas?</label>
+                </div>
+            </div>
+            <div class="modal-buttons" style="display: flex; gap: 12px; flex-wrap: wrap;">
+                <button id="followupConfirmYes" class="btn-primary" style="flex: 1;" disabled>✅ Lanjut ke Pending</button>
+                <button id="followupConfirmNo" class="btn-danger" style="flex: 1;">📵 Nomor salah/Tidak bisa dihubungi</button>
+                <button id="followupConfirmCancel" class="btn-outline" style="flex: 1;">❌ Batal</button>
+            </div>
+        </div>
+    `, () => closeDynamicModal(modal));
     
-    const cb1 = document.getElementById('followup_terkirim');
-    const cb2 = document.getElementById('followup_dibalas');
-    const yesBtn = document.getElementById('followupConfirmYes');
-    const noBtn = document.getElementById('followupConfirmNo');
+    const cb1 = modal.querySelector('#followup_terkirim');
+    const cb2 = modal.querySelector('#followup_dibalas');
+    const yesBtn = modal.querySelector('#followupConfirmYes');
+    const noBtn = modal.querySelector('#followupConfirmNo');
+    const cancelBtn = modal.querySelector('#followupConfirmCancel');
     
-    if (!cb1 || !cb2 || !yesBtn || !noBtn) return;
-    
-    cb1.checked = false;
-    cb2.checked = false;
-    yesBtn.disabled = true;
-    noBtn.disabled = false;
-    
-    function updateYesButton() {
+    const updateYesButton = () => {
         yesBtn.disabled = !(cb1.checked && cb2.checked);
-    }
+    };
     
     cb1.onclick = updateYesButton;
     cb2.onclick = updateYesButton;
@@ -788,7 +837,7 @@ function openFollowupConfirm(id) {
             tanggal: newDeadline
         }).eq('id', id);
         
-        closeModal('followupConfirmModal');
+        closeDynamicModal(modal);
         showNotifTop(`✅ Customer dipindahkan ke Pending. Deadline +5 hari menjadi ${newDeadline}`);
         await loadCustomers();
         closeModal('detailModal');
@@ -806,38 +855,50 @@ function openFollowupConfirm(id) {
             });
             await window.db.from('customers').delete().eq('id', id);
             showNotifTop('📵 Data dipindahkan ke Database Nomor Salah');
-            closeModal('followupConfirmModal');
+            closeDynamicModal(modal);
             await loadCustomers();
             closeModal('detailModal');
         }
     };
     
-    showModal('followupConfirmModal');
+    cancelBtn.onclick = () => {
+        closeDynamicModal(modal);
+    };
 }
 
 // ========== PROSPEK DIHUBUNGI CONFIRMATION ==========
 function openProspekDihubungiConfirm(id) {
     currentProspekId = id;
     
-    const modal = document.getElementById('prospekDihubungiModal');
-    if (!modal) return;
-    modal.style.zIndex = '99999999';
+    const modal = createModalWithHighZIndex(`
+        <div class="modal-content" style="max-width: 400px;">
+            <h3>✅ Konfirmasi Dihubungi</h3>
+            <div class="modal-subtitle">Pastikan sudah melakukan komunikasi dengan prospek</div>
+            <div style="padding: 0 20px;">
+                <div class="form-group">
+                    <label><input type="checkbox" id="prospek_terkirim" style="margin-right: 8px;"> Apakah pesan sudah terkirim dan terbaca?</label>
+                </div>
+                <div class="form-group">
+                    <label><input type="checkbox" id="prospek_dibalas" style="margin-right: 8px;"> Apakah sudah di balas?</label>
+                </div>
+            </div>
+            <div class="modal-buttons" style="display: flex; gap: 12px; flex-wrap: wrap;">
+                <button id="prospekConfirmYes" class="btn-primary" style="flex: 1;" disabled>✅ Lanjut ke Negosiasi</button>
+                <button id="prospekConfirmNo" class="btn-danger" style="flex: 1;">📵 Nomor salah/Tidak bisa dihubungi</button>
+                <button id="prospekConfirmCancel" class="btn-outline" style="flex: 1;">❌ Batal</button>
+            </div>
+        </div>
+    `, () => closeDynamicModal(modal));
     
-    const cb1 = document.getElementById('prospek_terkirim');
-    const cb2 = document.getElementById('prospek_dibalas');
-    const yesBtn = document.getElementById('prospekConfirmYes');
-    const noBtn = document.getElementById('prospekConfirmNo');
+    const cb1 = modal.querySelector('#prospek_terkirim');
+    const cb2 = modal.querySelector('#prospek_dibalas');
+    const yesBtn = modal.querySelector('#prospekConfirmYes');
+    const noBtn = modal.querySelector('#prospekConfirmNo');
+    const cancelBtn = modal.querySelector('#prospekConfirmCancel');
     
-    if (!cb1 || !cb2 || !yesBtn || !noBtn) return;
-    
-    cb1.checked = false;
-    cb2.checked = false;
-    yesBtn.disabled = true;
-    noBtn.disabled = false;
-    
-    function updateYesButton() {
+    const updateYesButton = () => {
         yesBtn.disabled = !(cb1.checked && cb2.checked);
-    }
+    };
     
     cb1.onclick = updateYesButton;
     cb2.onclick = updateYesButton;
@@ -858,7 +919,7 @@ function openProspekDihubungiConfirm(id) {
             deadline: newDeadline
         }).eq('id', id);
         
-        closeModal('prospekDihubungiModal');
+        closeDynamicModal(modal);
         showNotifTop(`✅ Prospek dipindahkan ke Negosiasi. Deadline +5 hari menjadi ${newDeadline}`);
         await loadProspek();
         closeModal('detailModal');
@@ -876,30 +937,45 @@ function openProspekDihubungiConfirm(id) {
             });
             await window.db.from('prospek').delete().eq('id', id);
             showNotifTop('📵 Data dipindahkan ke Database Nomor Salah');
-            closeModal('prospekDihubungiModal');
+            closeDynamicModal(modal);
             await loadProspek();
             closeModal('detailModal');
         }
     };
     
-    showModal('prospekDihubungiModal');
+    cancelBtn.onclick = () => {
+        closeDynamicModal(modal);
+    };
 }
 
 // ========== PENDING MODAL FUNCTIONS ==========
 function openPendingModal(id) {
     currentPendingId = id;
-    const modal = document.getElementById('pendingModal');
-    if (modal) modal.style.zIndex = '99999999';
     
     window.db.from('customers').select('*').eq('id', id).single().then(({ data }) => {
         pendingItems = data.pending_data || [];
-        renderPendingModal();
-        showModal('pendingModal');
+        
+        // Buat modal pending dengan tampilan yang lebih baik
+        const modal = createModalWithHighZIndex(`
+            <div class="modal-content" style="max-width: 500px;">
+                <h3>📝 Catatan Pending</h3>
+                <div class="modal-subtitle">Catat setiap balasan/respon dari customer</div>
+                <div id="pendingItemsContainer" style="max-height: 300px; overflow-y: auto; padding: 0 20px;"></div>
+                <button id="addPendingItemBtn" class="add-btn" style="margin: 10px 20px; width: calc(100% - 40px);">+ Tambah Balasan</button>
+                <div class="modal-buttons" style="display: flex; gap: 10px; flex-wrap: wrap;">
+                    <button id="pendingFinishBtn" class="btn-success" style="flex: 1;" disabled>✅ Selesai & Lanjut ke Closing</button>
+                    <button id="pendingSaveBtn" class="btn-primary" style="flex: 1;">💾 Simpan</button>
+                    <button id="pendingCancelBtn" class="btn-outline" style="flex: 1;">Batal</button>
+                </div>
+            </div>
+        `, () => closeDynamicModal(modal));
+        
+        renderPendingModalInContainer(modal);
     });
 }
 
-function renderPendingModal() {
-    const container = document.getElementById('pendingItemsContainer');
+function renderPendingModalInContainer(modal) {
+    const container = modal.querySelector('#pendingItemsContainer');
     if (!container) return;
     
     container.innerHTML = '';
@@ -934,38 +1010,38 @@ function renderPendingModal() {
         
         textInput.addEventListener('change', (e) => {
             pendingItems[idx].text = e.target.value;
-            updatePendingButtons();
+            updatePendingButtonsInModal(modal);
         });
         checkBox.addEventListener('change', (e) => {
             pendingItems[idx].checked = e.target.checked;
-            updatePendingButtons();
+            updatePendingButtonsInModal(modal);
         });
         delBtn.addEventListener('click', () => {
             pendingItems.splice(idx, 1);
-            renderPendingModal();
-            updatePendingButtons();
+            renderPendingModalInContainer(modal);
+            updatePendingButtonsInModal(modal);
         });
         container.appendChild(div);
     });
     
-    const addBtn = document.getElementById('addPendingItemBtn');
+    const addBtn = modal.querySelector('#addPendingItemBtn');
     if (addBtn) {
         const newAddBtn = addBtn.cloneNode(true);
         addBtn.parentNode.replaceChild(newAddBtn, addBtn);
         newAddBtn.onclick = () => {
             pendingItems.push({ text: '', checked: false });
-            renderPendingModal();
-            updatePendingButtons();
+            renderPendingModalInContainer(modal);
+            updatePendingButtonsInModal(modal);
         };
     }
     
-    updatePendingButtons();
+    updatePendingButtonsInModal(modal);
 }
 
-function updatePendingButtons() {
+function updatePendingButtonsInModal(modal) {
     const allFilledAndChecked = pendingItems.length > 0 && pendingItems.every(item => item.checked === true && item.text.trim() !== '');
     
-    const finishBtn = document.getElementById('pendingFinishBtn');
+    const finishBtn = modal.querySelector('#pendingFinishBtn');
     if (finishBtn) {
         if (allFilledAndChecked) {
             finishBtn.disabled = false;
@@ -975,8 +1051,8 @@ function updatePendingButtons() {
             finishBtn.parentNode.replaceChild(newFinishBtn, finishBtn);
             newFinishBtn.onclick = async () => {
                 await window.db.from('customers').update({ pending_data: pendingItems }).eq('id', currentPendingId);
-                await updateCustomerStatus(currentPendingId, 'closing');
-                closeModal('pendingModal');
+                confirmClosingToDB(currentPendingId);
+                closeDynamicModal(modal);
             };
         } else {
             finishBtn.disabled = true;
@@ -985,7 +1061,7 @@ function updatePendingButtons() {
         }
     }
     
-    const saveBtn = document.getElementById('pendingSaveBtn');
+    const saveBtn = modal.querySelector('#pendingSaveBtn');
     if (saveBtn) {
         const newSaveBtn = saveBtn.cloneNode(true);
         saveBtn.parentNode.replaceChild(newSaveBtn, saveBtn);
@@ -1026,17 +1102,17 @@ function updatePendingButtons() {
             }).eq('id', currentPendingId);
             
             showNotifTop(`💾 Data pending berhasil disimpan. Deadline +3 hari menjadi ${newDeadline}`);
-            closeModal('pendingModal');
+            closeDynamicModal(modal);
             await loadCustomers();
         };
     }
     
-    const cancelBtn = document.getElementById('pendingCancelBtn');
+    const cancelBtn = modal.querySelector('#pendingCancelBtn');
     if (cancelBtn) {
         const newCancelBtn = cancelBtn.cloneNode(true);
         cancelBtn.parentNode.replaceChild(newCancelBtn, cancelBtn);
         newCancelBtn.onclick = () => {
-            closeModal('pendingModal');
+            closeDynamicModal(modal);
         };
     }
 }
@@ -1348,7 +1424,7 @@ async function addProspek(nama, hp, deadline) {
 // ========== KONFIRMASI CLOSING KE DB ==========
 function confirmClosingToDB(id) {
     const modal = createModalWithHighZIndex(`
-        <div class="modal-content" style="max-width: 400px; z-index: 999999999;">
+        <div class="modal-content" style="max-width: 400px;">
             <h3>📋 Pindahkan ke Database Closing</h3>
             <div class="modal-subtitle">Data customer akan dipindahkan ke Database Closing</div>
             <div style="padding: 0 20px 20px 20px;">
@@ -1366,7 +1442,7 @@ function confirmClosingToDB(id) {
                 <button id="cancelClosingToDBBtn" class="btn-outline">❌ Batal</button>
             </div>
         </div>
-    `);
+    `, () => closeDynamicModal(modal));
     
     document.getElementById('confirmClosingToDBBtn').onclick = async () => {
         const note = document.getElementById('closingNote').value;
@@ -1383,9 +1459,7 @@ function confirmClosingToDB(id) {
             });
             await window.db.from('customers').delete().eq('id', id);
             showNotifTop('✅ Data berhasil dipindahkan ke Database Closing!');
-            modal.remove();
-            document.body.classList.remove('modal-open');
-            document.body.style.overflow = '';
+            closeDynamicModal(modal);
             await loadCustomers();
             await loadDBClosing();
             closeModal('detailModal');
@@ -1393,16 +1467,14 @@ function confirmClosingToDB(id) {
     };
     
     document.getElementById('cancelClosingToDBBtn').onclick = () => {
-        modal.remove();
-        document.body.classList.remove('modal-open');
-        document.body.style.overflow = '';
+        closeDynamicModal(modal);
     };
 }
 
 // ========== KONFIRMASI PROSPEK TERTARIK KE DB COMMITMENT ==========
 function confirmTertarikToDB(prospekId) {
     const modal = createModalWithHighZIndex(`
-        <div class="modal-content" style="max-width: 400px; z-index: 999999999;">
+        <div class="modal-content" style="max-width: 400px;">
             <h3>📋 Pindahkan ke Database Commitment</h3>
             <div class="modal-subtitle">Data prospek akan dipindahkan ke Database Commitment</div>
             <div style="padding: 0 20px 20px 20px;">
@@ -1433,7 +1505,7 @@ function confirmTertarikToDB(prospekId) {
                 <button id="cancelTertarikToDBBtn" class="btn-outline">❌ Batal</button>
             </div>
         </div>
-    `);
+    `, () => closeDynamicModal(modal));
     
     document.getElementById('confirmTertarikToDBBtn').onclick = async () => {
         const agentId = document.getElementById('commitmentAgentId').value;
@@ -1468,21 +1540,16 @@ function confirmTertarikToDB(prospekId) {
         
         await window.db.from('prospek').delete().eq('id', prospekId);
         showNotifTop('✅ Data berhasil dipindahkan ke Database Commitment!');
-        modal.remove();
-        document.body.classList.remove('modal-open');
-        document.body.style.overflow = '';
+        closeDynamicModal(modal);
         await loadProspek();
         await loadDBCommitment();
         closeModal('detailModal');
     };
     
     document.getElementById('cancelTertarikToDBBtn').onclick = () => {
-        modal.remove();
-        document.body.classList.remove('modal-open');
-        document.body.style.overflow = '';
+        closeDynamicModal(modal);
     };
 }
-
 
 async function updateCustomerStatus(id, newStatus) {
     const customer = customersData.find(c => c.id === id);
