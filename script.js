@@ -555,54 +555,101 @@ async function saveUserProfile() {
 
 // ========== EDIT DEADLINE FUNCTIONS ==========
 function openEditDeadlineModal(id, type, currentDeadline) {
+    console.log('openEditDeadlineModal dipanggil', id, type, currentDeadline);
     currentEditItem = id;
     currentEditType = type;
     
-    const modal = createModalWithHighZIndex(`
-        <div class="modal-content" style="max-width: 400px;">
+    // Hapus modal yang sudah ada
+    const existingModal = document.querySelector('.edit-deadline-modal');
+    if (existingModal) {
+        existingModal.remove();
+    }
+    
+    const modal = document.createElement('div');
+    modal.className = 'modal edit-deadline-modal';
+    modal.style.display = 'flex';
+    modal.style.zIndex = '999999999';
+    modal.style.position = 'fixed';
+    modal.style.top = '0';
+    modal.style.left = '0';
+    modal.style.width = '100%';
+    modal.style.height = '100%';
+    modal.style.backgroundColor = 'rgba(0, 0, 0, 0.7)';
+    modal.style.backdropFilter = 'blur(5px)';
+    modal.style.pointerEvents = 'auto';
+    modal.innerHTML = `
+        <div class="modal-content" style="max-width: 400px; z-index: 999999999; pointer-events: auto;">
             <h3>📅 Edit Deadline</h3>
             <div class="modal-subtitle">Ubah tanggal deadline untuk data ini</div>
-            <div style="padding: 0 20px 20px 20px;">
-                <label for="editDeadlineDate">Tanggal Deadline Baru <span class="required">*</span></label>
-                <input type="date" id="editDeadlineDate" style="width:100%; padding: 12px; border-radius: 14px; border: 1.5px solid #e5e7eb; margin-top: 8px;">
+            <div style="padding: 20px;">
+                <label for="editDeadlineDateInput">Tanggal Deadline Baru <span class="required">*</span></label>
+                <input type="date" id="editDeadlineDateInput" style="width:100%; padding: 12px; border-radius: 14px; border: 1.5px solid #e5e7eb; margin-top: 8px;">
             </div>
             <div style="background: #fef3c7; padding: 10px; border-radius: 10px; margin: 0 20px 10px 20px;">
                 <p style="font-size: 12px; color: #d97706; margin: 0;">⚠️ <strong>Peringatan:</strong> Perubahan deadline harus diketahui oleh Owner/Atasan.</p>
             </div>
-            <div class="modal-buttons">
-                <button id="saveDeadlineBtn" class="btn-primary">💾 Simpan Perubahan</button>
-                <button id="cancelDeadlineBtn" class="btn-outline">Batal</button>
+            <div class="modal-buttons" style="display: flex; gap: 12px; padding: 16px 20px 20px;">
+                <button id="saveDeadlineBtnModal" class="btn-primary" style="flex: 1; cursor: pointer;">💾 Simpan Perubahan</button>
+                <button id="cancelDeadlineBtnModal" class="btn-outline" style="flex: 1; cursor: pointer;">❌ Batal</button>
             </div>
         </div>
-    `, () => closeDynamicModal(modal));
+    `;
     
-    document.getElementById('editDeadlineDate').value = currentDeadline || getTodayDate();
+    document.body.appendChild(modal);
+    document.body.classList.add('modal-open');
+    document.body.style.overflow = 'hidden';
     
-    document.getElementById('saveDeadlineBtn').onclick = async () => {
-        const newDeadline = document.getElementById('editDeadlineDate').value;
-        if (!newDeadline) {
-            showNotifTop('⚠️ Tanggal deadline harus diisi!', true);
-            return;
-        }
-        
-        try {
-            if (currentEditType === 'customer') {
-                await window.db.from('customers').update({ tanggal: newDeadline }).eq('id', currentEditItem);
-                showNotifTop(`✅ Deadline customer berhasil diubah menjadi ${newDeadline}`);
-                await loadCustomers();
-            } else if (currentEditType === 'prospek') {
-                await window.db.from('prospek').update({ deadline: newDeadline }).eq('id', currentEditItem);
-                showNotifTop(`✅ Deadline prospek berhasil diubah menjadi ${newDeadline}`);
-                await loadProspek();
+    const dateInput = document.getElementById('editDeadlineDateInput');
+    if (dateInput) {
+        dateInput.value = currentDeadline || getTodayDate();
+    }
+    
+    // Event untuk tombol simpan
+    const saveBtn = document.getElementById('saveDeadlineBtnModal');
+    if (saveBtn) {
+        saveBtn.onclick = async () => {
+            const newDeadline = document.getElementById('editDeadlineDateInput').value;
+            if (!newDeadline) {
+                showNotifTop('⚠️ Tanggal deadline harus diisi!', true);
+                return;
             }
-            closeDynamicModal(modal);
-        } catch (e) {
-            showNotifTop('❌ Gagal: ' + e.message, true);
-        }
-    };
+            
+            try {
+                if (currentEditType === 'customer') {
+                    await window.db.from('customers').update({ tanggal: newDeadline }).eq('id', currentEditItem);
+                    showNotifTop(`✅ Deadline customer berhasil diubah menjadi ${newDeadline}`);
+                    await loadCustomers();
+                } else if (currentEditType === 'prospek') {
+                    await window.db.from('prospek').update({ deadline: newDeadline }).eq('id', currentEditItem);
+                    showNotifTop(`✅ Deadline prospek berhasil diubah menjadi ${newDeadline}`);
+                    await loadProspek();
+                }
+                modal.remove();
+                document.body.classList.remove('modal-open');
+                document.body.style.overflow = '';
+            } catch (e) {
+                showNotifTop('❌ Gagal: ' + e.message, true);
+            }
+        };
+    }
     
-    document.getElementById('cancelDeadlineBtn').onclick = () => {
-        closeDynamicModal(modal);
+    // Event untuk tombol batal
+    const cancelBtn = document.getElementById('cancelDeadlineBtnModal');
+    if (cancelBtn) {
+        cancelBtn.onclick = () => {
+            modal.remove();
+            document.body.classList.remove('modal-open');
+            document.body.style.overflow = '';
+        };
+    }
+    
+    // Klik di luar modal untuk menutup
+    modal.onclick = (e) => {
+        if (e.target === modal) {
+            modal.remove();
+            document.body.classList.remove('modal-open');
+            document.body.style.overflow = '';
+        }
     };
 }
 
@@ -1121,145 +1168,202 @@ function updatePendingButtonsInModal(modal) {
 function openProspekNegosiasiModal(id) {
     currentProspekId = id;
     
-    const modal = document.getElementById('prospekNegosiasiModal');
-    if (!modal) return;
-    modal.style.zIndex = '9999999';
+    // Hapus modal yang sudah ada
+    const existingModal = document.querySelector('.negosiasi-modal');
+    if (existingModal) {
+        existingModal.remove();
+    }
     
-    const fields = ['prospek_aplikasi', 'prospek_domisili', 'prospek_transaksi', 'prospek_deposit', 'prospek_tertarik', 'prospek_penawaran'];
-    fields.forEach(f => document.getElementById(f).value = '');
-    
+    // Ambil data prospek
     window.db.from('prospek').select('*').eq('id', id).single().then(({ data }) => {
-        if (data.negosiasi_data) {
-            document.getElementById('prospek_aplikasi').value = data.negosiasi_data.aplikasi || '';
-            document.getElementById('prospek_domisili').value = data.negosiasi_data.domisili || '';
-            document.getElementById('prospek_transaksi').value = data.negosiasi_data.transaksi || '';
-            document.getElementById('prospek_deposit').value = data.negosiasi_data.deposit || '';
-            document.getElementById('prospek_tertarik').value = data.negosiasi_data.tertarik || '';
-            document.getElementById('prospek_penawaran').value = data.negosiasi_data.penawaran || '';
-        }
-    });
-    
-    document.getElementById('negosiasiTertarikBtn').onclick = async () => {
-        const aplikasi = document.getElementById('prospek_aplikasi').value;
-        const domisili = document.getElementById('prospek_domisili').value;
-        const transaksi = document.getElementById('prospek_transaksi').value;
-        const deposit = document.getElementById('prospek_deposit').value;
-        const tertarik = document.getElementById('prospek_tertarik').value;
-        const penawaran = document.getElementById('prospek_penawaran').value;
+        const modal = document.createElement('div');
+        modal.className = 'modal negosiasi-modal';
+        modal.style.display = 'flex';
+        modal.style.zIndex = '999999999';
+        modal.style.position = 'fixed';
+        modal.style.top = '0';
+        modal.style.left = '0';
+        modal.style.width = '100%';
+        modal.style.height = '100%';
+        modal.style.backgroundColor = 'rgba(0, 0, 0, 0.7)';
+        modal.style.backdropFilter = 'blur(5px)';
+        modal.style.pointerEvents = 'auto';
+        modal.innerHTML = `
+            <div class="modal-content" style="max-width: 500px; max-height: 85vh; overflow-y: auto; z-index: 999999999; pointer-events: auto;">
+                <h3>📋 Kuesioner Negosiasi</h3>
+                <div class="modal-subtitle">Isi data kuesioner di bawah ini</div>
+                <div style="padding: 0 20px;">
+                    <div class="form-group"><label>Aplikasi yang dipakai? <span class="required">*</span></label><input type="text" id="negosiasi_aplikasi" placeholder="Contoh: GNP, BSB, BTN" value="${escapeHtml(data.negosiasi_data?.aplikasi || '')}"></div>
+                    <div class="form-group"><label>Domisili dimana? <span class="required">*</span></label><input type="text" id="negosiasi_domisili" placeholder="Kota/Kabupaten" value="${escapeHtml(data.negosiasi_data?.domisili || '')}"></div>
+                    <div class="form-group"><label>Total transaksi per bulan? <span class="required">*</span></label><input type="text" id="negosiasi_transaksi" placeholder="Nominal" value="${escapeHtml(data.negosiasi_data?.transaksi || '')}"></div>
+                    <div class="form-group"><label>Apakah deposit atau saldo pinjaman? <span class="required">*</span></label><input type="text" id="negosiasi_deposit" placeholder="Deposit / Saldo Pinjaman" value="${escapeHtml(data.negosiasi_data?.deposit || '')}"></div>
+                    <div class="form-group"><label>Apakah tertarik dengan penawaran kamu? <span class="required">*</span></label>
+                        <select id="negosiasi_tertarik">
+                            <option value="">Pilih</option>
+                            <option value="Ya" ${data.negosiasi_data?.tertarik === 'Ya' ? 'selected' : ''}>Ya</option>
+                            <option value="Tidak" ${data.negosiasi_data?.tertarik === 'Tidak' ? 'selected' : ''}>Tidak</option>
+                        </select>
+                    </div>
+                    <div class="form-group"><label>Penawaran apa yang diberikan? <span class="required">*</span></label><input type="text" id="negosiasi_penawaran" placeholder="Penawaran" value="${escapeHtml(data.negosiasi_data?.penawaran || '')}"></div>
+                </div>
+                <div class="modal-buttons" style="display: flex; gap: 10px; flex-wrap: wrap; padding: 16px 20px 20px;">
+                    <button id="negosiasiTertarikBtn" class="btn-success" style="flex: 1; cursor: pointer;">⭐ Tertarik</button>
+                    <button id="negosiasiTidakTertarikBtn" class="btn-danger" style="flex: 1; cursor: pointer;">❌ Tidak Tertarik</button>
+                    <button id="negosiasiSimpanBtn" class="btn-primary" style="flex: 1; cursor: pointer;">💾 Simpan</button>
+                    <button id="negosiasiBatalBtn" class="btn-outline" style="flex: 1; cursor: pointer;">❌ Batal</button>
+                </div>
+            </div>
+        `;
         
-        if (!aplikasi || !domisili || !transaksi || !deposit || !tertarik || !penawaran) {
-            showNotifTop('⚠️ Semua field harus diisi!', true);
-            return;
-        }
+        document.body.appendChild(modal);
+        document.body.classList.add('modal-open');
+        document.body.style.overflow = 'hidden';
         
-        if (confirm('Apakah data kuesioner sudah lengkap dan prospek tertarik?')) {
+        // Event untuk tombol Tertarik
+        document.getElementById('negosiasiTertarikBtn').onclick = async () => {
+            const aplikasi = document.getElementById('negosiasi_aplikasi').value;
+            const domisili = document.getElementById('negosiasi_domisili').value;
+            const transaksi = document.getElementById('negosiasi_transaksi').value;
+            const deposit = document.getElementById('negosiasi_deposit').value;
+            const tertarik = document.getElementById('negosiasi_tertarik').value;
+            const penawaran = document.getElementById('negosiasi_penawaran').value;
+            
+            if (!aplikasi || !domisili || !transaksi || !deposit || !tertarik || !penawaran) {
+                showNotifTop('⚠️ Semua field harus diisi!', true);
+                return;
+            }
+            
             const negosiasi_data = {
                 aplikasi, domisili, transaksi, deposit, tertarik, penawaran,
-                timestamp: new Date().toISOString()
+                timestamp: new Date().toISOString(),
+                is_complete: true
             };
+            
             await window.db.from('prospek').update({
                 status: 'Tertarik',
                 negosiasi_data: negosiasi_data
             }).eq('id', currentProspekId);
+            
             showNotifTop('✅ Prospek dipindahkan ke Tertarik');
-            closeModal('prospekNegosiasiModal');
+            modal.remove();
+            document.body.classList.remove('modal-open');
+            document.body.style.overflow = '';
             await loadProspek();
             closeModal('detailModal');
-        }
-    };
-    
-    document.getElementById('negosiasiTidakTertarikBtn').onclick = async () => {
-        const aplikasi = document.getElementById('prospek_aplikasi').value;
-        const domisili = document.getElementById('prospek_domisili').value;
-        const transaksi = document.getElementById('prospek_transaksi').value;
-        const deposit = document.getElementById('prospek_deposit').value;
-        const tertarik = document.getElementById('prospek_tertarik').value;
-        const penawaran = document.getElementById('prospek_penawaran').value;
-        
-        if (!aplikasi || !domisili || !transaksi || !deposit || !tertarik || !penawaran) {
-            showNotifTop('⚠️ Data kuesioner harus diisi LENGKAP!', true);
-            return;
-        }
-        
-        if (confirm('Pindahkan ke Database Tidak Tertarik?')) {
-            const { data: doc } = await window.db.from('prospek').select('*').eq('id', currentProspekId).single();
-            await window.db.from('db_tidak_tertarik').insert({
-                nama: doc.nama,
-                hp: doc.hp,
-                tanggal: new Date().toISOString(),
-                user_id: doc.user_id,
-                alasan: 'Tidak tertarik setelah negosiasi',
-                status_sebelumnya: doc.status,
-                negosiasi_data: doc.negosiasi_data || null
-            });
-            await window.db.from('prospek').delete().eq('id', currentProspekId);
-            showNotifTop('📵 Data dipindahkan ke Database Tidak Tertarik');
-            closeModal('prospekNegosiasiModal');
-            await loadProspek();
-            closeModal('detailModal');
-        }
-    };
-    
-    document.getElementById('negosiasiSimpanBtn').onclick = async () => {
-        const aplikasi = document.getElementById('prospek_aplikasi').value;
-        const domisili = document.getElementById('prospek_domisili').value;
-        const transaksi = document.getElementById('prospek_transaksi').value;
-        const deposit = document.getElementById('prospek_deposit').value;
-        const tertarik = document.getElementById('prospek_tertarik').value;
-        const penawaran = document.getElementById('prospek_penawaran').value;
-        
-        const { data: doc } = await window.db.from('prospek').select('*').eq('id', currentProspekId).single();
-        const existingData = doc.negosiasi_data || {};
-        
-        const hasChanges = aplikasi !== (existingData.aplikasi || '') ||
-            domisili !== (existingData.domisili || '') ||
-            transaksi !== (existingData.transaksi || '') ||
-            deposit !== (existingData.deposit || '') ||
-            tertarik !== (existingData.tertarik || '') ||
-            penawaran !== (existingData.penawaran || '');
-        
-        const hasAnyData = aplikasi || domisili || transaksi || deposit || tertarik || penawaran;
-        
-        if (!hasAnyData) {
-            showNotifTop('⚠️ Tidak ada data untuk disimpan!', true);
-            return;
-        }
-        
-        if (!hasChanges) {
-            showNotifTop('⚠️ Tidak ada perubahan data!', true);
-            return;
-        }
-        
-        const negosiasi_data = {
-            aplikasi: aplikasi || '',
-            domisili: domisili || '',
-            transaksi: transaksi || '',
-            deposit: deposit || '',
-            tertarik: tertarik || '',
-            penawaran: penawaran || '',
-            timestamp: new Date().toISOString(),
-            is_complete: !!(aplikasi && domisili && transaksi && deposit && tertarik && penawaran)
         };
         
-        const currentDeadline = doc.deadline || getTodayDate();
-        const newDeadline = addDaysToDate(currentDeadline, 3);
+        // Event untuk tombol Tidak Tertarik
+        document.getElementById('negosiasiTidakTertarikBtn').onclick = async () => {
+            const aplikasi = document.getElementById('negosiasi_aplikasi').value;
+            const domisili = document.getElementById('negosiasi_domisili').value;
+            const transaksi = document.getElementById('negosiasi_transaksi').value;
+            const deposit = document.getElementById('negosiasi_deposit').value;
+            const tertarik = document.getElementById('negosiasi_tertarik').value;
+            const penawaran = document.getElementById('negosiasi_penawaran').value;
+            
+            if (!aplikasi || !domisili || !transaksi || !deposit || !tertarik || !penawaran) {
+                showNotifTop('⚠️ Data kuesioner harus diisi LENGKAP!', true);
+                return;
+            }
+            
+            if (confirm('Pindahkan ke Database Tidak Tertarik?')) {
+                const { data: doc } = await window.db.from('prospek').select('*').eq('id', currentProspekId).single();
+                await window.db.from('db_tidak_tertarik').insert({
+                    nama: doc.nama,
+                    hp: doc.hp,
+                    tanggal: new Date().toISOString(),
+                    user_id: doc.user_id,
+                    alasan: 'Tidak tertarik setelah negosiasi',
+                    status_sebelumnya: doc.status,
+                    negosiasi_data: doc.negosiasi_data || null
+                });
+                await window.db.from('prospek').delete().eq('id', currentProspekId);
+                showNotifTop('📵 Data dipindahkan ke Database Tidak Tertarik');
+                modal.remove();
+                document.body.classList.remove('modal-open');
+                document.body.style.overflow = '';
+                await loadProspek();
+                closeModal('detailModal');
+            }
+        };
         
-        await window.db.from('prospek').update({
-            negosiasi_data: negosiasi_data,
-            deadline: newDeadline
-        }).eq('id', currentProspekId);
+        // Event untuk tombol Simpan
+        document.getElementById('negosiasiSimpanBtn').onclick = async () => {
+            const aplikasi = document.getElementById('negosiasi_aplikasi').value;
+            const domisili = document.getElementById('negosiasi_domisili').value;
+            const transaksi = document.getElementById('negosiasi_transaksi').value;
+            const deposit = document.getElementById('negosiasi_deposit').value;
+            const tertarik = document.getElementById('negosiasi_tertarik').value;
+            const penawaran = document.getElementById('negosiasi_penawaran').value;
+            
+            const { data: doc } = await window.db.from('prospek').select('*').eq('id', currentProspekId).single();
+            const existingData = doc.negosiasi_data || {};
+            
+            const hasChanges = aplikasi !== (existingData.aplikasi || '') ||
+                domisili !== (existingData.domisili || '') ||
+                transaksi !== (existingData.transaksi || '') ||
+                deposit !== (existingData.deposit || '') ||
+                tertarik !== (existingData.tertarik || '') ||
+                penawaran !== (existingData.penawaran || '');
+            
+            const hasAnyData = aplikasi || domisili || transaksi || deposit || tertarik || penawaran;
+            
+            if (!hasAnyData) {
+                showNotifTop('⚠️ Tidak ada data untuk disimpan!', true);
+                return;
+            }
+            
+            if (!hasChanges) {
+                showNotifTop('⚠️ Tidak ada perubahan data!', true);
+                return;
+            }
+            
+            const negosiasi_data = {
+                aplikasi: aplikasi || '',
+                domisili: domisili || '',
+                transaksi: transaksi || '',
+                deposit: deposit || '',
+                tertarik: tertarik || '',
+                penawaran: penawaran || '',
+                timestamp: new Date().toISOString(),
+                is_complete: !!(aplikasi && domisili && transaksi && deposit && tertarik && penawaran)
+            };
+            
+            const currentDeadline = doc.deadline || getTodayDate();
+            const newDeadline = addDaysToDate(currentDeadline, 3);
+            
+            await window.db.from('prospek').update({
+                negosiasi_data: negosiasi_data,
+                deadline: newDeadline
+            }).eq('id', currentProspekId);
+            
+            showNotifTop(`💾 Data kuesioner berhasil disimpan. Deadline +3 hari menjadi ${newDeadline}`);
+            modal.remove();
+            document.body.classList.remove('modal-open');
+            document.body.style.overflow = '';
+            await loadProspek();
+            closeModal('detailModal');
+        };
         
-        showNotifTop(`💾 Data kuesioner berhasil disimpan. Deadline +3 hari menjadi ${newDeadline}`);
-        closeModal('prospekNegosiasiModal');
-        await loadProspek();
-        closeModal('detailModal');
-    };
-    
-    document.getElementById('negosiasiBatalBtn').onclick = () => {
-        closeModal('prospekNegosiasiModal');
-    };
-    
-    showModal('prospekNegosiasiModal');
+        // Event untuk tombol Batal
+        document.getElementById('negosiasiBatalBtn').onclick = () => {
+            modal.remove();
+            document.body.classList.remove('modal-open');
+            document.body.style.overflow = '';
+        };
+        
+        // Klik di luar modal untuk menutup
+        modal.onclick = (e) => {
+            if (e.target === modal) {
+                modal.remove();
+                document.body.classList.remove('modal-open');
+                document.body.style.overflow = '';
+            }
+        };
+    }).catch(err => {
+        console.error('Error loading prospek data:', err);
+        showNotifTop('❌ Gagal memuat data prospek', true);
+    });
 }
 
 // ========== SHOW CONVERT TO CUSTOMER MODAL ==========
@@ -1423,8 +1527,26 @@ async function addProspek(nama, hp, deadline) {
 
 // ========== KONFIRMASI CLOSING KE DB ==========
 function confirmClosingToDB(id) {
-    const modal = createModalWithHighZIndex(`
-        <div class="modal-content" style="max-width: 400px;">
+    // Hapus modal yang sudah ada
+    const existingModal = document.querySelector('.closing-confirm-modal');
+    if (existingModal) {
+        existingModal.remove();
+    }
+    
+    const modal = document.createElement('div');
+    modal.className = 'modal closing-confirm-modal';
+    modal.style.display = 'flex';
+    modal.style.zIndex = '999999999';
+    modal.style.position = 'fixed';
+    modal.style.top = '0';
+    modal.style.left = '0';
+    modal.style.width = '100%';
+    modal.style.height = '100%';
+    modal.style.backgroundColor = 'rgba(0, 0, 0, 0.7)';
+    modal.style.backdropFilter = 'blur(5px)';
+    modal.style.pointerEvents = 'auto';
+    modal.innerHTML = `
+        <div class="modal-content" style="max-width: 400px; z-index: 999999999; pointer-events: auto;">
             <h3>📋 Pindahkan ke Database Closing</h3>
             <div class="modal-subtitle">Data customer akan dipindahkan ke Database Closing</div>
             <div style="padding: 0 20px 20px 20px;">
@@ -1437,12 +1559,16 @@ function confirmClosingToDB(id) {
                     <textarea id="closingNote" rows="3" placeholder="Contoh: Berhasil closing dengan produk A..." style="width:100%; padding: 10px; border-radius: 10px; border: 1px solid #e5e7eb;"></textarea>
                 </div>
             </div>
-            <div class="modal-buttons">
-                <button id="confirmClosingToDBBtn" class="btn-primary">✅ Ya, Pindahkan ke Closing</button>
-                <button id="cancelClosingToDBBtn" class="btn-outline">❌ Batal</button>
+            <div class="modal-buttons" style="display: flex; gap: 12px; padding: 16px 20px 20px;">
+                <button id="confirmClosingToDBBtn" class="btn-primary" style="flex: 1; cursor: pointer;">✅ Ya, Pindahkan ke Closing</button>
+                <button id="cancelClosingToDBBtn" class="btn-outline" style="flex: 1; cursor: pointer;">❌ Batal</button>
             </div>
         </div>
-    `, () => closeDynamicModal(modal));
+    `;
+    
+    document.body.appendChild(modal);
+    document.body.classList.add('modal-open');
+    document.body.style.overflow = 'hidden';
     
     document.getElementById('confirmClosingToDBBtn').onclick = async () => {
         const note = document.getElementById('closingNote').value;
@@ -1459,7 +1585,9 @@ function confirmClosingToDB(id) {
             });
             await window.db.from('customers').delete().eq('id', id);
             showNotifTop('✅ Data berhasil dipindahkan ke Database Closing!');
-            closeDynamicModal(modal);
+            modal.remove();
+            document.body.classList.remove('modal-open');
+            document.body.style.overflow = '';
             await loadCustomers();
             await loadDBClosing();
             closeModal('detailModal');
@@ -1467,14 +1595,42 @@ function confirmClosingToDB(id) {
     };
     
     document.getElementById('cancelClosingToDBBtn').onclick = () => {
-        closeDynamicModal(modal);
+        modal.remove();
+        document.body.classList.remove('modal-open');
+        document.body.style.overflow = '';
+    };
+    
+    modal.onclick = (e) => {
+        if (e.target === modal) {
+            modal.remove();
+            document.body.classList.remove('modal-open');
+            document.body.style.overflow = '';
+        }
     };
 }
 
 // ========== KONFIRMASI PROSPEK TERTARIK KE DB COMMITMENT ==========
 function confirmTertarikToDB(prospekId) {
-    const modal = createModalWithHighZIndex(`
-        <div class="modal-content" style="max-width: 400px;">
+    // Hapus modal yang sudah ada
+    const existingModal = document.querySelector('.tertarik-confirm-modal');
+    if (existingModal) {
+        existingModal.remove();
+    }
+    
+    const modal = document.createElement('div');
+    modal.className = 'modal tertarik-confirm-modal';
+    modal.style.display = 'flex';
+    modal.style.zIndex = '999999999';
+    modal.style.position = 'fixed';
+    modal.style.top = '0';
+    modal.style.left = '0';
+    modal.style.width = '100%';
+    modal.style.height = '100%';
+    modal.style.backgroundColor = 'rgba(0, 0, 0, 0.7)';
+    modal.style.backdropFilter = 'blur(5px)';
+    modal.style.pointerEvents = 'auto';
+    modal.innerHTML = `
+        <div class="modal-content" style="max-width: 400px; z-index: 999999999; pointer-events: auto;">
             <h3>📋 Pindahkan ke Database Commitment</h3>
             <div class="modal-subtitle">Data prospek akan dipindahkan ke Database Commitment</div>
             <div style="padding: 0 20px 20px 20px;">
@@ -1500,12 +1656,16 @@ function confirmTertarikToDB(prospekId) {
                     <textarea id="commitmentNote" rows="2" placeholder="Contoh: Akan followup bulan depan..." style="width:100%; padding: 10px; border-radius: 10px; border: 1px solid #e5e7eb;"></textarea>
                 </div>
             </div>
-            <div class="modal-buttons">
-                <button id="confirmTertarikToDBBtn" class="btn-primary">✅ Ya, Pindahkan ke Commitment</button>
-                <button id="cancelTertarikToDBBtn" class="btn-outline">❌ Batal</button>
+            <div class="modal-buttons" style="display: flex; gap: 12px; padding: 16px 20px 20px;">
+                <button id="confirmTertarikToDBBtn" class="btn-primary" style="flex: 1; cursor: pointer;">✅ Ya, Pindahkan ke Commitment</button>
+                <button id="cancelTertarikToDBBtn" class="btn-outline" style="flex: 1; cursor: pointer;">❌ Batal</button>
             </div>
         </div>
-    `, () => closeDynamicModal(modal));
+    `;
+    
+    document.body.appendChild(modal);
+    document.body.classList.add('modal-open');
+    document.body.style.overflow = 'hidden';
     
     document.getElementById('confirmTertarikToDBBtn').onclick = async () => {
         const agentId = document.getElementById('commitmentAgentId').value;
@@ -1540,14 +1700,26 @@ function confirmTertarikToDB(prospekId) {
         
         await window.db.from('prospek').delete().eq('id', prospekId);
         showNotifTop('✅ Data berhasil dipindahkan ke Database Commitment!');
-        closeDynamicModal(modal);
+        modal.remove();
+        document.body.classList.remove('modal-open');
+        document.body.style.overflow = '';
         await loadProspek();
         await loadDBCommitment();
         closeModal('detailModal');
     };
     
     document.getElementById('cancelTertarikToDBBtn').onclick = () => {
-        closeDynamicModal(modal);
+        modal.remove();
+        document.body.classList.remove('modal-open');
+        document.body.style.overflow = '';
+    };
+    
+    modal.onclick = (e) => {
+        if (e.target === modal) {
+            modal.remove();
+            document.body.classList.remove('modal-open');
+            document.body.style.overflow = '';
+        }
     };
 }
 
