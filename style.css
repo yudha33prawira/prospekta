@@ -3200,3 +3200,109 @@ body.modal-open {
     pointer-events: auto;
     cursor: pointer;
 }
+
+/* ========== PERBAIKAN UNTUK TOMBOL MODAL ========== */
+
+/* Pastikan semua tombol di modal memiliki pointer-events dan cursor yang benar */
+.modal-content button,
+.modal-content .btn-primary,
+.modal-content .btn-success,
+.modal-content .btn-danger,
+.modal-content .btn-outline,
+.modal-content .btn-warning {
+    pointer-events: auto !important;
+    cursor: pointer !important;
+    z-index: 999999999 !important;
+    position: relative;
+    transition: all 0.2s ease;
+}
+
+.modal-content button:hover,
+.modal-content .btn-primary:hover,
+.modal-content .btn-success:hover,
+.modal-content .btn-danger:hover,
+.modal-content .btn-outline:hover,
+.modal-content .btn-warning:hover {
+    transform: translateY(-2px);
+    opacity: 0.9;
+}
+
+.modal-content button:active,
+.modal-content .btn-primary:active,
+.modal-content .btn-success:active,
+.modal-content .btn-danger:active,
+.modal-content .btn-outline:active,
+.modal-content .btn-warning:active {
+    transform: translateY(0);
+}
+
+/* Tombol di modal negosiasi */
+#negosiasiTertarikBtn,
+#negosiasiTidakTertarikBtn,
+#negosiasiSimpanBtn,
+#negosiasiBatalBtn {
+    pointer-events: auto !important;
+    cursor: pointer !important;
+    z-index: 999999999 !important;
+}
+
+/* Tombol di modal followup confirm */
+#followupConfirmYes,
+#followupConfirmNo,
+#followupConfirmCancel {
+    pointer-events: auto !important;
+    cursor: pointer !important;
+}
+
+/* Tombol di modal prospek dihubungi */
+#prospekConfirmYes,
+#prospekConfirmNo,
+#prospekConfirmCancel {
+    pointer-events: auto !important;
+    cursor: pointer !important;
+}
+
+/* Tombol di modal pending */
+#pendingFinishBtn,
+#pendingSaveBtn,
+#pendingCancelBtn,
+#addPendingItemBtn {
+    pointer-events: auto !important;
+    cursor: pointer !important;
+}
+
+/* Tombol di modal edit deadline */
+#saveDeadlineBtnModal,
+#cancelDeadlineBtnModal {
+    pointer-events: auto !important;
+    cursor: pointer !important;
+}
+
+/* Tombol di modal konfirmasi closing */
+#confirmClosingToDBBtn,
+#cancelClosingToDBBtn {
+    pointer-events: auto !important;
+    cursor: pointer !important;
+}
+
+/* Tombol di modal konfirmasi tertarik */
+#confirmTertarikToDBBtn,
+#cancelTertarikToDBBtn {
+    pointer-events: auto !important;
+    cursor: pointer !important;
+}
+
+/* Pastikan modal negosiasi memiliki z-index tertinggi */
+#prospekNegosiasiModal,
+#prospekNegosiasiModalDynamic,
+.negosiasi-modal {
+    z-index: 999999999 !important;
+    pointer-events: auto !important;
+}
+
+#prospekNegosiasiModal .modal-content,
+#prospekNegosiasiModalDynamic .modal-content,
+.negosiasi-modal .modal-content {
+    z-index: 999999999 !important;
+    pointer-events: auto !important;
+}
