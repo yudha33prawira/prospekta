@@ -3306,3 +3306,71 @@ body.modal-open {
     z-index: 999999999 !important;
     pointer-events: auto !important;
 }
+
+/* ========== PERBAIKAN UNTUK TOMBOL MODAL NEGOSIASI ========== */
+
+/* Pastikan modal negosiasi dan isinya bisa diklik */
+#prospekNegosiasiModal,
+#prospekNegosiasiModalDynamic,
+.negosiasi-modal {
+    z-index: 999999999 !important;
+    pointer-events: auto !important;
+}
+
+#prospekNegosiasiModal .modal-content,
+#prospekNegosiasiModalDynamic .modal-content,
+.negosiasi-modal .modal-content {
+    z-index: 999999999 !important;
+    pointer-events: auto !important;
+}
+
+/* Pastikan semua tombol di modal negosiasi bisa diklik */
+#negosiasiTertarikBtn,
+#negosiasiTidakTertarikBtn,
+#negosiasiSimpanBtn,
+#negosiasiBatalBtn,
+.btn-success,
+.btn-danger,
+.btn-primary,
+.btn-outline {
+    pointer-events: auto !important;
+    cursor: pointer !important;
+    z-index: 999999999 !important;
+    position: relative;
+    transition: all 0.2s ease;
+}
+
+#negosiasiTertarikBtn:hover,
+.btn-success:hover {
+    background: #059669 !important;
+    transform: translateY(-2px);
+}
+
+#negosiasiTidakTertarikBtn:hover,
+.btn-danger:hover {
+    background: #dc2626 !important;
+    transform: translateY(-2px);
+}
+
+#negosiasiSimpanBtn:hover,
+.btn-primary:hover {
+    background: #4338ca !important;
+    transform: translateY(-2px);
+}
+
+#negosiasiBatalBtn:hover,
+.btn-outline:hover {
+    background: #e5e7eb !important;
+    transform: translateY(-2px);
+}
+
+/* Pastikan form input di modal bisa diisi */
+#negosiasi_aplikasi,
+#negosiasi_domisili,
+#negosiasi_transaksi,
+#negosiasi_deposit,
+#negosiasi_tertarik,
+#negosiasi_penawaran {
+    pointer-events: auto !important;
+    cursor: text !important;
+}
