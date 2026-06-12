@@ -1095,12 +1095,13 @@ body {
     left: 0;
     width: 100%;
     height: 100%;
-    background: rgba(0, 0, 0, 0.6);
+    background: rgba(0, 0, 0, 0.7);
     display: none;
     justify-content: center;
     align-items: center;
-    z-index: 99999999 !important;
+    z-index: 999999999 !important;
     backdrop-filter: blur(5px);
+    pointer-events: auto !important;
 }
 
 .modal.show {
@@ -1121,7 +1122,8 @@ body.modal-open {
     animation: modalPopup 0.3s cubic-bezier(0.34, 1.2, 0.64, 1);
     box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.25);
     position: relative;
-    z-index: 99999999 !important;
+    z-index: 999999999 !important;
+    pointer-events: auto !important;
 }
 
 @keyframes modalPopup {
@@ -1140,6 +1142,104 @@ body.modal-open {
     color: #6b7280;
     padding: 0 20px 12px;
     border-bottom: 1px solid #f0f0f0;
+}
+
+/* Modal spesifik */
+#customerModal,
+#prospekModal,
+#profileModal,
+#detailModal,
+#infoModal,
+#manageTargetModal,
+#inputTransaksiModal,
+#transaksiListModal,
+#reminderModal,
+#pesanModal,
+#addCsModal,
+#pilihNomorModal,
+#editDeadlineModal,
+#previewPhotoModal,
+#followupConfirmModal,
+#prospekDihubungiModal,
+#prospekNegosiasiModal,
+#convertModal,
+#tarifAdminModal,
+#produkMasterModal,
+#pilihCsTujuanModal,
+#pendingModal {
+    z-index: 999999999 !important;
+    pointer-events: auto !important;
+}
+
+/* Modal dinamis */
+.modal[style*="display: flex"] {
+    z-index: 999999999 !important;
+    pointer-events: auto !important;
+}
+
+/* ========== PERBAIKAN UNTUK MODAL NEGOSIASI ========== */
+#prospekNegosiasiModalFix {
+    position: fixed !important;
+    top: 0 !important;
+    left: 0 !important;
+    width: 100% !important;
+    height: 100% !important;
+    background: rgba(0, 0, 0, 0.8) !important;
+    display: flex !important;
+    justify-content: center !important;
+    align-items: center !important;
+    z-index: 999999999 !important;
+    backdrop-filter: blur(5px) !important;
+}
+
+#prospekNegosiasiModalFix .modal-content {
+    background: #fff !important;
+    border-radius: 24px !important;
+    width: 90% !important;
+    max-width: 500px !important;
+    max-height: 85vh !important;
+    overflow-y: auto !important;
+    box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.25) !important;
+}
+
+/* Tombol-tombol di modal negosiasi */
+#negosiasiTertarikBtnFix,
+#negosiasiTidakTertarikBtnFix,
+#negosiasiSimpanBtnFix,
+#negosiasiBatalBtnFix {
+    cursor: pointer !important;
+    transition: all 0.2s ease !important;
+    border: none !important;
+}
+
+#negosiasiTertarikBtnFix:hover {
+    background: #059669 !important;
+    transform: translateY(-2px);
+}
+
+#negosiasiTidakTertarikBtnFix:hover {
+    background: #dc2626 !important;
+    transform: translateY(-2px);
+}
+
+#negosiasiSimpanBtnFix:hover {
+    background: #4338ca !important;
+    transform: translateY(-2px);
+}
+
+#negosiasiBatalBtnFix:hover {
+    background: #e5e7eb !important;
+    transform: translateY(-2px);
+}
+
+/* Form input di modal negosiasi */
+#negosiasi_aplikasi,
+#negosiasi_domisili,
+#negosiasi_transaksi,
+#negosiasi_deposit,
+#negosiasi_tertarik,
+#negosiasi_penawaran {
+    cursor: text !important;
 }
 
 /* ========== FORM GROUP ========== */
@@ -1221,6 +1321,7 @@ body.modal-open {
     font-weight: 600;
     font-size: 13px;
     transition: all 0.2s;
+    pointer-events: auto !important;
 }
 
 .modal-buttons button:hover {
@@ -1308,6 +1409,7 @@ body.modal-open {
     cursor: pointer;
     font-weight: 600;
     transition: all 0.2s;
+    pointer-events: auto !important;
 }
 
 .detail-actions button:hover {
@@ -1331,6 +1433,7 @@ body.modal-open {
     font-size: 13px;
     font-weight: 600;
     transition: all 0.2s;
+    pointer-events: auto !important;
 }
 
 .detail-footer button:hover {
@@ -1373,6 +1476,7 @@ body.modal-open {
 .btn-primary {
     background: #4f46e5;
     color: #fff;
+    cursor: pointer;
 }
 
 .btn-primary:hover {
@@ -1382,6 +1486,7 @@ body.modal-open {
 .btn-success {
     background: #10b981;
     color: #fff;
+    cursor: pointer;
 }
 
 .btn-success:hover {
@@ -1391,6 +1496,7 @@ body.modal-open {
 .btn-warning {
     background: #f59e0b;
     color: #fff;
+    cursor: pointer;
 }
 
 .btn-warning:hover {
@@ -1400,6 +1506,7 @@ body.modal-open {
 .btn-danger {
     background: #ef4444;
     color: #fff;
+    cursor: pointer;
 }
 
 .btn-danger:hover {
@@ -1409,6 +1516,7 @@ body.modal-open {
 .btn-outline {
     background: #f3f4f6;
     color: #374151;
+    cursor: pointer;
 }
 
 .btn-outline:hover {
@@ -1498,6 +1606,7 @@ body.modal-open {
     cursor: pointer;
     font-size: 12px;
     transition: all 0.2s;
+    pointer-events: auto !important;
 }
 
 .db-select-all {
@@ -1531,6 +1640,7 @@ body.modal-open {
     font-size: 12px;
     color: #fff;
     transition: all 0.2s;
+    pointer-events: auto !important;
 }
 
 .db-import-excel {
@@ -1560,6 +1670,7 @@ body.modal-open {
     cursor: pointer;
     font-size: 12px;
     transition: all 0.2s;
+    pointer-events: auto !important;
 }
 
 .db-download-example:hover {
@@ -1628,6 +1739,7 @@ body.modal-open {
     cursor: pointer;
     font-size: 11px;
     transition: all 0.2s;
+    pointer-events: auto !important;
 }
 
 .db-item-wa {
@@ -1711,6 +1823,7 @@ body.modal-open {
     cursor: pointer;
     font-size: 11px;
     transition: all 0.2s;
+    pointer-events: auto !important;
 }
 
 .db-item-move-followup:hover {
@@ -1783,6 +1896,7 @@ body.modal-open {
     border-radius: 12px;
     cursor: pointer;
     transition: all 0.2s;
+    pointer-events: auto !important;
 }
 
 .search-btn:hover {
@@ -1798,6 +1912,7 @@ body.modal-open {
     border-radius: 12px;
     cursor: pointer;
     transition: all 0.2s;
+    pointer-events: auto !important;
 }
 
 .clear-btn:hover {
@@ -2022,6 +2137,7 @@ body.modal-open {
     font-weight: 600;
     cursor: pointer;
     transition: all 0.2s;
+    pointer-events: auto !important;
 }
 
 .broadcast-btn:hover {
@@ -2039,6 +2155,7 @@ body.modal-open {
     border-radius: 8px;
     cursor: pointer;
     transition: all 0.2s;
+    pointer-events: auto !important;
 }
 
 .btn-refresh:hover {
@@ -2182,6 +2299,7 @@ body.modal-open {
     font-weight: 600;
     cursor: pointer;
     transition: all 0.2s;
+    pointer-events: auto !important;
 }
 
 .import-btn:hover {
@@ -2199,6 +2317,7 @@ body.modal-open {
     border-radius: 12px;
     cursor: pointer;
     transition: all 0.2s;
+    pointer-events: auto !important;
 }
 
 .download-example-btn:hover {
@@ -2246,6 +2365,7 @@ body.modal-open {
     align-items: center;
     gap: 8px;
     transition: all 0.3s;
+    pointer-events: auto !important;
 }
 
 #cameraIconBtn:hover {
@@ -2317,10 +2437,13 @@ body.modal-open {
     position: fixed;
     top: 20px;
     right: 20px;
-    z-index: 999999;
+    z-index: 9999999999 !important;
+    pointer-events: none;
 }
 
 .notif-toast {
+    pointer-events: auto;
+    cursor: pointer;
     padding: 12px 20px;
     border-radius: 12px;
     margin-bottom: 10px;
@@ -2387,7 +2510,7 @@ body.modal-open {
     right: 20px;
     width: 320px;
     max-width: 90vw;
-    z-index: 999999;
+    z-index: 999999999;
     background: #fff;
     border: 1px solid #e5e7eb;
     border-radius: 16px;
@@ -2609,7 +2732,7 @@ body.dark-mode .fullpage-header h2 {
     color: #f1f5f9;
 }
 
-/* Dark mode text colors - memastikan teks tidak hitam */
+/* Dark mode text colors */
 body.dark-mode,
 body.dark-mode .card-name,
 body.dark-mode .db-item-info h4,
@@ -2816,7 +2939,7 @@ body.dark-mode .floating-progress .progress-detail {
     color: #94a3b8;
 }
 
-/* Dark mode untuk tombol close dan action buttons */
+/* Dark mode untuk tombol */
 body.dark-mode .modal-buttons button:last-child {
     background: #334155;
     color: #f1f5f9;
@@ -2871,506 +2994,37 @@ body.dark-mode .edit-deadline-btn:hover {
     color: #c4b5fd;
 }
 
-/* ========== PERBAIKAN Z-INDEX UNTUK SEMUA MODAL ========== */
-
-/* Modal utama - z-index tertinggi */
-.modal {
-    position: fixed;
-    top: 0;
-    left: 0;
-    width: 100%;
-    height: 100%;
-    background: rgba(0, 0, 0, 0.7);
-    display: none;
-    justify-content: center;
-    align-items: center;
-    z-index: 999999999 !important;
-    backdrop-filter: blur(5px);
+/* Dark mode untuk modal negosiasi */
+body.dark-mode #prospekNegosiasiModalFix .modal-content {
+    background: #1e293b !important;
+    border-color: #334155 !important;
 }
 
-/* Modal content */
-.modal-content {
-    background: #fff;
-    border-radius: 24px;
-    width: 90%;
-    max-width: 500px;
-    max-height: 85vh;
-    overflow-y: auto;
-    animation: modalPopup 0.3s cubic-bezier(0.34, 1.2, 0.64, 1);
-    box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.25);
-    position: relative;
-    z-index: 999999999 !important;
+body.dark-mode #prospekNegosiasiModalFix h3 {
+    color: #f1f5f9 !important;
 }
 
-/* Semua modal spesifik */
-#customerModal,
-#prospekModal,
-#profileModal,
-#detailModal,
-#infoModal,
-#manageTargetModal,
-#inputTransaksiModal,
-#transaksiListModal,
-#reminderModal,
-#pesanModal,
-#addCsModal,
-#pilihNomorModal,
-#editDeadlineModal,
-#previewPhotoModal,
-#followupConfirmModal,
-#prospekDihubungiModal,
-#prospekNegosiasiModal,
-#convertModal,
-#tarifAdminModal,
-#produkMasterModal,
-#pilihCsTujuanModal {
-    z-index: 999999999 !important;
+body.dark-mode #prospekNegosiasiModalFix .modal-subtitle {
+    color: #94a3b8 !important;
+    border-bottom-color: #334155;
 }
 
-/* Modal yang dibuat secara dinamis */
-.modal[style*="display: flex"] {
-    z-index: 999999999 !important;
+body.dark-mode #prospekNegosiasiModalFix .form-group label {
+    color: #cbd5e1 !important;
 }
 
-/* Notifikasi - harus di atas modal */
-#notifBox {
-    position: fixed;
-    top: 20px;
-    right: 20px;
-    z-index: 9999999999 !important;
+body.dark-mode #prospekNegosiasiModalFix input,
+body.dark-mode #prospekNegosiasiModalFix select {
+    background: #0f172a !important;
+    border-color: #334155 !important;
+    color: #f1f5f9 !important;
 }
 
-.notif-toast {
-    padding: 12px 20px;
-    border-radius: 12px;
-    margin-bottom: 10px;
-    background: #4f46e5;
-    color: white;
-    box-shadow: 0 4px 15px rgba(0, 0, 0, 0.2);
-    font-size: 14px;
-    animation: slideIn 0.3s;
-    position: relative;
-    z-index: 9999999999 !important;
+body.dark-mode #prospekNegosiasiModalFix .btn-outline {
+    background: #334155 !important;
+    color: #f1f5f9 !important;
 }
 
-.notif-error {
-    background: #ef4444;
-}
-
-/* Floating progress */
-.floating-progress {
-    position: fixed;
-    bottom: 20px;
-    right: 20px;
-    width: 320px;
-    max-width: 90vw;
-    z-index: 999999999 !important;
-    background: #fff;
-    border: 1px solid #e5e7eb;
-    border-radius: 16px;
-    padding: 16px;
-    box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.2);
-}
-
-/* Confirm dialog */
-.confirm-dialog-overlay {
-    position: fixed !important;
-    top: 0 !important;
-    left: 0 !important;
-    width: 100% !important;
-    height: 100% !important;
-    background: rgba(0, 0, 0, 0.7) !important;
-    display: flex !important;
-    justify-content: center !important;
-    align-items: center !important;
-    z-index: 9999999999 !important;
-    backdrop-filter: blur(4px);
-}
-
-.confirm-dialog-content {
-    background: white !important;
-    border-radius: 24px !important;
-    max-width: 400px !important;
-    width: 90% !important;
-    z-index: 9999999999 !important;
-    position: relative !important;
-    box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.25) !important;
-}
-
-/* Sidebar tetap di bawah modal */
-.sidebar {
-    z-index: 1000;
-}
-
-/* Topbar */
-.topbar {
-    z-index: 999;
-}
-
-/* ========== PERBAIKAN MODAL AGAR BISA DIKLIK ========== */
-
-/* Modal utama - pastikan pointer-events auto */
-.modal {
-    position: fixed;
-    top: 0;
-    left: 0;
-    width: 100%;
-    height: 100%;
-    background: rgba(0, 0, 0, 0.7);
-    display: none;
-    justify-content: center;
-    align-items: center;
-    z-index: 999999999 !important;
-    backdrop-filter: blur(5px);
-    pointer-events: auto !important;
-}
-
-/* Modal content - pastikan bisa diklik */
-.modal-content {
-    background: #fff;
-    border-radius: 24px;
-    width: 90%;
-    max-width: 500px;
-    max-height: 85vh;
-    overflow-y: auto;
-    animation: modalPopup 0.3s cubic-bezier(0.34, 1.2, 0.64, 1);
-    box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.25);
-    position: relative;
-    z-index: 999999999 !important;
-    pointer-events: auto !important;
-}
-
-/* Semua tombol di dalam modal harus bisa diklik */
-.modal-content button,
-.modal-content input,
-.modal-content select,
-.modal-content textarea,
-.modal-content .modal-buttons button {
-    pointer-events: auto !important;
-    cursor: pointer !important;
-}
-
-/* Modal spesifik */
-#customerModal,
-#prospekModal,
-#profileModal,
-#detailModal,
-#infoModal,
-#manageTargetModal,
-#inputTransaksiModal,
-#transaksiListModal,
-#reminderModal,
-#pesanModal,
-#addCsModal,
-#pilihNomorModal,
-#editDeadlineModal,
-#previewPhotoModal,
-#followupConfirmModal,
-#prospekDihubungiModal,
-#prospekNegosiasiModal,
-#convertModal,
-#tarifAdminModal,
-#produkMasterModal,
-#pilihCsTujuanModal,
-#pendingModal {
-    z-index: 999999999 !important;
-    pointer-events: auto !important;
-}
-
-/* Modal yang dibuat secara dinamis */
-.modal[style*="display: flex"] {
-    z-index: 999999999 !important;
-    pointer-events: auto !important;
-}
-
-/* Pastikan body tidak mencegah klik */
-body.modal-open {
-    overflow: hidden;
-    pointer-events: auto;
-}
-
-/* Notifikasi - di atas semua */
-#notifBox {
-    position: fixed;
-    top: 20px;
-    right: 20px;
-    z-index: 9999999999 !important;
-    pointer-events: none;
-}
-
-.notif-toast {
-    pointer-events: auto;
-    cursor: pointer;
-}
-
-/* ========== PERBAIKAN MODAL AGAR SEMUA ELEMEN BISA DIKLIK ========== */
-
-/* Modal utama */
-.modal {
-    position: fixed;
-    top: 0;
-    left: 0;
-    width: 100%;
-    height: 100%;
-    background: rgba(0, 0, 0, 0.7);
-    display: none;
-    justify-content: center;
-    align-items: center;
-    z-index: 999999999 !important;
-    backdrop-filter: blur(5px);
-    pointer-events: auto !important;
-}
-
-/* Modal content */
-.modal-content {
-    background: #fff;
-    border-radius: 24px;
-    width: 90%;
-    max-width: 500px;
-    max-height: 85vh;
-    overflow-y: auto;
-    animation: modalPopup 0.3s cubic-bezier(0.34, 1.2, 0.64, 1);
-    box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.25);
-    position: relative;
-    z-index: 999999999 !important;
-    pointer-events: auto !important;
-}
-
-/* Semua tombol di dalam modal */
-.modal-content button,
-.modal-content input,
-.modal-content select,
-.modal-content textarea,
-.modal-content .modal-buttons button {
-    pointer-events: auto !important;
-    cursor: pointer !important;
-    z-index: 999999999 !important;
-    position: relative;
-}
-
-/* Modal spesifik */
-#customerModal,
-#prospekModal,
-#profileModal,
-#detailModal,
-#infoModal,
-#manageTargetModal,
-#inputTransaksiModal,
-#transaksiListModal,
-#reminderModal,
-#pesanModal,
-#addCsModal,
-#pilihNomorModal,
-#editDeadlineModal,
-#previewPhotoModal,
-#followupConfirmModal,
-#prospekDihubungiModal,
-#prospekNegosiasiModal,
-#convertModal,
-#tarifAdminModal,
-#produkMasterModal,
-#pilihCsTujuanModal,
-#pendingModal {
-    z-index: 999999999 !important;
-    pointer-events: auto !important;
-}
-
-/* Modal yang dibuat secara dinamis */
-.modal[style*="display: flex"] {
-    z-index: 999999999 !important;
-    pointer-events: auto !important;
-}
-
-/* Pastikan body tidak mencegah klik */
-body.modal-open {
-    overflow: hidden;
-    pointer-events: auto;
-}
-
-/* Notifikasi di atas semua */
-#notifBox {
-    position: fixed;
-    top: 20px;
-    right: 20px;
-    z-index: 9999999999 !important;
-    pointer-events: none;
-}
-
-.notif-toast {
-    pointer-events: auto;
-    cursor: pointer;
-}
-
-/* ========== PERBAIKAN UNTUK TOMBOL MODAL ========== */
-
-/* Pastikan semua tombol di modal memiliki pointer-events dan cursor yang benar */
-.modal-content button,
-.modal-content .btn-primary,
-.modal-content .btn-success,
-.modal-content .btn-danger,
-.modal-content .btn-outline,
-.modal-content .btn-warning {
-    pointer-events: auto !important;
-    cursor: pointer !important;
-    z-index: 999999999 !important;
-    position: relative;
-    transition: all 0.2s ease;
-}
-
-.modal-content button:hover,
-.modal-content .btn-primary:hover,
-.modal-content .btn-success:hover,
-.modal-content .btn-danger:hover,
-.modal-content .btn-outline:hover,
-.modal-content .btn-warning:hover {
-    transform: translateY(-2px);
-    opacity: 0.9;
-}
-
-.modal-content button:active,
-.modal-content .btn-primary:active,
-.modal-content .btn-success:active,
-.modal-content .btn-danger:active,
-.modal-content .btn-outline:active,
-.modal-content .btn-warning:active {
-    transform: translateY(0);
-}
-
-/* Tombol di modal negosiasi */
-#negosiasiTertarikBtn,
-#negosiasiTidakTertarikBtn,
-#negosiasiSimpanBtn,
-#negosiasiBatalBtn {
-    pointer-events: auto !important;
-    cursor: pointer !important;
-    z-index: 999999999 !important;
-}
-
-/* Tombol di modal followup confirm */
-#followupConfirmYes,
-#followupConfirmNo,
-#followupConfirmCancel {
-    pointer-events: auto !important;
-    cursor: pointer !important;
-}
-
-/* Tombol di modal prospek dihubungi */
-#prospekConfirmYes,
-#prospekConfirmNo,
-#prospekConfirmCancel {
-    pointer-events: auto !important;
-    cursor: pointer !important;
-}
-
-/* Tombol di modal pending */
-#pendingFinishBtn,
-#pendingSaveBtn,
-#pendingCancelBtn,
-#addPendingItemBtn {
-    pointer-events: auto !important;
-    cursor: pointer !important;
-}
-
-/* Tombol di modal edit deadline */
-#saveDeadlineBtnModal,
-#cancelDeadlineBtnModal {
-    pointer-events: auto !important;
-    cursor: pointer !important;
-}
-
-/* Tombol di modal konfirmasi closing */
-#confirmClosingToDBBtn,
-#cancelClosingToDBBtn {
-    pointer-events: auto !important;
-    cursor: pointer !important;
-}
-
-/* Tombol di modal konfirmasi tertarik */
-#confirmTertarikToDBBtn,
-#cancelTertarikToDBBtn {
-    pointer-events: auto !important;
-    cursor: pointer !important;
-}
-
-/* Pastikan modal negosiasi memiliki z-index tertinggi */
-#prospekNegosiasiModal,
-#prospekNegosiasiModalDynamic,
-.negosiasi-modal {
-    z-index: 999999999 !important;
-    pointer-events: auto !important;
-}
-
-#prospekNegosiasiModal .modal-content,
-#prospekNegosiasiModalDynamic .modal-content,
-.negosiasi-modal .modal-content {
-    z-index: 999999999 !important;
-    pointer-events: auto !important;
-}
-
-/* ========== PERBAIKAN UNTUK TOMBOL MODAL NEGOSIASI ========== */
-
-/* Pastikan modal negosiasi dan isinya bisa diklik */
-#prospekNegosiasiModal,
-#prospekNegosiasiModalDynamic,
-.negosiasi-modal {
-    z-index: 999999999 !important;
-    pointer-events: auto !important;
-}
-
-#prospekNegosiasiModal .modal-content,
-#prospekNegosiasiModalDynamic .modal-content,
-.negosiasi-modal .modal-content {
-    z-index: 999999999 !important;
-    pointer-events: auto !important;
-}
-
-/* Pastikan semua tombol di modal negosiasi bisa diklik */
-#negosiasiTertarikBtn,
-#negosiasiTidakTertarikBtn,
-#negosiasiSimpanBtn,
-#negosiasiBatalBtn,
-.btn-success,
-.btn-danger,
-.btn-primary,
-.btn-outline {
-    pointer-events: auto !important;
-    cursor: pointer !important;
-    z-index: 999999999 !important;
-    position: relative;
-    transition: all 0.2s ease;
-}
-
-#negosiasiTertarikBtn:hover,
-.btn-success:hover {
-    background: #059669 !important;
-    transform: translateY(-2px);
-}
-
-#negosiasiTidakTertarikBtn:hover,
-.btn-danger:hover {
-    background: #dc2626 !important;
-    transform: translateY(-2px);
-}
-
-#negosiasiSimpanBtn:hover,
-.btn-primary:hover {
-    background: #4338ca !important;
-    transform: translateY(-2px);
-}
-
-#negosiasiBatalBtn:hover,
-.btn-outline:hover {
-    background: #e5e7eb !important;
-    transform: translateY(-2px);
-}
-
-/* Pastikan form input di modal bisa diisi */
-#negosiasi_aplikasi,
-#negosiasi_domisili,
-#negosiasi_transaksi,
-#negosiasi_deposit,
-#negosiasi_tertarik,
-#negosiasi_penawaran {
-    pointer-events: auto !important;
-    cursor: text !important;
+body.dark-mode #prospekNegosiasiModalFix .btn-outline:hover {
+    background: #475569 !important;
 }
