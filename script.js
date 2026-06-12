@@ -80,12 +80,48 @@ function showNotif(msg, isError = false) {
 }
 
 function showNotifTop(msg, isError = false) {
+    // Hapus notif lama jika ada
+    const oldNotifs = document.querySelectorAll('.notif-toast');
+    oldNotifs.forEach(notif => notif.remove());
+    
     const notif = document.createElement('div');
     notif.textContent = msg;
     notif.className = `notif-toast ${isError ? 'notif-error' : ''}`;
-    notif.style.cssText = 'z-index: 999999999; position: fixed; top: 20px; right: 20px; max-width: 350px;';
+    notif.style.cssText = 'z-index: 9999999999 !important; position: fixed; top: 20px; right: 20px; max-width: 350px; background: ' + (isError ? '#ef4444' : '#4f46e5') + '; color: white; padding: 12px 20px; border-radius: 12px; box-shadow: 0 4px 15px rgba(0,0,0,0.2); font-size: 14px;';
     document.getElementById('notifBox').appendChild(notif);
-    setTimeout(() => notif.remove(), 3000);
+    
+    // Auto remove setelah 3 detik
+    setTimeout(() => {
+        if (notif && notif.remove) notif.remove();
+    }, 3000);
+}
+
+function createModalWithHighZIndex(htmlContent) {
+    const modal = document.createElement('div');
+    modal.className = 'modal';
+    modal.style.display = 'flex';
+    modal.style.zIndex = '999999999';
+    modal.style.position = 'fixed';
+    modal.style.top = '0';
+    modal.style.left = '0';
+    modal.style.width = '100%';
+    modal.style.height = '100%';
+    modal.style.backgroundColor = 'rgba(0, 0, 0, 0.7)';
+    modal.style.backdropFilter = 'blur(5px)';
+    modal.innerHTML = htmlContent;
+    
+    // Pastikan modal content memiliki z-index tinggi
+    const modalContent = modal.querySelector('.modal-content');
+    if (modalContent) {
+        modalContent.style.zIndex = '999999999';
+        modalContent.style.position = 'relative';
+    }
+    
+    document.body.appendChild(modal);
+    document.body.classList.add('modal-open');
+    document.body.style.overflow = 'hidden';
+    
+    return modal;
 }
 
 function escapeHtml(text) {
@@ -133,7 +169,9 @@ function updateSidebarBodyClass() {
 
 function closeModal(modalId) {
     const modal = document.getElementById(modalId);
-    if (modal) modal.style.display = 'none';
+    if (modal) {
+        modal.style.display = 'none';
+    }
     document.body.style.overflow = '';
     document.body.classList.remove('modal-open');
 }
@@ -141,12 +179,29 @@ function closeModal(modalId) {
 function showModal(modalId) {
     const modal = document.getElementById(modalId);
     if (modal) {
+        // Pastikan modal memiliki z-index tertinggi
         modal.style.display = 'flex';
-        modal.style.zIndex = '9999999';
+        modal.style.zIndex = '999999999';
+        modal.style.position = 'fixed';
+        modal.style.top = '0';
+        modal.style.left = '0';
+        modal.style.width = '100%';
+        modal.style.height = '100%';
+        modal.style.backgroundColor = 'rgba(0, 0, 0, 0.7)';
+        modal.style.backdropFilter = 'blur(5px)';
+        
+        // Pastikan modal content juga memiliki z-index tinggi
+        const modalContent = modal.querySelector('.modal-content');
+        if (modalContent) {
+            modalContent.style.zIndex = '999999999';
+            modalContent.style.position = 'relative';
+        }
+        
         document.body.classList.add('modal-open');
         document.body.style.overflow = 'hidden';
     }
 }
+
 
 function setupModalClickOutside(modalId) {
     const modal = document.getElementById(modalId);
@@ -460,38 +515,56 @@ function openEditDeadlineModal(id, type, currentDeadline) {
     currentEditItem = id;
     currentEditType = type;
     
-    let modal = document.getElementById('editDeadlineModal');
-    if (!modal) {
-        modal = document.createElement('div');
-        modal.id = 'editDeadlineModal';
-        modal.className = 'modal';
-        modal.style.zIndex = '9999999';
-        modal.innerHTML = `
-            <div class="modal-content" style="max-width: 400px;">
-                <h3>📅 Edit Deadline</h3>
-                <div class="modal-subtitle">Ubah tanggal deadline untuk data ini</div>
-                <div style="padding: 0 20px 20px 20px;">
-                    <label for="editDeadlineDate">Tanggal Deadline Baru <span class="required">*</span></label>
-                    <input type="date" id="editDeadlineDate" style="width:100%; padding:12px; border-radius:14px; border:1.5px solid #e5e7eb;">
-                </div>
-                <div id="deadlineWarning" style="background: #fef3c7; padding: 10px; border-radius: 10px; margin: 0 20px 10px 20px;">
-                    <p style="font-size: 12px; color: #d97706; margin: 0;">⚠️ <strong>Peringatan:</strong> Perubahan deadline harus diketahui oleh Owner/Atasan.</p>
-                </div>
-                <div class="modal-buttons">
-                    <button id="saveDeadlineBtn" class="btn-primary">💾 Simpan Perubahan</button>
-                    <button id="cancelDeadlineBtn" class="btn-outline">Batal</button>
-                </div>
+    const modal = createModalWithHighZIndex(`
+        <div class="modal-content" style="max-width: 400px; z-index: 999999999;">
+            <h3>📅 Edit Deadline</h3>
+            <div class="modal-subtitle">Ubah tanggal deadline untuk data ini</div>
+            <div style="padding: 0 20px 20px 20px;">
+                <label for="editDeadlineDate">Tanggal Deadline Baru <span class="required">*</span></label>
+                <input type="date" id="editDeadlineDate" style="width:100%; padding: 12px; border-radius: 14px; border: 1.5px solid #e5e7eb; margin-top: 8px;">
             </div>
-        `;
-        document.body.appendChild(modal);
-        setupModalClickOutside('editDeadlineModal');
-        
-        document.getElementById('saveDeadlineBtn').addEventListener('click', saveDeadline);
-        document.getElementById('cancelDeadlineBtn').addEventListener('click', () => closeModal('editDeadlineModal'));
-    }
+            <div style="background: #fef3c7; padding: 10px; border-radius: 10px; margin: 0 20px 10px 20px;">
+                <p style="font-size: 12px; color: #d97706; margin: 0;">⚠️ <strong>Peringatan:</strong> Perubahan deadline harus diketahui oleh Owner/Atasan.</p>
+            </div>
+            <div class="modal-buttons">
+                <button id="saveDeadlineBtn" class="btn-primary">💾 Simpan Perubahan</button>
+                <button id="cancelDeadlineBtn" class="btn-outline">Batal</button>
+            </div>
+        </div>
+    `);
     
     document.getElementById('editDeadlineDate').value = currentDeadline || getTodayDate();
-    showModal('editDeadlineModal');
+    
+    document.getElementById('saveDeadlineBtn').onclick = async () => {
+        const newDeadline = document.getElementById('editDeadlineDate').value;
+        if (!newDeadline) {
+            showNotifTop('⚠️ Tanggal deadline harus diisi!', true);
+            return;
+        }
+        
+        try {
+            if (currentEditType === 'customer') {
+                await window.db.from('customers').update({ tanggal: newDeadline }).eq('id', currentEditItem);
+                showNotifTop(`✅ Deadline customer berhasil diubah menjadi ${newDeadline}`);
+                await loadCustomers();
+            } else if (currentEditType === 'prospek') {
+                await window.db.from('prospek').update({ deadline: newDeadline }).eq('id', currentEditItem);
+                showNotifTop(`✅ Deadline prospek berhasil diubah menjadi ${newDeadline}`);
+                await loadProspek();
+            }
+            modal.remove();
+            document.body.classList.remove('modal-open');
+            document.body.style.overflow = '';
+        } catch (e) {
+            showNotifTop('❌ Gagal: ' + e.message, true);
+        }
+    };
+    
+    document.getElementById('cancelDeadlineBtn').onclick = () => {
+        modal.remove();
+        document.body.classList.remove('modal-open');
+        document.body.style.overflow = '';
+    };
 }
 
 async function saveDeadline() {
@@ -1274,12 +1347,8 @@ async function addProspek(nama, hp, deadline) {
 
 // ========== KONFIRMASI CLOSING KE DB ==========
 function confirmClosingToDB(id) {
-    const modal = document.createElement('div');
-    modal.className = 'modal';
-    modal.style.zIndex = '99999999';
-    modal.style.display = 'flex';
-    modal.innerHTML = `
-        <div class="modal-content" style="max-width: 400px;">
+    const modal = createModalWithHighZIndex(`
+        <div class="modal-content" style="max-width: 400px; z-index: 999999999;">
             <h3>📋 Pindahkan ke Database Closing</h3>
             <div class="modal-subtitle">Data customer akan dipindahkan ke Database Closing</div>
             <div style="padding: 0 20px 20px 20px;">
@@ -1297,8 +1366,7 @@ function confirmClosingToDB(id) {
                 <button id="cancelClosingToDBBtn" class="btn-outline">❌ Batal</button>
             </div>
         </div>
-    `;
-    document.body.appendChild(modal);
+    `);
     
     document.getElementById('confirmClosingToDBBtn').onclick = async () => {
         const note = document.getElementById('closingNote').value;
@@ -1316,24 +1384,25 @@ function confirmClosingToDB(id) {
             await window.db.from('customers').delete().eq('id', id);
             showNotifTop('✅ Data berhasil dipindahkan ke Database Closing!');
             modal.remove();
+            document.body.classList.remove('modal-open');
+            document.body.style.overflow = '';
             await loadCustomers();
             await loadDBClosing();
             closeModal('detailModal');
         }
     };
     
-    document.getElementById('cancelClosingToDBBtn').onclick = () => modal.remove();
-    modal.onclick = (e) => { if (e.target === modal) modal.remove(); };
+    document.getElementById('cancelClosingToDBBtn').onclick = () => {
+        modal.remove();
+        document.body.classList.remove('modal-open');
+        document.body.style.overflow = '';
+    };
 }
 
 // ========== KONFIRMASI PROSPEK TERTARIK KE DB COMMITMENT ==========
 function confirmTertarikToDB(prospekId) {
-    const modal = document.createElement('div');
-    modal.className = 'modal';
-    modal.style.zIndex = '99999999';
-    modal.style.display = 'flex';
-    modal.innerHTML = `
-        <div class="modal-content" style="max-width: 400px;">
+    const modal = createModalWithHighZIndex(`
+        <div class="modal-content" style="max-width: 400px; z-index: 999999999;">
             <h3>📋 Pindahkan ke Database Commitment</h3>
             <div class="modal-subtitle">Data prospek akan dipindahkan ke Database Commitment</div>
             <div style="padding: 0 20px 20px 20px;">
@@ -1344,7 +1413,6 @@ function confirmTertarikToDB(prospekId) {
                 <div class="form-group">
                     <label>ID Agent <span class="required">*</span></label>
                     <input type="text" id="commitmentAgentId" placeholder="Contoh: AG-001" maxlength="17" style="width:100%; padding: 10px; border-radius: 10px; border: 1px solid #e5e7eb;">
-                    <small>ID Agent untuk customer yang commit</small>
                 </div>
                 <div class="form-group">
                     <label>Aplikasi <span class="required">*</span></label>
@@ -1365,8 +1433,7 @@ function confirmTertarikToDB(prospekId) {
                 <button id="cancelTertarikToDBBtn" class="btn-outline">❌ Batal</button>
             </div>
         </div>
-    `;
-    document.body.appendChild(modal);
+    `);
     
     document.getElementById('confirmTertarikToDBBtn').onclick = async () => {
         const agentId = document.getElementById('commitmentAgentId').value;
@@ -1402,13 +1469,18 @@ function confirmTertarikToDB(prospekId) {
         await window.db.from('prospek').delete().eq('id', prospekId);
         showNotifTop('✅ Data berhasil dipindahkan ke Database Commitment!');
         modal.remove();
+        document.body.classList.remove('modal-open');
+        document.body.style.overflow = '';
         await loadProspek();
         await loadDBCommitment();
         closeModal('detailModal');
     };
     
-    document.getElementById('cancelTertarikToDBBtn').onclick = () => modal.remove();
-    modal.onclick = (e) => { if (e.target === modal) modal.remove(); };
+    document.getElementById('cancelTertarikToDBBtn').onclick = () => {
+        modal.remove();
+        document.body.classList.remove('modal-open');
+        document.body.style.overflow = '';
+    };
 }
 
 
