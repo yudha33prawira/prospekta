@@ -2988,350 +2988,165 @@ body.dark-mode #uplineBroadcastMessage {
     background: #0f172a !important;
 }
 
-/* ========== PERBAIKAN WARNA KOLOM PROSPEK AGEN = FOLLOWUP AGEN ========== */
-
-/* PROSPEK AGEN (Dashboard) - SAMA DENGAN FOLLOWUP AGEN */
-.kanban-board .kanban-column[data-status="baru"],
-.kanban-board .kanban-column[data-status="Baru"] {
-    background: linear-gradient(135deg, #f3e8ff, #fae8ff) !important;
-}
-
-.kanban-board .kanban-column[data-status="followup"] {
-    background: linear-gradient(135deg, #eff6ff, #dbeafe) !important;
-}
-
-.kanban-board .kanban-column[data-status="pending"] {
-    background: linear-gradient(135deg, #fff7ed, #ffedd5) !important;
-}
-
-.kanban-board .kanban-column[data-status="closing"] {
-    background: linear-gradient(135deg, #ecfdf5, #d1fae5) !important;
-}
-
-/* FOLLOWUP AGEN (Full Page) - SAMA DENGAN PROSPEK AGEN */
-.kanban-board-full .kanban-column[data-status="baru"],
-.kanban-board-full .kanban-column[data-status="Baru"] {
-    background: linear-gradient(135deg, #f3e8ff, #fae8ff) !important;
-}
-
-.kanban-board-full .kanban-column[data-status="followup"] {
-    background: linear-gradient(135deg, #eff6ff, #dbeafe) !important;
-}
-
-.kanban-board-full .kanban-column[data-status="pending"] {
-    background: linear-gradient(135deg, #fff7ed, #ffedd5) !important;
-}
-
-.kanban-board-full .kanban-column[data-status="closing"] {
-    background: linear-gradient(135deg, #ecfdf5, #d1fae5) !important;
-}
-
-/* ========== DARK MODE - WARNA KOLOM SAMA ========== */
-body.dark-mode .kanban-board .kanban-column[data-status="baru"],
-body.dark-mode .kanban-board .kanban-column[data-status="Baru"],
-body.dark-mode .kanban-board-full .kanban-column[data-status="baru"],
-body.dark-mode .kanban-board-full .kanban-column[data-status="Baru"] {
-    background: linear-gradient(135deg, #1e1b4b, #2e1065) !important;
-}
-
-body.dark-mode .kanban-board .kanban-column[data-status="followup"],
-body.dark-mode .kanban-board-full .kanban-column[data-status="followup"] {
-    background: linear-gradient(135deg, #1e293b, #1e3a5f) !important;
-}
-
-body.dark-mode .kanban-board .kanban-column[data-status="pending"],
-body.dark-mode .kanban-board-full .kanban-column[data-status="pending"] {
-    background: linear-gradient(135deg, #451a03, #78350f) !important;
-}
-
-body.dark-mode .kanban-board .kanban-column[data-status="closing"],
-body.dark-mode .kanban-board-full .kanban-column[data-status="closing"] {
-    background: linear-gradient(135deg, #064e3b, #065f46) !important;
-}
-
-/* ========== PERBAIKAN BACKGROUND YANG MASIH TERANG ========== */
-
-/* Warning box - background peringatan */
-.warning-box {
-    background: #fef3c7 !important;
-    padding: 12px 16px !important;
-    border-radius: 12px !important;
-    margin: 16px 20px !important;
-    font-size: 12px !important;
-    color: #d97706 !important;
-    border-left: 4px solid #f59e0b !important;
-}
-
-.warning-box .warning-icon {
-    margin-right: 8px;
-    font-size: 14px;
-}
-
-/* Dark mode warning box */
-body.dark-mode .warning-box {
-    background: #451a03 !important;
-    color: #fbbf24 !important;
-    border-left: 4px solid #f59e0b !important;
-}
-
-body.dark-mode .warning-box * {
-    color: #fbbf24 !important;
-}
-
-/* Checklist container untuk Pending */
-.checklist-container {
-    background: #f9fafb !important;
-    border-radius: 12px !important;
-    padding: 16px !important;
-    margin: 16px 0 !important;
-}
-
-.checklist-container h4 {
-    font-size: 13px !important;
-    margin-bottom: 12px !important;
-    color: #1f2937 !important;
-}
-
-.checklist-item {
-    display: flex !important;
-    align-items: center !important;
-    gap: 10px !important;
-    margin-bottom: 10px !important;
-    padding: 8px !important;
-    background: #fff !important;
-    border-radius: 8px !important;
-    border: 1px solid #e5e7eb !important;
-}
-
-.checklist-item input[type="checkbox"] {
-    width: 18px !important;
-    height: 18px !important;
-    cursor: pointer !important;
-}
-
-.checklist-item label {
-    font-size: 12px !important;
-    color: #374151 !important;
-    cursor: pointer !important;
-    flex: 1 !important;
-}
-
-/* Dark mode checklist */
-body.dark-mode .checklist-container {
+/* ========== DARK MODE - FORCE OVERRIDE SEMUA BACKGROUND TERANG ========== */
+body.dark-mode,
+body.dark-mode .main-content,
+body.dark-mode .content-area,
+body.dark-mode .board-section,
+body.dark-mode .db-section,
+body.dark-mode .search-section,
+body.dark-mode .broadcast-section,
+body.dark-mode .import-section,
+body.dark-mode .target-kpi-section {
     background: #0f172a !important;
 }
 
-body.dark-mode .checklist-container h4 {
-    color: #f1f5f9 !important;
-}
-
+/* Semua card/wadah putih jadi gelap */
+body.dark-mode .stat-card,
+body.dark-mode .chart-card,
+body.dark-mode .card-item,
+body.dark-mode .db-item,
+body.dark-mode .db-item-agent,
+body.dark-mode .search-result-item,
+body.dark-mode .broadcast-card,
+body.dark-mode .import-card,
+body.dark-mode .selected-numbers,
+body.dark-mode .variable-hint,
+body.dark-mode .drop-zone,
+body.dark-mode .detail-info,
+body.dark-mode .checklist-container,
 body.dark-mode .checklist-item {
     background: #1e293b !important;
-    border-color: #334155 !important;
 }
 
-body.dark-mode .checklist-item label {
-    color: #cbd5e1 !important;
+/* ===== PERINGATAN (WARNING BOX) ===== */
+body.dark-mode .warning-box {
+    background: #7f1d1d !important;
+    color: #fca5a5 !important;
+    border-left: 4px solid #ef4444 !important;
+}
+body.dark-mode .warning-box * {
+    color: #fca5a5 !important;
 }
 
-/* Info box untuk deadline */
-.info-box {
-    background: #eef2ff !important;
-    border-radius: 12px !important;
-    padding: 12px 16px !important;
-    margin: 16px 0 !important;
-    font-size: 12px !important;
-    color: #4f46e5 !important;
-}
-
-.info-box .info-icon {
-    margin-right: 8px;
-}
-
-/* Dark mode info box */
-body.dark-mode .info-box {
-    background: #1e293b !important;
-    color: #a5b4fc !important;
-}
-
-/* Background radio option (Pilih Tujuan Import) - sudah gelap */
+/* ===== RADIO OPTION (PILIH TUJUAN IMPORT) ===== */
 body.dark-mode .radio-option {
     background: #0f172a !important;
     border-color: #334155 !important;
 }
-
+body.dark-mode .radio-option p {
+    color: #cbd5e1 !important;
+}
 body.dark-mode .radio-option.active {
-    background: #1e293b !important;
+    background: #334155 !important;
     border-color: #818cf8 !important;
 }
 
-/* Background phone prefix */
+/* ===== PREFIX +62 ===== */
 body.dark-mode .phone-prefix {
     background: #0f172a !important;
     border-color: #334155 !important;
     color: #f1f5f9 !important;
 }
 
-/* Background dark mode toggle */
+/* ===== TOGGLE MODE GELAP/TERANG ===== */
 body.dark-mode .dark-mode-toggle {
     background: #334155 !important;
 }
-
 body.dark-mode .dark-mode-toggle span {
     color: #a5b4fc !important;
 }
 
-/* Background modal detail footer */
+/* ===== DETAIL FOOTER (background tombol tutup & hapus) ===== */
 body.dark-mode .detail-footer {
     background: #1e293b !important;
-    border-top-color: #334155 !important;
+    border-top: 1px solid #334155 !important;
 }
 
-/* Background modal buttons */
+/* ===== MODAL BUTTONS ===== */
 body.dark-mode .modal-buttons {
     background: #1e293b !important;
-    border-top-color: #334155 !important;
+    border-top: 1px solid #334155 !important;
 }
 
-/* Background detail info */
-body.dark-mode .detail-info {
-    background: #0f172a !important;
-}
-
-/* Background semua card yang masih terang */
-body.dark-mode .import-card,
-body.dark-mode .broadcast-card,
-body.dark-mode .search-result-item,
-body.dark-mode .db-item,
-body.dark-mode .db-item-agent,
-body.dark-mode .selected-numbers,
-body.dark-mode .variable-hint,
-body.dark-mode .drop-zone {
-    background: #0f172a !important;
-}
-
-/* Background select dropdown */
-body.dark-mode select,
-body.dark-mode .form-group select {
-    background: #0f172a !important;
+/* ===== TOMBOL DI MODAL ===== */
+body.dark-mode .modal-buttons button:last-child,
+body.dark-mode .detail-footer .btn-close {
+    background: #334155 !important;
     color: #f1f5f9 !important;
 }
+body.dark-mode .detail-footer .btn-delete {
+    background: linear-gradient(135deg, #991b1b, #7f1d1d) !important;
+    color: #fff !important;
+}
 
-/* Background input */
+/* ===== INPUT, SELECT, TEXTAREA ===== */
 body.dark-mode input,
+body.dark-mode select,
 body.dark-mode textarea,
-body.dark-mode .search-input {
+body.dark-mode .search-input,
+body.dark-mode .form-group input,
+body.dark-mode .form-group select,
+body.dark-mode .form-group textarea,
+body.dark-mode #customNumbers,
+body.dark-mode #uplineCustomNumbers,
+body.dark-mode #broadcastMessage,
+body.dark-mode #uplineBroadcastMessage {
     background: #0f172a !important;
+    border-color: #334155 !important;
     color: #f1f5f9 !important;
 }
 
-/* Background floating progress */
-body.dark-mode .floating-progress {
-    background: #1e293b !important;
+/* ===== PROSPEK AGEN & FOLLOWUP AGEN - WARNA SAMA ===== */
+/* Light mode */
+.kanban-board .kanban-column[data-status="baru"],
+.kanban-board .kanban-column[data-status="Baru"],
+.kanban-board-full .kanban-column[data-status="baru"],
+.kanban-board-full .kanban-column[data-status="Baru"] {
+    background: linear-gradient(135deg, #f3e8ff, #fae8ff) !important;
+}
+.kanban-board .kanban-column[data-status="followup"],
+.kanban-board-full .kanban-column[data-status="followup"] {
+    background: linear-gradient(135deg, #eff6ff, #dbeafe) !important;
+}
+.kanban-board .kanban-column[data-status="pending"],
+.kanban-board-full .kanban-column[data-status="pending"] {
+    background: linear-gradient(135deg, #fff7ed, #ffedd5) !important;
+}
+.kanban-board .kanban-column[data-status="closing"],
+.kanban-board-full .kanban-column[data-status="closing"] {
+    background: linear-gradient(135deg, #ecfdf5, #d1fae5) !important;
 }
 
-/* Background stat card */
-body.dark-mode .stat-card {
-    background: #1e293b !important;
+/* Dark mode - warna sama */
+body.dark-mode .kanban-board .kanban-column[data-status="baru"],
+body.dark-mode .kanban-board .kanban-column[data-status="Baru"],
+body.dark-mode .kanban-board-full .kanban-column[data-status="baru"],
+body.dark-mode .kanban-board-full .kanban-column[data-status="Baru"] {
+    background: linear-gradient(135deg, #1e1b4b, #2e1065) !important;
+}
+body.dark-mode .kanban-board .kanban-column[data-status="followup"],
+body.dark-mode .kanban-board-full .kanban-column[data-status="followup"] {
+    background: linear-gradient(135deg, #1e293b, #1e3a5f) !important;
+}
+body.dark-mode .kanban-board .kanban-column[data-status="pending"],
+body.dark-mode .kanban-board-full .kanban-column[data-status="pending"] {
+    background: linear-gradient(135deg, #451a03, #78350f) !important;
+}
+body.dark-mode .kanban-board .kanban-column[data-status="closing"],
+body.dark-mode .kanban-board-full .kanban-column[data-status="closing"] {
+    background: linear-gradient(135deg, #064e3b, #065f46) !important;
 }
 
-/* Background chart card */
-body.dark-mode .chart-card {
-    background: #1e293b !important;
-}
-
-/* Background board section */
-body.dark-mode .board-section {
-    background: #1e293b !important;
-}
-
-/* Background db section */
-body.dark-mode .db-section {
-    background: #1e293b !important;
-}
-
-/* Background search section */
-body.dark-mode .search-section {
-    background: #1e293b !important;
-}
-
-/* Background broadcast section */
-body.dark-mode .broadcast-section {
-    background: #1e293b !important;
-}
-
-/* Background import section */
-body.dark-mode .import-section {
-    background: #1e293b !important;
-}
-
-/* Background target kpi section */
-body.dark-mode .target-kpi-section {
-    background: #1e293b !important;
-}
-
-/* ========== STYLE UNTUK KETENTUAN PENDING ========== */
-
-/* Pesan ketentuan */
-.pending-rules {
-    background: #fef3c7;
-    border-radius: 12px;
-    padding: 12px 16px;
-    margin-bottom: 16px;
-    font-size: 12px;
-    color: #d97706;
-}
-
-.pending-rules ul {
-    margin-left: 20px;
-    margin-top: 8px;
-}
-
-.pending-rules li {
-    margin-bottom: 4px;
-}
-
-/* Dark mode pending rules */
-body.dark-mode .pending-rules {
-    background: #451a03;
-    color: #fbbf24;
-}
-
-body.dark-mode .pending-rules li {
-    color: #fbbf24;
-}
-
-/* Tombol submit pending - disable jika checklist belum centang */
-.submit-pending-btn:disabled {
-    opacity: 0.5;
-    cursor: not-allowed;
-}
-
-.submit-pending-btn:disabled:hover {
-    transform: none;
-}
-
-/* Info deadline */
-.deadline-info {
-    background: #eef2ff;
-    border-radius: 12px;
-    padding: 12px 16px;
-    margin: 16px 0;
-    font-size: 12px;
-    color: #4f46e5;
-}
-
-.deadline-info .deadline-change {
-    font-weight: bold;
-    color: #f59e0b;
-}
-
-/* Dark mode deadline info */
+/* ===== INFO BOX & PENDING RULES ===== */
+body.dark-mode .info-box,
+body.dark-mode .pending-rules,
 body.dark-mode .deadline-info {
-    background: #1e293b;
-    color: #a5b4fc;
+    background: #1e293b !important;
+    color: #cbd5e1 !important;
 }
-
-body.dark-mode .deadline-info .deadline-change {
-    color: #fbbf24;
+body.dark-mode .info-box *,
+body.dark-mode .pending-rules *,
+body.dark-mode .deadline-info * {
+    color: #cbd5e1 !important;
 }
