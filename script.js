@@ -87,6 +87,129 @@ function showNotif(msg, isError = false) {
     setTimeout(() => notif.remove(), 3000);
 }
 
+// ========== LOADING SCREEN FUNCTIONS ==========
+let loadingSteps = [
+    'Menyiapkan sistem...',
+    'Memeriksa koneksi...',
+    'Memuat data user...',
+    'Memuat data followup...',
+    'Memuat data prospek...',
+    'Memuat database agent...',
+    'Memuat data produk...',
+    'Memuat data transaksi...',
+    'Memuat database closing...',
+    'Memuat database tidak tertarik...',
+    'Memuat database nomor salah...',
+    'Memuat database commitment...',
+    'Memuat pengingat...',
+    'Memuat pesan...',
+    'Memuat target KPI...',
+    'Menyelesaikan...'
+];
+
+let currentLoadingStep = 0;
+let loadingInterval = null;
+
+function showLoading(message = 'Memuat aplikasi...', showProgress = true) {
+    const overlay = document.getElementById('loadingOverlay');
+    const loadingText = document.getElementById('loadingText');
+    const progressBar = document.getElementById('loadingProgressBar');
+    const stepText = document.getElementById('loadingStepText');
+    
+    if (overlay) {
+        overlay.classList.remove('hide');
+        overlay.style.display = 'flex';
+    }
+    
+    if (loadingText) loadingText.textContent = message;
+    if (progressBar && showProgress) progressBar.style.width = '0%';
+    if (stepText) stepText.textContent = loadingSteps[0] || 'Memuat data...';
+    
+    currentLoadingStep = 0;
+    
+    // Animasi progress bar
+    if (showProgress && progressBar) {
+        let progress = 0;
+        if (loadingInterval) clearInterval(loadingInterval);
+        loadingInterval = setInterval(() => {
+            if (progress < 90) {
+                progress += Math.random() * 10;
+                if (progress > 90) progress = 90;
+                progressBar.style.width = progress + '%';
+            }
+        }, 500);
+    }
+}
+
+function updateLoadingStep(step) {
+    const stepText = document.getElementById('loadingStepText');
+    const progressBar = document.getElementById('loadingProgressBar');
+    
+    if (stepText) {
+        if (step < loadingSteps.length) {
+            stepText.textContent = loadingSteps[step];
+        } else {
+            stepText.textContent = 'Memuat data...';
+        }
+    }
+    
+    // Update progress berdasarkan step
+    if (progressBar) {
+        const percent = Math.min(90, Math.floor((step / loadingSteps.length) * 90));
+        progressBar.style.width = percent + '%';
+    }
+}
+
+function hideLoading() {
+    const overlay = document.getElementById('loadingOverlay');
+    const progressBar = document.getElementById('loadingProgressBar');
+    
+    if (progressBar) progressBar.style.width = '100%';
+    
+    if (loadingInterval) {
+        clearInterval(loadingInterval);
+        loadingInterval = null;
+    }
+    
+    if (overlay) {
+        setTimeout(() => {
+            overlay.classList.add('hide');
+            setTimeout(() => {
+                overlay.style.display = 'none';
+            }, 500);
+        }, 300);
+    }
+}
+
+async function withLoading(promise, stepName) {
+    updateLoadingStep(currentLoadingStep);
+    currentLoadingStep++;
+    return await promise;
+}
+
+// Tambahkan fungsi ini untuk loading data di halaman tertentu
+function showPageLoading(containerId) {
+    const container = document.getElementById(containerId);
+    if (container) {
+        container.classList.add('data-loading');
+        const loadingDiv = document.createElement('div');
+        loadingDiv.className = 'loading-overlay-small';
+        loadingDiv.innerHTML = '<div class="loading-spinner-small"></div><p>Memuat data...</p>';
+        loadingDiv.style.cssText = 'position: absolute; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.5); display: flex; justify-content: center; align-items: center; flex-direction: column; z-index: 100;';
+        container.style.position = 'relative';
+        container.appendChild(loadingDiv);
+    }
+}
+
+function hidePageLoading(containerId) {
+    const container = document.getElementById(containerId);
+    if (container) {
+        container.classList.remove('data-loading');
+        const loadingDiv = container.querySelector('.loading-overlay-small');
+        if (loadingDiv) loadingDiv.remove();
+    }
+}
+
 function showNotifTop(msg, isError = false) {
     // Hapus notif lama jika ada
     const oldNotifs = document.querySelectorAll('.notif-toast');
@@ -6380,29 +6503,61 @@ function initEventListeners() {
 
 // ========== CHECK AUTH & START ==========
 async function checkAuth() {
+    // Tampilkan loading screen
+    showLoading('Memeriksa autentikasi...', true);
+    
     const { data: { session } } = await window.db.auth.getSession();
     
     if (session) {
         currentUser = session.user;
-        document.getElementById('loginPage').style.display = 'none';
-        document.getElementById('app').style.display = 'block';
+        updateLoadingStep(0); // Menyiapkan sistem
         
-        await loadUserProfile();
-        await loadCustomers();
-        await loadProspek();
-        await loadDatabaseAgent();
-        await loadProduk();
-        await loadDbTransaksi();
-        await loadDBClosing();
-        await loadDBTidak();
-        await loadDBNomorSalah();
-        await loadDBCommitment();
-        await loadReminders();
-        await loadMessages();
-        await loadUsersList();
-        await loadTarifAdmin();
-        await loadTargetData();
-        await loadTransaksiGlobal();
+        await withLoading(loadUserProfile(), 1);
+        updateLoadingStep(2);
+        
+        await withLoading(loadCustomers(), 3);
+        updateLoadingStep(4);
+        
+        await withLoading(loadProspek(), 5);
+        updateLoadingStep(6);
+        
+        await withLoading(loadDatabaseAgent(), 7);
+        updateLoadingStep(8);
+        
+        await withLoading(loadProduk(), 9);
+        updateLoadingStep(10);
+        
+        await withLoading(loadDbTransaksi(), 11);
+        updateLoadingStep(12);
+        
+        await withLoading(loadDBClosing(), 13);
+        updateLoadingStep(14);
+        
+        await withLoading(loadDBTidak(), 15);
+        updateLoadingStep(16);
+        
+        await withLoading(loadDBNomorSalah(), 17);
+        updateLoadingStep(18);
+        
+        await withLoading(loadDBCommitment(), 19);
+        updateLoadingStep(20);
+        
+        await withLoading(loadReminders(), 21);
+        updateLoadingStep(22);
+        
+        await withLoading(loadMessages(), 23);
+        updateLoadingStep(24);
+        
+        await withLoading(loadUsersList(), 25);
+        updateLoadingStep(26);
+        
+        await withLoading(loadTarifAdmin(), 27);
+        updateLoadingStep(28);
+        
+        await withLoading(loadTargetData(), 29);
+        updateLoadingStep(30);
+        
+        await withLoading(loadTransaksiGlobal(), 31);
         
         // Set owner menu visibility
         if (currentUserRole === 'owner') {
@@ -6419,7 +6574,14 @@ async function checkAuth() {
         
         initFullModeSelection();
         navigateTo('dashboard');
+        
+        // Sembunyikan loading setelah semua data siap
+        setTimeout(() => {
+            hideLoading();
+        }, 500);
+        
     } else {
+        hideLoading();
         document.getElementById('loginPage').style.display = 'flex';
         document.getElementById('app').style.display = 'none';
     }
