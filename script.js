@@ -1743,25 +1743,72 @@ function confirmClosingToDB(id) {
     
     document.getElementById('confirmClosingToDBBtn').onclick = async () => {
         const note = document.getElementById('closingNote').value;
-        const { data: doc } = await window.db.from('customers').select('*').eq('id', id).single();
-        if (doc) {
-            await window.db.from('db_closing').insert({
+        
+        // Ambil data customer
+        const { data: doc, error: getError } = await window.db
+            .from('customers')
+            .select('*')
+            .eq('id', id)
+            .single();
+        
+        if (getError) {
+            console.error('Error ambil data customer:', getError);
+            showNotifTop('❌ Gagal mengambil data customer: ' + getError.message, true);
+            return;
+        }
+        
+        if (!doc) {
+            showNotifTop('❌ Data customer tidak ditemukan!', true);
+            return;
+        }
+        
+        try {
+            // Simpan ke DB Closing
+            const { error: insertError } = await window.db.from('db_closing').insert({
                 nama: doc.nama,
                 hp: doc.hp,
                 closing_date: new Date().toISOString(),
                 closing_note: note,
                 user_id: doc.user_id,
                 followup_data: doc.followup_data || null,
-                pending_data: doc.pending_data || []
+                pending_data: doc.pending_data || [],
+                created_at: new Date().toISOString()
             });
-            await window.db.from('customers').delete().eq('id', id);
+            
+            if (insertError) {
+                console.error('Error simpan ke db_closing:', insertError);
+                showNotifTop('❌ Gagal menyimpan ke Database Closing: ' + insertError.message, true);
+                return;
+            }
+            
+            console.log('✅ Berhasil simpan ke db_closing');
+            
+            // Hapus dari Customers
+            const { error: deleteError } = await window.db
+                .from('customers')
+                .delete()
+                .eq('id', id);
+            
+            if (deleteError) {
+                console.error('Error hapus dari customers:', deleteError);
+                showNotifTop('⚠️ Data sudah disimpan tapi gagal dihapus dari Followup: ' + deleteError.message, true);
+            }
+            
+            console.log('✅ Berhasil hapus dari customers');
+            
             showNotifTop('✅ Data berhasil dipindahkan ke Database Closing!');
             modal.remove();
             document.body.classList.remove('modal-open');
             document.body.style.overflow = '';
+            
+            // Refresh data
             await loadCustomers();
             await loadDBClosing();
             closeModal('detailModal');
+            
+        } catch (err) {
+            console.error('Error dalam proses:', err);
+            showNotifTop('❌ Terjadi kesalahan: ' + err.message, true);
         }
     };
     
@@ -1780,7 +1827,7 @@ function confirmClosingToDB(id) {
     };
 }
 
-// ========== KONFIRMASI PROSPEK TERTARIK KE DB COMMITMENT ==========
+// ========== KONFIRMASI PROSPEK TERTARIK KE DB COMMITMENT & FOLLOWUP BARU ==========
 function confirmTertarikToDB(prospekId) {
     const modal = document.createElement('div');
     modal.className = 'modal';
@@ -1801,7 +1848,7 @@ function confirmTertarikToDB(prospekId) {
             <div style="background: #eef2ff; padding: 12px; border-radius: 10px; margin: 0 20px 10px 20px;">
                 <p style="font-size: 12px; color: #4f46e5; margin: 0;">📌 <strong>Ketentuan:</strong><br>
                 • Data akan disimpan ke DATABASE COMMITMENT sebagai arsip<br>
-                • Data akan DIPINDAHKAN ke FOLLOWUP AGEN dengan status "Baru" dan label NEW Member<br>
+                • Data akan DIPINDAHKAN ke FOLLOWUP AGEN dengan status "Baru"<br>
                 • Data akan DIHAPUS dari Prospek Agen<br>
                 • Proses ini TIDAK BISA dibatalkan!</p>
             </div>
@@ -1846,37 +1893,112 @@ function confirmTertarikToDB(prospekId) {
             return;
         }
         
-        const { data: prospekDoc } = await window.db.from('prospek').select('*').eq('id', prospekId).single();
+        // Ambil data prospek
+        const { data: prospekDoc, error: prospekError } = await window.db
+            .from('prospek')
+            .select('*')
+            .eq('id', prospekId)
+            .single();
+        
+        if (prospekError) {
+            console.error('Error ambil data prospek:', prospekError);
+            showNotifTop('❌ Gagal mengambil data prospek: ' + prospekError.message, true);
+            return;
+        }
+        
         const data = prospekDoc;
         
         // Cek duplikat ID Agent di customers
-        const { data: existingCustomer } = await window.db.from('customers').select('id').eq('agent_id', agentId).maybeSingle();
+        const { data: existingCustomer, error: cekError } = await window.db
+            .from('customers')
+            .select('id')
+            .eq('agent_id', agentId)
+            .maybeSingle();
+        
+        if (cekError) {
+            console.error('Error cek duplikat:', cekError);
+        }
+        
         if (existingCustomer) {
             showNotifTop(`⚠️ ID Agent "${agentId}" sudah terdaftar di Followup Agen!`, true);
             return;
         }
         
-        // Simpan ke DB Commitment
-        await window.db.from('db_commitment').insert({
-            nama: data.nama,
-            hp: data.hp,
-            negosiasi_data: data.negosiasi_data || null,
-            agent_id: agentId,
-            aplikasi: aplikasi,
-            commitment_note: note,
-            committed_at: new Date().toISOString(),
-            user_id: data.user_id,
-            original_prospek_id: prospekId
-        });
-        
-        await window.db.from('prospek').delete().eq('id', prospekId);
-        showNotifTop('✅ Data berhasil dipindahkan ke Database Commitment!');
-        modal.remove();
-        document.body.classList.remove('modal-open');
-        document.body.style.overflow = '';
-        await loadProspek();
-        await loadDBCommitment();
-        closeModal('detailModal');
+        try {
+            // 1. Simpan ke DB Commitment
+            const { error: commitError } = await window.db.from('db_commitment').insert({
+                nama: data.nama,
+                hp: data.hp,
+                negosiasi_data: data.negosiasi_data || null,
+                agent_id: agentId,
+                aplikasi: aplikasi,
+                commitment_note: note,
+                committed_at: new Date().toISOString(),
+                user_id: data.user_id,
+                original_prospek_id: prospekId,
+                created_at: new Date().toISOString()
+            });
+            
+            if (commitError) {
+                console.error('Error simpan ke db_commitment:', commitError);
+                showNotifTop('❌ Gagal menyimpan ke Database Commitment: ' + commitError.message, true);
+                return;
+            }
+            
+            console.log('✅ Berhasil simpan ke db_commitment');
+            
+            // 2. Pindahkan ke Followup Agen
+            const followupDate = getTodayDate();
+            const { error: customerError } = await window.db.from('customers').insert({
+                agent_id: agentId,
+                nama: data.nama,
+                hp: data.hp,
+                apk: aplikasi,
+                upline_name: '',
+                upline_phone: '',
+                tanggal: followupDate,
+                status: 'baru',
+                user_id: data.user_id,
+                created_at: new Date().toISOString(),
+                converted_from: 'prospek_commitment'
+            });
+            
+            if (customerError) {
+                console.error('Error pindah ke customers:', customerError);
+                showNotifTop('❌ Gagal memindahkan ke Followup Agen: ' + customerError.message, true);
+                return;
+            }
+            
+            console.log('✅ Berhasil pindah ke customers');
+            
+            // 3. Hapus dari Prospek
+            const { error: deleteError } = await window.db
+                .from('prospek')
+                .delete()
+                .eq('id', prospekId);
+            
+            if (deleteError) {
+                console.error('Error hapus dari prospek:', deleteError);
+                showNotifTop('⚠️ Data sudah dipindahkan tapi gagal dihapus dari Prospek: ' + deleteError.message, true);
+            }
+            
+            console.log('✅ Berhasil hapus dari prospek');
+            
+            showNotifTop('✅ Berhasil! Member baru telah ditambahkan ke Followup Agen dan tersimpan di Database Commitment');
+            modal.remove();
+            document.body.classList.remove('modal-open');
+            document.body.style.overflow = '';
+            
+            // Refresh data
+            await loadCustomers();
+            await loadProspek();
+            await loadDBCommitment();
+            closeModal('detailModal');
+            
+        } catch (err) {
+            console.error('Error dalam proses:', err);
+            showNotifTop('❌ Terjadi kesalahan: ' + err.message, true);
+        }
     };
     
     document.getElementById('cancelTertarikToDBBtn').onclick = () => {
