@@ -1821,7 +1821,7 @@ function confirmClosingToDB(id) {
     document.getElementById('confirmClosingToDBBtn').onclick = async () => {
         const note = document.getElementById('closingNote').value;
         
-        // Ambil data customer lengkap dengan followup_data
+        // Ambil data customer lengkap
         const { data: doc, error: getError } = await window.db
             .from('customers')
             .select('*')
@@ -1840,16 +1840,16 @@ function confirmClosingToDB(id) {
         }
         
         try {
-            // Siapkan data followup yang lengkap dengan pesan
-            const followupData = doc.followup_data ? {
-                terkirim: doc.followup_data.terkirim || false,
-                dibalas: doc.followup_data.dibalas || false,
-                pesan: doc.followup_data.pesan || null,
-                balasan: doc.followup_data.balasan || null,
-                timestamp: doc.followup_data.timestamp || new Date().toISOString()
-            } : null;
+            // Siapkan data followup yang lengkap
+            const followupData = {
+                terkirim: doc.followup_data?.terkirim || false,
+                dibalas: doc.followup_data?.dibalas || false,
+                pesan: doc.followup_data?.pesan || null,
+                balasan: doc.followup_data?.balasan || null,
+                timestamp: doc.followup_data?.timestamp || new Date().toISOString()
+            };
             
-            // Simpan ke DB Closing dengan data lengkap
+            // Simpan ke DB Closing
             const { error: insertError } = await window.db.from('db_closing').insert({
                 nama: doc.nama,
                 hp: doc.hp,
@@ -1858,8 +1858,8 @@ function confirmClosingToDB(id) {
                 user_id: doc.user_id,
                 followup_data: followupData,
                 pending_data: doc.pending_data || [],
-                pesan_terkirim: doc.pesan_terkirim || null,
-                balasan_diterima: doc.balasan_diterima || null,
+                pesan_terkirim: doc.followup_data?.pesan || null,
+                balasan_diterima: doc.followup_data?.balasan || null,
                 created_at: new Date().toISOString(),
                 updated_at: new Date().toISOString()
             });
@@ -1870,7 +1870,7 @@ function confirmClosingToDB(id) {
                 return;
             }
             
-            console.log('✅ Berhasil simpan ke db_closing');
+            console.log('✅ Berhasil simpan ke db_closing dengan pesan:', followupData.pesan);
             
             // Hapus dari Customers
             await window.db.from('customers').delete().eq('id', id);
@@ -1880,7 +1880,6 @@ function confirmClosingToDB(id) {
             document.body.classList.remove('modal-open');
             document.body.style.overflow = '';
             
-            // Refresh data
             await loadCustomers();
             await loadDBClosing();
             closeModal('detailModal');
@@ -1906,16 +1905,14 @@ function confirmClosingToDB(id) {
     };
 }
 
-// ========== KONFIRMASI PROSPEK TERTARIK KE DB COMMITMENT & FOLLOWUP BARU ==========
+// ========== KONFIRMASI PROSPEK TERTARIK KE DB COMMITMENT ==========
 function confirmTertarikToDB(prospekId) {
-    // Ambil data prospek terlebih dahulu
     window.db.from('prospek').select('*').eq('id', prospekId).single().then(async ({ data: prospekData }) => {
         if (!prospekData) {
             showNotifTop('❌ Data prospek tidak ditemukan!', true);
             return;
         }
         
-        // Ambil penawaran dari negosiasi_data
         const penawaranDariNegosiasi = prospekData.negosiasi_data?.penawaran || '';
         
         const modal = document.createElement('div');
@@ -2011,7 +2008,6 @@ function confirmTertarikToDB(prospekId) {
                 return;
             }
             
-            // Format upline phone
             let formattedUplinePhone = '';
             if (uplinePhone) {
                 uplinePhone = uplinePhone.replace(/[^\d]/g, '');
@@ -2021,11 +2017,8 @@ function confirmTertarikToDB(prospekId) {
             }
             
             const data = prospekData;
-            
-            // Format ID Agent
             const formattedAgentId = agentId.toUpperCase();
             
-            // Cek duplikat ID Agent di customers
             const { data: existingCustomer } = await window.db
                 .from('customers')
                 .select('id')
@@ -2037,7 +2030,6 @@ function confirmTertarikToDB(prospekId) {
                 return;
             }
             
-            // Siapkan tanggal followup
             let followupDateValue = followupDateInput;
             if (!followupDateValue) {
                 const nextMonth = new Date();
@@ -2045,7 +2037,7 @@ function confirmTertarikToDB(prospekId) {
                 followupDateValue = nextMonth.toISOString().split('T')[0];
             }
             
-            // Siapkan data dihubungi yang lengkap dengan pesan
+            // Siapkan data dihubungi yang lengkap
             const dihubungiData = data.dihubungi_data ? {
                 terkirim: data.dihubungi_data.terkirim || false,
                 dibalas: data.dihubungi_data.dibalas || false,
@@ -2055,7 +2047,7 @@ function confirmTertarikToDB(prospekId) {
             } : null;
             
             try {
-                // 1. Simpan ke DB Commitment dengan data lengkap
+                // Simpan ke DB Commitment dengan semua data
                 const { error: commitError } = await window.db.from('db_commitment').insert({
                     nama: data.nama,
                     hp: data.hp,
@@ -2091,11 +2083,11 @@ function confirmTertarikToDB(prospekId) {
                     return;
                 }
                 
-                console.log('✅ Berhasil simpan ke db_commitment');
+                console.log('✅ Berhasil simpan ke db_commitment dengan pesan dihubungi:', dihubungiData?.pesan);
                 
-                // 2. Pindahkan ke Followup Agen
+                // Pindahkan ke Followup Agen
                 const followupDate = getTodayDate();
-                const { error: customerError } = await window.db.from('customers').insert({
+                await window.db.from('customers').insert({
                     agent_id: formattedAgentId,
                     nama: data.nama,
                     hp: data.hp,
@@ -2111,15 +2103,7 @@ function confirmTertarikToDB(prospekId) {
                     balasan_diterima: data.balasan_diterima || null
                 });
                 
-                if (customerError) {
-                    console.error('Error pindah ke customers:', customerError);
-                    showNotifTop('❌ Gagal memindahkan ke Followup Agen: ' + customerError.message, true);
-                    return;
-                }
-                
-                console.log('✅ Berhasil pindah ke customers');
-                
-                // 3. Hapus dari Prospek
+                // Hapus dari Prospek
                 await window.db.from('prospek').delete().eq('id', prospekId);
                 
                 showNotifTop('✅ Berhasil! Member baru telah ditambahkan ke Followup Agen dan tersimpan di Database Commitment');
@@ -2127,14 +2111,13 @@ function confirmTertarikToDB(prospekId) {
                 document.body.classList.remove('modal-open');
                 document.body.style.overflow = '';
                 
-                // Refresh data
                 await loadCustomers();
                 await loadProspek();
                 await loadDBCommitment();
                 closeModal('detailModal');
                 
             } catch (err) {
-                console.error('Error dalam proses:', err);
+                console.error('Error:', err);
                 showNotifTop('❌ Terjadi kesalahan: ' + err.message, true);
             }
         };
@@ -3400,10 +3383,11 @@ function renderDBClosing(items) {
     
     container.innerHTML = items.map(item => {
         const isChecked = selectedClosingIds.get(item.id) === true;
-        // Tampilkan pesan followup jika ada
         let followupText = '';
-        if (item.followup_data) {
-            followupText = `<small>📝 Pesan: ${escapeHtml(item.followup_data.pesan || '-')}<br>💬 Balasan: ${escapeHtml(item.followup_data.balasan || '-')}</small>`;
+        if (item.followup_data && item.followup_data.pesan) {
+            followupText = `<small>📝 Pesan: ${escapeHtml(item.followup_data.pesan)}<br>💬 Balasan: ${escapeHtml(item.followup_data.balasan || '-')}</small>`;
+        } else if (item.pesan_terkirim) {
+            followupText = `<small>📝 Pesan: ${escapeHtml(item.pesan_terkirim)}<br>💬 Balasan: ${escapeHtml(item.balasan_diterima || '-')}</small>`;
         }
         return `
             <div class="db-item" data-id="${item.id}" data-type="closing" style="cursor: pointer;">
@@ -3534,11 +3518,20 @@ function renderDBCommitment(items) {
     
     container.innerHTML = items.map(item => {
         const isChecked = selectedCommitmentIds.get(item.id) === true;
-        // Tampilkan pesan dihubungi jika ada
         let dihubungiText = '';
-        if (item.dihubungi_data) {
-            dihubungiText = `<small>📝 Pesan: ${escapeHtml(item.dihubungi_data.pesan || '-')}<br>💬 Balasan: ${escapeHtml(item.dihubungi_data.balasan || '-')}</small>`;
+        if (item.dihubungi_data && item.dihubungi_data.pesan) {
+            dihubungiText = `<small>📝 Pesan Dihubungi: ${escapeHtml(item.dihubungi_data.pesan)}<br>💬 Balasan: ${escapeHtml(item.dihubungi_data.balasan || '-')}</small>`;
+        } else if (item.pesan_terkirim) {
+            dihubungiText = `<small>📝 Pesan Dihubungi: ${escapeHtml(item.pesan_terkirim)}<br>💬 Balasan: ${escapeHtml(item.balasan_diterima || '-')}</small>`;
         }
+        
+        let penawaranText = '';
+        if (item.penawaran) {
+            penawaranText = `<small>🏷️ Penawaran: ${escapeHtml(item.penawaran)}</small>`;
+        } else if (item.negosiasi_data?.penawaran) {
+            penawaranText = `<small>🏷️ Penawaran: ${escapeHtml(item.negosiasi_data.penawaran)}</small>`;
+        }
+        
         return `
             <div class="db-item" data-id="${item.id}" data-type="commitment" style="cursor: pointer;">
                 <input type="checkbox" class="db-item-checkbox" data-id="${item.id}" ${isChecked ? 'checked' : ''}>
@@ -3548,6 +3541,7 @@ function renderDBCommitment(items) {
                     <small>Agent: ${escapeHtml(item.agent_id || '-')} | Aplikasi: ${escapeHtml(item.aplikasi || '-')}</small>
                     <small>Upline: ${escapeHtml(item.upline_name || '-')}</small>
                     <small>Komitmen: ${item.committed_at ? new Date(item.committed_at).toLocaleDateString('id-ID') : '-'}</small>
+                    ${penawaranText}
                     ${dihubungiText}
                 </div>
                 <div class="db-item-actions">
