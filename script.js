@@ -1334,10 +1334,18 @@ function openProspekNegosiasiModal(id) {
                         <label style="display: block; font-size: 12px; font-weight: 600; color: #374151; margin-bottom: 6px;">Total transaksi per bulan? <span style="color: #ef4444;">*</span></label>
                         <input type="text" id="negosiasi_transaksi" placeholder="Nominal" value="${escapeHtml(data.negosiasi_data?.transaksi || '')}" style="width:100%; padding: 12px 14px; border: 1.5px solid #e5e7eb; border-radius: 14px; font-size: 13px;">
                     </div>
-                    <div class="form-group" style="margin-bottom: 16px;">
-                        <label style="display: block; font-size: 12px; font-weight: 600; color: #374151; margin-bottom: 6px;">Apakah deposit atau saldo pinjaman? <span style="color: #ef4444;">*</span></label>
-                        <input type="text" id="negosiasi_deposit" placeholder="Deposit / Saldo Pinjaman" value="${escapeHtml(data.negosiasi_data?.deposit || '')}" style="width:100%; padding: 12px 14px; border: 1.5px solid #e5e7eb; border-radius: 14px; font-size: 13px;">
-                    </div>
+                    const depositValue = data.negosiasi_data?.deposit || '';
+                    modal.innerHTML = modal.innerHTML.replace(
+                        /<div class="form-group" style="margin-bottom: 16px;">[\s\S]*?Apakah deposit atau saldo pinjaman\?[\s\S]*?<\/div>/,
+                        `<div class="form-group" style="margin-bottom: 16px;">
+                            <label style="display: block; font-size: 12px; font-weight: 600; color: #374151; margin-bottom: 6px;">Apakah deposit atau saldo pinjaman? <span style="color: #ef4444;">*</span></label>
+                            <select id="negosiasi_deposit" style="width:100%; padding: 12px 14px; border: 1.5px solid #e5e7eb; border-radius: 14px; font-size: 13px;">
+                                <option value="">Pilih</option>
+                                <option value="Deposit" ${depositValue === 'Deposit' ? 'selected' : ''}>Deposit</option>
+                                <option value="Saldo Pinjaman" ${depositValue === 'Saldo Pinjaman' ? 'selected' : ''}>Saldo Pinjaman</option>
+                            </select>
+                        </div>`
+                    );
                     <div class="form-group" style="margin-bottom: 16px;">
                         <label style="display: block; font-size: 12px; font-weight: 600; color: #374151; margin-bottom: 6px;">Apakah tertarik dengan penawaran kamu? <span style="color: #ef4444;">*</span></label>
                         <select id="negosiasi_tertarik" style="width:100%; padding: 12px 14px; border: 1.5px solid #e5e7eb; border-radius: 14px; font-size: 13px;">
@@ -1812,7 +1820,7 @@ function confirmClosingToDB(id) {
     document.getElementById('confirmClosingToDBBtn').onclick = async () => {
         const note = document.getElementById('closingNote').value;
         
-        // Ambil data customer
+        // Ambil data customer lengkap dengan followup_data
         const { data: doc, error: getError } = await window.db
             .from('customers')
             .select('*')
@@ -1831,15 +1839,26 @@ function confirmClosingToDB(id) {
         }
         
         try {
-            // Simpan ke DB Closing
+            // Siapkan data followup yang lengkap dengan pesan
+            const followupData = doc.followup_data ? {
+                terkirim: doc.followup_data.terkirim || false,
+                dibalas: doc.followup_data.dibalas || false,
+                pesan: doc.followup_data.pesan || null,
+                balasan: doc.followup_data.balasan || null,
+                timestamp: doc.followup_data.timestamp || new Date().toISOString()
+            } : null;
+            
+            // Simpan ke DB Closing dengan data lengkap
             const { error: insertError } = await window.db.from('db_closing').insert({
                 nama: doc.nama,
                 hp: doc.hp,
                 closing_date: new Date().toISOString(),
                 closing_note: note || null,
                 user_id: doc.user_id,
-                followup_data: doc.followup_data || null,
+                followup_data: followupData,
                 pending_data: doc.pending_data || [],
+                pesan_terkirim: doc.pesan_terkirim || null,
+                balasan_diterima: doc.balasan_diterima || null,
                 created_at: new Date().toISOString(),
                 updated_at: new Date().toISOString()
             });
@@ -1853,17 +1872,7 @@ function confirmClosingToDB(id) {
             console.log('✅ Berhasil simpan ke db_closing');
             
             // Hapus dari Customers
-            const { error: deleteError } = await window.db
-                .from('customers')
-                .delete()
-                .eq('id', id);
-            
-            if (deleteError) {
-                console.error('Error hapus dari customers:', deleteError);
-                showNotifTop('⚠️ Data sudah disimpan tapi gagal dihapus dari Followup: ' + deleteError.message, true);
-            }
-            
-            console.log('✅ Berhasil hapus dari customers');
+            await window.db.from('customers').delete().eq('id', id);
             
             showNotifTop('✅ Data berhasil dipindahkan ke Database Closing!');
             modal.remove();
@@ -2001,7 +2010,7 @@ function confirmTertarikToDB(prospekId) {
                 return;
             }
             
-            // Format upline phone (simpan dalam format +62)
+            // Format upline phone
             let formattedUplinePhone = '';
             if (uplinePhone) {
                 uplinePhone = uplinePhone.replace(/[^\d]/g, '');
@@ -2035,8 +2044,17 @@ function confirmTertarikToDB(prospekId) {
                 followupDateValue = nextMonth.toISOString().split('T')[0];
             }
             
+            // Siapkan data dihubungi yang lengkap dengan pesan
+            const dihubungiData = data.dihubungi_data ? {
+                terkirim: data.dihubungi_data.terkirim || false,
+                dibalas: data.dihubungi_data.dibalas || false,
+                pesan: data.dihubungi_data.pesan || null,
+                balasan: data.dihubungi_data.balasan || null,
+                timestamp: data.dihubungi_data.timestamp || new Date().toISOString()
+            } : null;
+            
             try {
-                // 1. Simpan ke DB Commitment
+                // 1. Simpan ke DB Commitment dengan data lengkap
                 const { error: commitError } = await window.db.from('db_commitment').insert({
                     nama: data.nama,
                     hp: data.hp,
@@ -2052,7 +2070,7 @@ function confirmTertarikToDB(prospekId) {
                     original_prospek_id: prospekId,
                     pesan_terkirim: data.pesan_terkirim || null,
                     balasan_diterima: data.balasan_diterima || null,
-                    dihubungi_data: data.dihubungi_data || null,
+                    dihubungi_data: dihubungiData,
                     negosiasi_data: {
                         aplikasi: data.negosiasi_data?.aplikasi || '',
                         domisili: data.negosiasi_data?.domisili || '',
@@ -2074,7 +2092,7 @@ function confirmTertarikToDB(prospekId) {
                 
                 console.log('✅ Berhasil simpan ke db_commitment');
                 
-                // 2. Pindahkan ke Followup Agen (dengan upline phone)
+                // 2. Pindahkan ke Followup Agen
                 const followupDate = getTodayDate();
                 const { error: customerError } = await window.db.from('customers').insert({
                     agent_id: formattedAgentId,
@@ -2089,8 +2107,7 @@ function confirmTertarikToDB(prospekId) {
                     created_at: new Date().toISOString(),
                     updated_at: new Date().toISOString(),
                     pesan_terkirim: data.pesan_terkirim || null,
-                    balasan_diterima: data.balasan_diterima || null,
-                    followup_data: data.followup_data || null
+                    balasan_diterima: data.balasan_diterima || null
                 });
                 
                 if (customerError) {
@@ -3382,6 +3399,11 @@ function renderDBClosing(items) {
     
     container.innerHTML = items.map(item => {
         const isChecked = selectedClosingIds.get(item.id) === true;
+        // Tampilkan pesan followup jika ada
+        let followupText = '';
+        if (item.followup_data) {
+            followupText = `<small>📝 Pesan: ${escapeHtml(item.followup_data.pesan || '-')}<br>💬 Balasan: ${escapeHtml(item.followup_data.balasan || '-')}</small>`;
+        }
         return `
             <div class="db-item" data-id="${item.id}" data-type="closing" style="cursor: pointer;">
                 <input type="checkbox" class="db-item-checkbox" data-id="${item.id}" ${isChecked ? 'checked' : ''}>
@@ -3390,6 +3412,7 @@ function renderDBClosing(items) {
                     <p>📱 ${escapeHtml(item.hp)}</p>
                     <small>Closing: ${item.closing_date ? new Date(item.closing_date).toLocaleDateString('id-ID') : '-'}</small>
                     ${item.closing_note ? `<small>Catatan: ${escapeHtml(item.closing_note)}</small>` : ''}
+                    ${followupText}
                 </div>
                 <div class="db-item-actions">
                     <button class="db-item-wa" onclick="event.stopPropagation(); openWA('${item.hp}')">💬 WA</button>
@@ -3510,6 +3533,11 @@ function renderDBCommitment(items) {
     
     container.innerHTML = items.map(item => {
         const isChecked = selectedCommitmentIds.get(item.id) === true;
+        // Tampilkan pesan dihubungi jika ada
+        let dihubungiText = '';
+        if (item.dihubungi_data) {
+            dihubungiText = `<small>📝 Pesan: ${escapeHtml(item.dihubungi_data.pesan || '-')}<br>💬 Balasan: ${escapeHtml(item.dihubungi_data.balasan || '-')}</small>`;
+        }
         return `
             <div class="db-item" data-id="${item.id}" data-type="commitment" style="cursor: pointer;">
                 <input type="checkbox" class="db-item-checkbox" data-id="${item.id}" ${isChecked ? 'checked' : ''}>
@@ -3519,6 +3547,7 @@ function renderDBCommitment(items) {
                     <small>Agent: ${escapeHtml(item.agent_id || '-')} | Aplikasi: ${escapeHtml(item.aplikasi || '-')}</small>
                     <small>Upline: ${escapeHtml(item.upline_name || '-')}</small>
                     <small>Komitmen: ${item.committed_at ? new Date(item.committed_at).toLocaleDateString('id-ID') : '-'}</small>
+                    ${dihubungiText}
                 </div>
                 <div class="db-item-actions">
                     <button class="db-item-wa" onclick="event.stopPropagation(); openWA('${item.hp}')">💬 WA</button>
