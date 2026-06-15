@@ -54,6 +54,14 @@ let broadcastMessageTemplate = '';
 let currentBroadcastIndex = 0;
 let broadcastStatus = [];
 
+// ========== BROADCAST UPLINE VARIABLES ==========
+let uplineDataList = [];
+let currentUplineIndex = 0;
+let uplineNumbers = [];
+let uplineMessageTemplate = '';
+let isUplineBroadcasting = false;
+let uplineBroadcastStatus = [];
+
 // Current edit variables
 let currentEditItem = null;
 let currentEditType = null;
@@ -752,11 +760,9 @@ async function openDetailCustomer(id) {
             </div>
             <div class="detail-actions">
                 <button class="btn-success" onclick="openWA('${customer.hp}')">💬 WhatsApp</button>
-                <button class="btn-primary" onclick="openTambahProgres('${id}')">📊 Tambah Progres</button>
                 ${customer.status === 'baru' ? `<button class="btn-primary" onclick="updateCustomerStatus('${id}', 'followup')">📞 Lanjut Follow Up</button>` : ''}
                 ${customer.status === 'followup' ? `<button class="btn-primary" onclick="openFollowupConfirm('${id}')">✅ Konfirmasi Follow Up</button>` : ''}
                 ${customer.status === 'pending' ? `<button class="btn-primary" onclick="openPendingModal('${id}')">📝 Kelola Pending</button>` : ''}
-                ${customer.status === 'pending' ? `<button class="btn-primary" onclick="updateCustomerStatus('${id}', 'closing')">🎉 Closing</button>` : ''}
                 ${customer.status === 'closing' ? `<button class="btn-primary" onclick="confirmClosingToDB('${id}')">📁 Pindah ke DB Closing</button>` : ''}
             </div>
         </div>
@@ -768,6 +774,7 @@ async function openDetailCustomer(id) {
     showModal('detailModal');
 }
 
+// ========== FUNGSI OPEN DETAIL PROSPEK ==========
 async function openDetailProspek(id) {
     const prospek = prospekData.find(p => p.id === id);
     if (!prospek) return;
@@ -820,7 +827,7 @@ async function openDetailProspek(id) {
                 ${prospek.status === 'Dihubungi' ? `<button class="btn-primary" onclick="openProspekDihubungiConfirm('${id}')">✅ Konfirmasi Dihubungi</button>` : ''}
                 ${prospek.status === 'Negosiasi' ? `<button class="btn-primary" onclick="openProspekNegosiasiModal('${id}')">📝 Kelola Negosiasi</button>` : ''}
                 ${prospek.status === 'Negosiasi' && prospek.negosiasi_data?.is_complete ? `<button class="btn-primary" onclick="updateProspekStatus('${id}', 'Tertarik')">⭐ Tertarik</button>` : ''}
-                ${prospek.status === 'Tertarik' ? `<button class="btn-primary" onclick="confirmTertarikToDB('${id}')">📁 Pindah ke DB Commitment</button>` : ''}
+                ${prospek.status === 'Tertarik' ? `<button class="btn-primary" onclick="confirmTertarikToDB('${id}')">⭐ Jadikan Member Baru</button>` : ''}
             </div>
         </div>
         <div class="detail-footer">
@@ -839,6 +846,12 @@ function openFollowupConfirm(id) {
         <div class="modal-content" style="max-width: 400px;">
             <h3>✅ Konfirmasi Follow Up</h3>
             <div class="modal-subtitle">Pastikan sudah melakukan komunikasi dengan customer</div>
+            <div style="background: #eef2ff; padding: 12px; border-radius: 10px; margin: 0 20px 10px 20px;">
+                <p style="font-size: 12px; color: #4f46e5; margin: 0;">📌 <strong>Ketentuan:</strong><br>
+                • Centang kedua checklist untuk melanjutkan ke Pending<br>
+                • Deadline TIDAK akan bertambah saat pindah ke Pending<br>
+                • Deadline akan bertambah 2 hari saat menyimpan data di Kelola Pending</p>
+            </div>
             <div style="padding: 0 20px;">
                 <div class="form-group">
                     <label><input type="checkbox" id="followup_terkirim" style="margin-right: 8px;"> Apakah pesan sudah terkirim dan terbaca?</label>
@@ -886,17 +899,17 @@ function openFollowupConfirm(id) {
         }
         
         const { data: doc } = await window.db.from('customers').select('*').eq('id', id).single();
+        // Deadline TIDAK berubah saat pindah ke Pending
         const currentDeadline = doc.tanggal || getTodayDate();
-        const newDeadline = addDaysToDate(currentDeadline, 5);
         
         await window.db.from('customers').update({
             followup_data: { terkirim: true, dibalas: true, timestamp: new Date().toISOString() },
             status: 'pending',
-            tanggal: newDeadline
+            tanggal: currentDeadline // Deadline tetap sama
         }).eq('id', id);
         
         closeDynamicModal(modal);
-        showNotifTop(`✅ Customer dipindahkan ke Pending. Deadline +5 hari menjadi ${newDeadline}`);
+        showNotifTop(`✅ Customer dipindahkan ke Pending. Deadline tetap (${currentDeadline})`);
         await loadCustomers();
         closeModal('detailModal');
     };
@@ -1024,16 +1037,20 @@ function openPendingModal(id) {
     window.db.from('customers').select('*').eq('id', id).single().then(({ data }) => {
         pendingItems = data.pending_data || [];
         
-        // Buat modal pending dengan tampilan yang lebih baik
         const modal = createModalWithHighZIndex(`
             <div class="modal-content" style="max-width: 500px;">
                 <h3>📝 Catatan Pending</h3>
                 <div class="modal-subtitle">Catat setiap balasan/respon dari customer</div>
+                <div style="background: #eef2ff; padding: 12px; border-radius: 10px; margin: 0 20px 10px 20px;">
+                    <p style="font-size: 12px; color: #4f46e5; margin: 0;">📌 <strong>Ketentuan:</strong><br>
+                    • Setiap kali menyimpan data pending, deadline akan bertambah 2 hari dari HARI INI<br>
+                    • Setelah semua balasan terisi dan tercentang, Anda dapat melanjutkan ke Closing</p>
+                </div>
                 <div id="pendingItemsContainer" style="max-height: 300px; overflow-y: auto; padding: 0 20px;"></div>
                 <button id="addPendingItemBtn" class="add-btn" style="margin: 10px 20px; width: calc(100% - 40px);">+ Tambah Balasan</button>
                 <div class="modal-buttons" style="display: flex; gap: 10px; flex-wrap: wrap;">
                     <button id="pendingFinishBtn" class="btn-success" style="flex: 1;" disabled>✅ Selesai & Lanjut ke Closing</button>
-                    <button id="pendingSaveBtn" class="btn-primary" style="flex: 1;">💾 Simpan</button>
+                    <button id="pendingSaveBtn" class="btn-primary" style="flex: 1;">💾 Simpan (Deadline +2 hari)</button>
                     <button id="pendingCancelBtn" class="btn-outline" style="flex: 1;">Batal</button>
                 </div>
             </div>
@@ -1120,7 +1137,8 @@ function updatePendingButtonsInModal(modal) {
             finishBtn.parentNode.replaceChild(newFinishBtn, finishBtn);
             newFinishBtn.onclick = async () => {
                 await window.db.from('customers').update({ pending_data: pendingItems }).eq('id', currentPendingId);
-                confirmClosingToDB(currentPendingId);
+                // Pindah ke Closing dengan deadline tanggal 1 bulan depan
+                await updateCustomerStatus(currentPendingId, 'closing');
                 closeDynamicModal(modal);
             };
         } else {
@@ -1164,13 +1182,14 @@ function updatePendingButtonsInModal(modal) {
                 return;
             }
             
-            const newDeadline = addDaysToDate(doc.tanggal || getTodayDate(), 3);
+            // Deadline bertambah 2 hari dari HARI INI (bukan dari deadline lama)
+            const newDeadline = addDaysFromToday(2);
             await window.db.from('customers').update({
                 pending_data: pendingItems,
                 tanggal: newDeadline
             }).eq('id', currentPendingId);
             
-            showNotifTop(`💾 Data pending berhasil disimpan. Deadline +3 hari menjadi ${newDeadline}`);
+            showNotifTop(`💾 Data pending berhasil disimpan. Deadline +2 hari dari hari ini menjadi ${newDeadline}`);
             closeDynamicModal(modal);
             await loadCustomers();
         };
@@ -1211,7 +1230,6 @@ function openProspekNegosiasiModal(id) {
             backdrop-filter: blur(5px) !important;
         `;
         
-        // Hitung persentase kelengkapan data negosiasi
         const negosiasiData = data.negosiasi_data || {};
         const fields = ['aplikasi', 'domisili', 'transaksi', 'deposit', 'tertarik', 'penawaran'];
         const filledFields = fields.filter(f => negosiasiData[f] && negosiasiData[f] !== '');
@@ -1229,6 +1247,11 @@ function openProspekNegosiasiModal(id) {
                         </div>
                         <small>Kelengkapan data: ${completePercent}% (${filledFields.length}/${fields.length})</small>
                     </div>
+                </div>
+                <div style="background: #eef2ff; padding: 12px; border-radius: 10px; margin: 0 20px 10px 20px;">
+                    <p style="font-size: 12px; color: #4f46e5; margin: 0;">📌 <strong>Ketentuan:</strong><br>
+                    • Setiap kali menyimpan data kuesioner, deadline akan bertambah 5 hari dari HARI INI<br>
+                    • Setelah semua data terisi, Anda dapat memindahkan ke Tertarik (deadline +1 hari dari HARI INI)</p>
                 </div>
                 <div style="padding: 20px;">
                     <div class="form-group" style="margin-bottom: 16px;">
@@ -1263,7 +1286,7 @@ function openProspekNegosiasiModal(id) {
                 <div class="modal-buttons" style="display: flex; gap: 10px; flex-wrap: wrap; padding: 16px 20px 20px; border-top: 1px solid #f0f0f0;">
                     <button type="button" id="negosiasiTertarikBtnFix" class="btn-success" style="flex: 1; padding: 12px; border: 0; border-radius: 14px; font-weight: 600; font-size: 13px; background: ${isComplete ? '#10b981' : '#9ca3af'}; color: white; cursor: ${isComplete ? 'pointer' : 'not-allowed'}; opacity: ${isComplete ? '1' : '0.6'};">⭐ Tertarik</button>
                     <button type="button" id="negosiasiTidakTertarikBtnFix" class="btn-danger" style="flex: 1; padding: 12px; border: 0; border-radius: 14px; font-weight: 600; font-size: 13px; background: ${isComplete ? '#ef4444' : '#9ca3af'}; color: white; cursor: ${isComplete ? 'pointer' : 'not-allowed'}; opacity: ${isComplete ? '1' : '0.6'};">❌ Tidak Tertarik</button>
-                    <button type="button" id="negosiasiSimpanBtnFix" class="btn-primary" style="flex: 1; padding: 12px; border: 0; border-radius: 14px; font-weight: 600; font-size: 13px; background: #4f46e5; color: white; cursor: pointer;">💾 Simpan</button>
+                    <button type="button" id="negosiasiSimpanBtnFix" class="btn-primary" style="flex: 1; padding: 12px; border: 0; border-radius: 14px; font-weight: 600; font-size: 13px; background: #4f46e5; color: white; cursor: pointer;">💾 Simpan (Deadline +5 hari)</button>
                     <button type="button" id="negosiasiBatalBtnFix" class="btn-outline" style="flex: 1; padding: 12px; border: 0; border-radius: 14px; font-weight: 600; font-size: 13px; background: #f3f4f6; color: #374151; cursor: pointer;">❌ Batal</button>
                 </div>
             </div>
@@ -1343,7 +1366,7 @@ function openProspekNegosiasiModal(id) {
                 const tertarik = document.getElementById('negosiasi_tertarik').value;
                 const penawaran = document.getElementById('negosiasi_penawaran').value;
                 
-                if (!confirm('Apakah Anda yakin prospek ini TERTARIK?\n\nData akan dipindahkan ke status TERTARIK.')) return;
+                if (!confirm('Apakah Anda yakin prospek ini TERTARIK?\n\nData akan dipindahkan ke status TERTARIK dengan deadline +1 hari dari hari ini.')) return;
                 
                 const negosiasi_data = {
                     aplikasi, domisili, transaksi, deposit, tertarik, penawaran,
@@ -1351,14 +1374,18 @@ function openProspekNegosiasiModal(id) {
                     is_complete: true
                 };
                 
+                // Deadline +1 hari dari HARI INI
+                const newDeadline = addDaysFromToday(1);
+                
                 try {
                     await window.db.from('prospek').update({
                         status: 'Tertarik',
                         negosiasi_data: negosiasi_data,
+                        deadline: newDeadline,
                         updated_at: new Date().toISOString()
                     }).eq('id', currentProspekId);
                     
-                    showNotifTop('✅ Prospek dipindahkan ke status TERTARIK');
+                    showNotifTop(`✅ Prospek dipindahkan ke status TERTARIK. Deadline +1 hari dari hari ini menjadi ${newDeadline}`);
                     closeModalFix();
                     await loadProspek();
                     closeModal('detailModal');
@@ -1464,8 +1491,8 @@ function openProspekNegosiasiModal(id) {
                         is_complete: !!(aplikasi && domisili && transaksi && deposit && tertarik && penawaran)
                     };
                     
-                    const currentDeadline = doc.deadline || getTodayDate();
-                    const newDeadline = addDaysToDate(currentDeadline, 3);
+                    // Deadline bertambah 5 hari dari HARI INI
+                    const newDeadline = addDaysFromToday(5);
                     
                     await window.db.from('prospek').update({
                         negosiasi_data: negosiasi_data,
@@ -1473,7 +1500,7 @@ function openProspekNegosiasiModal(id) {
                         updated_at: new Date().toISOString()
                     }).eq('id', currentProspekId);
                     
-                    showNotifTop(`💾 Data kuesioner berhasil disimpan. Deadline +3 hari menjadi ${newDeadline}`);
+                    showNotifTop(`💾 Data kuesioner berhasil disimpan. Deadline +5 hari dari hari ini menjadi ${newDeadline}`);
                     closeModalFix();
                     await loadProspek();
                     closeModal('detailModal');
@@ -1578,31 +1605,45 @@ function showConvertToCustomerModal(prospekId) {
                 followup_date: followupDate
             });
             
-            await window.db.from('customers').insert({
-                agent_id: agentId,
-                nama: data.nama,
-                hp: data.hp,
-                apk: aplikasi,
-                tanggal: followupDate,
-                status: 'baru',
-                user_id: data.user_id,
-                created_at: new Date().toISOString(),
-                converted_from: 'prospek_commitment'
-            });
+        const followupDate = getTodayDate();
+        await window.db.from('customers').insert({
+            agent_id: agentId,
+            nama: data.nama,
+            hp: data.hp,
+            apk: aplikasi,
+            tanggal: followupDate,
+            status: 'baru',
+            user_id: data.user_id,
+            created_at: new Date().toISOString(),
+            converted_from: 'prospek_commitment',
+            is_new_member: true
+        });
             
-            await window.db.from('prospek').delete().eq('id', prospekId);
-            
-            showNotifTop('✅ Berhasil! Customer telah ditambahkan ke Followup Agen');
-            modal.remove();
-            await loadCustomers();
-            await loadProspek();
-            await loadDBCommitment();
-            closeModal('detailModal');
-        }
+        await window.db.from('prospek').delete().eq('id', prospekId);
+        
+        showNotifTop('✅ Berhasil! Member baru telah ditambahkan ke Followup Agen dan tersimpan di Database Commitment');
+        modal.remove();
+        document.body.classList.remove('modal-open');
+        document.body.style.overflow = '';
+        await loadCustomers();
+        await loadProspek();
+        await loadDBCommitment();
+        closeModal('detailModal');
     };
     
-    document.getElementById('cancelConvertBtn').onclick = () => modal.remove();
-    modal.onclick = (e) => { if (e.target === modal) modal.remove(); };
+    document.getElementById('cancelTertarikToDBBtn').onclick = () => {
+        modal.remove();
+        document.body.classList.remove('modal-open');
+        document.body.style.overflow = '';
+    };
+    
+    modal.onclick = (e) => {
+        if (e.target === modal) {
+            modal.remove();
+            document.body.classList.remove('modal-open');
+            document.body.style.overflow = '';
+        }
+    };
 }
 
 // ========== CRUD OPERATIONS ==========
@@ -1664,14 +1705,8 @@ async function addProspek(nama, hp, deadline) {
 
 // ========== KONFIRMASI CLOSING KE DB ==========
 function confirmClosingToDB(id) {
-    // Hapus modal yang sudah ada
-    const existingModal = document.querySelector('.closing-confirm-modal');
-    if (existingModal) {
-        existingModal.remove();
-    }
-    
     const modal = document.createElement('div');
-    modal.className = 'modal closing-confirm-modal';
+    modal.className = 'modal';
     modal.style.display = 'flex';
     modal.style.zIndex = '999999999';
     modal.style.position = 'fixed';
@@ -1686,11 +1721,10 @@ function confirmClosingToDB(id) {
         <div class="modal-content" style="max-width: 400px; z-index: 999999999; pointer-events: auto;">
             <h3>📋 Pindahkan ke Database Closing</h3>
             <div class="modal-subtitle">Data customer akan dipindahkan ke Database Closing</div>
+            <div style="background: #fef3c7; padding: 12px; border-radius: 10px; margin: 0 20px 10px 20px;">
+                <p style="font-size: 12px; color: #d97706; margin: 0;">⚠️ <strong>Peringatan:</strong> Data yang sudah dipindahkan TIDAK BISA dikembalikan ke Followup Agen!</p>
+            </div>
             <div style="padding: 0 20px 20px 20px;">
-                <p style="margin-bottom: 16px;">Apakah Anda yakin ingin memindahkan customer ini ke <strong>DATABASE CLOSING</strong>?</p>
-                <div style="background: #fef3c7; padding: 12px; border-radius: 10px; margin-bottom: 16px;">
-                    <p style="font-size: 12px; color: #d97706; margin: 0;">⚠️ <strong>Peringatan:</strong> Data yang sudah dipindahkan TIDAK BISA dikembalikan ke Followup Agen!</p>
-                </div>
                 <div class="form-group">
                     <label>Catatan Closing (Opsional)</label>
                     <textarea id="closingNote" rows="3" placeholder="Contoh: Berhasil closing dengan produk A..." style="width:100%; padding: 10px; border-radius: 10px; border: 1px solid #e5e7eb;"></textarea>
@@ -1748,14 +1782,8 @@ function confirmClosingToDB(id) {
 
 // ========== KONFIRMASI PROSPEK TERTARIK KE DB COMMITMENT ==========
 function confirmTertarikToDB(prospekId) {
-    // Hapus modal yang sudah ada
-    const existingModal = document.querySelector('.tertarik-confirm-modal');
-    if (existingModal) {
-        existingModal.remove();
-    }
-    
     const modal = document.createElement('div');
-    modal.className = 'modal tertarik-confirm-modal';
+    modal.className = 'modal';
     modal.style.display = 'flex';
     modal.style.zIndex = '999999999';
     modal.style.position = 'fixed';
@@ -1767,17 +1795,21 @@ function confirmTertarikToDB(prospekId) {
     modal.style.backdropFilter = 'blur(5px)';
     modal.style.pointerEvents = 'auto';
     modal.innerHTML = `
-        <div class="modal-content" style="max-width: 400px; z-index: 999999999; pointer-events: auto;">
-            <h3>📋 Pindahkan ke Database Commitment</h3>
-            <div class="modal-subtitle">Data prospek akan dipindahkan ke Database Commitment</div>
+        <div class="modal-content" style="max-width: 450px; z-index: 999999999; pointer-events: auto;">
+            <h3>⭐ Jadikan Member Baru</h3>
+            <div class="modal-subtitle">Data akan dipindahkan ke Database Commitment dan menjadi Member Baru di Followup</div>
+            <div style="background: #eef2ff; padding: 12px; border-radius: 10px; margin: 0 20px 10px 20px;">
+                <p style="font-size: 12px; color: #4f46e5; margin: 0;">📌 <strong>Ketentuan:</strong><br>
+                • Data akan disimpan ke DATABASE COMMITMENT sebagai arsip<br>
+                • Data akan DIPINDAHKAN ke FOLLOWUP AGEN dengan status "Baru" dan label NEW Member<br>
+                • Data akan DIHAPUS dari Prospek Agen<br>
+                • Proses ini TIDAK BISA dibatalkan!</p>
+            </div>
             <div style="padding: 0 20px 20px 20px;">
-                <p style="margin-bottom: 16px;">Apakah Anda yakin ingin memindahkan prospek ini ke <strong>DATABASE COMMITMENT</strong>?</p>
-                <div style="background: #fef3c7; padding: 12px; border-radius: 10px; margin-bottom: 16px;">
-                    <p style="font-size: 12px; color: #d97706; margin: 0;">⚠️ <strong>Peringatan:</strong> Data yang sudah dipindahkan TIDAK BISA dikembalikan ke Prospek Agen!</p>
-                </div>
                 <div class="form-group">
                     <label>ID Agent <span class="required">*</span></label>
                     <input type="text" id="commitmentAgentId" placeholder="Contoh: AG-001" maxlength="17" style="width:100%; padding: 10px; border-radius: 10px; border: 1px solid #e5e7eb;">
+                    <small>ID Agent untuk member baru</small>
                 </div>
                 <div class="form-group">
                     <label>Aplikasi <span class="required">*</span></label>
@@ -1789,12 +1821,12 @@ function confirmTertarikToDB(prospekId) {
                     </select>
                 </div>
                 <div class="form-group">
-                    <label>Catatan Commitment (Opsional)</label>
+                    <label>Catatan (Opsional)</label>
                     <textarea id="commitmentNote" rows="2" placeholder="Contoh: Akan followup bulan depan..." style="width:100%; padding: 10px; border-radius: 10px; border: 1px solid #e5e7eb;"></textarea>
                 </div>
             </div>
             <div class="modal-buttons" style="display: flex; gap: 12px; padding: 16px 20px 20px;">
-                <button id="confirmTertarikToDBBtn" class="btn-primary" style="flex: 1; cursor: pointer;">✅ Ya, Pindahkan ke Commitment</button>
+                <button id="confirmTertarikToDBBtn" class="btn-primary" style="flex: 1; cursor: pointer;">✅ Ya, Jadikan Member Baru</button>
                 <button id="cancelTertarikToDBBtn" class="btn-outline" style="flex: 1; cursor: pointer;">❌ Batal</button>
             </div>
         </div>
@@ -1817,12 +1849,14 @@ function confirmTertarikToDB(prospekId) {
         const { data: prospekDoc } = await window.db.from('prospek').select('*').eq('id', prospekId).single();
         const data = prospekDoc;
         
-        const { data: existing } = await window.db.from('db_commitment').select('id').eq('agent_id', agentId).maybeSingle();
-        if (existing) {
-            showNotifTop(`⚠️ ID Agent "${agentId}" sudah terdaftar di Commitment!`, true);
+        // Cek duplikat ID Agent di customers
+        const { data: existingCustomer } = await window.db.from('customers').select('id').eq('agent_id', agentId).maybeSingle();
+        if (existingCustomer) {
+            showNotifTop(`⚠️ ID Agent "${agentId}" sudah terdaftar di Followup Agen!`, true);
             return;
         }
         
+        // Simpan ke DB Commitment
         await window.db.from('db_commitment').insert({
             nama: data.nama,
             hp: data.hp,
@@ -1860,67 +1894,133 @@ function confirmTertarikToDB(prospekId) {
     };
 }
 
+// ========== FUNGSI UPDATE DEADLINE BERDASARKAN TANGGAL EDIT ==========
+function addDaysFromToday(days) {
+    const today = getTodayDate();
+    return addDaysToDate(today, days);
+}
+
+function getFirstDayOfNextMonth() {
+    const today = new Date();
+    const nextMonth = new Date(today.getFullYear(), today.getMonth() + 1, 1);
+    return nextMonth.toISOString().split('T')[0];
+}
+
+// ========== FUNGSI updateCustomerStatus (BARU KE FOLLOWUP - TIDAK NAMBAH DEADLINE) ==========
 async function updateCustomerStatus(id, newStatus) {
     const customer = customersData.find(c => c.id === id);
     if (!customer) return;
     
-    // Jika status closing, tampilkan konfirmasi pindah ke DB Closing
-    if (newStatus === 'closing') {
+    // Jika dari Baru ke Follow Up - TIDAK menambah deadline
+    if (customer.status === 'baru' && newStatus === 'followup') {
+        const { error } = await window.db
+            .from('customers')
+            .update({ status: newStatus, updated_at: new Date().toISOString() })
+            .eq('id', id);
+        
+        if (error) {
+            showNotifTop('❌ Gagal update: ' + error.message, true);
+            return;
+        }
+        
+        showNotifTop(`✅ Status berhasil diupdate ke Follow Up. Deadline tidak berubah.`);
+        closeModal('detailModal');
+        await loadCustomers();
+        return;
+    }
+    
+    // Jika dari Follow Up ke Pending - panggil openFollowupConfirm (tidak langsung update deadline)
+    if (customer.status === 'followup' && newStatus === 'pending') {
+        openFollowupConfirm(id);
+        return;
+    }
+    
+    // Jika dari Pending ke Closing - update deadline ke tanggal 1 bulan depan
+    if (customer.status === 'pending' && newStatus === 'closing') {
+        const newDeadline = getFirstDayOfNextMonth();
+        
+        const { error } = await window.db
+            .from('customers')
+            .update({ status: newStatus, tanggal: newDeadline, updated_at: new Date().toISOString() })
+            .eq('id', id);
+        
+        if (error) {
+            showNotifTop('❌ Gagal update: ' + error.message, true);
+            return;
+        }
+        
+        showNotifTop(`✅ Customer dipindahkan ke Closing. Deadline menjadi tanggal 1 bulan depan (${newDeadline})`);
+        closeModal('detailModal');
+        await loadCustomers();
+        return;
+    }
+    
+    // Jika dari Closing ke DB Closing - panggil confirmClosingToDB
+    if (customer.status === 'closing' && newStatus === 'db_closing') {
         confirmClosingToDB(id);
         return;
     }
     
-    let daysToAdd = 1;
-    if (newStatus === 'followup') daysToAdd = 3;
-    else if (newStatus === 'pending') daysToAdd = 5;
-    
-    const newDeadline = addDaysToDate(customer.tanggal || getTodayDate(), daysToAdd);
-    
-    const { error } = await window.db
-        .from('customers')
-        .update({ status: newStatus, tanggal: newDeadline, updated_at: new Date().toISOString() })
-        .eq('id', id);
-    
-    if (error) {
-        showNotifTop('❌ Gagal update: ' + error.message, true);
-        return;
-    }
-    
-    const statusText = newStatus === 'followup' ? 'Follow Up' : newStatus;
-    showNotifTop(`✅ Status berhasil diupdate ke ${statusText}. Deadline +${daysToAdd} hari menjadi ${newDeadline}`);
-    closeModal('detailModal');
-    await loadCustomers();
+    // Default untuk kasus lain (tidak seharusnya terjadi)
+    showNotifTop('⚠️ Aksi tidak dikenali!', true);
 }
 
+// ========== FUNGSI updateProspekStatus ==========
 async function updateProspekStatus(id, newStatus) {
     const prospek = prospekData.find(p => p.id === id);
     if (!prospek) return;
     
-    // Jika status Tertarik, tampilkan konfirmasi pindah ke DB Commitment
-    if (newStatus === 'Tertarik') {
+    // Jika dari Baru ke Dihubungi - TIDAK menambah deadline
+    if (prospek.status === 'Baru' && newStatus === 'Dihubungi') {
+        const { error } = await window.db
+            .from('prospek')
+            .update({ status: newStatus, updated_at: new Date().toISOString() })
+            .eq('id', id);
+        
+        if (error) {
+            showNotifTop('❌ Gagal update: ' + error.message, true);
+            return;
+        }
+        
+        showNotifTop(`✅ Status berhasil diupdate ke Dihubungi. Deadline tidak berubah.`);
+        closeModal('detailModal');
+        await loadProspek();
+        return;
+    }
+    
+    // Jika dari Dihubungi ke Negosiasi - panggil openProspekDihubungiConfirm
+    if (prospek.status === 'Dihubungi' && newStatus === 'Negosiasi') {
+        openProspekDihubungiConfirm(id);
+        return;
+    }
+    
+    // Jika dari Negosiasi ke Tertarik - tambah deadline 1 hari dari HARI INI
+    if (prospek.status === 'Negosiasi' && newStatus === 'Tertarik') {
+        const newDeadline = addDaysFromToday(1);
+        
+        const { error } = await window.db
+            .from('prospek')
+            .update({ status: newStatus, deadline: newDeadline, updated_at: new Date().toISOString() })
+            .eq('id', id);
+        
+        if (error) {
+            showNotifTop('❌ Gagal update: ' + error.message, true);
+            return;
+        }
+        
+        showNotifTop(`✅ Prospek dipindahkan ke Tertarik. Deadline +1 hari dari hari ini menjadi ${newDeadline}`);
+        closeModal('detailModal');
+        await loadProspek();
+        return;
+    }
+    
+    // Jika dari Tertarik ke DB Commitment - panggil confirmTertarikToDB
+    if (prospek.status === 'Tertarik' && newStatus === 'db_commitment') {
         confirmTertarikToDB(id);
         return;
     }
     
-    let daysToAdd = 1;
-    if (newStatus === 'Dihubungi') daysToAdd = 3;
-    else if (newStatus === 'Negosiasi') daysToAdd = 5;
-    
-    const newDeadline = addDaysToDate(prospek.deadline || getTodayDate(), daysToAdd);
-    
-    const { error } = await window.db
-        .from('prospek')
-        .update({ status: newStatus, deadline: newDeadline, updated_at: new Date().toISOString() })
-        .eq('id', id);
-    
-    if (error) {
-        showNotifTop('❌ Gagal update: ' + error.message, true);
-        return;
-    }
-    
-    showNotifTop(`✅ Status berhasil diupdate ke ${newStatus}. Deadline +${daysToAdd} hari menjadi ${newDeadline}`);
-    closeModal('detailModal');
-    await loadProspek();
+    showNotifTop('⚠️ Aksi tidak dikenali!', true);
 }
 
 async function deleteCustomer(id) {
@@ -3713,6 +3813,277 @@ async function sendBroadcast() {
     showNotifTop(`✅ Broadcast selesai! ${currentNumbers.length} pesan telah dibuka.`);
 }
 
+// ========== BROADCAST UPLINE FUNCTIONS ==========
+async function loadUplineNumbers() {
+    if (!currentUser) return;
+    
+    const sourceType = document.querySelector('input[name="uplineSourceType"]:checked')?.value || 'transaksi';
+    
+    let collection = '';
+    let statusValues = [];
+    
+    if (sourceType === 'transaksi') {
+        collection = 'db_transaksi';
+    } else if (sourceType === 'customer') {
+        collection = 'customers';
+        statusValues = Array.from(document.querySelectorAll('#uplineCustomerFilter input:checked')).map(cb => cb.value);
+    } else if (sourceType === 'custom') {
+        const customNumbers = document.getElementById('uplineCustomNumbers')?.value || '';
+        const numbers = customNumbers.split('\n').filter(n => n.trim());
+        
+        const listDiv = document.getElementById('uplineNumbersList');
+        const countSpan = document.getElementById('uplineCount');
+        
+        if (listDiv) {
+            if (numbers.length === 0) {
+                listDiv.innerHTML = '<p style="color:#ef4444; padding:20px;">⚠️ Masukkan nomor tujuan!</p>';
+            } else {
+                listDiv.innerHTML = numbers.map(num => `
+                    <div class="number-item">
+                        📞 ${escapeHtml(num.trim())}
+                    </div>
+                `).join('');
+            }
+        }
+        if (countSpan) countSpan.innerText = numbers.length;
+        return;
+    }
+    
+    if (!collection) {
+        showNotifTop('⚠️ Sumber tidak valid!', true);
+        return;
+    }
+    
+    if (sourceType === 'customer' && statusValues.length === 0) {
+        showNotifTop('⚠️ Pilih minimal satu status!', true);
+        const listDiv = document.getElementById('uplineNumbersList');
+        if (listDiv) listDiv.innerHTML = '<p style="color:#ef4444; padding:20px;">⚠️ Silakan pilih minimal satu status terlebih dahulu!</p>';
+        document.getElementById('uplineCount').innerText = '0';
+        return;
+    }
+    
+    showNotifTop('⏳ Mengelompokkan data berdasarkan Upline...');
+    
+    let query = window.db.from(collection).select('*');
+    if (currentUserRole !== 'owner') {
+        query = query.eq('user_id', currentUser.id);
+    }
+    query = query.limit(2000);
+    
+    if (statusValues.length > 0 && sourceType !== 'transaksi') {
+        query = query.in('status', statusValues);
+    }
+    
+    const { data, error } = await query;
+    if (error) {
+        showNotifTop('❌ Gagal memuat data: ' + error.message, true);
+        return;
+    }
+    
+    const listDiv = document.getElementById('uplineNumbersList');
+    const countSpan = document.getElementById('uplineCount');
+    
+    if (!data || data.length === 0) {
+        if (listDiv) listDiv.innerHTML = '<p style="color:#ef4444; padding:20px;">⚠️ Tidak ada data dengan filter yang dipilih.</p>';
+        if (countSpan) countSpan.innerText = '0';
+        return;
+    }
+    
+    const uplineMap = new Map();
+    let dataWithoutUpline = 0;
+    
+    for (const item of data) {
+        let uplinePhone = '';
+        let uplineName = '';
+        
+        if (sourceType === 'transaksi') {
+            uplinePhone = item.upline_phone || '';
+            uplineName = item.upline_name || 'Tidak ada upline';
+        } else if (sourceType === 'customer') {
+            uplinePhone = item.upline_phone || '';
+            uplineName = item.upline_name || 'Tidak ada upline';
+        }
+        
+        if (!uplinePhone || uplinePhone === '+62' || uplinePhone === '62' || uplinePhone === '' || uplinePhone === '0') {
+            dataWithoutUpline++;
+            continue;
+        }
+        
+        if (!uplineMap.has(uplinePhone)) {
+            uplineMap.set(uplinePhone, {
+                upline_phone: uplinePhone,
+                upline_name: uplineName,
+                agents: []
+            });
+        }
+        
+        uplineMap.get(uplinePhone).agents.push({
+            agent_id: item.agent_id || '-',
+            nama: item.nama || '-',
+            hp: item.hp || '-'
+        });
+    }
+    
+    uplineDataList = Array.from(uplineMap.values());
+    
+    if (listDiv) {
+        if (uplineDataList.length === 0) {
+            listDiv.innerHTML = `<p style="color:#ef4444; padding:20px;">⚠️ Tidak ada data upline yang ditemukan!</p>
+                <p style="color:#6b7280; font-size: 12px; padding: 0 20px 20px 20px;">
+                📌 Pastikan data memiliki field:<br>
+                • <strong>upline_phone</strong> (nomor HP upline)<br>
+                • <strong>upline_name</strong> (nama upline)<br><br>
+                ⏭ Data tanpa upline: ${dataWithoutUpline}
+                </p>`;
+            if (countSpan) countSpan.innerText = '0';
+        } else {
+            const totalAgent = uplineDataList.reduce((sum, u) => sum + u.agents.length, 0);
+            if (countSpan) countSpan.innerText = uplineDataList.length;
+            
+            listDiv.innerHTML = `
+                <div style="background: #eef2ff; padding: 10px; border-radius: 8px; margin-bottom: 12px;">
+                    <strong>📊 Ringkasan:</strong><br>
+                    Upline: ${uplineDataList.length} | Total Agent: ${totalAgent} | Data tanpa upline: ${dataWithoutUpline}
+                </div>
+                ${uplineDataList.map(upline => `
+                    <div class="number-item upline-item" style="border-bottom: 1px solid #e5e7eb; padding: 12px 0;">
+                        <div style="font-weight: 600; color: #8b5cf6;">👤 ${escapeHtml(upline.upline_name)}</div>
+                        <div style="font-size: 11px; color: #6b7280;">📞 ${escapeHtml(upline.upline_phone)}</div>
+                        <div style="font-size: 11px; margin-top: 6px; background: #f3f4f6; padding: 8px; border-radius: 8px;">
+                            <strong>📋 Agent (${upline.agents.length}):</strong><br>
+                            ${upline.agents.slice(0, 5).map(agent => 
+                                `🆔 ${escapeHtml(agent.agent_id)} - ${escapeHtml(agent.nama)}`
+                            ).join('<br>')}
+                            ${upline.agents.length > 5 ? `<br>... dan ${upline.agents.length - 5} agent lainnya` : ''}
+                        </div>
+                    </div>
+                `).join('')}
+            `;
+        }
+    }
+    
+    showNotifTop(`✅ Ditemukan ${uplineDataList.length} Upline dengan total ${uplineDataList.reduce((sum, u) => sum + u.agents.length, 0)} agent`);
+}
+
+async function sendUplineBroadcast() {
+    const messageTemplate = document.getElementById('uplineBroadcastMessage')?.value;
+    const sendOneByOne = document.getElementById('uplineSendOneByOne')?.checked;
+    
+    if (!messageTemplate) {
+        showNotifTop('⚠️ Pesan tidak boleh kosong!', true);
+        return;
+    }
+    
+    if (uplineDataList.length === 0) {
+        showNotifTop('⚠️ Tidak ada data upline! Klik "Refresh Data Upline" terlebih dahulu.', true);
+        return;
+    }
+    
+    const totalAgent = uplineDataList.reduce((sum, u) => sum + u.agents.length, 0);
+    
+    if (!confirm(`⭐ KIRIM BROADCAST KE UPLINE\n\n👥 Upline: ${uplineDataList.length}\n📋 Total Agent: ${totalAgent}\n\nKlik OK untuk melanjutkan.`)) {
+        return;
+    }
+    
+    const progress = showFloatingProgress('⭐ Broadcast ke Upline', uplineDataList.length);
+    progress.update(0, '🚀 Mengirim Broadcast', 'Memulai pengiriman...');
+    
+    let success = 0;
+    let failed = 0;
+    
+    for (let i = 0; i < uplineDataList.length; i++) {
+        const upline = uplineDataList[i];
+        
+        let message = messageTemplate;
+        message = message.replace(/{nama_upline}/g, upline.upline_name);
+        message = message.replace(/{total_agent}/g, upline.agents.length);
+        
+        let tableText = '';
+        for (let j = 0; j < upline.agents.length; j++) {
+            const agent = upline.agents[j];
+            const nomorUrut = j + 1;
+            tableText += `${nomorUrut}. ${agent.nama} (${agent.agent_id})\n`;
+        }
+        message = message.replace(/{tabel_agent}/g, tableText);
+        
+        let nomor = upline.upline_phone.toString();
+        nomor = nomor.replace(/[^\d+]/g, '');
+        if (!nomor.startsWith('+')) {
+            nomor = nomor.replace(/^0+/, '');
+            if (nomor.startsWith('62')) nomor = '+' + nomor;
+            else nomor = '+62' + nomor;
+        }
+        const cleanNomor = nomor.replace(/[^\d]/g, '');
+        
+        try {
+            window.open('https://wa.me/' + cleanNomor + '?text=' + encodeURIComponent(message), '_blank');
+            success++;
+            
+            const percent = Math.floor(((i + 1) / uplineDataList.length) * 100);
+            progress.update(percent, '⭐ Mengirim', `Mengirim ke ${upline.upline_name} (${i + 1}/${uplineDataList.length})...`, i + 1, uplineDataList.length);
+            
+            if (sendOneByOne) {
+                await new Promise(resolve => setTimeout(resolve, 800));
+            }
+        } catch (e) {
+            failed++;
+            console.error(`Gagal kirim ke ${upline.upline_name}:`, e);
+        }
+    }
+    
+    progress.update(100, '✅ Selesai', `Berhasil: ${success}, Gagal: ${failed}`, uplineDataList.length, uplineDataList.length);
+    showNotifTop(`✅ Broadcast ke Upline selesai! Terkirim ke ${success} upline, Gagal: ${failed}`);
+    setTimeout(() => progress.hide(), 4000);
+}
+
+function initUplineBroadcast() {
+    const radioButtons = document.querySelectorAll('input[name="uplineSourceType"]');
+    radioButtons.forEach(radio => {
+        radio.addEventListener('change', function() {
+            const value = this.value;
+            const transaksiFilter = document.getElementById('uplineTransaksiFilter');
+            const customerFilter = document.getElementById('uplineCustomerFilter');
+            const customCard = document.getElementById('uplineCustomCard');
+            
+            if (transaksiFilter) transaksiFilter.style.display = 'none';
+            if (customerFilter) customerFilter.style.display = 'none';
+            if (customCard) customCard.style.display = 'none';
+            
+            if (value === 'transaksi') {
+                if (transaksiFilter) transaksiFilter.style.display = 'flex';
+            } else if (value === 'customer') {
+                if (customerFilter) customerFilter.style.display = 'flex';
+            } else if (value === 'custom') {
+                if (customCard) customCard.style.display = 'block';
+            }
+            
+            loadUplineNumbers();
+        });
+    });
+    
+    const customerCheckboxes = document.querySelectorAll('#uplineCustomerFilter input');
+    customerCheckboxes.forEach(cb => {
+        cb.addEventListener('change', () => loadUplineNumbers());
+    });
+    
+    const customNumbers = document.getElementById('uplineCustomNumbers');
+    if (customNumbers) {
+        customNumbers.addEventListener('input', loadUplineNumbers);
+    }
+    
+    const refreshBtn = document.getElementById('refreshUplineBtn');
+    if (refreshBtn) {
+        refreshBtn.addEventListener('click', loadUplineNumbers);
+    }
+    
+    const sendBtn = document.getElementById('sendUplineBroadcastBtn');
+    if (sendBtn) {
+        sendBtn.addEventListener('click', sendUplineBroadcast);
+    }
+    
+    loadUplineNumbers();
+}
+
 // ========== SEARCH FUNCTIONS ==========
 async function performSearch() {
     const keyword = document.getElementById('searchInput').value.trim().toLowerCase();
@@ -4246,6 +4617,12 @@ function navigateTo(page) {
     
     const target = pageMap[page];
     if (target) document.getElementById(target).style.display = 'block';
+
+        if (page === 'broadcastUpline') {
+        setTimeout(() => {
+            initUplineBroadcast();
+        }, 100);
+    }
     
     document.querySelectorAll('.menu-item').forEach(m => m.classList.remove('active'));
     const activeMenu = document.querySelector(`.menu-item[data-page="${page}"]`);
@@ -5275,6 +5652,11 @@ function initEventListeners() {
     document.getElementById('sendBroadcastBtn')?.addEventListener('click', sendBroadcast);
     document.getElementById('customNumbers')?.addEventListener('input', loadBroadcastNumbers);
     loadBroadcastNumbers();
+
+    // ========== BROADCAST UPLINE ==========
+    // Inisialisasi upline broadcast (akan dipanggil saat halaman broadcastUpline dibuka)
+    // Tombol dan event listener untuk upline broadcast akan diinisialisasi di initUplineBroadcast()
+
     
     // Database buttons
     setupSelectAll('selectAllClosing', '#dbClosingList', selectedClosingIds);
