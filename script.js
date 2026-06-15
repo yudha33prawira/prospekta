@@ -4066,11 +4066,15 @@ async function sendBroadcast() {
     showNotifTop(`✅ Broadcast selesai! ${currentNumbers.length} pesan telah dibuka.`);
 }
 
-// ========== BROADCAST UPLINE FUNCTIONS ==========
+// ========== LOAD UPLINE NUMBERS ==========
 async function loadUplineNumbers() {
-    if (!currentUser) return;
+    if (!currentUser) {
+        console.log('loadUplineNumbers: No user logged in');
+        return;
+    }
     
     const sourceType = document.querySelector('input[name="uplineSourceType"]:checked')?.value || 'transaksi';
+    console.log('loadUplineNumbers sourceType:', sourceType);
     
     let collection = '';
     let statusValues = [];
@@ -4129,9 +4133,12 @@ async function loadUplineNumbers() {
     
     const { data, error } = await query;
     if (error) {
+        console.error('Error loadUplineNumbers:', error);
         showNotifTop('❌ Gagal memuat data: ' + error.message, true);
         return;
     }
+    
+    console.log('Data ditemukan:', data?.length || 0);
     
     const listDiv = document.getElementById('uplineNumbersList');
     const countSpan = document.getElementById('uplineCount');
@@ -4177,7 +4184,8 @@ async function loadUplineNumbers() {
         });
     }
     
-    uplineDataList = Array.from(uplineMap.values());
+    const uplineDataList = Array.from(uplineMap.values());
+    window.uplineDataList = uplineDataList;
     
     if (listDiv) {
         if (uplineDataList.length === 0) {
@@ -4218,6 +4226,7 @@ async function loadUplineNumbers() {
     showNotifTop(`✅ Ditemukan ${uplineDataList.length} Upline dengan total ${uplineDataList.reduce((sum, u) => sum + u.agents.length, 0)} agent`);
 }
 
+// ========== SEND UPLINE BROADCAST ==========
 async function sendUplineBroadcast() {
     const messageTemplate = document.getElementById('uplineBroadcastMessage')?.value;
     const sendOneByOne = document.getElementById('uplineSendOneByOne')?.checked;
@@ -4227,25 +4236,25 @@ async function sendUplineBroadcast() {
         return;
     }
     
-    if (uplineDataList.length === 0) {
+    if (!window.uplineDataList || window.uplineDataList.length === 0) {
         showNotifTop('⚠️ Tidak ada data upline! Klik "Refresh Data Upline" terlebih dahulu.', true);
         return;
     }
     
-    const totalAgent = uplineDataList.reduce((sum, u) => sum + u.agents.length, 0);
+    const totalAgent = window.uplineDataList.reduce((sum, u) => sum + u.agents.length, 0);
     
-    if (!confirm(`⭐ KIRIM BROADCAST KE UPLINE\n\n👥 Upline: ${uplineDataList.length}\n📋 Total Agent: ${totalAgent}\n\nKlik OK untuk melanjutkan.`)) {
+    if (!confirm(`⭐ KIRIM BROADCAST KE UPLINE\n\n👥 Upline: ${window.uplineDataList.length}\n📋 Total Agent: ${totalAgent}\n\nKlik OK untuk melanjutkan.`)) {
         return;
     }
     
-    const progress = showFloatingProgress('⭐ Broadcast ke Upline', uplineDataList.length);
+    const progress = showFloatingProgress('⭐ Broadcast ke Upline', window.uplineDataList.length);
     progress.update(0, '🚀 Mengirim Broadcast', 'Memulai pengiriman...');
     
     let success = 0;
     let failed = 0;
     
-    for (let i = 0; i < uplineDataList.length; i++) {
-        const upline = uplineDataList[i];
+    for (let i = 0; i < window.uplineDataList.length; i++) {
+        const upline = window.uplineDataList[i];
         
         let message = messageTemplate;
         message = message.replace(/{nama_upline}/g, upline.upline_name);
@@ -4272,8 +4281,8 @@ async function sendUplineBroadcast() {
             window.open('https://wa.me/' + cleanNomor + '?text=' + encodeURIComponent(message), '_blank');
             success++;
             
-            const percent = Math.floor(((i + 1) / uplineDataList.length) * 100);
-            progress.update(percent, '⭐ Mengirim', `Mengirim ke ${upline.upline_name} (${i + 1}/${uplineDataList.length})...`, i + 1, uplineDataList.length);
+            const percent = Math.floor(((i + 1) / window.uplineDataList.length) * 100);
+            progress.update(percent, '⭐ Mengirim', `Mengirim ke ${upline.upline_name} (${i + 1}/${window.uplineDataList.length})...`, i + 1, window.uplineDataList.length);
             
             if (sendOneByOne) {
                 await new Promise(resolve => setTimeout(resolve, 800));
@@ -4284,56 +4293,69 @@ async function sendUplineBroadcast() {
         }
     }
     
-    progress.update(100, '✅ Selesai', `Berhasil: ${success}, Gagal: ${failed}`, uplineDataList.length, uplineDataList.length);
+    progress.update(100, '✅ Selesai', `Berhasil: ${success}, Gagal: ${failed}`, window.uplineDataList.length, window.uplineDataList.length);
     showNotifTop(`✅ Broadcast ke Upline selesai! Terkirim ke ${success} upline, Gagal: ${failed}`);
     setTimeout(() => progress.hide(), 4000);
 }
 
+// ========== INIT UPLINE BROADCAST ==========
 function initUplineBroadcast() {
+    console.log('initUplineBroadcast dipanggil');
+    
     const radioButtons = document.querySelectorAll('input[name="uplineSourceType"]');
+    console.log('Radio buttons ditemukan:', radioButtons.length);
+    
     radioButtons.forEach(radio => {
-        radio.addEventListener('change', function() {
-            const value = this.value;
-            const transaksiFilter = document.getElementById('uplineTransaksiFilter');
-            const customerFilter = document.getElementById('uplineCustomerFilter');
-            const customCard = document.getElementById('uplineCustomCard');
-            
-            if (transaksiFilter) transaksiFilter.style.display = 'none';
-            if (customerFilter) customerFilter.style.display = 'none';
-            if (customCard) customCard.style.display = 'none';
-            
-            if (value === 'transaksi') {
-                if (transaksiFilter) transaksiFilter.style.display = 'flex';
-            } else if (value === 'customer') {
-                if (customerFilter) customerFilter.style.display = 'flex';
-            } else if (value === 'custom') {
-                if (customCard) customCard.style.display = 'block';
-            }
-            
-            loadUplineNumbers();
-        });
+        radio.removeEventListener('change', handleUplineSourceChange);
+        radio.addEventListener('change', handleUplineSourceChange);
     });
+    
+    function handleUplineSourceChange(e) {
+        const value = e.target.value;
+        const transaksiFilter = document.getElementById('uplineTransaksiFilter');
+        const customerFilter = document.getElementById('uplineCustomerFilter');
+        const customCard = document.getElementById('uplineCustomCard');
+        
+        if (transaksiFilter) transaksiFilter.style.display = 'none';
+        if (customerFilter) customerFilter.style.display = 'none';
+        if (customCard) customCard.style.display = 'none';
+        
+        if (value === 'transaksi') {
+            if (transaksiFilter) transaksiFilter.style.display = 'flex';
+        } else if (value === 'customer') {
+            if (customerFilter) customerFilter.style.display = 'flex';
+        } else if (value === 'custom') {
+            if (customCard) customCard.style.display = 'block';
+        }
+        
+        loadUplineNumbers();
+    }
     
     const customerCheckboxes = document.querySelectorAll('#uplineCustomerFilter input');
     customerCheckboxes.forEach(cb => {
-        cb.addEventListener('change', () => loadUplineNumbers());
+        cb.removeEventListener('change', loadUplineNumbers);
+        cb.addEventListener('change', loadUplineNumbers);
     });
     
     const customNumbers = document.getElementById('uplineCustomNumbers');
     if (customNumbers) {
+        customNumbers.removeEventListener('input', loadUplineNumbers);
         customNumbers.addEventListener('input', loadUplineNumbers);
     }
     
     const refreshBtn = document.getElementById('refreshUplineBtn');
     if (refreshBtn) {
+        refreshBtn.removeEventListener('click', loadUplineNumbers);
         refreshBtn.addEventListener('click', loadUplineNumbers);
     }
     
     const sendBtn = document.getElementById('sendUplineBroadcastBtn');
     if (sendBtn) {
+        sendBtn.removeEventListener('click', sendUplineBroadcast);
         sendBtn.addEventListener('click', sendUplineBroadcast);
     }
     
+    // Panggil loadUplineNumbers untuk pertama kali
     loadUplineNumbers();
 }
 
@@ -4887,7 +4909,8 @@ async function handleLogout() {
 function navigateTo(page) {
     const pages = ['dashboardPage', 'followupFullPage', 'prospekFullPage', 'dbAgentPage', 'dbTransaksiPage', 
                    'dbClosingPage', 'dbTidakPage', 'dbNomorSalahPage', 'dbCommitmentPage', 'produkPage', 
-                   'reminderPage', 'pesanPage', 'broadcastPage', 'searchPage', 'manageUsersPage', 'importPage'];
+                   'reminderPage', 'pesanPage', 'broadcastPage', 'broadcastUplinePage', 'searchPage', 
+                   'manageUsersPage', 'importPage'];
     
     pages.forEach(p => {
         const el = document.getElementById(p);
@@ -4908,22 +4931,25 @@ function navigateTo(page) {
         'reminder': 'reminderPage',
         'pesan': 'pesanPage',
         'broadcast': 'broadcastPage',
+        'broadcastUpline': 'broadcastUplinePage',
         'search': 'searchPage',
         'manageUsers': 'manageUsersPage',
         'import': 'importPage'
     };
     
-else if (page === 'broadcastUpline') {
-    const pageElement = document.getElementById('broadcastUplinePage');
-    if (pageElement) {
-        pageElement.style.display = 'block';
+    const target = pageMap[page];
+    if (target) {
+        document.getElementById(target).style.display = 'block';
+    }
+    
+    // Inisialisasi broadcast upline jika halaman broadcastUpline
+    if (page === 'broadcastUpline') {
         setTimeout(() => {
             if (typeof initUplineBroadcast === 'function') {
                 initUplineBroadcast();
             }
         }, 100);
     }
-}
     
     document.querySelectorAll('.menu-item').forEach(m => m.classList.remove('active'));
     const activeMenu = document.querySelector(`.menu-item[data-page="${page}"]`);
