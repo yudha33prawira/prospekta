@@ -1768,11 +1768,12 @@ function confirmClosingToDB(id) {
                 nama: doc.nama,
                 hp: doc.hp,
                 closing_date: new Date().toISOString(),
-                closing_note: note,
+                closing_note: note || null,
                 user_id: doc.user_id,
                 followup_data: doc.followup_data || null,
                 pending_data: doc.pending_data || [],
-                created_at: new Date().toISOString()
+                created_at: new Date().toISOString(),
+                updated_at: new Date().toISOString()
             });
             
             if (insertError) {
@@ -1871,6 +1872,10 @@ function confirmTertarikToDB(prospekId) {
                     <label>Catatan (Opsional)</label>
                     <textarea id="commitmentNote" rows="2" placeholder="Contoh: Akan followup bulan depan..." style="width:100%; padding: 10px; border-radius: 10px; border: 1px solid #e5e7eb;"></textarea>
                 </div>
+                <div class="form-group">
+                    <label>Tanggal Followup (Opsional)</label>
+                    <input type="date" id="commitmentFollowupDate" style="width:100%; padding: 10px; border-radius: 10px; border: 1px solid #e5e7eb;">
+                </div>
             </div>
             <div class="modal-buttons" style="display: flex; gap: 12px; padding: 16px 20px 20px;">
                 <button id="confirmTertarikToDBBtn" class="btn-primary" style="flex: 1; cursor: pointer;">✅ Ya, Jadikan Member Baru</button>
@@ -1887,6 +1892,7 @@ function confirmTertarikToDB(prospekId) {
         const agentId = document.getElementById('commitmentAgentId').value;
         const aplikasi = document.getElementById('commitmentAplikasi').value;
         const note = document.getElementById('commitmentNote').value;
+        const followupDateInput = document.getElementById('commitmentFollowupDate').value;
         
         if (!agentId || !aplikasi) {
             showNotifTop('⚠️ ID Agent dan Aplikasi wajib diisi!', true);
@@ -1915,28 +1921,33 @@ function confirmTertarikToDB(prospekId) {
             .eq('agent_id', agentId)
             .maybeSingle();
         
-        if (cekError) {
-            console.error('Error cek duplikat:', cekError);
-        }
-        
         if (existingCustomer) {
             showNotifTop(`⚠️ ID Agent "${agentId}" sudah terdaftar di Followup Agen!`, true);
             return;
         }
         
+        // Siapkan tanggal followup (default +1 bulan dari sekarang jika tidak diisi)
+        let followupDateValue = followupDateInput;
+        if (!followupDateValue) {
+            const nextMonth = new Date();
+            nextMonth.setMonth(nextMonth.getMonth() + 1);
+            followupDateValue = nextMonth.toISOString().split('T')[0];
+        }
+        
         try {
-            // 1. Simpan ke DB Commitment
+            // 1. Simpan ke DB Commitment (sesuai struktur tabel)
             const { error: commitError } = await window.db.from('db_commitment').insert({
                 nama: data.nama,
                 hp: data.hp,
                 negosiasi_data: data.negosiasi_data || null,
                 agent_id: agentId,
                 aplikasi: aplikasi,
-                commitment_note: note,
+                commitment_note: note || null,
                 committed_at: new Date().toISOString(),
+                followup_date: followupDateValue,
                 user_id: data.user_id,
-                original_prospek_id: prospekId,
-                created_at: new Date().toISOString()
+                created_at: new Date().toISOString(),
+                updated_at: new Date().toISOString()
             });
             
             if (commitError) {
@@ -1960,6 +1971,7 @@ function confirmTertarikToDB(prospekId) {
                 status: 'baru',
                 user_id: data.user_id,
                 created_at: new Date().toISOString(),
+                updated_at: new Date().toISOString(),
                 converted_from: 'prospek_commitment'
             });
             
