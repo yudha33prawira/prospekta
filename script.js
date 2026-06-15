@@ -843,7 +843,7 @@ function openFollowupConfirm(id) {
     currentPendingId = id;
     
     const modal = createModalWithHighZIndex(`
-        <div class="modal-content" style="max-width: 400px;">
+        <div class="modal-content" style="max-width: 450px;">
             <h3>✅ Konfirmasi Follow Up</h3>
             <div class="modal-subtitle">Pastikan sudah melakukan komunikasi dengan customer</div>
             <div style="background: #eef2ff; padding: 12px; border-radius: 10px; margin: 0 20px 10px 20px;">
@@ -857,7 +857,15 @@ function openFollowupConfirm(id) {
                     <label><input type="checkbox" id="followup_terkirim" style="margin-right: 8px;"> Apakah pesan sudah terkirim dan terbaca?</label>
                 </div>
                 <div class="form-group">
+                    <label>Isi Pesan yang Dikirim</label>
+                    <textarea id="followup_pesan" rows="3" placeholder="Tulis pesan yang dikirim ke customer..." style="width:100%; padding: 10px; border-radius: 10px; border: 1px solid #e5e7eb;"></textarea>
+                </div>
+                <div class="form-group">
                     <label><input type="checkbox" id="followup_dibalas" style="margin-right: 8px;"> Apakah sudah di balas?</label>
+                </div>
+                <div class="form-group">
+                    <label>Balasan dari Customer</label>
+                    <textarea id="followup_balasan" rows="3" placeholder="Tulis balasan dari customer..." style="width:100%; padding: 10px; border-radius: 10px; border: 1px solid #e5e7eb;"></textarea>
                 </div>
             </div>
             <div class="modal-buttons" style="display: flex; gap: 12px; flex-wrap: wrap;">
@@ -870,42 +878,56 @@ function openFollowupConfirm(id) {
     
     const cb1 = modal.querySelector('#followup_terkirim');
     const cb2 = modal.querySelector('#followup_dibalas');
+    const pesanInput = modal.querySelector('#followup_pesan');
+    const balasanInput = modal.querySelector('#followup_balasan');
     const yesBtn = modal.querySelector('#followupConfirmYes');
     const noBtn = modal.querySelector('#followupConfirmNo');
     const cancelBtn = modal.querySelector('#followupConfirmCancel');
     
     const updateYesButton = () => {
         const isChecked = cb1.checked && cb2.checked;
-        yesBtn.disabled = !isChecked;
-        if (isChecked) {
-            yesBtn.style.opacity = '1';
-            yesBtn.style.background = '#4f46e5';
-            yesBtn.style.cursor = 'pointer';
-        } else {
+        const hasPesan = pesanInput.value.trim() !== '';
+        const hasBalasan = balasanInput.value.trim() !== '';
+        yesBtn.disabled = !(isChecked && hasPesan && hasBalasan);
+        if (yesBtn.disabled) {
             yesBtn.style.opacity = '0.6';
             yesBtn.style.background = '#9ca3af';
             yesBtn.style.cursor = 'not-allowed';
+        } else {
+            yesBtn.style.opacity = '1';
+            yesBtn.style.background = '#4f46e5';
+            yesBtn.style.cursor = 'pointer';
         }
     };
     
     cb1.onclick = updateYesButton;
     cb2.onclick = updateYesButton;
+    pesanInput.oninput = updateYesButton;
+    balasanInput.oninput = updateYesButton;
     updateYesButton();
     
     yesBtn.onclick = async () => {
         if (yesBtn.disabled) {
-            showNotifTop('⚠️ Harap centang kedua checklist terlebih dahulu!', true);
+            showNotifTop('⚠️ Harap centang kedua checklist dan isi pesan & balasan!', true);
             return;
         }
         
         const { data: doc } = await window.db.from('customers').select('*').eq('id', id).single();
-        // Deadline TIDAK berubah saat pindah ke Pending
         const currentDeadline = doc.tanggal || getTodayDate();
         
         await window.db.from('customers').update({
-            followup_data: { terkirim: true, dibalas: true, timestamp: new Date().toISOString() },
+            followup_data: { 
+                terkirim: true, 
+                dibalas: true, 
+                pesan: pesanInput.value,
+                balasan: balasanInput.value,
+                timestamp: new Date().toISOString() 
+            },
             status: 'pending',
-            tanggal: currentDeadline // Deadline tetap sama
+            tanggal: currentDeadline,
+            pesan_terkirim: pesanInput.value,
+            balasan_diterima: balasanInput.value,
+            pesan_dikirim_at: new Date().toISOString()
         }).eq('id', id);
         
         closeDynamicModal(modal);
@@ -922,7 +944,9 @@ function openFollowupConfirm(id) {
                 hp: doc.hp,
                 alasan: 'Nomor tidak bisa dihubungi / tidak aktif',
                 deleted_at: new Date().toISOString(),
-                user_id: doc.user_id
+                user_id: doc.user_id,
+                pesan_terkirim: pesanInput.value,
+                balasan_diterima: balasanInput.value
             });
             await window.db.from('customers').delete().eq('id', id);
             showNotifTop('📵 Data dipindahkan ke Database Nomor Salah');
@@ -942,15 +966,29 @@ function openProspekDihubungiConfirm(id) {
     currentProspekId = id;
     
     const modal = createModalWithHighZIndex(`
-        <div class="modal-content" style="max-width: 400px;">
+        <div class="modal-content" style="max-width: 450px;">
             <h3>✅ Konfirmasi Dihubungi</h3>
             <div class="modal-subtitle">Pastikan sudah melakukan komunikasi dengan prospek</div>
+            <div style="background: #eef2ff; padding: 12px; border-radius: 10px; margin: 0 20px 10px 20px;">
+                <p style="font-size: 12px; color: #4f46e5; margin: 0;">📌 <strong>Ketentuan:</strong><br>
+                • Centang kedua checklist untuk melanjutkan ke Negosiasi<br>
+                • Deadline TIDAK akan bertambah saat pindah ke Negosiasi<br>
+                • Deadline akan bertambah 5 hari saat menyimpan data di Kelola Negosiasi</p>
+            </div>
             <div style="padding: 0 20px;">
                 <div class="form-group">
                     <label><input type="checkbox" id="prospek_terkirim" style="margin-right: 8px;"> Apakah pesan sudah terkirim dan terbaca?</label>
                 </div>
                 <div class="form-group">
+                    <label>Isi Pesan yang Dikirim</label>
+                    <textarea id="prospek_pesan" rows="3" placeholder="Tulis pesan yang dikirim ke prospek..." style="width:100%; padding: 10px; border-radius: 10px; border: 1px solid #e5e7eb;"></textarea>
+                </div>
+                <div class="form-group">
                     <label><input type="checkbox" id="prospek_dibalas" style="margin-right: 8px;"> Apakah sudah di balas?</label>
+                </div>
+                <div class="form-group">
+                    <label>Balasan dari Prospek</label>
+                    <textarea id="prospek_balasan" rows="3" placeholder="Tulis balasan dari prospek..." style="width:100%; padding: 10px; border-radius: 10px; border: 1px solid #e5e7eb;"></textarea>
                 </div>
             </div>
             <div class="modal-buttons" style="display: flex; gap: 12px; flex-wrap: wrap;">
@@ -963,46 +1001,60 @@ function openProspekDihubungiConfirm(id) {
     
     const cb1 = modal.querySelector('#prospek_terkirim');
     const cb2 = modal.querySelector('#prospek_dibalas');
+    const pesanInput = modal.querySelector('#prospek_pesan');
+    const balasanInput = modal.querySelector('#prospek_balasan');
     const yesBtn = modal.querySelector('#prospekConfirmYes');
     const noBtn = modal.querySelector('#prospekConfirmNo');
     const cancelBtn = modal.querySelector('#prospekConfirmCancel');
     
     const updateYesButton = () => {
         const isChecked = cb1.checked && cb2.checked;
-        yesBtn.disabled = !isChecked;
-        if (isChecked) {
-            yesBtn.style.opacity = '1';
-            yesBtn.style.background = '#4f46e5';
-            yesBtn.style.cursor = 'pointer';
-        } else {
+        const hasPesan = pesanInput.value.trim() !== '';
+        const hasBalasan = balasanInput.value.trim() !== '';
+        yesBtn.disabled = !(isChecked && hasPesan && hasBalasan);
+        if (yesBtn.disabled) {
             yesBtn.style.opacity = '0.6';
             yesBtn.style.background = '#9ca3af';
             yesBtn.style.cursor = 'not-allowed';
+        } else {
+            yesBtn.style.opacity = '1';
+            yesBtn.style.background = '#4f46e5';
+            yesBtn.style.cursor = 'pointer';
         }
     };
     
     cb1.onclick = updateYesButton;
     cb2.onclick = updateYesButton;
+    pesanInput.oninput = updateYesButton;
+    balasanInput.oninput = updateYesButton;
     updateYesButton();
     
     yesBtn.onclick = async () => {
         if (yesBtn.disabled) {
-            showNotifTop('⚠️ Harap centang kedua checklist terlebih dahulu!', true);
+            showNotifTop('⚠️ Harap centang kedua checklist dan isi pesan & balasan!', true);
             return;
         }
         
         const { data: doc } = await window.db.from('prospek').select('*').eq('id', id).single();
         const currentDeadline = doc.deadline || getTodayDate();
-        const newDeadline = addDaysToDate(currentDeadline, 5);
         
         await window.db.from('prospek').update({
-            dihubungi_data: { terkirim: true, dibalas: true, timestamp: new Date().toISOString() },
+            dihubungi_data: { 
+                terkirim: true, 
+                dibalas: true, 
+                pesan: pesanInput.value,
+                balasan: balasanInput.value,
+                timestamp: new Date().toISOString() 
+            },
             status: 'Negosiasi',
-            deadline: newDeadline
+            deadline: currentDeadline,
+            pesan_terkirim: pesanInput.value,
+            balasan_diterima: balasanInput.value,
+            pesan_dikirim_at: new Date().toISOString()
         }).eq('id', id);
         
         closeDynamicModal(modal);
-        showNotifTop(`✅ Prospek dipindahkan ke Negosiasi. Deadline +5 hari menjadi ${newDeadline}`);
+        showNotifTop(`✅ Prospek dipindahkan ke Negosiasi. Deadline tetap (${currentDeadline})`);
         await loadProspek();
         closeModal('detailModal');
     };
@@ -1015,7 +1067,9 @@ function openProspekDihubungiConfirm(id) {
                 hp: doc.hp,
                 alasan: 'Nomor tidak bisa dihubungi / tidak aktif',
                 deleted_at: new Date().toISOString(),
-                user_id: doc.user_id
+                user_id: doc.user_id,
+                pesan_terkirim: pesanInput.value,
+                balasan_diterima: balasanInput.value
             });
             await window.db.from('prospek').delete().eq('id', id);
             showNotifTop('📵 Data dipindahkan ke Database Nomor Salah');
@@ -1843,7 +1897,7 @@ function confirmTertarikToDB(prospekId) {
     modal.style.backdropFilter = 'blur(5px)';
     modal.style.pointerEvents = 'auto';
     modal.innerHTML = `
-        <div class="modal-content" style="max-width: 450px; z-index: 999999999; pointer-events: auto;">
+        <div class="modal-content" style="max-width: 500px; z-index: 999999999; pointer-events: auto;">
             <h3>⭐ Jadikan Member Baru</h3>
             <div class="modal-subtitle">Data akan dipindahkan ke Database Commitment dan menjadi Member Baru di Followup</div>
             <div style="background: #eef2ff; padding: 12px; border-radius: 10px; margin: 0 20px 10px 20px;">
@@ -1882,6 +1936,11 @@ function confirmTertarikToDB(prospekId) {
                     <small>Nomor WhatsApp upline (awalan 8, 9-12 digit)</small>
                 </div>
                 <div class="form-group">
+                    <label>Penawaran yang diberikan <span class="required">*</span></label>
+                    <input type="text" id="commitmentPenawaran" placeholder="Contoh: Produk A, Diskon 10%" style="width:100%; padding: 10px; border-radius: 10px; border: 1px solid #e5e7eb;">
+                    <small>Penawaran yang disepakati</small>
+                </div>
+                <div class="form-group">
                     <label>Catatan (Opsional)</label>
                     <textarea id="commitmentNote" rows="2" placeholder="Contoh: Akan followup bulan depan..." style="width:100%; padding: 10px; border-radius: 10px; border: 1px solid #e5e7eb;"></textarea>
                 </div>
@@ -1906,11 +1965,12 @@ function confirmTertarikToDB(prospekId) {
         const aplikasi = document.getElementById('commitmentAplikasi').value;
         const uplineName = document.getElementById('commitmentUplineName').value;
         let uplinePhone = document.getElementById('commitmentUplinePhone').value;
+        const penawaran = document.getElementById('commitmentPenawaran').value;
         const note = document.getElementById('commitmentNote').value;
         const followupDateInput = document.getElementById('commitmentFollowupDate').value;
         
-        if (!agentId || !aplikasi) {
-            showNotifTop('⚠️ ID Agent dan Aplikasi wajib diisi!', true);
+        if (!agentId || !aplikasi || !penawaran) {
+            showNotifTop('⚠️ ID Agent, Aplikasi, dan Penawaran wajib diisi!', true);
             return;
         }
         
@@ -1968,12 +2028,21 @@ function confirmTertarikToDB(prospekId) {
                 aplikasi: aplikasi,
                 upline_name: uplineName || null,
                 upline_phone: uplinePhone || null,
+                penawaran: penawaran,
                 commitment_note: note || null,
                 committed_at: new Date().toISOString(),
                 followup_date: followupDateValue,
                 user_id: data.user_id,
                 original_prospek_id: prospekId,
-                negosiasi_data: data.negosiasi_data || null,
+                negosiasi_data: {
+                    aplikasi: data.negosiasi_data?.aplikasi || '',
+                    domisili: data.negosiasi_data?.domisili || '',
+                    transaksi: data.negosiasi_data?.transaksi || '',
+                    deposit: data.negosiasi_data?.deposit || '',
+                    tertarik: data.negosiasi_data?.tertarik || '',
+                    penawaran: penawaran,
+                    timestamp: new Date().toISOString()
+                },
                 created_at: new Date().toISOString(),
                 updated_at: new Date().toISOString()
             });
@@ -4844,14 +4913,17 @@ function navigateTo(page) {
         'import': 'importPage'
     };
     
-    const target = pageMap[page];
-    if (target) document.getElementById(target).style.display = 'block';
-
-        if (page === 'broadcastUpline') {
+else if (page === 'broadcastUpline') {
+    const pageElement = document.getElementById('broadcastUplinePage');
+    if (pageElement) {
+        pageElement.style.display = 'block';
         setTimeout(() => {
-            initUplineBroadcast();
+            if (typeof initUplineBroadcast === 'function') {
+                initUplineBroadcast();
+            }
         }, 100);
     }
+}
     
     document.querySelectorAll('.menu-item').forEach(m => m.classList.remove('active'));
     const activeMenu = document.querySelector(`.menu-item[data-page="${page}"]`);
