@@ -2999,3 +2999,99 @@ body.dark-mode .kanban-board .kanban-column[data-status="closing"],
 body.dark-mode .kanban-board-full .kanban-column[data-status="closing"] {
     background: #064e3b;
 }
+
+/* ========== PERBAIKAN DARK MODE - ANIMASI LEBIH GELAP ========== */
+
+/* Deadline overdue di dark mode - lebih gelap */
+body.dark-mode .card-item.deadline-overdue {
+    border: 2px solid #991b1b !important;
+    background: #1a0a0a !important;
+    animation: blinkWarningDark 0.8s ease-in-out infinite !important;
+}
+
+@keyframes blinkWarningDark {
+    0% { border-color: #991b1b; background: #1a0a0a; box-shadow: 0 0 0px #991b1b; }
+    50% { border-color: #dc2626; background: #2a0a0a; box-shadow: 0 0 6px #991b1b; }
+    100% { border-color: #991b1b; background: #1a0a0a; box-shadow: 0 0 0px #991b1b; }
+}
+
+/* Deadline today di dark mode - lebih gelap */
+body.dark-mode .card-item.deadline-today {
+    border: 2px solid #92400e !important;
+    background: #1a0a00 !important;
+    animation: pulseTodayDark 0.8s ease-in-out infinite !important;
+}
+
+@keyframes pulseTodayDark {
+    0% { border-color: #92400e; background: #1a0a00; box-shadow: 0 0 0px #92400e; }
+    50% { border-color: #d97706; background: #2a1500; box-shadow: 0 0 6px #92400e; }
+    100% { border-color: #92400e; background: #1a0a00; box-shadow: 0 0 0px #92400e; }
+}
+
+/* Tombol di dark mode - tidak terlalu terang */
+body.dark-mode .add-btn {
+    background: #4f46e5;
+    opacity: 0.9;
+}
+
+body.dark-mode .add-btn:hover {
+    background: #6366f1;
+    opacity: 1;
+}
+
+body.dark-mode .btn-primary {
+    background: #4f46e5;
+    opacity: 0.9;
+}
+
+body.dark-mode .btn-primary:hover {
+    background: #6366f1;
+    opacity: 1;
+}
+
+body.dark-mode .btn-success {
+    background: #059669;
+    opacity: 0.9;
+}
+
+body.dark-mode .btn-success:hover {
+    background: #10b981;
+    opacity: 1;
+}
+
+/* Card di dark mode - lebih gelap */
+body.dark-mode .card-item {
+    background: #0f172a;
+    border-color: #1e293b;
+}
+
+body.dark-mode .card-item:hover {
+    background: #1e293b;
+    border-color: #334155;
+}
+
+/* Teks di dark mode - lebih terang tapi tidak menyilaukan */
+body.dark-mode,
+body.dark-mode .card-name,
+body.dark-mode .db-item-info h4,
+body.dark-mode .db-item-info p,
+body.dark-mode .search-result-info h4,
+body.dark-mode .modal-content h3,
+body.dark-mode .modal-subtitle,
+body.dark-mode .form-group label {
+    color: #cbd5e1 !important;
+}
+
+/* Header gradient di dark mode - lebih gelap */
+body.dark-mode .detail-header {
+    background: linear-gradient(135deg, #1e1b4b, #2e1065) !important;
+}
+
+/* Progress bar di dark mode */
+body.dark-mode .progress-bar-track {
+    background: #1e293b;
+}
+
+body.dark-mode .progress-bar-fill-custom {
+    background: linear-gradient(90deg, #6366f1, #818cf8);
+}
