@@ -2890,3 +2890,233 @@ body.dark-mode .variable-hint code {
     background: #1e293b !important;
     color: #a5b4fc !important;
 }
+
+/* ========== PERBAIKAN FINAL - DARK MODE & WARNA KOLOM ========== */
+
+/* 1. PERBAIKAN WARNA KOLOM PROSPEK AGEN = FOLLOWUP AGEN */
+.kanban-board .kanban-column[data-status="baru"],
+.kanban-board .kanban-column[data-status="Baru"],
+.kanban-board-full .kanban-column[data-status="baru"],
+.kanban-board-full .kanban-column[data-status="Baru"] {
+    background: linear-gradient(135deg, #f3e8ff, #fae8ff) !important;
+}
+
+.kanban-board .kanban-column[data-status="followup"],
+.kanban-board-full .kanban-column[data-status="followup"] {
+    background: linear-gradient(135deg, #eff6ff, #dbeafe) !important;
+}
+
+.kanban-board .kanban-column[data-status="pending"],
+.kanban-board-full .kanban-column[data-status="pending"] {
+    background: linear-gradient(135deg, #fff7ed, #ffedd5) !important;
+}
+
+.kanban-board .kanban-column[data-status="closing"],
+.kanban-board-full .kanban-column[data-status="closing"] {
+    background: linear-gradient(135deg, #ecfdf5, #d1fae5) !important;
+}
+
+/* 2. DARK MODE - WARNA KOLOM SAMA */
+body.dark-mode .kanban-board .kanban-column[data-status="baru"],
+body.dark-mode .kanban-board .kanban-column[data-status="Baru"],
+body.dark-mode .kanban-board-full .kanban-column[data-status="baru"],
+body.dark-mode .kanban-board-full .kanban-column[data-status="Baru"] {
+    background: linear-gradient(135deg, #1e1b4b, #2e1065) !important;
+}
+
+body.dark-mode .kanban-board .kanban-column[data-status="followup"],
+body.dark-mode .kanban-board-full .kanban-column[data-status="followup"] {
+    background: linear-gradient(135deg, #1e293b, #1e3a5f) !important;
+}
+
+body.dark-mode .kanban-board .kanban-column[data-status="pending"],
+body.dark-mode .kanban-board-full .kanban-column[data-status="pending"] {
+    background: linear-gradient(135deg, #451a03, #78350f) !important;
+}
+
+body.dark-mode .kanban-board .kanban-column[data-status="closing"],
+body.dark-mode .kanban-board-full .kanban-column[data-status="closing"] {
+    background: linear-gradient(135deg, #064e3b, #065f46) !important;
+}
+
+/* 3. PERBAIKAN BACKGROUND PERINGATAN (WARNING BOX) - DI DARK MODE */
+body.dark-mode .warning-box {
+    background: #991b1b !important;
+    color: #fecaca !important;
+    border-left: 4px solid #ef4444 !important;
+}
+body.dark-mode .warning-box * {
+    color: #fecaca !important;
+}
+
+/* 4. PERBAIKAN BACKGROUND RADIO OPTION (PILIH TUJUAN IMPORT) */
+body.dark-mode .radio-option {
+    background: #0f172a !important;
+    border-color: #334155 !important;
+}
+body.dark-mode .radio-option p {
+    color: #e2e8f0 !important;
+}
+body.dark-mode .radio-option.active {
+    background: #1e293b !important;
+    border-color: #818cf8 !important;
+}
+
+/* 5. PERBAIKAN BACKGROUND PREFIX +62 */
+body.dark-mode .phone-prefix {
+    background: #0f172a !important;
+    border-color: #334155 !important;
+    color: #f1f5f9 !important;
+}
+
+/* 6. PERBAIKAN BACKGROUND TOGGLE MODE */
+body.dark-mode .dark-mode-toggle {
+    background: #334155 !important;
+}
+body.dark-mode .dark-mode-toggle span {
+    color: #a5b4fc !important;
+}
+
+/* 7. PERBAIKAN BACKGROUND DETAIL FOOTER (tombol tutup & hapus) */
+body.dark-mode .detail-footer {
+    background: #1e293b !important;
+    border-top: 1px solid #334155 !important;
+}
+
+/* 8. PERBAIKAN BACKGROUND MODAL BUTTONS */
+body.dark-mode .modal-buttons {
+    background: #1e293b !important;
+    border-top: 1px solid #334155 !important;
+}
+
+/* 9. PERBAIKAN TOMBOL DI MODAL */
+body.dark-mode .modal-buttons button:last-child,
+body.dark-mode .detail-footer .btn-close {
+    background: #334155 !important;
+    color: #f1f5f9 !important;
+}
+body.dark-mode .detail-footer .btn-delete {
+    background: linear-gradient(135deg, #991b1b, #7f1d1d) !important;
+    color: #fff !important;
+}
+
+/* 10. PERBAIKAN INPUT, SELECT, TEXTAREA */
+body.dark-mode input,
+body.dark-mode select,
+body.dark-mode textarea,
+body.dark-mode .search-input,
+body.dark-mode .form-group input,
+body.dark-mode .form-group select,
+body.dark-mode .form-group textarea,
+body.dark-mode #customNumbers,
+body.dark-mode #uplineCustomNumbers,
+body.dark-mode #broadcastMessage,
+body.dark-mode #uplineBroadcastMessage {
+    background: #0f172a !important;
+    border-color: #334155 !important;
+    color: #f1f5f9 !important;
+}
+
+/* 11. PERBAIKAN BACKGROUND CHECKLIST & PENDING RULES */
+body.dark-mode .checklist-container,
+body.dark-mode .checklist-item,
+body.dark-mode .pending-rules,
+body.dark-mode .deadline-info,
+body.dark-mode .info-box {
+    background: #1e293b !important;
+    border-color: #334155 !important;
+}
+body.dark-mode .checklist-item label,
+body.dark-mode .pending-rules *,
+body.dark-mode .deadline-info *,
+body.dark-mode .info-box * {
+    color: #cbd5e1 !important;
+}
+
+/* 12. PERBAIKAN SEMUA CARD YANG MASIH TERANG */
+body.dark-mode .card-item,
+body.dark-mode .db-item,
+body.dark-mode .db-item-agent,
+body.dark-mode .search-result-item,
+body.dark-mode .broadcast-card,
+body.dark-mode .import-card,
+body.dark-mode .selected-numbers,
+body.dark-mode .variable-hint,
+body.dark-mode .drop-zone,
+body.dark-mode .detail-info {
+    background: #1e293b !important;
+    border-color: #334155 !important;
+}
+
+/* 13. PERBAIKAN TEKS DI CARD */
+body.dark-mode .card-name,
+body.dark-mode .card-phone,
+body.dark-mode .card-deadline,
+body.dark-mode .card-id,
+body.dark-mode .db-item-info h4,
+body.dark-mode .db-item-info p,
+body.dark-mode .db-item-info small {
+    color: #f1f5f9 !important;
+}
+
+/* 14. PERBAIKAN BACKGROUND MAIN CONTENT */
+body.dark-mode,
+body.dark-mode .main-content,
+body.dark-mode .content-area {
+    background: #0f172a !important;
+}
+
+/* 15. PERBAIKAN BACKGROUND SECTION */
+body.dark-mode .board-section,
+body.dark-mode .db-section,
+body.dark-mode .search-section,
+body.dark-mode .broadcast-section,
+body.dark-mode .import-section,
+body.dark-mode .target-kpi-section,
+body.dark-mode .stat-card,
+body.dark-mode .chart-card {
+    background: #1e293b !important;
+    border-color: #334155 !important;
+}
+
+/* 16. PERBAIKAN TEKS DI SECTION HEADER */
+body.dark-mode .board-header h3,
+body.dark-mode .db-header h3,
+body.dark-mode .search-header h3,
+body.dark-mode .broadcast-header h3,
+body.dark-mode .import-header h3,
+body.dark-mode .target-header h3,
+body.dark-mode .fullpage-header h2,
+body.dark-mode .chart-card h3 {
+    color: #f1f5f9 !important;
+}
+
+/* 17. PERBAIKAN TEKS DI SEARCH */
+body.dark-mode .search-header p,
+body.dark-mode .search-filter label {
+    color: #cbd5e1 !important;
+}
+
+/* 18. PERBAIKAN TEKS DI BROADCAST */
+body.dark-mode .broadcast-card h4,
+body.dark-mode .radio-group label,
+body.dark-mode .selected-numbers .number-item {
+    color: #cbd5e1 !important;
+}
+
+/* 19. PERBAIKAN TEKS DI IMPORT */
+body.dark-mode .import-card h4,
+body.dark-mode .info-list li,
+body.dark-mode .radio-option p {
+    color: #cbd5e1 !important;
+}
+
+/* 20. PERBAIKAN DEADLINE */
+body.dark-mode .card-item.deadline-overdue {
+    border: 2px solid #dc2626 !important;
+    background: #1a0a0a !important;
+}
+body.dark-mode .card-item.deadline-today {
+    border: 2px solid #d97706 !important;
+    background: #1a0a00 !important;
+}
