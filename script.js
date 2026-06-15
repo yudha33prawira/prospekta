@@ -728,7 +728,14 @@ async function openDetailCustomer(id) {
     
     let followupInfo = '';
     if (customer.followup_data) {
-        followupInfo = `<div class="detail-info-item"><strong>✅ Follow Up:</strong> Terkirim: ${customer.followup_data.terkirim ? 'Ya' : 'Tidak'} | Dibalas: ${customer.followup_data.dibalas ? 'Ya' : 'Tidak'}</div>`;
+        followupInfo = `<div class="detail-info-item"><strong>✅ Follow Up:</strong><br>
+            <div style="margin-top: 5px; padding-left: 15px;">
+                Terkirim: ${customer.followup_data.terkirim ? 'Ya' : 'Tidak'}<br>
+                Dibalas: ${customer.followup_data.dibalas ? 'Ya' : 'Tidak'}<br>
+                <strong>Pesan Terkirim:</strong> ${escapeHtml(customer.followup_data.pesan || '-')}<br>
+                <strong>Balasan:</strong> ${escapeHtml(customer.followup_data.balasan || '-')}
+            </div>
+        </div>`;
     }
     
     let pendingInfo = '';
@@ -753,6 +760,7 @@ async function openDetailCustomer(id) {
                 <div class="detail-info-item"><strong>📱 Nomor WA:</strong> ${escapeHtml(customer.hp)}</div>
                 <div class="detail-info-item"><strong>📱 Aplikasi:</strong> ${escapeHtml(customer.apk || '-')}</div>
                 <div class="detail-info-item"><strong>👤 Upline:</strong> ${escapeHtml(customer.upline_name || '-')}</div>
+                <div class="detail-info-item"><strong>📞 No. Upline:</strong> ${escapeHtml(customer.upline_phone || '-')}</div>
                 <div class="detail-info-item"><strong>📅 Deadline:</strong> ${customer.tanggal || '-'} <button class="edit-deadline-btn" onclick="openEditDeadlineModal('${id}','customer','${customer.tanggal || ''}')">✏️ Edit</button></div>
                 <div class="detail-info-item"><strong>🎯 Total Transaksi Tercapai:</strong> <span style="color: ${totalTercapai >= 0 ? '#10b981' : '#ef4444'}; font-weight: 700;">${totalTercapai > 0 ? '+' : ''}${totalTercapai.toLocaleString()} Transaksi</span></div>
                 ${followupInfo}
@@ -805,7 +813,26 @@ async function openDetailProspek(id) {
     
     let dihubungiInfo = '';
     if (prospek.dihubungi_data) {
-        dihubungiInfo = `<div class="detail-info-item"><strong>✅ Dihubungi:</strong> Terkirim: ${prospek.dihubungi_data.terkirim ? 'Ya' : 'Tidak'} | Dibalas: ${prospek.dihubungi_data.dibalas ? 'Ya' : 'Tidak'}</div>`;
+        dihubungiInfo = `<div class="detail-info-item"><strong>✅ Dihubungi:</strong><br>
+            <div style="margin-top: 5px; padding-left: 15px;">
+                Terkirim: ${prospek.dihubungi_data.terkirim ? 'Ya' : 'Tidak'}<br>
+                Dibalas: ${prospek.dihubungi_data.dibalas ? 'Ya' : 'Tidak'}<br>
+                <strong>Pesan Terkirim:</strong> ${escapeHtml(prospek.dihubungi_data.pesan || '-')}<br>
+                <strong>Balasan:</strong> ${escapeHtml(prospek.dihubungi_data.balasan || '-')}
+            </div>
+        </div>`;
+    }
+    
+    let followupInfo = '';
+    if (prospek.followup_data) {
+        followupInfo = `<div class="detail-info-item"><strong>✅ Follow Up:</strong><br>
+            <div style="margin-top: 5px; padding-left: 15px;">
+                Terkirim: ${prospek.followup_data.terkirim ? 'Ya' : 'Tidak'}<br>
+                Dibalas: ${prospek.followup_data.dibalas ? 'Ya' : 'Tidak'}<br>
+                <strong>Pesan Terkirim:</strong> ${escapeHtml(prospek.followup_data.pesan || '-')}<br>
+                <strong>Balasan:</strong> ${escapeHtml(prospek.followup_data.balasan || '-')}
+            </div>
+        </div>`;
     }
     
     document.getElementById('detailContent').innerHTML = `
@@ -818,7 +845,10 @@ async function openDetailProspek(id) {
                 ${ownerInfo}
                 <div class="detail-info-item"><strong>📱 Nomor WA:</strong> ${escapeHtml(prospek.hp)}</div>
                 <div class="detail-info-item"><strong>📅 Deadline:</strong> ${prospek.deadline || '-'} <button class="edit-deadline-btn" onclick="openEditDeadlineModal('${id}','prospek','${prospek.deadline || ''}')">✏️ Edit</button></div>
+                <div class="detail-info-item"><strong>👤 Upline:</strong> ${escapeHtml(prospek.upline_name || '-')}</div>
+                <div class="detail-info-item"><strong>📞 No. Upline:</strong> ${escapeHtml(prospek.upline_phone || '-')}</div>
                 ${dihubungiInfo}
+                ${followupInfo}
                 ${negosiasiInfo}
             </div>
             <div class="detail-actions">
@@ -1927,14 +1957,14 @@ function confirmTertarikToDB(prospekId) {
                     </div>
                     <div class="form-group">
                         <label>Upline / Atasan</label>
-                        <input type="text" id="commitmentUplineName" placeholder="Nama Upline" style="width:100%; padding: 10px; border-radius: 10px; border: 1px solid #e5e7eb;" maxlength="50">
+                        <input type="text" id="commitmentUplineName" placeholder="Nama Upline" style="width:100%; padding: 10px; border-radius: 10px; border: 1px solid #e5e7eb;" maxlength="50" value="${escapeHtml(prospekData.upline_name || '')}">
                         <small>Nama upline/atasan dari member baru</small>
                     </div>
                     <div class="form-group">
                         <label>Nomor HP Upline</label>
                         <div class="phone-input">
                             <div class="phone-prefix">+62</div>
-                            <input type="tel" id="commitmentUplinePhone" placeholder="81234567890" style="flex:1; padding: 10px; border-radius: 10px; border: 1px solid #e5e7eb;" oninput="formatPhoneAuto(this)">
+                            <input type="tel" id="commitmentUplinePhone" placeholder="81234567890" style="flex:1; padding: 10px; border-radius: 10px; border: 1px solid #e5e7eb;" oninput="formatPhoneAuto(this)" value="${escapeHtml(prospekData.upline_phone ? prospekData.upline_phone.replace('+62', '') : '')}">
                         </div>
                         <small>Nomor WhatsApp upline (awalan 8, 9-12 digit)</small>
                     </div>
@@ -1971,11 +2001,13 @@ function confirmTertarikToDB(prospekId) {
                 return;
             }
             
-            // Format upline phone
+            // Format upline phone (simpan dalam format +62)
+            let formattedUplinePhone = '';
             if (uplinePhone) {
                 uplinePhone = uplinePhone.replace(/[^\d]/g, '');
                 if (uplinePhone.startsWith('0')) uplinePhone = uplinePhone.substring(1);
                 if (uplinePhone && !uplinePhone.startsWith('62')) uplinePhone = '62' + uplinePhone;
+                formattedUplinePhone = '+' + uplinePhone;
             }
             
             const data = prospekData;
@@ -1995,7 +2027,7 @@ function confirmTertarikToDB(prospekId) {
                 return;
             }
             
-            // Siapkan tanggal followup (default +1 bulan dari sekarang jika tidak diisi)
+            // Siapkan tanggal followup
             let followupDateValue = followupDateInput;
             if (!followupDateValue) {
                 const nextMonth = new Date();
@@ -2004,14 +2036,14 @@ function confirmTertarikToDB(prospekId) {
             }
             
             try {
-                // 1. Simpan ke DB Commitment (dengan penawaran dari negosiasi)
+                // 1. Simpan ke DB Commitment
                 const { error: commitError } = await window.db.from('db_commitment').insert({
                     nama: data.nama,
                     hp: data.hp,
                     agent_id: formattedAgentId,
                     aplikasi: aplikasi,
                     upline_name: uplineName || null,
-                    upline_phone: uplinePhone || null,
+                    upline_phone: formattedUplinePhone || null,
                     penawaran: penawaranDariNegosiasi,
                     commitment_note: note || null,
                     committed_at: new Date().toISOString(),
@@ -2042,7 +2074,7 @@ function confirmTertarikToDB(prospekId) {
                 
                 console.log('✅ Berhasil simpan ke db_commitment');
                 
-                // 2. Pindahkan ke Followup Agen
+                // 2. Pindahkan ke Followup Agen (dengan upline phone)
                 const followupDate = getTodayDate();
                 const { error: customerError } = await window.db.from('customers').insert({
                     agent_id: formattedAgentId,
@@ -2050,14 +2082,15 @@ function confirmTertarikToDB(prospekId) {
                     hp: data.hp,
                     apk: aplikasi,
                     upline_name: uplineName || '',
-                    upline_phone: uplinePhone || '',
+                    upline_phone: formattedUplinePhone || '',
                     tanggal: followupDate,
                     status: 'baru',
                     user_id: data.user_id,
                     created_at: new Date().toISOString(),
                     updated_at: new Date().toISOString(),
                     pesan_terkirim: data.pesan_terkirim || null,
-                    balasan_diterima: data.balasan_diterima || null
+                    balasan_diterima: data.balasan_diterima || null,
+                    followup_data: data.followup_data || null
                 });
                 
                 if (customerError) {
@@ -2183,37 +2216,27 @@ async function updateProspekStatus(id, newStatus) {
     const prospek = prospekData.find(p => p.id === id);
     if (!prospek) return;
     
-    // Jika dari Baru ke Dihubungi - TIDAK menambah deadline
-    if (prospek.status === 'Baru' && newStatus === 'Dihubungi') {
-        const { error } = await window.db
-            .from('prospek')
-            .update({ status: newStatus, updated_at: new Date().toISOString() })
-            .eq('id', id);
+    // Jika dari Negosiasi ke Tertarik
+    if (prospek.status === 'Negosiasi' && newStatus === 'Tertarik') {
+        // Ambil data negosiasi yang sudah ada
+        const negosiasiData = prospek.negosiasi_data || {};
         
-        if (error) {
-            showNotifTop('❌ Gagal update: ' + error.message, true);
+        // Tampilkan konfirmasi dengan ringkasan data
+        if (!confirm(`⭐ KONFIRMASI PINDAH KE TERTARIK\n\nData Negosiasi:\nAplikasi: ${negosiasiData.aplikasi || '-'}\nDomisili: ${negosiasiData.domisili || '-'}\nTransaksi: ${negosiasiData.transaksi || '-'}\nPenawaran: ${negosiasiData.penawaran || '-'}\n\nApakah data sudah lengkap dan prospek TERTARIK?`)) {
             return;
         }
         
-        showNotifTop(`✅ Status berhasil diupdate ke Dihubungi. Deadline tidak berubah.`);
-        closeModal('detailModal');
-        await loadProspek();
-        return;
-    }
-    
-    // Jika dari Dihubungi ke Negosiasi - panggil openProspekDihubungiConfirm
-    if (prospek.status === 'Dihubungi' && newStatus === 'Negosiasi') {
-        openProspekDihubungiConfirm(id);
-        return;
-    }
-    
-    // Jika dari Negosiasi ke Tertarik - tambah deadline 1 hari dari HARI INI
-    if (prospek.status === 'Negosiasi' && newStatus === 'Tertarik') {
         const newDeadline = addDaysFromToday(1);
         
         const { error } = await window.db
             .from('prospek')
-            .update({ status: newStatus, deadline: newDeadline, updated_at: new Date().toISOString() })
+            .update({ 
+                status: newStatus, 
+                deadline: newDeadline, 
+                updated_at: new Date().toISOString(),
+                // Pastikan negosiasi_data tetap tersimpan
+                negosiasi_data: negosiasiData
+            })
             .eq('id', id);
         
         if (error) {
@@ -2233,7 +2256,26 @@ async function updateProspekStatus(id, newStatus) {
         return;
     }
     
-    showNotifTop('⚠️ Aksi tidak dikenali!', true);
+    // Untuk status lainnya (Baru -> Dihubungi, Dihubungi -> Negosiasi) tidak menambah deadline
+    let daysToAdd = 0;
+    if (newStatus === 'Dihubungi') daysToAdd = 0;
+    else if (newStatus === 'Negosiasi') daysToAdd = 0;
+    
+    const newDeadline = addDaysToDate(prospek.deadline || getTodayDate(), daysToAdd);
+    
+    const { error } = await window.db
+        .from('prospek')
+        .update({ status: newStatus, deadline: newDeadline, updated_at: new Date().toISOString() })
+        .eq('id', id);
+    
+    if (error) {
+        showNotifTop('❌ Gagal update: ' + error.message, true);
+        return;
+    }
+    
+    showNotifTop(`✅ Status berhasil diupdate ke ${newStatus}. Deadline tidak berubah`);
+    closeModal('detailModal');
+    await loadProspek();
 }
 
 async function deleteCustomer(id) {
