@@ -1856,8 +1856,8 @@ function confirmTertarikToDB(prospekId) {
             <div style="padding: 0 20px 20px 20px;">
                 <div class="form-group">
                     <label>ID Agent <span class="required">*</span></label>
-                    <input type="text" id="commitmentAgentId" placeholder="Contoh: AG-001" maxlength="17" style="width:100%; padding: 10px; border-radius: 10px; border: 1px solid #e5e7eb;">
-                    <small>ID Agent untuk member baru</small>
+                    <input type="text" id="commitmentAgentId" placeholder="Contoh: AG-001" maxlength="17" style="width:100%; padding: 10px; border-radius: 10px; border: 1px solid #e5e7eb;" oninput="formatAgentIdAuto(this)">
+                    <small>ID Agent untuk member baru (huruf besar, angka, max 17 karakter)</small>
                 </div>
                 <div class="form-group">
                     <label>Aplikasi <span class="required">*</span></label>
@@ -1914,15 +1914,18 @@ function confirmTertarikToDB(prospekId) {
         
         const data = prospekDoc;
         
+        // Format ID Agent
+        const formattedAgentId = agentId.toUpperCase();
+        
         // Cek duplikat ID Agent di customers
         const { data: existingCustomer, error: cekError } = await window.db
             .from('customers')
             .select('id')
-            .eq('agent_id', agentId)
+            .eq('agent_id', formattedAgentId)
             .maybeSingle();
         
         if (existingCustomer) {
-            showNotifTop(`⚠️ ID Agent "${agentId}" sudah terdaftar di Followup Agen!`, true);
+            showNotifTop(`⚠️ ID Agent "${formattedAgentId}" sudah terdaftar di Followup Agen!`, true);
             return;
         }
         
@@ -1935,16 +1938,17 @@ function confirmTertarikToDB(prospekId) {
         }
         
         try {
-            // 1. Simpan ke DB Commitment (tanpa negosiasi_data)
+            // 1. Simpan ke DB Commitment
             const { error: commitError } = await window.db.from('db_commitment').insert({
                 nama: data.nama,
                 hp: data.hp,
-                agent_id: agentId,
+                agent_id: formattedAgentId,
                 aplikasi: aplikasi,
                 commitment_note: note || null,
                 committed_at: new Date().toISOString(),
                 followup_date: followupDateValue,
                 user_id: data.user_id,
+                original_prospek_id: prospekId,
                 created_at: new Date().toISOString(),
                 updated_at: new Date().toISOString()
             });
@@ -1957,10 +1961,10 @@ function confirmTertarikToDB(prospekId) {
             
             console.log('✅ Berhasil simpan ke db_commitment');
             
-            // 2. Pindahkan ke Followup Agen
+            // 2. Pindahkan ke Followup Agen (tanpa kolom converted_from dan is_new_member)
             const followupDate = getTodayDate();
             const { error: customerError } = await window.db.from('customers').insert({
-                agent_id: agentId,
+                agent_id: formattedAgentId,
                 nama: data.nama,
                 hp: data.hp,
                 apk: aplikasi,
@@ -1970,8 +1974,7 @@ function confirmTertarikToDB(prospekId) {
                 status: 'baru',
                 user_id: data.user_id,
                 created_at: new Date().toISOString(),
-                updated_at: new Date().toISOString(),
-                converted_from: 'prospek_commitment'
+                updated_at: new Date().toISOString()
             });
             
             if (customerError) {
