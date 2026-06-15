@@ -1011,38 +1011,25 @@ body {
     transform: translateY(-2px);
 }
 
-/* PROSPEK AGEN (Dashboard) */
+/* PROSPEK AGEN (Dashboard) & FOLLOWUP AGEN (Full Page) - WARNA SAMA */
 .kanban-board .kanban-column[data-status="baru"],
-.kanban-board .kanban-column[data-status="Baru"] {
-    background: linear-gradient(135deg, #f3e8ff, #fae8ff);
-}
-
-.kanban-board .kanban-column[data-status="followup"] {
-    background: linear-gradient(135deg, #eff6ff, #dbeafe);
-}
-
-.kanban-board .kanban-column[data-status="pending"] {
-    background: linear-gradient(135deg, #fff7ed, #ffedd5);
-}
-
-.kanban-board .kanban-column[data-status="closing"] {
-    background: linear-gradient(135deg, #ecfdf5, #d1fae5);
-}
-
-/* FOLLOWUP AGEN (Full Page) */
+.kanban-board .kanban-column[data-status="Baru"],
 .kanban-board-full .kanban-column[data-status="baru"],
 .kanban-board-full .kanban-column[data-status="Baru"] {
     background: linear-gradient(135deg, #f3e8ff, #fae8ff);
 }
 
+.kanban-board .kanban-column[data-status="followup"],
 .kanban-board-full .kanban-column[data-status="followup"] {
     background: linear-gradient(135deg, #eff6ff, #dbeafe);
 }
 
+.kanban-board .kanban-column[data-status="pending"],
 .kanban-board-full .kanban-column[data-status="pending"] {
     background: linear-gradient(135deg, #fff7ed, #ffedd5);
 }
 
+.kanban-board .kanban-column[data-status="closing"],
 .kanban-board-full .kanban-column[data-status="closing"] {
     background: linear-gradient(135deg, #ecfdf5, #d1fae5);
 }
@@ -2402,11 +2389,12 @@ body {
 /* ========== WARNING BOX ========== */
 .warning-box {
     background: #fef3c7;
-    padding: 10px;
-    border-radius: 10px;
-    margin: 0 20px 10px;
+    padding: 12px 16px;
+    border-radius: 12px;
+    margin: 16px 20px;
     font-size: 12px;
     color: #d97706;
+    border-left: 4px solid #f59e0b;
 }
 
 .info-content {
@@ -2607,7 +2595,7 @@ body {
     }
 }
 
-/* ========== DARK MODE - FULL FIX ALL BLACK TEXT ========== */
+/* ========== DARK MODE - FULL FIX ========== */
 body.dark-mode {
     background: linear-gradient(135deg, #0f172a, #1e1b4b) !important;
 }
@@ -2634,7 +2622,9 @@ body.dark-mode .selected-numbers,
 body.dark-mode .variable-hint,
 body.dark-mode .drop-zone,
 body.dark-mode .detail-info,
-body.dark-mode .floating-progress {
+body.dark-mode .floating-progress,
+body.dark-mode .checklist-container,
+body.dark-mode .checklist-item {
     background: #1e293b !important;
     border-color: #334155 !important;
 }
@@ -2676,347 +2666,18 @@ body.dark-mode .chart-card h3,
 body.dark-mode .menu-item,
 body.dark-mode .menu-label,
 body.dark-mode .notif-icon,
-body.dark-mode .warning-box,
 body.dark-mode .info-content h4,
 body.dark-mode .info-content p,
 body.dark-mode .modal-subtitle,
 body.dark-mode .form-group label,
 body.dark-mode .input-hint,
-body.dark-mode .phone-prefix,
 body.dark-mode .column-header span:first-child,
 body.dark-mode .stat-info h4,
 body.dark-mode .stat-info small,
 body.dark-mode .floating-progress .progress-status,
 body.dark-mode .floating-progress .progress-detail,
-body.dark-mode .progress-text,
-body.dark-mode .detail-footer .btn-close {
+body.dark-mode .progress-text {
     color: #f1f5f9 !important;
-}
-
-/* Input fields */
-body.dark-mode input,
-body.dark-mode textarea,
-body.dark-mode select,
-body.dark-mode .search-input,
-body.dark-mode #customNumbers,
-body.dark-mode #uplineCustomNumbers,
-body.dark-mode #broadcastMessage,
-body.dark-mode #uplineBroadcastMessage,
-body.dark-mode .form-group input,
-body.dark-mode .form-group select,
-body.dark-mode .form-group textarea {
-    background: #0f172a !important;
-    border-color: #334155 !important;
-    color: #f1f5f9 !important;
-}
-
-body.dark-mode input::placeholder,
-body.dark-mode textarea::placeholder,
-body.dark-mode .search-input::placeholder {
-    color: #64748b !important;
-}
-
-/* Gradient text tetap */
-body.dark-mode .stat-info .value,
-body.dark-mode .logo,
-body.dark-mode .sidebar-header h2,
-body.dark-mode .topbar-center,
-body.dark-mode .modal-content h3,
-body.dark-mode .detail-header h3 {
-    background: linear-gradient(135deg, #818cf8, #a78bfa) !important;
-    -webkit-background-clip: text !important;
-    background-clip: text !important;
-    color: transparent !important;
-}
-
-/* Status badges */
-body.dark-mode .status-badge.status-baru {
-    background: #1e1b4b !important;
-    color: #c4b5fd !important;
-}
-body.dark-mode .status-badge.status-followup {
-    background: #1e293b !important;
-    color: #60a5fa !important;
-}
-body.dark-mode .status-badge.status-pending {
-    background: #451a03 !important;
-    color: #fbbf24 !important;
-}
-body.dark-mode .status-badge.status-closing {
-    background: #064e3b !important;
-    color: #34d399 !important;
-}
-
-/* Menu items */
-body.dark-mode .menu-item.active {
-    background: linear-gradient(135deg, #1e293b, #1e1b4b) !important;
-    color: #818cf8 !important;
-}
-body.dark-mode .menu-item:hover {
-    background: linear-gradient(135deg, #1e293b, #0f172a) !important;
-    color: #a5b4fc !important;
-}
-
-/* Buttons */
-body.dark-mode .add-btn,
-body.dark-mode .btn-primary,
-body.dark-mode .search-btn,
-body.dark-mode .import-btn,
-body.dark-mode .db-import-excel,
-body.dark-mode .db-export-excel {
-    background: linear-gradient(135deg, #4f46e5, #6366f1) !important;
-    color: #fff !important;
-}
-body.dark-mode .btn-outline,
-body.dark-mode .clear-btn,
-body.dark-mode .db-select-all,
-body.dark-mode .modal-buttons button:last-child {
-    background: #334155 !important;
-    color: #f1f5f9 !important;
-}
-body.dark-mode .db-delete-selected,
-body.dark-mode .db-delete-all {
-    background: #7f1d1d !important;
-    color: #fca5a5 !important;
-}
-
-/* Kanban columns dark mode */
-body.dark-mode .kanban-column {
-    background: #0f0f1a !important;
-}
-body.dark-mode .kanban-board .kanban-column[data-status="baru"],
-body.dark-mode .kanban-board .kanban-column[data-status="Baru"],
-body.dark-mode .kanban-board-full .kanban-column[data-status="baru"],
-body.dark-mode .kanban-board-full .kanban-column[data-status="Baru"] {
-    background: linear-gradient(135deg, #1e1b4b, #2e1065) !important;
-}
-body.dark-mode .kanban-board .kanban-column[data-status="followup"],
-body.dark-mode .kanban-board-full .kanban-column[data-status="followup"] {
-    background: linear-gradient(135deg, #1e293b, #1e3a5f) !important;
-}
-body.dark-mode .kanban-board .kanban-column[data-status="pending"],
-body.dark-mode .kanban-board-full .kanban-column[data-status="pending"] {
-    background: linear-gradient(135deg, #451a03, #78350f) !important;
-}
-body.dark-mode .kanban-board .kanban-column[data-status="closing"],
-body.dark-mode .kanban-board-full .kanban-column[data-status="closing"] {
-    background: linear-gradient(135deg, #064e3b, #065f46) !important;
-}
-
-/* Deadline */
-body.dark-mode .card-item.deadline-overdue {
-    border: 2px solid #7f1d1d !important;
-    background: #1a0a0a !important;
-}
-body.dark-mode .card-item.deadline-today {
-    border: 2px solid #78350f !important;
-    background: #1a0a00 !important;
-}
-
-/* ========== DARK MODE - FIX BACKGROUND DI BELAKANG TOMBOL & ELEMEN LAIN ========== */
-
-/* 1. Background di belakang tombol tutup dan hapus (detail-footer) */
-body.dark-mode .detail-footer {
-    background: #1e293b !important;
-    border-top: 1px solid #334155 !important;
-}
-
-/* 2. Background di belakang prefix +62 */
-body.dark-mode .phone-prefix {
-    background: #0f172a !important;
-    border-color: #334155 !important;
-    color: #f1f5f9 !important;
-}
-
-/* 3. Background di belakang peringatan (warning-box) */
-body.dark-mode .warning-box {
-    background: #451a03 !important;
-    color: #fbbf24 !important;
-    border-left: 3px solid #f59e0b !important;
-}
-
-body.dark-mode .warning-box * {
-    color: #fbbf24 !important;
-}
-
-/* 4. Background di belakang toggle mode gelap/terang */
-body.dark-mode .dark-mode-toggle {
-    background: #334155 !important;
-    border-radius: 12px !important;
-}
-
-body.dark-mode .dark-mode-toggle span {
-    color: #a5b4fc !important;
-}
-
-/* 5. Background di belakang radio option (Pilih Tujuan Import) */
-body.dark-mode .radio-option {
-    background: #0f172a !important;
-    border-color: #334155 !important;
-}
-
-body.dark-mode .radio-option.active {
-    background: #1e293b !important;
-    border-color: #818cf8 !important;
-}
-
-body.dark-mode .radio-option p {
-    color: #cbd5e1 !important;
-}
-
-/* 6. Background di belakang tombol modal (modal-buttons) */
-body.dark-mode .modal-buttons {
-    background: #1e293b !important;
-    border-top: 1px solid #334155 !important;
-}
-
-/* 7. Background di belakang form group dalam modal */
-body.dark-mode .modal-content .form-group {
-    background: transparent !important;
-}
-
-/* 8. Background di belakang detail info */
-body.dark-mode .detail-info {
-    background: #0f172a !important;
-}
-
-/* 9. Background di belakang select dropdown */
-body.dark-mode select,
-body.dark-mode .form-group select {
-    background: #0f172a !important;
-    color: #f1f5f9 !important;
-}
-
-/* 10. Background di belakang drop zone import */
-body.dark-mode .drop-zone {
-    background: #0f172a !important;
-    border-color: #4f46e5 !important;
-}
-
-body.dark-mode .drop-zone:hover {
-    background: #1e293b !important;
-}
-
-/* 11. Background di belakang selected numbers */
-body.dark-mode .selected-numbers {
-    background: #0f172a !important;
-    border-color: #334155 !important;
-}
-
-/* 12. Background di belakang variable hint */
-body.dark-mode .variable-hint {
-    background: #0f172a !important;
-}
-
-/* 13. Background di belakang info list */
-body.dark-mode .info-list {
-    background: transparent !important;
-}
-
-/* 14. Background di belakang floating progress */
-body.dark-mode .floating-progress {
-    background: #1e293b !important;
-    border-color: #334155 !important;
-}
-
-/* 15. Background di belakang progress close button */
-body.dark-mode .floating-progress .progress-close {
-    background: transparent !important;
-}
-
-body.dark-mode .floating-progress .progress-close:hover {
-    background: #334155 !important;
-}
-
-/* 16. Background di belakang profile photo wrapper */
-body.dark-mode .profile-photo-wrapper {
-    background: transparent !important;
-    border-bottom-color: #334155 !important;
-}
-
-/* 17. Background di belakang semua card di import */
-body.dark-mode .import-card {
-    background: #0f172a !important;
-}
-
-/* 18. Background di belakang semua card di broadcast */
-body.dark-mode .broadcast-card {
-    background: #0f172a !important;
-}
-
-/* 19. Background di belakang search result item */
-body.dark-mode .search-result-item {
-    background: #0f172a !important;
-}
-
-/* 20. Background di belakang db item */
-body.dark-mode .db-item {
-    background: #0f172a !important;
-}
-
-body.dark-mode .db-item.unread {
-    background: #1e293b !important;
-}
-
-/* 21. Background di belakang seluruh modal content */
-body.dark-mode .modal-content {
-    background: #1e293b !important;
-}
-
-/* 22. Background di belakang detail header */
-body.dark-mode .detail-header {
-    background: linear-gradient(135deg, #1e1b4b, #2e1065) !important;
-}
-
-/* 23. Background di belakang tombol outline */
-body.dark-mode .btn-outline,
-body.dark-mode .clear-btn {
-    background: #334155 !important;
-    color: #f1f5f9 !important;
-}
-
-/* 24. Background di belakang search input */
-body.dark-mode .search-input {
-    background: #0f172a !important;
-}
-
-/* 25. Background di belakang custom numbers textarea */
-body.dark-mode #customNumbers,
-body.dark-mode #uplineCustomNumbers,
-body.dark-mode #broadcastMessage,
-body.dark-mode #uplineBroadcastMessage {
-    background: #0f172a !important;
-}
-
-/* ========== DARK MODE - FORCE OVERRIDE SEMUA BACKGROUND TERANG ========== */
-body.dark-mode,
-body.dark-mode .main-content,
-body.dark-mode .content-area,
-body.dark-mode .board-section,
-body.dark-mode .db-section,
-body.dark-mode .search-section,
-body.dark-mode .broadcast-section,
-body.dark-mode .import-section,
-body.dark-mode .target-kpi-section {
-    background: #0f172a !important;
-}
-
-/* Semua card/wadah putih jadi gelap */
-body.dark-mode .stat-card,
-body.dark-mode .chart-card,
-body.dark-mode .card-item,
-body.dark-mode .db-item,
-body.dark-mode .db-item-agent,
-body.dark-mode .search-result-item,
-body.dark-mode .broadcast-card,
-body.dark-mode .import-card,
-body.dark-mode .selected-numbers,
-body.dark-mode .variable-hint,
-body.dark-mode .drop-zone,
-body.dark-mode .detail-info,
-body.dark-mode .checklist-container,
-body.dark-mode .checklist-item {
-    background: #1e293b !important;
 }
 
 /* ===== PERINGATAN (WARNING BOX) ===== */
@@ -3027,6 +2688,19 @@ body.dark-mode .warning-box {
 }
 body.dark-mode .warning-box * {
     color: #fca5a5 !important;
+}
+
+/* ===== INFO BOX & PENDING RULES ===== */
+body.dark-mode .info-box,
+body.dark-mode .pending-rules,
+body.dark-mode .deadline-info {
+    background: #1e293b !important;
+    color: #cbd5e1 !important;
+}
+body.dark-mode .info-box *,
+body.dark-mode .pending-rules *,
+body.dark-mode .deadline-info * {
+    color: #cbd5e1 !important;
 }
 
 /* ===== RADIO OPTION (PILIH TUJUAN IMPORT) ===== */
@@ -3097,28 +2771,16 @@ body.dark-mode #uplineBroadcastMessage {
     color: #f1f5f9 !important;
 }
 
-/* ===== PROSPEK AGEN & FOLLOWUP AGEN - WARNA SAMA ===== */
-/* Light mode */
-.kanban-board .kanban-column[data-status="baru"],
-.kanban-board .kanban-column[data-status="Baru"],
-.kanban-board-full .kanban-column[data-status="baru"],
-.kanban-board-full .kanban-column[data-status="Baru"] {
-    background: linear-gradient(135deg, #f3e8ff, #fae8ff) !important;
-}
-.kanban-board .kanban-column[data-status="followup"],
-.kanban-board-full .kanban-column[data-status="followup"] {
-    background: linear-gradient(135deg, #eff6ff, #dbeafe) !important;
-}
-.kanban-board .kanban-column[data-status="pending"],
-.kanban-board-full .kanban-column[data-status="pending"] {
-    background: linear-gradient(135deg, #fff7ed, #ffedd5) !important;
-}
-.kanban-board .kanban-column[data-status="closing"],
-.kanban-board-full .kanban-column[data-status="closing"] {
-    background: linear-gradient(135deg, #ecfdf5, #d1fae5) !important;
+body.dark-mode input::placeholder,
+body.dark-mode textarea::placeholder,
+body.dark-mode .search-input::placeholder {
+    color: #64748b !important;
 }
 
-/* Dark mode - warna sama */
+/* ===== KANBAN DARK MODE - WARNA SAMA ===== */
+body.dark-mode .kanban-column {
+    background: #0f0f1a !important;
+}
 body.dark-mode .kanban-board .kanban-column[data-status="baru"],
 body.dark-mode .kanban-board .kanban-column[data-status="Baru"],
 body.dark-mode .kanban-board-full .kanban-column[data-status="baru"],
@@ -3138,15 +2800,93 @@ body.dark-mode .kanban-board-full .kanban-column[data-status="closing"] {
     background: linear-gradient(135deg, #064e3b, #065f46) !important;
 }
 
-/* ===== INFO BOX & PENDING RULES ===== */
-body.dark-mode .info-box,
-body.dark-mode .pending-rules,
-body.dark-mode .deadline-info {
-    background: #1e293b !important;
-    color: #cbd5e1 !important;
+/* ===== GRADIENT TEXT KHUSUS ===== */
+body.dark-mode .stat-info .value,
+body.dark-mode .logo,
+body.dark-mode .sidebar-header h2,
+body.dark-mode .topbar-center,
+body.dark-mode .modal-content h3,
+body.dark-mode .detail-header h3 {
+    background: linear-gradient(135deg, #818cf8, #a78bfa) !important;
+    -webkit-background-clip: text !important;
+    background-clip: text !important;
+    color: transparent !important;
 }
-body.dark-mode .info-box *,
-body.dark-mode .pending-rules *,
-body.dark-mode .deadline-info * {
-    color: #cbd5e1 !important;
+
+/* ===== STATUS BADGES DARK MODE ===== */
+body.dark-mode .status-badge.status-baru {
+    background: #1e1b4b !important;
+    color: #c4b5fd !important;
+}
+body.dark-mode .status-badge.status-followup {
+    background: #1e293b !important;
+    color: #60a5fa !important;
+}
+body.dark-mode .status-badge.status-pending {
+    background: #451a03 !important;
+    color: #fbbf24 !important;
+}
+body.dark-mode .status-badge.status-closing {
+    background: #064e3b !important;
+    color: #34d399 !important;
+}
+
+/* ===== MENU ITEMS DARK MODE ===== */
+body.dark-mode .menu-item.active {
+    background: linear-gradient(135deg, #1e293b, #1e1b4b) !important;
+    color: #818cf8 !important;
+}
+body.dark-mode .menu-item:hover {
+    background: linear-gradient(135deg, #1e293b, #0f172a) !important;
+    color: #a5b4fc !important;
+}
+
+/* ===== BUTTONS DARK MODE ===== */
+body.dark-mode .add-btn,
+body.dark-mode .btn-primary,
+body.dark-mode .search-btn,
+body.dark-mode .import-btn,
+body.dark-mode .db-import-excel,
+body.dark-mode .db-export-excel {
+    background: linear-gradient(135deg, #4f46e5, #6366f1) !important;
+    color: #fff !important;
+}
+body.dark-mode .btn-outline,
+body.dark-mode .clear-btn,
+body.dark-mode .db-select-all {
+    background: #334155 !important;
+    color: #f1f5f9 !important;
+}
+body.dark-mode .db-delete-selected,
+body.dark-mode .db-delete-all {
+    background: #7f1d1d !important;
+    color: #fca5a5 !important;
+}
+body.dark-mode .broadcast-btn {
+    background: linear-gradient(135deg, #0f766e, #0d9488) !important;
+}
+
+/* ===== DEADLINE DARK MODE ===== */
+body.dark-mode .card-item.deadline-overdue {
+    border: 2px solid #7f1d1d !important;
+    background: #1a0a0a !important;
+}
+body.dark-mode .card-item.deadline-today {
+    border: 2px solid #78350f !important;
+    background: #1a0a00 !important;
+}
+
+/* ===== DROP ZONE DARK MODE ===== */
+body.dark-mode .drop-zone {
+    background: #0f172a !important;
+    border-color: #4f46e5 !important;
+}
+body.dark-mode .drop-zone:hover {
+    background: #1e293b !important;
+}
+
+/* ===== VARIABLE HINT DARK MODE ===== */
+body.dark-mode .variable-hint code {
+    background: #1e293b !important;
+    color: #a5b4fc !important;
 }
