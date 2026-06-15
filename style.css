@@ -2943,3 +2943,59 @@ body.dark-mode .edit-deadline-btn {
 body.dark-mode .edit-deadline-btn:hover {
     color: #c4b5fd;
 }
+
+/* ========== PERBAIKAN WARNA KOLOM FOLLOWUP AGEN ========== */
+/* Dashboard Kanban - Followup Agen */
+.kanban-board .kanban-column[data-status="baru"] {
+    background: #f3e8ff; /* Ungu muda - sama dengan Prospek Baru */
+}
+
+.kanban-board .kanban-column[data-status="followup"] {
+    background: #dbeafe; /* Biru muda - sama dengan Prospek Dihubungi */
+}
+
+.kanban-board .kanban-column[data-status="pending"] {
+    background: #fef3c7; /* Kuning muda - sama dengan Prospek Negosiasi */
+}
+
+.kanban-board .kanban-column[data-status="closing"] {
+    background: #ecfdf5; /* Hijau muda - sama dengan Prospek Tertarik */
+}
+
+/* Full Page Kanban - Followup Agen */
+.kanban-board-full .kanban-column[data-status="baru"] {
+    background: #f3e8ff;
+}
+
+.kanban-board-full .kanban-column[data-status="followup"] {
+    background: #dbeafe;
+}
+
+.kanban-board-full .kanban-column[data-status="pending"] {
+    background: #fef3c7;
+}
+
+.kanban-board-full .kanban-column[data-status="closing"] {
+    background: #ecfdf5;
+}
+
+/* Dark mode */
+body.dark-mode .kanban-board .kanban-column[data-status="baru"],
+body.dark-mode .kanban-board-full .kanban-column[data-status="baru"] {
+    background: #1e1b4b;
+}
+
+body.dark-mode .kanban-board .kanban-column[data-status="followup"],
+body.dark-mode .kanban-board-full .kanban-column[data-status="followup"] {
+    background: #1e3a5f;
+}
+
+body.dark-mode .kanban-board .kanban-column[data-status="pending"],
+body.dark-mode .kanban-board-full .kanban-column[data-status="pending"] {
+    background: #451a03;
+}
+
+body.dark-mode .kanban-board .kanban-column[data-status="closing"],
+body.dark-mode .kanban-board-full .kanban-column[data-status="closing"] {
+    background: #064e3b;
+}
