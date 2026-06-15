@@ -2813,20 +2813,46 @@ body.dark-mode .card-item.deadline-today {
     background: #1a0a00 !important;
 }
 
-/* ========== DARK MODE - FIX ALL BACKGROUNDS ========== */
-body.dark-mode {
-    background: linear-gradient(135deg, #0f172a, #1e1b4b) !important;
+/* ========== DARK MODE - FIX BACKGROUND DI BELAKANG TOMBOL & ELEMEN LAIN ========== */
+
+/* 1. Background di belakang tombol tutup dan hapus (detail-footer) */
+body.dark-mode .detail-footer {
+    background: #1e293b !important;
+    border-top: 1px solid #334155 !important;
 }
 
-/* Fix radio-option background di import section */
+/* 2. Background di belakang prefix +62 */
+body.dark-mode .phone-prefix {
+    background: #0f172a !important;
+    border-color: #334155 !important;
+    color: #f1f5f9 !important;
+}
+
+/* 3. Background di belakang peringatan (warning-box) */
+body.dark-mode .warning-box {
+    background: #451a03 !important;
+    color: #fbbf24 !important;
+    border-left: 3px solid #f59e0b !important;
+}
+
+body.dark-mode .warning-box * {
+    color: #fbbf24 !important;
+}
+
+/* 4. Background di belakang toggle mode gelap/terang */
+body.dark-mode .dark-mode-toggle {
+    background: #334155 !important;
+    border-radius: 12px !important;
+}
+
+body.dark-mode .dark-mode-toggle span {
+    color: #a5b4fc !important;
+}
+
+/* 5. Background di belakang radio option (Pilih Tujuan Import) */
 body.dark-mode .radio-option {
     background: #0f172a !important;
     border-color: #334155 !important;
-}
-
-body.dark-mode .radio-option:hover {
-    background: #1e293b !important;
-    border-color: #818cf8 !important;
 }
 
 body.dark-mode .radio-option.active {
@@ -2838,92 +2864,30 @@ body.dark-mode .radio-option p {
     color: #cbd5e1 !important;
 }
 
-/* Fix phone prefix +62 */
-body.dark-mode .phone-prefix {
-    background: #0f172a !important;
-    border-color: #334155 !important;
-    color: #f1f5f9 !important;
-}
-
-/* Fix warning box */
-body.dark-mode .warning-box {
-    background: #451a03 !important;
-    color: #fbbf24 !important;
-    border-left: 3px solid #f59e0b !important;
-}
-
-body.dark-mode .warning-box * {
-    color: #fbbf24 !important;
-}
-
-/* Fix dark mode toggle button */
-body.dark-mode .dark-mode-toggle {
-    background: #334155 !important;
-    border-radius: 12px !important;
-}
-
-body.dark-mode .dark-mode-toggle span {
-    color: #a5b4fc !important;
-}
-
-body.dark-mode .dark-mode-toggle .toggle-switch {
+/* 6. Background di belakang tombol modal (modal-buttons) */
+body.dark-mode .modal-buttons {
     background: #1e293b !important;
+    border-top: 1px solid #334155 !important;
 }
 
-body.dark-mode .dark-mode-toggle.active .toggle-switch {
-    background: #4f46e5 !important;
+/* 7. Background di belakang form group dalam modal */
+body.dark-mode .modal-content .form-group {
+    background: transparent !important;
 }
 
-/* Fix all buttons background in dark mode */
-body.dark-mode .modal-buttons button:last-child,
-body.dark-mode .detail-footer .btn-close {
-    background: #334155 !important;
-    color: #f1f5f9 !important;
-    border: none !important;
-}
-
-body.dark-mode .modal-buttons button:last-child:hover,
-body.dark-mode .detail-footer .btn-close:hover {
-    background: #475569 !important;
-}
-
-body.dark-mode .detail-footer .btn-delete {
-    background: linear-gradient(135deg, #991b1b, #7f1d1d) !important;
-    color: #fff !important;
-}
-
-body.dark-mode .detail-footer .btn-delete:hover {
-    background: linear-gradient(135deg, #b91c1c, #991b1b) !important;
-}
-
-/* Fix all select dropdowns */
-body.dark-mode select {
+/* 8. Background di belakang detail info */
+body.dark-mode .detail-info {
     background: #0f172a !important;
-    color: #f1f5f9 !important;
-    border-color: #334155 !important;
 }
 
-body.dark-mode select option {
+/* 9. Background di belakang select dropdown */
+body.dark-mode select,
+body.dark-mode .form-group select {
     background: #0f172a !important;
     color: #f1f5f9 !important;
 }
 
-/* Fix search filter checkboxes label background */
-body.dark-mode .search-filter label {
-    background: transparent !important;
-}
-
-/* Fix broadcast radio group */
-body.dark-mode .radio-group label {
-    background: transparent !important;
-}
-
-/* Fix info list */
-body.dark-mode .info-list li {
-    background: transparent !important;
-}
-
-/* Fix drop zone */
+/* 10. Background di belakang drop zone import */
 body.dark-mode .drop-zone {
     background: #0f172a !important;
     border-color: #4f46e5 !important;
@@ -2933,188 +2897,93 @@ body.dark-mode .drop-zone:hover {
     background: #1e293b !important;
 }
 
-body.dark-mode .drop-zone p {
-    color: #a5b4fc !important;
-}
-
-/* Fix floating progress close button */
-body.dark-mode .floating-progress .progress-close {
-    background: transparent !important;
-    color: #94a3b8 !important;
-}
-
-body.dark-mode .floating-progress .progress-close:hover {
-    background: #334155 !important;
-    color: #f1f5f9 !important;
-}
-
-/* Fix profile photo wrapper */
-body.dark-mode .profile-photo-wrapper {
-    border-bottom-color: #334155 !important;
-}
-
-/* Fix dark mode toggle inside sidebar */
-body.dark-mode .dark-mode-toggle .toggle-switch::after {
-    background: #fff !important;
-}
-
-/* Fix all card items background */
-body.dark-mode .card-item {
-    background: #0f172a !important;
-    border-color: #334155 !important;
-}
-
-body.dark-mode .card-item:hover {
-    background: #1e293b !important;
-    border-color: #818cf8 !important;
-}
-
-/* Fix db item unread */
-body.dark-mode .db-item.unread {
-    background: #1e293b !important;
-    border-left-color: #818cf8 !important;
-}
-
-/* Fix modal content */
-body.dark-mode .modal-content {
-    background: #1e293b !important;
-}
-
-/* Fix detail header in dark mode */
-body.dark-mode .detail-header {
-    background: linear-gradient(135deg, #1e1b4b, #2e1065) !important;
-}
-
-/* Fix all border-bottom in dark mode */
-body.dark-mode .board-header,
-body.dark-mode .db-header,
-body.dark-mode .modal-subtitle,
-body.dark-mode .detail-info-item,
-body.dark-mode .detail-footer,
-body.dark-mode .menu-divider,
-body.dark-mode .profile-photo-wrapper {
-    border-color: #334155 !important;
-}
-
-/* Fix selected numbers */
+/* 11. Background di belakang selected numbers */
 body.dark-mode .selected-numbers {
     background: #0f172a !important;
     border-color: #334155 !important;
 }
 
-body.dark-mode .selected-numbers .number-item {
+/* 12. Background di belakang variable hint */
+body.dark-mode .variable-hint {
+    background: #0f172a !important;
+}
+
+/* 13. Background di belakang info list */
+body.dark-mode .info-list {
+    background: transparent !important;
+}
+
+/* 14. Background di belakang floating progress */
+body.dark-mode .floating-progress {
+    background: #1e293b !important;
+    border-color: #334155 !important;
+}
+
+/* 15. Background di belakang progress close button */
+body.dark-mode .floating-progress .progress-close {
+    background: transparent !important;
+}
+
+body.dark-mode .floating-progress .progress-close:hover {
+    background: #334155 !important;
+}
+
+/* 16. Background di belakang profile photo wrapper */
+body.dark-mode .profile-photo-wrapper {
+    background: transparent !important;
     border-bottom-color: #334155 !important;
 }
 
-/* Fix variable hint code */
-body.dark-mode .variable-hint code {
-    background: #1e293b !important;
-    color: #a5b4fc !important;
-}
-
-/* Fix import card */
+/* 17. Background di belakang semua card di import */
 body.dark-mode .import-card {
     background: #0f172a !important;
-    border-color: #334155 !important;
 }
 
-/* Fix broadcast card */
+/* 18. Background di belakang semua card di broadcast */
 body.dark-mode .broadcast-card {
     background: #0f172a !important;
-    border-color: #334155 !important;
 }
 
-/* Fix chart target wrapper */
-body.dark-mode .chart-target-wrapper .chart-card {
-    background: #0f172a !important;
-}
-
-/* Fix stats grid */
-body.dark-mode .stat-card {
-    background: #1e293b !important;
-}
-
-/* Fix search result item */
+/* 19. Background di belakang search result item */
 body.dark-mode .search-result-item {
     background: #0f172a !important;
 }
 
-body.dark-mode .search-result-item:hover {
-    background: #1e293b !important;
-}
-
-/* Fix db item */
+/* 20. Background di belakang db item */
 body.dark-mode .db-item {
     background: #0f172a !important;
 }
 
-body.dark-mode .db-item:hover {
+body.dark-mode .db-item.unread {
     background: #1e293b !important;
 }
 
-/* Fix db item agent */
-body.dark-mode .db-item-agent {
-    background: #0f172a !important;
-}
-
-body.dark-mode .db-item-agent:hover {
+/* 21. Background di belakang seluruh modal content */
+body.dark-mode .modal-content {
     background: #1e293b !important;
 }
 
-/* Fix all list items */
-body.dark-mode li {
-    color: #cbd5e1 !important;
+/* 22. Background di belakang detail header */
+body.dark-mode .detail-header {
+    background: linear-gradient(135deg, #1e1b4b, #2e1065) !important;
 }
 
-/* Fix all small text */
-body.dark-mode small {
-    color: #94a3b8 !important;
-}
-
-/* Fix column header count */
-body.dark-mode .column-header .count {
-    background: rgba(0, 0, 0, 0.3) !important;
+/* 23. Background di belakang tombol outline */
+body.dark-mode .btn-outline,
+body.dark-mode .clear-btn {
+    background: #334155 !important;
     color: #f1f5f9 !important;
 }
 
-/* Fix add btn and all gradient buttons */
-body.dark-mode .add-btn,
-body.dark-mode .btn-primary,
-body.dark-mode .search-btn,
-body.dark-mode .import-btn,
-body.dark-mode .db-import-excel,
-body.dark-mode .db-export-excel,
-body.dark-mode .db-download-example,
-body.dark-mode .broadcast-btn,
-body.dark-mode .btn-refresh {
-    background: linear-gradient(135deg, #4f46e5, #6366f1) !important;
-    color: #fff !important;
+/* 24. Background di belakang search input */
+body.dark-mode .search-input {
+    background: #0f172a !important;
 }
 
-body.dark-mode .btn-refresh {
-    background: #334155 !important;
-    color: #a5b4fc !important;
-}
-
-body.dark-mode .btn-refresh:hover {
-    background: #475569 !important;
-}
-
-/* Fix warning text */
-body.dark-mode .warning-text {
-    color: #fbbf24 !important;
-}
-
-/* Fix info content */
-body.dark-mode .info-content {
-    background: transparent !important;
-}
-
-/* Fix dark mode toggle switch after element */
-body.dark-mode .dark-mode-toggle .toggle-switch::after {
-    background: white !important;
-}
-
-body.dark-mode .dark-mode-toggle.active .toggle-switch::after {
-    background: white !important;
+/* 25. Background di belakang custom numbers textarea */
+body.dark-mode #customNumbers,
+body.dark-mode #uplineCustomNumbers,
+body.dark-mode #broadcastMessage,
+body.dark-mode #uplineBroadcastMessage {
+    background: #0f172a !important;
 }
