@@ -842,246 +842,230 @@ async function openDetailProspek(id) {
 function openFollowupConfirm(id) {
     currentPendingId = id;
     
-    const modal = createModalWithHighZIndex(`
-        <div class="modal-content" style="max-width: 450px;">
-            <h3>✅ Konfirmasi Follow Up</h3>
-            <div class="modal-subtitle">Pastikan sudah melakukan komunikasi dengan customer</div>
-            <div style="background: #eef2ff; padding: 12px; border-radius: 10px; margin: 0 20px 10px 20px;">
-                <p style="font-size: 12px; color: #4f46e5; margin: 0;">📌 <strong>Ketentuan:</strong><br>
-                • Centang kedua checklist untuk melanjutkan ke Pending<br>
-                • Deadline TIDAK akan bertambah saat pindah ke Pending<br>
-                • Deadline akan bertambah 2 hari saat menyimpan data di Kelola Pending</p>
+    // Ambil data customer yang sudah ada
+    window.db.from('customers').select('*').eq('id', id).single().then(({ data: existingData }) => {
+        const modal = createModalWithHighZIndex(`
+            <div class="modal-content" style="max-width: 450px;">
+                <h3>✅ Konfirmasi Follow Up</h3>
+                <div class="modal-subtitle">Pastikan sudah melakukan komunikasi dengan customer</div>
+                <div style="background: #eef2ff; padding: 12px; border-radius: 10px; margin: 0 20px 10px 20px;">
+                    <p style="font-size: 12px; color: #4f46e5; margin: 0;">📌 <strong>Ketentuan:</strong><br>
+                    • Centang kedua checklist untuk melanjutkan ke Pending<br>
+                    • Deadline TIDAK akan bertambah saat pindah ke Pending<br>
+                    • Deadline akan bertambah 2 hari saat menyimpan data di Kelola Pending</p>
+                </div>
+                <div style="padding: 0 20px;">
+                    <div class="form-group">
+                        <label><input type="checkbox" id="followup_terkirim" style="margin-right: 8px;" ${existingData?.followup_data?.terkirim ? 'checked' : ''}> Apakah pesan sudah terkirim dan terbaca?</label>
+                    </div>
+                    <div class="form-group">
+                        <label>Isi Pesan yang Dikirim</label>
+                        <textarea id="followup_pesan" rows="3" placeholder="Tulis pesan yang dikirim ke customer..." style="width:100%; padding: 10px; border-radius: 10px; border: 1px solid #e5e7eb;">${escapeHtml(existingData?.followup_data?.pesan || '')}</textarea>
+                    </div>
+                    <div class="form-group">
+                        <label><input type="checkbox" id="followup_dibalas" style="margin-right: 8px;" ${existingData?.followup_data?.dibalas ? 'checked' : ''}> Apakah sudah di balas?</label>
+                    </div>
+                    <div class="form-group">
+                        <label>Balasan dari Customer</label>
+                        <textarea id="followup_balasan" rows="3" placeholder="Tulis balasan dari customer..." style="width:100%; padding: 10px; border-radius: 10px; border: 1px solid #e5e7eb;">${escapeHtml(existingData?.followup_data?.balasan || '')}</textarea>
+                    </div>
+                </div>
+                <div class="modal-buttons" style="display: flex; gap: 12px; flex-wrap: wrap;">
+                    <button id="followupConfirmYes" class="btn-primary" style="flex: 1;">✅ Lanjut ke Pending</button>
+                    <button id="followupConfirmNo" class="btn-danger" style="flex: 1;">📵 Nomor salah/Tidak bisa dihubungi</button>
+                    <button id="followupConfirmCancel" class="btn-outline" style="flex: 1;">❌ Batal</button>
+                </div>
             </div>
-            <div style="padding: 0 20px;">
-                <div class="form-group">
-                    <label><input type="checkbox" id="followup_terkirim" style="margin-right: 8px;"> Apakah pesan sudah terkirim dan terbaca?</label>
-                </div>
-                <div class="form-group">
-                    <label>Isi Pesan yang Dikirim</label>
-                    <textarea id="followup_pesan" rows="3" placeholder="Tulis pesan yang dikirim ke customer..." style="width:100%; padding: 10px; border-radius: 10px; border: 1px solid #e5e7eb;"></textarea>
-                </div>
-                <div class="form-group">
-                    <label><input type="checkbox" id="followup_dibalas" style="margin-right: 8px;"> Apakah sudah di balas?</label>
-                </div>
-                <div class="form-group">
-                    <label>Balasan dari Customer</label>
-                    <textarea id="followup_balasan" rows="3" placeholder="Tulis balasan dari customer..." style="width:100%; padding: 10px; border-radius: 10px; border: 1px solid #e5e7eb;"></textarea>
-                </div>
-            </div>
-            <div class="modal-buttons" style="display: flex; gap: 12px; flex-wrap: wrap;">
-                <button id="followupConfirmYes" class="btn-primary" style="flex: 1;" disabled>✅ Lanjut ke Pending</button>
-                <button id="followupConfirmNo" class="btn-danger" style="flex: 1;">📵 Nomor salah/Tidak bisa dihubungi</button>
-                <button id="followupConfirmCancel" class="btn-outline" style="flex: 1;">❌ Batal</button>
-            </div>
-        </div>
-    `, () => closeDynamicModal(modal));
-    
-    const cb1 = modal.querySelector('#followup_terkirim');
-    const cb2 = modal.querySelector('#followup_dibalas');
-    const pesanInput = modal.querySelector('#followup_pesan');
-    const balasanInput = modal.querySelector('#followup_balasan');
-    const yesBtn = modal.querySelector('#followupConfirmYes');
-    const noBtn = modal.querySelector('#followupConfirmNo');
-    const cancelBtn = modal.querySelector('#followupConfirmCancel');
-    
-    const updateYesButton = () => {
-        const isChecked = cb1.checked && cb2.checked;
-        const hasPesan = pesanInput.value.trim() !== '';
-        const hasBalasan = balasanInput.value.trim() !== '';
-        yesBtn.disabled = !(isChecked && hasPesan && hasBalasan);
-        if (yesBtn.disabled) {
-            yesBtn.style.opacity = '0.6';
-            yesBtn.style.background = '#9ca3af';
-            yesBtn.style.cursor = 'not-allowed';
-        } else {
-            yesBtn.style.opacity = '1';
-            yesBtn.style.background = '#4f46e5';
-            yesBtn.style.cursor = 'pointer';
-        }
-    };
-    
-    cb1.onclick = updateYesButton;
-    cb2.onclick = updateYesButton;
-    pesanInput.oninput = updateYesButton;
-    balasanInput.oninput = updateYesButton;
-    updateYesButton();
-    
-    yesBtn.onclick = async () => {
-        if (yesBtn.disabled) {
-            showNotifTop('⚠️ Harap centang kedua checklist dan isi pesan & balasan!', true);
-            return;
-        }
+        `, () => closeDynamicModal(modal));
         
-        const { data: doc } = await window.db.from('customers').select('*').eq('id', id).single();
-        const currentDeadline = doc.tanggal || getTodayDate();
+        const cb1 = modal.querySelector('#followup_terkirim');
+        const cb2 = modal.querySelector('#followup_dibalas');
+        const pesanInput = modal.querySelector('#followup_pesan');
+        const balasanInput = modal.querySelector('#followup_balasan');
+        const yesBtn = modal.querySelector('#followupConfirmYes');
+        const noBtn = modal.querySelector('#followupConfirmNo');
+        const cancelBtn = modal.querySelector('#followupConfirmCancel');
         
-        await window.db.from('customers').update({
-            followup_data: { 
-                terkirim: true, 
-                dibalas: true, 
-                pesan: pesanInput.value,
-                balasan: balasanInput.value,
-                timestamp: new Date().toISOString() 
-            },
-            status: 'pending',
-            tanggal: currentDeadline,
-            pesan_terkirim: pesanInput.value,
-            balasan_diterima: balasanInput.value,
-            pesan_dikirim_at: new Date().toISOString()
-        }).eq('id', id);
-        
-        closeDynamicModal(modal);
-        showNotifTop(`✅ Customer dipindahkan ke Pending. Deadline tetap (${currentDeadline})`);
-        await loadCustomers();
-        closeModal('detailModal');
-    };
-    
-    noBtn.onclick = async () => {
-        const { data: doc } = await window.db.from('customers').select('*').eq('id', id).single();
-        if (confirm(`Pindahkan "${escapeHtml(doc.nama)}" ke Database Nomor Salah?`)) {
-            await window.db.from('nomor_salah').insert({
-                nama: doc.nama,
-                hp: doc.hp,
-                alasan: 'Nomor tidak bisa dihubungi / tidak aktif',
-                deleted_at: new Date().toISOString(),
-                user_id: doc.user_id,
+        yesBtn.onclick = async () => {
+            const isChecked = cb1.checked && cb2.checked;
+            const hasPesan = pesanInput.value.trim() !== '';
+            const hasBalasan = balasanInput.value.trim() !== '';
+            
+            if (!isChecked || !hasPesan || !hasBalasan) {
+                showNotifTop('⚠️ Harap centang kedua checklist dan isi pesan & balasan!', true);
+                return;
+            }
+            
+            const { data: doc } = await window.db.from('customers').select('*').eq('id', id).single();
+            const currentDeadline = doc.tanggal || getTodayDate();
+            
+            await window.db.from('customers').update({
+                followup_data: { 
+                    terkirim: true, 
+                    dibalas: true, 
+                    pesan: pesanInput.value,
+                    balasan: balasanInput.value,
+                    timestamp: new Date().toISOString() 
+                },
+                status: 'pending',
+                tanggal: currentDeadline,
                 pesan_terkirim: pesanInput.value,
-                balasan_diterima: balasanInput.value
-            });
-            await window.db.from('customers').delete().eq('id', id);
-            showNotifTop('📵 Data dipindahkan ke Database Nomor Salah');
+                balasan_diterima: balasanInput.value,
+                pesan_dikirim_at: new Date().toISOString()
+            }).eq('id', id);
+            
             closeDynamicModal(modal);
+            showNotifTop(`✅ Customer dipindahkan ke Pending. Deadline tetap (${currentDeadline})`);
             await loadCustomers();
             closeModal('detailModal');
-        }
-    };
-    
-    cancelBtn.onclick = () => {
-        closeDynamicModal(modal);
-    };
+        };
+        
+        noBtn.onclick = async () => {
+            const { data: doc } = await window.db.from('customers').select('*').eq('id', id).single();
+            if (confirm(`Pindahkan "${escapeHtml(doc.nama)}" ke Database Nomor Salah?`)) {
+                await window.db.from('nomor_salah').insert({
+                    nama: doc.nama,
+                    hp: doc.hp,
+                    alasan: 'Nomor tidak bisa dihubungi / tidak aktif',
+                    deleted_at: new Date().toISOString(),
+                    user_id: doc.user_id,
+                    pesan_terkirim: pesanInput.value,
+                    balasan_diterima: balasanInput.value,
+                    followup_data: {
+                        terkirim: cb1.checked,
+                        dibalas: cb2.checked,
+                        pesan: pesanInput.value,
+                        balasan: balasanInput.value,
+                        timestamp: new Date().toISOString()
+                    }
+                });
+                await window.db.from('customers').delete().eq('id', id);
+                showNotifTop('📵 Data dipindahkan ke Database Nomor Salah');
+                closeDynamicModal(modal);
+                await loadCustomers();
+                closeModal('detailModal');
+            }
+        };
+        
+        cancelBtn.onclick = () => {
+            closeDynamicModal(modal);
+        };
+    });
 }
 
 // ========== PROSPEK DIHUBUNGI CONFIRMATION ==========
 function openProspekDihubungiConfirm(id) {
     currentProspekId = id;
     
-    const modal = createModalWithHighZIndex(`
-        <div class="modal-content" style="max-width: 450px;">
-            <h3>✅ Konfirmasi Dihubungi</h3>
-            <div class="modal-subtitle">Pastikan sudah melakukan komunikasi dengan prospek</div>
-            <div style="background: #eef2ff; padding: 12px; border-radius: 10px; margin: 0 20px 10px 20px;">
-                <p style="font-size: 12px; color: #4f46e5; margin: 0;">📌 <strong>Ketentuan:</strong><br>
-                • Centang kedua checklist untuk melanjutkan ke Negosiasi<br>
-                • Deadline TIDAK akan bertambah saat pindah ke Negosiasi<br>
-                • Deadline akan bertambah 5 hari saat menyimpan data di Kelola Negosiasi</p>
+    // Ambil data prospek yang sudah ada
+    window.db.from('prospek').select('*').eq('id', id).single().then(({ data: existingData }) => {
+        const modal = createModalWithHighZIndex(`
+            <div class="modal-content" style="max-width: 450px;">
+                <h3>✅ Konfirmasi Dihubungi</h3>
+                <div class="modal-subtitle">Pastikan sudah melakukan komunikasi dengan prospek</div>
+                <div style="background: #eef2ff; padding: 12px; border-radius: 10px; margin: 0 20px 10px 20px;">
+                    <p style="font-size: 12px; color: #4f46e5; margin: 0;">📌 <strong>Ketentuan:</strong><br>
+                    • Centang kedua checklist untuk melanjutkan ke Negosiasi<br>
+                    • Deadline TIDAK akan bertambah saat pindah ke Negosiasi<br>
+                    • Deadline akan bertambah 5 hari saat menyimpan data di Kelola Negosiasi</p>
+                </div>
+                <div style="padding: 0 20px;">
+                    <div class="form-group">
+                        <label><input type="checkbox" id="prospek_terkirim" style="margin-right: 8px;" ${existingData?.dihubungi_data?.terkirim ? 'checked' : ''}> Apakah pesan sudah terkirim dan terbaca?</label>
+                    </div>
+                    <div class="form-group">
+                        <label>Isi Pesan yang Dikirim</label>
+                        <textarea id="prospek_pesan" rows="3" placeholder="Tulis pesan yang dikirim ke prospek..." style="width:100%; padding: 10px; border-radius: 10px; border: 1px solid #e5e7eb;">${escapeHtml(existingData?.dihubungi_data?.pesan || '')}</textarea>
+                    </div>
+                    <div class="form-group">
+                        <label><input type="checkbox" id="prospek_dibalas" style="margin-right: 8px;" ${existingData?.dihubungi_data?.dibalas ? 'checked' : ''}> Apakah sudah di balas?</label>
+                    </div>
+                    <div class="form-group">
+                        <label>Balasan dari Prospek</label>
+                        <textarea id="prospek_balasan" rows="3" placeholder="Tulis balasan dari prospek..." style="width:100%; padding: 10px; border-radius: 10px; border: 1px solid #e5e7eb;">${escapeHtml(existingData?.dihubungi_data?.balasan || '')}</textarea>
+                    </div>
+                </div>
+                <div class="modal-buttons" style="display: flex; gap: 12px; flex-wrap: wrap;">
+                    <button id="prospekConfirmYes" class="btn-primary" style="flex: 1;">✅ Lanjut ke Negosiasi</button>
+                    <button id="prospekConfirmNo" class="btn-danger" style="flex: 1;">📵 Nomor salah/Tidak bisa dihubungi</button>
+                    <button id="prospekConfirmCancel" class="btn-outline" style="flex: 1;">❌ Batal</button>
+                </div>
             </div>
-            <div style="padding: 0 20px;">
-                <div class="form-group">
-                    <label><input type="checkbox" id="prospek_terkirim" style="margin-right: 8px;"> Apakah pesan sudah terkirim dan terbaca?</label>
-                </div>
-                <div class="form-group">
-                    <label>Isi Pesan yang Dikirim</label>
-                    <textarea id="prospek_pesan" rows="3" placeholder="Tulis pesan yang dikirim ke prospek..." style="width:100%; padding: 10px; border-radius: 10px; border: 1px solid #e5e7eb;"></textarea>
-                </div>
-                <div class="form-group">
-                    <label><input type="checkbox" id="prospek_dibalas" style="margin-right: 8px;"> Apakah sudah di balas?</label>
-                </div>
-                <div class="form-group">
-                    <label>Balasan dari Prospek</label>
-                    <textarea id="prospek_balasan" rows="3" placeholder="Tulis balasan dari prospek..." style="width:100%; padding: 10px; border-radius: 10px; border: 1px solid #e5e7eb;"></textarea>
-                </div>
-            </div>
-            <div class="modal-buttons" style="display: flex; gap: 12px; flex-wrap: wrap;">
-                <button id="prospekConfirmYes" class="btn-primary" style="flex: 1;" disabled>✅ Lanjut ke Negosiasi</button>
-                <button id="prospekConfirmNo" class="btn-danger" style="flex: 1;">📵 Nomor salah/Tidak bisa dihubungi</button>
-                <button id="prospekConfirmCancel" class="btn-outline" style="flex: 1;">❌ Batal</button>
-            </div>
-        </div>
-    `, () => closeDynamicModal(modal));
-    
-    const cb1 = modal.querySelector('#prospek_terkirim');
-    const cb2 = modal.querySelector('#prospek_dibalas');
-    const pesanInput = modal.querySelector('#prospek_pesan');
-    const balasanInput = modal.querySelector('#prospek_balasan');
-    const yesBtn = modal.querySelector('#prospekConfirmYes');
-    const noBtn = modal.querySelector('#prospekConfirmNo');
-    const cancelBtn = modal.querySelector('#prospekConfirmCancel');
-    
-    const updateYesButton = () => {
-        const isChecked = cb1.checked && cb2.checked;
-        const hasPesan = pesanInput.value.trim() !== '';
-        const hasBalasan = balasanInput.value.trim() !== '';
-        yesBtn.disabled = !(isChecked && hasPesan && hasBalasan);
-        if (yesBtn.disabled) {
-            yesBtn.style.opacity = '0.6';
-            yesBtn.style.background = '#9ca3af';
-            yesBtn.style.cursor = 'not-allowed';
-        } else {
-            yesBtn.style.opacity = '1';
-            yesBtn.style.background = '#4f46e5';
-            yesBtn.style.cursor = 'pointer';
-        }
-    };
-    
-    cb1.onclick = updateYesButton;
-    cb2.onclick = updateYesButton;
-    pesanInput.oninput = updateYesButton;
-    balasanInput.oninput = updateYesButton;
-    updateYesButton();
-    
-    yesBtn.onclick = async () => {
-        if (yesBtn.disabled) {
-            showNotifTop('⚠️ Harap centang kedua checklist dan isi pesan & balasan!', true);
-            return;
-        }
+        `, () => closeDynamicModal(modal));
         
-        const { data: doc } = await window.db.from('prospek').select('*').eq('id', id).single();
-        const currentDeadline = doc.deadline || getTodayDate();
+        const cb1 = modal.querySelector('#prospek_terkirim');
+        const cb2 = modal.querySelector('#prospek_dibalas');
+        const pesanInput = modal.querySelector('#prospek_pesan');
+        const balasanInput = modal.querySelector('#prospek_balasan');
+        const yesBtn = modal.querySelector('#prospekConfirmYes');
+        const noBtn = modal.querySelector('#prospekConfirmNo');
+        const cancelBtn = modal.querySelector('#prospekConfirmCancel');
         
-        await window.db.from('prospek').update({
-            dihubungi_data: { 
-                terkirim: true, 
-                dibalas: true, 
-                pesan: pesanInput.value,
-                balasan: balasanInput.value,
-                timestamp: new Date().toISOString() 
-            },
-            status: 'Negosiasi',
-            deadline: currentDeadline,
-            pesan_terkirim: pesanInput.value,
-            balasan_diterima: balasanInput.value,
-            pesan_dikirim_at: new Date().toISOString()
-        }).eq('id', id);
-        
-        closeDynamicModal(modal);
-        showNotifTop(`✅ Prospek dipindahkan ke Negosiasi. Deadline tetap (${currentDeadline})`);
-        await loadProspek();
-        closeModal('detailModal');
-    };
-    
-    noBtn.onclick = async () => {
-        const { data: doc } = await window.db.from('prospek').select('*').eq('id', id).single();
-        if (confirm(`Pindahkan "${escapeHtml(doc.nama)}" ke Database Nomor Salah?`)) {
-            await window.db.from('nomor_salah').insert({
-                nama: doc.nama,
-                hp: doc.hp,
-                alasan: 'Nomor tidak bisa dihubungi / tidak aktif',
-                deleted_at: new Date().toISOString(),
-                user_id: doc.user_id,
+        yesBtn.onclick = async () => {
+            const isChecked = cb1.checked && cb2.checked;
+            const hasPesan = pesanInput.value.trim() !== '';
+            const hasBalasan = balasanInput.value.trim() !== '';
+            
+            if (!isChecked || !hasPesan || !hasBalasan) {
+                showNotifTop('⚠️ Harap centang kedua checklist dan isi pesan & balasan!', true);
+                return;
+            }
+            
+            const { data: doc } = await window.db.from('prospek').select('*').eq('id', id).single();
+            const currentDeadline = doc.deadline || getTodayDate();
+            
+            await window.db.from('prospek').update({
+                dihubungi_data: { 
+                    terkirim: true, 
+                    dibalas: true, 
+                    pesan: pesanInput.value,
+                    balasan: balasanInput.value,
+                    timestamp: new Date().toISOString() 
+                },
+                status: 'Negosiasi',
+                deadline: currentDeadline,
                 pesan_terkirim: pesanInput.value,
-                balasan_diterima: balasanInput.value
-            });
-            await window.db.from('prospek').delete().eq('id', id);
-            showNotifTop('📵 Data dipindahkan ke Database Nomor Salah');
+                balasan_diterima: balasanInput.value,
+                pesan_dikirim_at: new Date().toISOString()
+            }).eq('id', id);
+            
             closeDynamicModal(modal);
+            showNotifTop(`✅ Prospek dipindahkan ke Negosiasi. Deadline tetap (${currentDeadline})`);
             await loadProspek();
             closeModal('detailModal');
-        }
-    };
-    
-    cancelBtn.onclick = () => {
-        closeDynamicModal(modal);
-    };
+        };
+        
+        noBtn.onclick = async () => {
+            const { data: doc } = await window.db.from('prospek').select('*').eq('id', id).single();
+            if (confirm(`Pindahkan "${escapeHtml(doc.nama)}" ke Database Nomor Salah?`)) {
+                await window.db.from('nomor_salah').insert({
+                    nama: doc.nama,
+                    hp: doc.hp,
+                    alasan: 'Nomor tidak bisa dihubungi / tidak aktif',
+                    deleted_at: new Date().toISOString(),
+                    user_id: doc.user_id,
+                    pesan_terkirim: pesanInput.value,
+                    balasan_diterima: balasanInput.value,
+                    dihubungi_data: {
+                        terkirim: cb1.checked,
+                        dibalas: cb2.checked,
+                        pesan: pesanInput.value,
+                        balasan: balasanInput.value,
+                        timestamp: new Date().toISOString()
+                    }
+                });
+                await window.db.from('prospek').delete().eq('id', id);
+                showNotifTop('📵 Data dipindahkan ke Database Nomor Salah');
+                closeDynamicModal(modal);
+                await loadProspek();
+                closeModal('detailModal');
+            }
+        };
+        
+        cancelBtn.onclick = () => {
+            closeDynamicModal(modal);
+        };
+    });
 }
 
 // ========== PENDING MODAL FUNCTIONS ==========
@@ -1884,244 +1868,243 @@ function confirmClosingToDB(id) {
 
 // ========== KONFIRMASI PROSPEK TERTARIK KE DB COMMITMENT & FOLLOWUP BARU ==========
 function confirmTertarikToDB(prospekId) {
-    const modal = document.createElement('div');
-    modal.className = 'modal';
-    modal.style.display = 'flex';
-    modal.style.zIndex = '999999999';
-    modal.style.position = 'fixed';
-    modal.style.top = '0';
-    modal.style.left = '0';
-    modal.style.width = '100%';
-    modal.style.height = '100%';
-    modal.style.backgroundColor = 'rgba(0, 0, 0, 0.7)';
-    modal.style.backdropFilter = 'blur(5px)';
-    modal.style.pointerEvents = 'auto';
-    modal.innerHTML = `
-        <div class="modal-content" style="max-width: 500px; z-index: 999999999; pointer-events: auto;">
-            <h3>⭐ Jadikan Member Baru</h3>
-            <div class="modal-subtitle">Data akan dipindahkan ke Database Commitment dan menjadi Member Baru di Followup</div>
-            <div style="background: #eef2ff; padding: 12px; border-radius: 10px; margin: 0 20px 10px 20px;">
-                <p style="font-size: 12px; color: #4f46e5; margin: 0;">📌 <strong>Ketentuan:</strong><br>
-                • Data akan disimpan ke DATABASE COMMITMENT sebagai arsip<br>
-                • Data akan DIPINDAHKAN ke FOLLOWUP AGEN dengan status "Baru"<br>
-                • Data akan DIHAPUS dari Prospek Agen<br>
-                • Proses ini TIDAK BISA dibatalkan!</p>
-            </div>
-            <div style="padding: 0 20px 20px 20px;">
-                <div class="form-group">
-                    <label>ID Agent <span class="required">*</span></label>
-                    <input type="text" id="commitmentAgentId" placeholder="Contoh: AG-001" maxlength="17" style="width:100%; padding: 10px; border-radius: 10px; border: 1px solid #e5e7eb;" oninput="formatAgentIdAuto(this)">
-                    <small>ID Agent untuk member baru (huruf besar, angka, max 17 karakter)</small>
+    // Ambil data prospek terlebih dahulu
+    window.db.from('prospek').select('*').eq('id', prospekId).single().then(async ({ data: prospekData }) => {
+        if (!prospekData) {
+            showNotifTop('❌ Data prospek tidak ditemukan!', true);
+            return;
+        }
+        
+        // Ambil penawaran dari negosiasi_data
+        const penawaranDariNegosiasi = prospekData.negosiasi_data?.penawaran || '';
+        
+        const modal = document.createElement('div');
+        modal.className = 'modal';
+        modal.style.display = 'flex';
+        modal.style.zIndex = '999999999';
+        modal.style.position = 'fixed';
+        modal.style.top = '0';
+        modal.style.left = '0';
+        modal.style.width = '100%';
+        modal.style.height = '100%';
+        modal.style.backgroundColor = 'rgba(0, 0, 0, 0.7)';
+        modal.style.backdropFilter = 'blur(5px)';
+        modal.style.pointerEvents = 'auto';
+        modal.innerHTML = `
+            <div class="modal-content" style="max-width: 500px; z-index: 999999999; pointer-events: auto;">
+                <h3>⭐ Jadikan Member Baru</h3>
+                <div class="modal-subtitle">Data akan dipindahkan ke Database Commitment dan menjadi Member Baru di Followup</div>
+                <div style="background: #eef2ff; padding: 12px; border-radius: 10px; margin: 0 20px 10px 20px;">
+                    <p style="font-size: 12px; color: #4f46e5; margin: 0;">📌 <strong>Ketentuan:</strong><br>
+                    • Data akan disimpan ke DATABASE COMMITMENT sebagai arsip<br>
+                    • Data akan DIPINDAHKAN ke FOLLOWUP AGEN dengan status "Baru"<br>
+                    • Data akan DIHAPUS dari Prospek Agen<br>
+                    • Proses ini TIDAK BISA dibatalkan!</p>
                 </div>
-                <div class="form-group">
-                    <label>Aplikasi <span class="required">*</span></label>
-                    <select id="commitmentAplikasi" style="width:100%; padding: 10px; border-radius: 10px; border: 1px solid #e5e7eb;">
-                        <option value="">Pilih Aplikasi</option>
-                        <option value="GNP">GNP</option>
-                        <option value="BSB">BSB</option>
-                        <option value="BTN">BTN</option>
-                    </select>
+                <div style="background: #fef3c7; padding: 12px; border-radius: 10px; margin: 0 20px 10px 20px;">
+                    <p style="font-size: 12px; color: #d97706; margin: 0;">📋 <strong>Data Negosiasi:</strong><br>
+                    Aplikasi: ${escapeHtml(prospekData.negosiasi_data?.aplikasi || '-')}<br>
+                    Domisili: ${escapeHtml(prospekData.negosiasi_data?.domisili || '-')}<br>
+                    Transaksi: ${escapeHtml(prospekData.negosiasi_data?.transaksi || '-')}<br>
+                    Deposit: ${escapeHtml(prospekData.negosiasi_data?.deposit || '-')}<br>
+                    Tertarik: ${escapeHtml(prospekData.negosiasi_data?.tertarik || '-')}<br>
+                    <strong>Penawaran: ${escapeHtml(penawaranDariNegosiasi || '-')}</strong></p>
                 </div>
-                <div class="form-group">
-                    <label>Upline / Atasan</label>
-                    <input type="text" id="commitmentUplineName" placeholder="Nama Upline" style="width:100%; padding: 10px; border-radius: 10px; border: 1px solid #e5e7eb;" maxlength="50">
-                    <small>Nama upline/atasan dari member baru</small>
-                </div>
-                <div class="form-group">
-                    <label>Nomor HP Upline</label>
-                    <div class="phone-input">
-                        <div class="phone-prefix">+62</div>
-                        <input type="tel" id="commitmentUplinePhone" placeholder="81234567890" style="flex:1; padding: 10px; border-radius: 10px; border: 1px solid #e5e7eb;" oninput="formatPhoneAuto(this)">
+                <div style="padding: 0 20px 20px 20px;">
+                    <div class="form-group">
+                        <label>ID Agent <span class="required">*</span></label>
+                        <input type="text" id="commitmentAgentId" placeholder="Contoh: AG-001" maxlength="17" style="width:100%; padding: 10px; border-radius: 10px; border: 1px solid #e5e7eb;" oninput="formatAgentIdAuto(this)" value="${escapeHtml(prospekData.agent_id || '')}">
+                        <small>ID Agent untuk member baru (huruf besar, angka, max 17 karakter)</small>
                     </div>
-                    <small>Nomor WhatsApp upline (awalan 8, 9-12 digit)</small>
+                    <div class="form-group">
+                        <label>Aplikasi <span class="required">*</span></label>
+                        <select id="commitmentAplikasi" style="width:100%; padding: 10px; border-radius: 10px; border: 1px solid #e5e7eb;">
+                            <option value="">Pilih Aplikasi</option>
+                            <option value="GNP" ${prospekData.negosiasi_data?.aplikasi === 'GNP' ? 'selected' : ''}>GNP</option>
+                            <option value="BSB" ${prospekData.negosiasi_data?.aplikasi === 'BSB' ? 'selected' : ''}>BSB</option>
+                            <option value="BTN" ${prospekData.negosiasi_data?.aplikasi === 'BTN' ? 'selected' : ''}>BTN</option>
+                        </select>
+                    </div>
+                    <div class="form-group">
+                        <label>Upline / Atasan</label>
+                        <input type="text" id="commitmentUplineName" placeholder="Nama Upline" style="width:100%; padding: 10px; border-radius: 10px; border: 1px solid #e5e7eb;" maxlength="50">
+                        <small>Nama upline/atasan dari member baru</small>
+                    </div>
+                    <div class="form-group">
+                        <label>Nomor HP Upline</label>
+                        <div class="phone-input">
+                            <div class="phone-prefix">+62</div>
+                            <input type="tel" id="commitmentUplinePhone" placeholder="81234567890" style="flex:1; padding: 10px; border-radius: 10px; border: 1px solid #e5e7eb;" oninput="formatPhoneAuto(this)">
+                        </div>
+                        <small>Nomor WhatsApp upline (awalan 8, 9-12 digit)</small>
+                    </div>
+                    <div class="form-group">
+                        <label>Catatan (Opsional)</label>
+                        <textarea id="commitmentNote" rows="2" placeholder="Contoh: Akan followup bulan depan..." style="width:100%; padding: 10px; border-radius: 10px; border: 1px solid #e5e7eb;"></textarea>
+                    </div>
+                    <div class="form-group">
+                        <label>Tanggal Followup (Opsional)</label>
+                        <input type="date" id="commitmentFollowupDate" style="width:100%; padding: 10px; border-radius: 10px; border: 1px solid #e5e7eb;">
+                    </div>
                 </div>
-                <div class="form-group">
-                    <label>Penawaran yang diberikan <span class="required">*</span></label>
-                    <input type="text" id="commitmentPenawaran" placeholder="Contoh: Produk A, Diskon 10%" style="width:100%; padding: 10px; border-radius: 10px; border: 1px solid #e5e7eb;">
-                    <small>Penawaran yang disepakati</small>
-                </div>
-                <div class="form-group">
-                    <label>Catatan (Opsional)</label>
-                    <textarea id="commitmentNote" rows="2" placeholder="Contoh: Akan followup bulan depan..." style="width:100%; padding: 10px; border-radius: 10px; border: 1px solid #e5e7eb;"></textarea>
-                </div>
-                <div class="form-group">
-                    <label>Tanggal Followup (Opsional)</label>
-                    <input type="date" id="commitmentFollowupDate" style="width:100%; padding: 10px; border-radius: 10px; border: 1px solid #e5e7eb;">
+                <div class="modal-buttons" style="display: flex; gap: 12px; padding: 16px 20px 20px;">
+                    <button id="confirmTertarikToDBBtn" class="btn-primary" style="flex: 1; cursor: pointer;">✅ Ya, Jadikan Member Baru</button>
+                    <button id="cancelTertarikToDBBtn" class="btn-outline" style="flex: 1; cursor: pointer;">❌ Batal</button>
                 </div>
             </div>
-            <div class="modal-buttons" style="display: flex; gap: 12px; padding: 16px 20px 20px;">
-                <button id="confirmTertarikToDBBtn" class="btn-primary" style="flex: 1; cursor: pointer;">✅ Ya, Jadikan Member Baru</button>
-                <button id="cancelTertarikToDBBtn" class="btn-outline" style="flex: 1; cursor: pointer;">❌ Batal</button>
-            </div>
-        </div>
-    `;
-    
-    document.body.appendChild(modal);
-    document.body.classList.add('modal-open');
-    document.body.style.overflow = 'hidden';
-    
-    document.getElementById('confirmTertarikToDBBtn').onclick = async () => {
-        const agentId = document.getElementById('commitmentAgentId').value;
-        const aplikasi = document.getElementById('commitmentAplikasi').value;
-        const uplineName = document.getElementById('commitmentUplineName').value;
-        let uplinePhone = document.getElementById('commitmentUplinePhone').value;
-        const penawaran = document.getElementById('commitmentPenawaran').value;
-        const note = document.getElementById('commitmentNote').value;
-        const followupDateInput = document.getElementById('commitmentFollowupDate').value;
+        `;
         
-        if (!agentId || !aplikasi || !penawaran) {
-            showNotifTop('⚠️ ID Agent, Aplikasi, dan Penawaran wajib diisi!', true);
-            return;
-        }
+        document.body.appendChild(modal);
+        document.body.classList.add('modal-open');
+        document.body.style.overflow = 'hidden';
         
-        // Format upline phone
-        if (uplinePhone) {
-            uplinePhone = uplinePhone.replace(/[^\d]/g, '');
-            if (uplinePhone.startsWith('0')) uplinePhone = uplinePhone.substring(1);
-            if (uplinePhone && !uplinePhone.startsWith('62')) uplinePhone = '62' + uplinePhone;
-        }
-        
-        // Ambil data prospek
-        const { data: prospekDoc, error: prospekError } = await window.db
-            .from('prospek')
-            .select('*')
-            .eq('id', prospekId)
-            .single();
-        
-        if (prospekError) {
-            console.error('Error ambil data prospek:', prospekError);
-            showNotifTop('❌ Gagal mengambil data prospek: ' + prospekError.message, true);
-            return;
-        }
-        
-        const data = prospekDoc;
-        
-        // Format ID Agent
-        const formattedAgentId = agentId.toUpperCase();
-        
-        // Cek duplikat ID Agent di customers
-        const { data: existingCustomer, error: cekError } = await window.db
-            .from('customers')
-            .select('id')
-            .eq('agent_id', formattedAgentId)
-            .maybeSingle();
-        
-        if (existingCustomer) {
-            showNotifTop(`⚠️ ID Agent "${formattedAgentId}" sudah terdaftar di Followup Agen!`, true);
-            return;
-        }
-        
-        // Siapkan tanggal followup (default +1 bulan dari sekarang jika tidak diisi)
-        let followupDateValue = followupDateInput;
-        if (!followupDateValue) {
-            const nextMonth = new Date();
-            nextMonth.setMonth(nextMonth.getMonth() + 1);
-            followupDateValue = nextMonth.toISOString().split('T')[0];
-        }
-        
-        try {
-            // 1. Simpan ke DB Commitment
-            const { error: commitError } = await window.db.from('db_commitment').insert({
-                nama: data.nama,
-                hp: data.hp,
-                agent_id: formattedAgentId,
-                aplikasi: aplikasi,
-                upline_name: uplineName || null,
-                upline_phone: uplinePhone || null,
-                penawaran: penawaran,
-                commitment_note: note || null,
-                committed_at: new Date().toISOString(),
-                followup_date: followupDateValue,
-                user_id: data.user_id,
-                original_prospek_id: prospekId,
-                negosiasi_data: {
-                    aplikasi: data.negosiasi_data?.aplikasi || '',
-                    domisili: data.negosiasi_data?.domisili || '',
-                    transaksi: data.negosiasi_data?.transaksi || '',
-                    deposit: data.negosiasi_data?.deposit || '',
-                    tertarik: data.negosiasi_data?.tertarik || '',
-                    penawaran: penawaran,
-                    timestamp: new Date().toISOString()
-                },
-                created_at: new Date().toISOString(),
-                updated_at: new Date().toISOString()
-            });
+        document.getElementById('confirmTertarikToDBBtn').onclick = async () => {
+            const agentId = document.getElementById('commitmentAgentId').value;
+            const aplikasi = document.getElementById('commitmentAplikasi').value;
+            const uplineName = document.getElementById('commitmentUplineName').value;
+            let uplinePhone = document.getElementById('commitmentUplinePhone').value;
+            const note = document.getElementById('commitmentNote').value;
+            const followupDateInput = document.getElementById('commitmentFollowupDate').value;
             
-            if (commitError) {
-                console.error('Error simpan ke db_commitment:', commitError);
-                showNotifTop('❌ Gagal menyimpan ke Database Commitment: ' + commitError.message, true);
+            if (!agentId || !aplikasi) {
+                showNotifTop('⚠️ ID Agent dan Aplikasi wajib diisi!', true);
                 return;
             }
             
-            console.log('✅ Berhasil simpan ke db_commitment');
+            // Format upline phone
+            if (uplinePhone) {
+                uplinePhone = uplinePhone.replace(/[^\d]/g, '');
+                if (uplinePhone.startsWith('0')) uplinePhone = uplinePhone.substring(1);
+                if (uplinePhone && !uplinePhone.startsWith('62')) uplinePhone = '62' + uplinePhone;
+            }
             
-            // 2. Pindahkan ke Followup Agen
-            const followupDate = getTodayDate();
-            const { error: customerError } = await window.db.from('customers').insert({
-                agent_id: formattedAgentId,
-                nama: data.nama,
-                hp: data.hp,
-                apk: aplikasi,
-                upline_name: uplineName || '',
-                upline_phone: uplinePhone || '',
-                tanggal: followupDate,
-                status: 'baru',
-                user_id: data.user_id,
-                created_at: new Date().toISOString(),
-                updated_at: new Date().toISOString()
-            });
+            const data = prospekData;
             
-            if (customerError) {
-                console.error('Error pindah ke customers:', customerError);
-                showNotifTop('❌ Gagal memindahkan ke Followup Agen: ' + customerError.message, true);
+            // Format ID Agent
+            const formattedAgentId = agentId.toUpperCase();
+            
+            // Cek duplikat ID Agent di customers
+            const { data: existingCustomer } = await window.db
+                .from('customers')
+                .select('id')
+                .eq('agent_id', formattedAgentId)
+                .maybeSingle();
+            
+            if (existingCustomer) {
+                showNotifTop(`⚠️ ID Agent "${formattedAgentId}" sudah terdaftar di Followup Agen!`, true);
                 return;
             }
             
-            console.log('✅ Berhasil pindah ke customers');
-            
-            // 3. Hapus dari Prospek
-            const { error: deleteError } = await window.db
-                .from('prospek')
-                .delete()
-                .eq('id', prospekId);
-            
-            if (deleteError) {
-                console.error('Error hapus dari prospek:', deleteError);
-                showNotifTop('⚠️ Data sudah dipindahkan tapi gagal dihapus dari Prospek: ' + deleteError.message, true);
+            // Siapkan tanggal followup (default +1 bulan dari sekarang jika tidak diisi)
+            let followupDateValue = followupDateInput;
+            if (!followupDateValue) {
+                const nextMonth = new Date();
+                nextMonth.setMonth(nextMonth.getMonth() + 1);
+                followupDateValue = nextMonth.toISOString().split('T')[0];
             }
             
-            console.log('✅ Berhasil hapus dari prospek');
-            
-            showNotifTop('✅ Berhasil! Member baru telah ditambahkan ke Followup Agen dan tersimpan di Database Commitment');
+            try {
+                // 1. Simpan ke DB Commitment (dengan penawaran dari negosiasi)
+                const { error: commitError } = await window.db.from('db_commitment').insert({
+                    nama: data.nama,
+                    hp: data.hp,
+                    agent_id: formattedAgentId,
+                    aplikasi: aplikasi,
+                    upline_name: uplineName || null,
+                    upline_phone: uplinePhone || null,
+                    penawaran: penawaranDariNegosiasi,
+                    commitment_note: note || null,
+                    committed_at: new Date().toISOString(),
+                    followup_date: followupDateValue,
+                    user_id: data.user_id,
+                    original_prospek_id: prospekId,
+                    pesan_terkirim: data.pesan_terkirim || null,
+                    balasan_diterima: data.balasan_diterima || null,
+                    dihubungi_data: data.dihubungi_data || null,
+                    negosiasi_data: {
+                        aplikasi: data.negosiasi_data?.aplikasi || '',
+                        domisili: data.negosiasi_data?.domisili || '',
+                        transaksi: data.negosiasi_data?.transaksi || '',
+                        deposit: data.negosiasi_data?.deposit || '',
+                        tertarik: data.negosiasi_data?.tertarik || '',
+                        penawaran: penawaranDariNegosiasi,
+                        timestamp: new Date().toISOString()
+                    },
+                    created_at: new Date().toISOString(),
+                    updated_at: new Date().toISOString()
+                });
+                
+                if (commitError) {
+                    console.error('Error simpan ke db_commitment:', commitError);
+                    showNotifTop('❌ Gagal menyimpan ke Database Commitment: ' + commitError.message, true);
+                    return;
+                }
+                
+                console.log('✅ Berhasil simpan ke db_commitment');
+                
+                // 2. Pindahkan ke Followup Agen
+                const followupDate = getTodayDate();
+                const { error: customerError } = await window.db.from('customers').insert({
+                    agent_id: formattedAgentId,
+                    nama: data.nama,
+                    hp: data.hp,
+                    apk: aplikasi,
+                    upline_name: uplineName || '',
+                    upline_phone: uplinePhone || '',
+                    tanggal: followupDate,
+                    status: 'baru',
+                    user_id: data.user_id,
+                    created_at: new Date().toISOString(),
+                    updated_at: new Date().toISOString(),
+                    pesan_terkirim: data.pesan_terkirim || null,
+                    balasan_diterima: data.balasan_diterima || null
+                });
+                
+                if (customerError) {
+                    console.error('Error pindah ke customers:', customerError);
+                    showNotifTop('❌ Gagal memindahkan ke Followup Agen: ' + customerError.message, true);
+                    return;
+                }
+                
+                console.log('✅ Berhasil pindah ke customers');
+                
+                // 3. Hapus dari Prospek
+                await window.db.from('prospek').delete().eq('id', prospekId);
+                
+                showNotifTop('✅ Berhasil! Member baru telah ditambahkan ke Followup Agen dan tersimpan di Database Commitment');
+                modal.remove();
+                document.body.classList.remove('modal-open');
+                document.body.style.overflow = '';
+                
+                // Refresh data
+                await loadCustomers();
+                await loadProspek();
+                await loadDBCommitment();
+                closeModal('detailModal');
+                
+            } catch (err) {
+                console.error('Error dalam proses:', err);
+                showNotifTop('❌ Terjadi kesalahan: ' + err.message, true);
+            }
+        };
+        
+        document.getElementById('cancelTertarikToDBBtn').onclick = () => {
             modal.remove();
             document.body.classList.remove('modal-open');
             document.body.style.overflow = '';
-            
-            // Refresh data
-            await loadCustomers();
-            await loadProspek();
-            await loadDBCommitment();
-            closeModal('detailModal');
-            
-        } catch (err) {
-            console.error('Error dalam proses:', err);
-            showNotifTop('❌ Terjadi kesalahan: ' + err.message, true);
-        }
-    };
-    
-    document.getElementById('cancelTertarikToDBBtn').onclick = () => {
-        modal.remove();
-        document.body.classList.remove('modal-open');
-        document.body.style.overflow = '';
-    };
-    
-    modal.onclick = (e) => {
-        if (e.target === modal) {
-            modal.remove();
-            document.body.classList.remove('modal-open');
-            document.body.style.overflow = '';
-        }
-    };
+        };
+        
+        modal.onclick = (e) => {
+            if (e.target === modal) {
+                modal.remove();
+                document.body.classList.remove('modal-open');
+                document.body.style.overflow = '';
+            }
+        };
+    }).catch(err => {
+        console.error('Error:', err);
+        showNotifTop('❌ Gagal memuat data prospek: ' + err.message, true);
+    });
 }
 
 // ========== FUNGSI UPDATE DEADLINE BERDASARKAN TANGGAL EDIT ==========
