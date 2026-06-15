@@ -3424,9 +3424,7 @@ function renderDBClosing(items) {
         const isChecked = selectedClosingIds.get(item.id) === true;
         let followupText = '';
         if (item.followup_data && item.followup_data.pesan) {
-            followupText = `<small>📝 Pesan: ${escapeHtml(item.followup_data.pesan)}<br>💬 Balasan: ${escapeHtml(item.followup_data.balasan || '-')}</small>`;
-        } else if (item.pesan_terkirim) {
-            followupText = `<small>📝 Pesan: ${escapeHtml(item.pesan_terkirim)}<br>💬 Balasan: ${escapeHtml(item.balasan_diterima || '-')}</small>`;
+            followupText = `<small>📝 ${escapeHtml(item.followup_data.pesan.substring(0, 50))}${item.followup_data.pesan.length > 50 ? '...' : ''}</small>`;
         }
         return `
             <div class="db-item" data-id="${item.id}" data-type="closing" style="cursor: pointer;">
@@ -3436,7 +3434,7 @@ function renderDBClosing(items) {
                     <p>📱 ${escapeHtml(item.hp)}</p>
                     <small>Closing: ${item.closing_date ? new Date(item.closing_date).toLocaleDateString('id-ID') : '-'}</small>
                     ${item.closing_note ? `<small>Catatan: ${escapeHtml(item.closing_note)}</small>` : ''}
-                    ${followupText}
+                    ${followupText ? `<small>💬 ${followupText}</small>` : ''}
                 </div>
                 <div class="db-item-actions">
                     <button class="db-item-wa" onclick="event.stopPropagation(); openWA('${item.hp}')">💬 WA</button>
@@ -3559,16 +3557,13 @@ function renderDBCommitment(items) {
         const isChecked = selectedCommitmentIds.get(item.id) === true;
         let dihubungiText = '';
         if (item.dihubungi_data && item.dihubungi_data.pesan) {
-            dihubungiText = `<small>📝 Pesan Dihubungi: ${escapeHtml(item.dihubungi_data.pesan)}<br>💬 Balasan: ${escapeHtml(item.dihubungi_data.balasan || '-')}</small>`;
-        } else if (item.pesan_terkirim) {
-            dihubungiText = `<small>📝 Pesan Dihubungi: ${escapeHtml(item.pesan_terkirim)}<br>💬 Balasan: ${escapeHtml(item.balasan_diterima || '-')}</small>`;
+            dihubungiText = `<small>📝 ${escapeHtml(item.dihubungi_data.pesan.substring(0, 50))}${item.dihubungi_data.pesan.length > 50 ? '...' : ''}</small>`;
         }
-        
         let penawaranText = '';
         if (item.penawaran) {
-            penawaranText = `<small>🏷️ Penawaran: ${escapeHtml(item.penawaran)}</small>`;
+            penawaranText = `<small>🏷️ ${escapeHtml(item.penawaran)}</small>`;
         } else if (item.negosiasi_data?.penawaran) {
-            penawaranText = `<small>🏷️ Penawaran: ${escapeHtml(item.negosiasi_data.penawaran)}</small>`;
+            penawaranText = `<small>🏷️ ${escapeHtml(item.negosiasi_data.penawaran)}</small>`;
         }
         
         return `
@@ -4559,53 +4554,180 @@ function openDBDetailModal(id, type) {
         let detailHtml = '';
         
         if (type === 'closing') {
-            let pendingHtml = '';
-            if (d.pending_data && d.pending_data.length > 0) {
-                pendingHtml = `<div class="detail-info-item"><strong>📝 Pending Responses:</strong><br>
-                    <div style="margin-top:5px; padding-left:15px;">${d.pending_data.map(item => `${item.checked ? '✅' : '⭕'} ${escapeHtml(item.text || '(kosong)')}`).join('<br>')}</div>
-                </div>`;
+            // Tampilkan data followup lengkap seperti di popup customer
+            let followupInfo = '';
+            if (d.followup_data) {
+                followupInfo = `
+                    <div class="detail-info-item">
+                        <strong>✅ Follow Up:</strong>
+                        <div style="margin-top: 5px; padding-left: 15px;">
+                            Terkirim: ${d.followup_data.terkirim ? 'Ya' : 'Tidak'}<br>
+                            Dibalas: ${d.followup_data.dibalas ? 'Ya' : 'Tidak'}<br>
+                            <strong>Pesan Terkirim:</strong> ${escapeHtml(d.followup_data.pesan || '-')}<br>
+                            <strong>Balasan:</strong> ${escapeHtml(d.followup_data.balasan || '-')}
+                        </div>
+                    </div>
+                `;
+            } else if (d.pesan_terkirim) {
+                followupInfo = `
+                    <div class="detail-info-item">
+                        <strong>✅ Follow Up:</strong>
+                        <div style="margin-top: 5px; padding-left: 15px;">
+                            <strong>Pesan Terkirim:</strong> ${escapeHtml(d.pesan_terkirim || '-')}<br>
+                            <strong>Balasan:</strong> ${escapeHtml(d.balasan_diterima || '-')}
+                        </div>
+                    </div>
+                `;
             }
+            
+            // Tampilkan pending responses
+            let pendingInfo = '';
+            if (d.pending_data && d.pending_data.length > 0) {
+                const completedCount = d.pending_data.filter(item => item.checked === true && item.text?.trim() !== '').length;
+                const totalCount = d.pending_data.length;
+                pendingInfo = `
+                    <div class="detail-info-item">
+                        <strong>📝 Pending Responses (${completedCount}/${totalCount}):</strong>
+                        <div style="margin-top: 5px; padding-left: 15px;">
+                            ${d.pending_data.map(item => `${item.checked ? '✅' : '⭕'} ${escapeHtml(item.text || '(kosong)')}`).join('<br>')}
+                        </div>
+                    </div>
+                `;
+            }
+            
             detailHtml = `
                 ${ownerInfo}
                 <div class="detail-info-item"><strong>👤 Nama:</strong> ${escapeHtml(d.nama)}</div>
                 <div class="detail-info-item"><strong>📱 Nomor WA:</strong> ${escapeHtml(d.hp)}</div>
                 <div class="detail-info-item"><strong>📅 Tanggal Closing:</strong> ${d.closing_date ? new Date(d.closing_date).toLocaleDateString('id-ID') : '-'}</div>
                 <div class="detail-info-item"><strong>📝 Catatan Closing:</strong> ${escapeHtml(d.closing_note || '-')}</div>
-                ${pendingHtml}
-                <div class="detail-info-item"><strong>📌 Catatan Followup:</strong> ${d.followup_data ? `Terkirim: ${d.followup_data.terkirim ? 'Ya' : 'Tidak'} | Dibalas: ${d.followup_data.dibalas ? 'Ya' : 'Tidak'}` : '-'}</div>
+                ${followupInfo}
+                ${pendingInfo}
             `;
-        } else if (type === 'tidak') {
+        } 
+        else if (type === 'commitment') {
+            // Tampilkan data dihubungi lengkap seperti di popup prospek
+            let dihubungiInfo = '';
+            if (d.dihubungi_data) {
+                dihubungiInfo = `
+                    <div class="detail-info-item">
+                        <strong>✅ Dihubungi:</strong>
+                        <div style="margin-top: 5px; padding-left: 15px;">
+                            Terkirim: ${d.dihubungi_data.terkirim ? 'Ya' : 'Tidak'}<br>
+                            Dibalas: ${d.dihubungi_data.dibalas ? 'Ya' : 'Tidak'}<br>
+                            <strong>Pesan Terkirim:</strong> ${escapeHtml(d.dihubungi_data.pesan || '-')}<br>
+                            <strong>Balasan:</strong> ${escapeHtml(d.dihubungi_data.balasan || '-')}
+                        </div>
+                    </div>
+                `;
+            } else if (d.pesan_terkirim) {
+                dihubungiInfo = `
+                    <div class="detail-info-item">
+                        <strong>✅ Dihubungi:</strong>
+                        <div style="margin-top: 5px; padding-left: 15px;">
+                            <strong>Pesan Terkirim:</strong> ${escapeHtml(d.pesan_terkirim || '-')}<br>
+                            <strong>Balasan:</strong> ${escapeHtml(d.balasan_diterima || '-')}
+                        </div>
+                    </div>
+                `;
+            }
+            
+            // Tampilkan data negosiasi lengkap
+            let negosiasiInfo = '';
+            if (d.negosiasi_data) {
+                const nd = d.negosiasi_data;
+                negosiasiInfo = `
+                    <div class="detail-info-item">
+                        <strong>📋 Data Negosiasi:</strong>
+                        <div style="margin-top: 5px; padding-left: 15px;">
+                            Aplikasi: ${escapeHtml(nd.aplikasi || '-')}<br>
+                            Domisili: ${escapeHtml(nd.domisili || '-')}<br>
+                            Transaksi: ${escapeHtml(nd.transaksi || '-')}<br>
+                            Deposit: ${escapeHtml(nd.deposit || '-')}<br>
+                            Tertarik: ${escapeHtml(nd.tertarik || '-')}<br>
+                            <strong>Penawaran:</strong> ${escapeHtml(d.penawaran || nd.penawaran || '-')}
+                        </div>
+                    </div>
+                `;
+            }
+            
+            detailHtml = `
+                ${ownerInfo}
+                <div class="detail-info-item"><strong>👤 Nama:</strong> ${escapeHtml(d.nama)}</div>
+                <div class="detail-info-item"><strong>📱 Nomor WA:</strong> ${escapeHtml(d.hp)}</div>
+                <div class="detail-info-item"><strong>🆔 ID Agent:</strong> ${escapeHtml(d.agent_id || '-')}</div>
+                <div class="detail-info-item"><strong>📱 Aplikasi:</strong> ${escapeHtml(d.aplikasi || '-')}</div>
+                <div class="detail-info-item"><strong>👤 Upline:</strong> ${escapeHtml(d.upline_name || '-')}</div>
+                <div class="detail-info-item"><strong>📞 No. Upline:</strong> ${escapeHtml(d.upline_phone || '-')}</div>
+                <div class="detail-info-item"><strong>📅 Tanggal Komitmen:</strong> ${d.committed_at ? new Date(d.committed_at).toLocaleDateString('id-ID') : '-'}</div>
+                <div class="detail-info-item"><strong>📅 Followup Date:</strong> ${d.followup_date || '-'}</div>
+                <div class="detail-info-item"><strong>📝 Catatan:</strong> ${escapeHtml(d.commitment_note || '-')}</div>
+                ${dihubungiInfo}
+                ${negosiasiInfo}
+            `;
+        }
+        else if (type === 'tidak') {
+            let negosiasiInfo = '';
+            if (d.negosiasi_data) {
+                const nd = d.negosiasi_data;
+                negosiasiInfo = `
+                    <div class="detail-info-item">
+                        <strong>📋 Data Negosiasi:</strong>
+                        <div style="margin-top: 5px; padding-left: 15px;">
+                            Aplikasi: ${escapeHtml(nd.aplikasi || '-')}<br>
+                            Domisili: ${escapeHtml(nd.domisili || '-')}<br>
+                            Transaksi: ${escapeHtml(nd.transaksi || '-')}<br>
+                            Deposit: ${escapeHtml(nd.deposit || '-')}<br>
+                            Tertarik: ${escapeHtml(nd.tertarik || '-')}<br>
+                            Penawaran: ${escapeHtml(nd.penawaran || '-')}
+                        </div>
+                    </div>
+                `;
+            }
+            
             detailHtml = `
                 ${ownerInfo}
                 <div class="detail-info-item"><strong>👤 Nama:</strong> ${escapeHtml(d.nama)}</div>
                 <div class="detail-info-item"><strong>📱 Nomor WA:</strong> ${escapeHtml(d.hp)}</div>
                 <div class="detail-info-item"><strong>📅 Tanggal:</strong> ${d.tanggal ? new Date(d.tanggal).toLocaleDateString('id-ID') : '-'}</div>
                 <div class="detail-info-item"><strong>❌ Alasan:</strong> ${escapeHtml(d.alasan || 'Tidak tertarik')}</div>
-                ${d.negosiasi_data ? `<div class="detail-info-item"><strong>📋 Data Negosiasi:</strong><br><div style="margin-top:5px; padding-left:15px;">Aplikasi: ${escapeHtml(d.negosiasi_data.aplikasi || '-')}<br>Domisili: ${escapeHtml(d.negosiasi_data.domisili || '-')}<br>Transaksi: ${escapeHtml(d.negosiasi_data.transaksi || '-')}<br>Tertarik: ${escapeHtml(d.negosiasi_data.tertarik || '-')}</div></div>` : ''}
+                ${negosiasiInfo}
             `;
-        } else if (type === 'nomor_salah') {
+        }
+        else if (type === 'nomor_salah') {
+            let followupInfo = '';
+            if (d.followup_data) {
+                followupInfo = `
+                    <div class="detail-info-item">
+                        <strong>✅ Follow Up:</strong>
+                        <div style="margin-top: 5px; padding-left: 15px;">
+                            Pesan: ${escapeHtml(d.followup_data.pesan || '-')}<br>
+                            Balasan: ${escapeHtml(d.followup_data.balasan || '-')}
+                        </div>
+                    </div>
+                `;
+            } else if (d.pesan_terkirim) {
+                followupInfo = `
+                    <div class="detail-info-item">
+                        <strong>✅ Follow Up:</strong>
+                        <div style="margin-top: 5px; padding-left: 15px;">
+                            Pesan: ${escapeHtml(d.pesan_terkirim || '-')}<br>
+                            Balasan: ${escapeHtml(d.balasan_diterima || '-')}
+                        </div>
+                    </div>
+                `;
+            }
+            
             detailHtml = `
                 ${ownerInfo}
                 <div class="detail-info-item"><strong>👤 Nama:</strong> ${escapeHtml(d.nama)}</div>
                 <div class="detail-info-item"><strong>📱 Nomor WA:</strong> ${escapeHtml(d.hp)}</div>
                 <div class="detail-info-item"><strong>📅 Tanggal Dihapus:</strong> ${d.deleted_at ? new Date(d.deleted_at).toLocaleDateString('id-ID') : '-'}</div>
                 <div class="detail-info-item"><strong>📵 Alasan:</strong> ${escapeHtml(d.alasan || 'Nomor tidak bisa dihubungi')}</div>
+                ${followupInfo}
             `;
-        } else if (type === 'commitment') {
-            detailHtml = `
-                ${ownerInfo}
-                <div class="detail-info-item"><strong>👤 Nama:</strong> ${escapeHtml(d.nama)}</div>
-                <div class="detail-info-item"><strong>📱 Nomor WA:</strong> ${escapeHtml(d.hp)}</div>
-                <div class="detail-info-item"><strong>📅 Tanggal Komitmen:</strong> ${d.committed_at ? new Date(d.committed_at).toLocaleDateString('id-ID') : '-'}</div>
-                <div class="detail-info-item"><strong>🆔 ID Agent:</strong> ${escapeHtml(d.agent_id || '-')}</div>
-                <div class="detail-info-item"><strong>📱 Aplikasi:</strong> ${escapeHtml(d.aplikasi || '-')}</div>
-                <div class="detail-info-item"><strong>👤 Upline:</strong> ${escapeHtml(d.upline_name || '-')}</div>
-                <div class="detail-info-item"><strong>📞 No. Upline:</strong> ${escapeHtml(d.upline_phone || '-')}</div>
-                <div class="detail-info-item"><strong>📅 Followup Date:</strong> ${d.followup_date || '-'}</div>
-                <div class="detail-info-item"><strong>📝 Catatan:</strong> ${escapeHtml(d.commitment_note || '-')}</div>
-                ${d.negosiasi_data ? `<div class="detail-info-item"><strong>📋 Data Negosiasi:</strong><br><div style="margin-top:5px; padding-left:15px;">Aplikasi: ${escapeHtml(d.negosiasi_data.aplikasi || '-')}<br>Domisili: ${escapeHtml(d.negosiasi_data.domisili || '-')}<br>Transaksi: ${escapeHtml(d.negosiasi_data.transaksi || '-')}<br>Tertarik: ${escapeHtml(d.negosiasi_data.tertarik || '-')}</div></div>` : ''}
-            `;
-        } else if (type === 'db_agent') {
+        }
+        else if (type === 'db_agent') {
             detailHtml = `
                 ${ownerInfo}
                 <div class="detail-info-item"><strong>🆔 ID Agent:</strong> ${escapeHtml(d.agent_id || '-')}</div>
