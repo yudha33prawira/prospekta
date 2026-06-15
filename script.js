@@ -1935,11 +1935,10 @@ function confirmTertarikToDB(prospekId) {
         }
         
         try {
-            // 1. Simpan ke DB Commitment (sesuai struktur tabel)
+            // 1. Simpan ke DB Commitment (tanpa negosiasi_data)
             const { error: commitError } = await window.db.from('db_commitment').insert({
                 nama: data.nama,
                 hp: data.hp,
-                negosiasi_data: data.negosiasi_data || null,
                 agent_id: agentId,
                 aplikasi: aplikasi,
                 commitment_note: note || null,
