@@ -1869,6 +1869,19 @@ function confirmTertarikToDB(prospekId) {
                     </select>
                 </div>
                 <div class="form-group">
+                    <label>Upline / Atasan</label>
+                    <input type="text" id="commitmentUplineName" placeholder="Nama Upline" style="width:100%; padding: 10px; border-radius: 10px; border: 1px solid #e5e7eb;" maxlength="50">
+                    <small>Nama upline/atasan dari member baru</small>
+                </div>
+                <div class="form-group">
+                    <label>Nomor HP Upline</label>
+                    <div class="phone-input">
+                        <div class="phone-prefix">+62</div>
+                        <input type="tel" id="commitmentUplinePhone" placeholder="81234567890" style="flex:1; padding: 10px; border-radius: 10px; border: 1px solid #e5e7eb;" oninput="formatPhoneAuto(this)">
+                    </div>
+                    <small>Nomor WhatsApp upline (awalan 8, 9-12 digit)</small>
+                </div>
+                <div class="form-group">
                     <label>Catatan (Opsional)</label>
                     <textarea id="commitmentNote" rows="2" placeholder="Contoh: Akan followup bulan depan..." style="width:100%; padding: 10px; border-radius: 10px; border: 1px solid #e5e7eb;"></textarea>
                 </div>
@@ -1891,12 +1904,21 @@ function confirmTertarikToDB(prospekId) {
     document.getElementById('confirmTertarikToDBBtn').onclick = async () => {
         const agentId = document.getElementById('commitmentAgentId').value;
         const aplikasi = document.getElementById('commitmentAplikasi').value;
+        const uplineName = document.getElementById('commitmentUplineName').value;
+        let uplinePhone = document.getElementById('commitmentUplinePhone').value;
         const note = document.getElementById('commitmentNote').value;
         const followupDateInput = document.getElementById('commitmentFollowupDate').value;
         
         if (!agentId || !aplikasi) {
             showNotifTop('⚠️ ID Agent dan Aplikasi wajib diisi!', true);
             return;
+        }
+        
+        // Format upline phone
+        if (uplinePhone) {
+            uplinePhone = uplinePhone.replace(/[^\d]/g, '');
+            if (uplinePhone.startsWith('0')) uplinePhone = uplinePhone.substring(1);
+            if (uplinePhone && !uplinePhone.startsWith('62')) uplinePhone = '62' + uplinePhone;
         }
         
         // Ambil data prospek
@@ -1944,11 +1966,14 @@ function confirmTertarikToDB(prospekId) {
                 hp: data.hp,
                 agent_id: formattedAgentId,
                 aplikasi: aplikasi,
+                upline_name: uplineName || null,
+                upline_phone: uplinePhone || null,
                 commitment_note: note || null,
                 committed_at: new Date().toISOString(),
                 followup_date: followupDateValue,
                 user_id: data.user_id,
                 original_prospek_id: prospekId,
+                negosiasi_data: data.negosiasi_data || null,
                 created_at: new Date().toISOString(),
                 updated_at: new Date().toISOString()
             });
@@ -1961,15 +1986,15 @@ function confirmTertarikToDB(prospekId) {
             
             console.log('✅ Berhasil simpan ke db_commitment');
             
-            // 2. Pindahkan ke Followup Agen (tanpa kolom converted_from dan is_new_member)
+            // 2. Pindahkan ke Followup Agen
             const followupDate = getTodayDate();
             const { error: customerError } = await window.db.from('customers').insert({
                 agent_id: formattedAgentId,
                 nama: data.nama,
                 hp: data.hp,
                 apk: aplikasi,
-                upline_name: '',
-                upline_phone: '',
+                upline_name: uplineName || '',
+                upline_phone: uplinePhone || '',
                 tanggal: followupDate,
                 status: 'baru',
                 user_id: data.user_id,
@@ -3264,12 +3289,13 @@ function renderDBClosing(items) {
     container.innerHTML = items.map(item => {
         const isChecked = selectedClosingIds.get(item.id) === true;
         return `
-            <div class="db-item" data-id="${item.id}">
+            <div class="db-item" data-id="${item.id}" data-type="closing" style="cursor: pointer;">
                 <input type="checkbox" class="db-item-checkbox" data-id="${item.id}" ${isChecked ? 'checked' : ''}>
                 <div class="db-item-info">
                     <h4>${escapeHtml(item.nama)}</h4>
                     <p>📱 ${escapeHtml(item.hp)}</p>
-                    <small>Closing: ${new Date(item.closing_date).toLocaleDateString('id-ID')}</small>
+                    <small>Closing: ${item.closing_date ? new Date(item.closing_date).toLocaleDateString('id-ID') : '-'}</small>
+                    ${item.closing_note ? `<small>Catatan: ${escapeHtml(item.closing_note)}</small>` : ''}
                 </div>
                 <div class="db-item-actions">
                     <button class="db-item-wa" onclick="event.stopPropagation(); openWA('${item.hp}')">💬 WA</button>
@@ -3279,9 +3305,19 @@ function renderDBClosing(items) {
         `;
     }).join('');
     
+    document.querySelectorAll('#dbClosingList .db-item').forEach(el => {
+        el.addEventListener('click', (e) => {
+            if (e.target.type !== 'checkbox' && 
+                !e.target.classList.contains('db-item-wa') && 
+                !e.target.classList.contains('db-item-delete')) {
+                openDBDetailModal(el.dataset.id, 'closing');
+            }
+        });
+    });
+    
     document.querySelectorAll('#dbClosingList .db-item-checkbox').forEach(cb => {
         cb.addEventListener('change', (e) => {
-            const id = e.target.dataset.id;
+            const id = cb.dataset.id;
             if (e.target.checked) selectedClosingIds.set(id, true);
             else selectedClosingIds.delete(id);
             updateSelectAllButton('selectAllClosing', '#dbClosingList', selectedClosingIds);
@@ -3381,12 +3417,14 @@ function renderDBCommitment(items) {
     container.innerHTML = items.map(item => {
         const isChecked = selectedCommitmentIds.get(item.id) === true;
         return `
-            <div class="db-item" data-id="${item.id}">
+            <div class="db-item" data-id="${item.id}" data-type="commitment" style="cursor: pointer;">
                 <input type="checkbox" class="db-item-checkbox" data-id="${item.id}" ${isChecked ? 'checked' : ''}>
                 <div class="db-item-info">
                     <h4>${escapeHtml(item.nama)}</h4>
                     <p>📱 ${escapeHtml(item.hp)}</p>
                     <small>Agent: ${escapeHtml(item.agent_id || '-')} | Aplikasi: ${escapeHtml(item.aplikasi || '-')}</small>
+                    <small>Upline: ${escapeHtml(item.upline_name || '-')}</small>
+                    <small>Komitmen: ${item.committed_at ? new Date(item.committed_at).toLocaleDateString('id-ID') : '-'}</small>
                 </div>
                 <div class="db-item-actions">
                     <button class="db-item-wa" onclick="event.stopPropagation(); openWA('${item.hp}')">💬 WA</button>
@@ -3396,9 +3434,19 @@ function renderDBCommitment(items) {
         `;
     }).join('');
     
+    document.querySelectorAll('#dbCommitmentList .db-item').forEach(el => {
+        el.addEventListener('click', (e) => {
+            if (e.target.type !== 'checkbox' && 
+                !e.target.classList.contains('db-item-wa') && 
+                !e.target.classList.contains('db-item-delete')) {
+                openDBDetailModal(el.dataset.id, 'commitment');
+            }
+        });
+    });
+    
     document.querySelectorAll('#dbCommitmentList .db-item-checkbox').forEach(cb => {
         cb.addEventListener('change', (e) => {
-            const id = e.target.dataset.id;
+            const id = cb.dataset.id;
             if (e.target.checked) selectedCommitmentIds.set(id, true);
             else selectedCommitmentIds.delete(id);
             updateSelectAllButton('selectAllCommitment', '#dbCommitmentList', selectedCommitmentIds);
@@ -4285,6 +4333,7 @@ function clearSearch() {
     document.getElementById('searchResults').innerHTML = '<p style="text-align:center;padding:40px;color:#9ca3af;">🔍 Masukkan kata kunci untuk mencari data</p>';
 }
 
+// ========== OPEN DB DETAIL MODAL (UNTUK SEMUA DATABASE) ==========
 function openDBDetailModal(id, type) {
     let collectionName = '';
     let title = '';
@@ -4306,12 +4355,20 @@ function openDBDetailModal(id, type) {
             collectionName = 'db_commitment';
             title = 'Detail Database Commitment';
             break;
+        case 'db_agent':
+            collectionName = 'db_agent';
+            title = 'Detail Database Agent';
+            break;
         default:
             return;
     }
     
-    window.db.from(collectionName).select('*').eq('id', id).single().then(async ({ data: d }) => {
-        if (!d) return;
+    window.db.from(collectionName).select('*').eq('id', id).single().then(async ({ data: d, error }) => {
+        if (error || !d) {
+            console.error('Error loading data:', error);
+            showNotifTop('❌ Gagal memuat data', true);
+            return;
+        }
         
         let ownerInfo = '';
         if (currentUserRole === 'owner' && d.user_id !== currentUser.id) {
@@ -4321,37 +4378,70 @@ function openDBDetailModal(id, type) {
         }
         
         let detailHtml = '';
+        
         if (type === 'closing') {
             let pendingHtml = '';
             if (d.pending_data && d.pending_data.length > 0) {
-                pendingHtml = `<div class="detail-info-item"><strong>📝 Pending Responses:</strong><br><div style="margin-top:5px; padding-left:15px;">${d.pending_data.map(item => `${item.checked ? '✅' : '⭕'} ${escapeHtml(item.text || '(kosong)')}`).join('<br>')}</div></div>`;
+                pendingHtml = `<div class="detail-info-item"><strong>📝 Pending Responses:</strong><br>
+                    <div style="margin-top:5px; padding-left:15px;">${d.pending_data.map(item => `${item.checked ? '✅' : '⭕'} ${escapeHtml(item.text || '(kosong)')}`).join('<br>')}</div>
+                </div>`;
             }
-            detailHtml = `${ownerInfo}
+            detailHtml = `
+                ${ownerInfo}
                 <div class="detail-info-item"><strong>👤 Nama:</strong> ${escapeHtml(d.nama)}</div>
                 <div class="detail-info-item"><strong>📱 Nomor WA:</strong> ${escapeHtml(d.hp)}</div>
-                <div class="detail-info-item"><strong>📅 Tanggal Closing:</strong> ${new Date(d.closing_date).toLocaleDateString('id-ID')}</div>
-                ${pendingHtml}`;
+                <div class="detail-info-item"><strong>📅 Tanggal Closing:</strong> ${d.closing_date ? new Date(d.closing_date).toLocaleDateString('id-ID') : '-'}</div>
+                <div class="detail-info-item"><strong>📝 Catatan Closing:</strong> ${escapeHtml(d.closing_note || '-')}</div>
+                ${pendingHtml}
+                <div class="detail-info-item"><strong>📌 Catatan Followup:</strong> ${d.followup_data ? `Terkirim: ${d.followup_data.terkirim ? 'Ya' : 'Tidak'} | Dibalas: ${d.followup_data.dibalas ? 'Ya' : 'Tidak'}` : '-'}</div>
+            `;
         } else if (type === 'tidak') {
-            detailHtml = `${ownerInfo}
+            detailHtml = `
+                ${ownerInfo}
                 <div class="detail-info-item"><strong>👤 Nama:</strong> ${escapeHtml(d.nama)}</div>
                 <div class="detail-info-item"><strong>📱 Nomor WA:</strong> ${escapeHtml(d.hp)}</div>
-                <div class="detail-info-item"><strong>📅 Tanggal:</strong> ${new Date(d.tanggal).toLocaleDateString('id-ID')}</div>
-                <div class="detail-info-item"><strong>❌ Alasan:</strong> ${d.alasan || 'Tidak tertarik'}</div>`;
+                <div class="detail-info-item"><strong>📅 Tanggal:</strong> ${d.tanggal ? new Date(d.tanggal).toLocaleDateString('id-ID') : '-'}</div>
+                <div class="detail-info-item"><strong>❌ Alasan:</strong> ${escapeHtml(d.alasan || 'Tidak tertarik')}</div>
+                ${d.negosiasi_data ? `<div class="detail-info-item"><strong>📋 Data Negosiasi:</strong><br><div style="margin-top:5px; padding-left:15px;">Aplikasi: ${escapeHtml(d.negosiasi_data.aplikasi || '-')}<br>Domisili: ${escapeHtml(d.negosiasi_data.domisili || '-')}<br>Transaksi: ${escapeHtml(d.negosiasi_data.transaksi || '-')}<br>Tertarik: ${escapeHtml(d.negosiasi_data.tertarik || '-')}</div></div>` : ''}
+            `;
         } else if (type === 'nomor_salah') {
-            detailHtml = `${ownerInfo}
+            detailHtml = `
+                ${ownerInfo}
                 <div class="detail-info-item"><strong>👤 Nama:</strong> ${escapeHtml(d.nama)}</div>
                 <div class="detail-info-item"><strong>📱 Nomor WA:</strong> ${escapeHtml(d.hp)}</div>
-                <div class="detail-info-item"><strong>📅 Tanggal Dihapus:</strong> ${new Date(d.deleted_at).toLocaleDateString('id-ID')}</div>
-                <div class="detail-info-item"><strong>📵 Alasan:</strong> ${d.alasan || 'Nomor tidak bisa dihubungi'}</div>`;
+                <div class="detail-info-item"><strong>📅 Tanggal Dihapus:</strong> ${d.deleted_at ? new Date(d.deleted_at).toLocaleDateString('id-ID') : '-'}</div>
+                <div class="detail-info-item"><strong>📵 Alasan:</strong> ${escapeHtml(d.alasan || 'Nomor tidak bisa dihubungi')}</div>
+            `;
         } else if (type === 'commitment') {
-            detailHtml = `${ownerInfo}
+            detailHtml = `
+                ${ownerInfo}
                 <div class="detail-info-item"><strong>👤 Nama:</strong> ${escapeHtml(d.nama)}</div>
                 <div class="detail-info-item"><strong>📱 Nomor WA:</strong> ${escapeHtml(d.hp)}</div>
-                <div class="detail-info-item"><strong>📅 Tanggal Komitmen:</strong> ${new Date(d.committed_at).toLocaleDateString('id-ID')}</div>
-                <div class="detail-info-item"><strong>🆔 ID Agent:</strong> ${d.agent_id || '-'}</div>
-                <div class="detail-info-item"><strong>📱 Aplikasi:</strong> ${d.aplikasi || '-'}</div>`;
+                <div class="detail-info-item"><strong>📅 Tanggal Komitmen:</strong> ${d.committed_at ? new Date(d.committed_at).toLocaleDateString('id-ID') : '-'}</div>
+                <div class="detail-info-item"><strong>🆔 ID Agent:</strong> ${escapeHtml(d.agent_id || '-')}</div>
+                <div class="detail-info-item"><strong>📱 Aplikasi:</strong> ${escapeHtml(d.aplikasi || '-')}</div>
+                <div class="detail-info-item"><strong>👤 Upline:</strong> ${escapeHtml(d.upline_name || '-')}</div>
+                <div class="detail-info-item"><strong>📞 No. Upline:</strong> ${escapeHtml(d.upline_phone || '-')}</div>
+                <div class="detail-info-item"><strong>📅 Followup Date:</strong> ${d.followup_date || '-'}</div>
+                <div class="detail-info-item"><strong>📝 Catatan:</strong> ${escapeHtml(d.commitment_note || '-')}</div>
+                ${d.negosiasi_data ? `<div class="detail-info-item"><strong>📋 Data Negosiasi:</strong><br><div style="margin-top:5px; padding-left:15px;">Aplikasi: ${escapeHtml(d.negosiasi_data.aplikasi || '-')}<br>Domisili: ${escapeHtml(d.negosiasi_data.domisili || '-')}<br>Transaksi: ${escapeHtml(d.negosiasi_data.transaksi || '-')}<br>Tertarik: ${escapeHtml(d.negosiasi_data.tertarik || '-')}</div></div>` : ''}
+            `;
+        } else if (type === 'db_agent') {
+            detailHtml = `
+                ${ownerInfo}
+                <div class="detail-info-item"><strong>🆔 ID Agent:</strong> ${escapeHtml(d.agent_id || '-')}</div>
+                <div class="detail-info-item"><strong>👤 Nama:</strong> ${escapeHtml(d.nama)}</div>
+                <div class="detail-info-item"><strong>📱 Nomor WA:</strong> ${escapeHtml(d.hp)}</div>
+                <div class="detail-info-item"><strong>🏷️ Type/Class:</strong> ${escapeHtml(d.agent_type || '-')}</div>
+                <div class="detail-info-item"><strong>📱 Aplikasi:</strong> ${escapeHtml(d.apk || '-')}</div>
+                <div class="detail-info-item"><strong>👤 Upline:</strong> ${escapeHtml(d.upline || '-')}</div>
+                <div class="detail-info-item"><strong>🆔 CID:</strong> ${escapeHtml(d.cid || '-')}</div>
+                <div class="detail-info-item"><strong>🏦 Jenis Bank:</strong> ${escapeHtml(d.jenis_bank || '-')}</div>
+                <div class="detail-info-item"><strong>📅 Tanggal Dibuat:</strong> ${d.created_at ? new Date(d.created_at).toLocaleDateString('id-ID') : '-'}</div>
+            `;
         }
         
+        // Tampilkan modal detail
         document.getElementById('detailContent').innerHTML = `
             <div class="detail-header">
                 <h3>${title}</h3>
@@ -4360,7 +4450,7 @@ function openDBDetailModal(id, type) {
             <div class="detail-body">
                 <div class="detail-info">${detailHtml}</div>
                 <div class="detail-actions">
-                    <button class="btn-success" onclick="openWA('${d.hp}')">💬 WhatsApp</button>
+                    <button class="btn-success" onclick="openWA('${escapeHtml(d.hp)}')">💬 WhatsApp</button>
                 </div>
             </div>
             <div class="detail-footer">
@@ -4369,6 +4459,9 @@ function openDBDetailModal(id, type) {
             </div>
         `;
         showModal('detailModal');
+    }).catch(err => {
+        console.error('Error:', err);
+        showNotifTop('❌ Gagal memuat detail: ' + err.message, true);
     });
 }
 
