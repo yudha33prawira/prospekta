@@ -872,7 +872,6 @@ async function openDetailProspek(id) {
 function openFollowupConfirm(id) {
     currentPendingId = id;
     
-    // Ambil data customer yang sudah ada
     window.db.from('customers').select('*').eq('id', id).single().then(({ data: existingData }) => {
         const modal = createModalWithHighZIndex(`
             <div class="modal-content" style="max-width: 450px;">
@@ -889,7 +888,7 @@ function openFollowupConfirm(id) {
                         <label><input type="checkbox" id="followup_terkirim" style="margin-right: 8px;" ${existingData?.followup_data?.terkirim ? 'checked' : ''}> Apakah pesan sudah terkirim dan terbaca?</label>
                     </div>
                     <div class="form-group">
-                        <label>Isi Pesan yang Dikirim</label>
+                        <label>Isi Pesan yang Dikirim <span class="required">*</span></label>
                         <textarea id="followup_pesan" rows="3" placeholder="Tulis pesan yang dikirim ke customer..." style="width:100%; padding: 10px; border-radius: 10px; border: 1px solid #e5e7eb;">${escapeHtml(existingData?.followup_data?.pesan || '')}</textarea>
                     </div>
                     <div class="form-group">
@@ -916,31 +915,52 @@ function openFollowupConfirm(id) {
         const noBtn = modal.querySelector('#followupConfirmNo');
         const cancelBtn = modal.querySelector('#followupConfirmCancel');
         
-        yesBtn.onclick = async () => {
+        function validateForm() {
             const isChecked = cb1.checked && cb2.checked;
             const hasPesan = pesanInput.value.trim() !== '';
-            const hasBalasan = balasanInput.value.trim() !== '';
+            const isValid = isChecked && hasPesan;
             
-            if (!isChecked || !hasPesan || !hasBalasan) {
-                showNotifTop('⚠️ Harap centang kedua checklist dan isi pesan & balasan!', true);
+            if (isValid) {
+                yesBtn.disabled = false;
+                yesBtn.style.opacity = '1';
+                yesBtn.style.background = '#4f46e5';
+                yesBtn.style.cursor = 'pointer';
+            } else {
+                yesBtn.disabled = true;
+                yesBtn.style.opacity = '0.6';
+                yesBtn.style.background = '#9ca3af';
+                yesBtn.style.cursor = 'not-allowed';
+            }
+        }
+        
+        cb1.onclick = validateForm;
+        cb2.onclick = validateForm;
+        pesanInput.oninput = validateForm;
+        validateForm();
+        
+        yesBtn.onclick = async () => {
+            if (yesBtn.disabled) {
+                showNotifTop('⚠️ Harap centang kedua checklist dan isi pesan!', true);
                 return;
             }
             
             const { data: doc } = await window.db.from('customers').select('*').eq('id', id).single();
             const currentDeadline = doc.tanggal || getTodayDate();
             
+            const followupData = {
+                terkirim: true,
+                dibalas: cb2.checked,
+                pesan: pesanInput.value,
+                balasan: balasanInput.value || null,
+                timestamp: new Date().toISOString()
+            };
+            
             await window.db.from('customers').update({
-                followup_data: { 
-                    terkirim: true, 
-                    dibalas: true, 
-                    pesan: pesanInput.value,
-                    balasan: balasanInput.value,
-                    timestamp: new Date().toISOString() 
-                },
+                followup_data: followupData,
                 status: 'pending',
                 tanggal: currentDeadline,
                 pesan_terkirim: pesanInput.value,
-                balasan_diterima: balasanInput.value,
+                balasan_diterima: balasanInput.value || null,
                 pesan_dikirim_at: new Date().toISOString()
             }).eq('id', id);
             
@@ -987,7 +1007,6 @@ function openFollowupConfirm(id) {
 function openProspekDihubungiConfirm(id) {
     currentProspekId = id;
     
-    // Ambil data prospek yang sudah ada
     window.db.from('prospek').select('*').eq('id', id).single().then(({ data: existingData }) => {
         const modal = createModalWithHighZIndex(`
             <div class="modal-content" style="max-width: 450px;">
@@ -1004,7 +1023,7 @@ function openProspekDihubungiConfirm(id) {
                         <label><input type="checkbox" id="prospek_terkirim" style="margin-right: 8px;" ${existingData?.dihubungi_data?.terkirim ? 'checked' : ''}> Apakah pesan sudah terkirim dan terbaca?</label>
                     </div>
                     <div class="form-group">
-                        <label>Isi Pesan yang Dikirim</label>
+                        <label>Isi Pesan yang Dikirim <span class="required">*</span></label>
                         <textarea id="prospek_pesan" rows="3" placeholder="Tulis pesan yang dikirim ke prospek..." style="width:100%; padding: 10px; border-radius: 10px; border: 1px solid #e5e7eb;">${escapeHtml(existingData?.dihubungi_data?.pesan || '')}</textarea>
                     </div>
                     <div class="form-group">
@@ -1031,31 +1050,52 @@ function openProspekDihubungiConfirm(id) {
         const noBtn = modal.querySelector('#prospekConfirmNo');
         const cancelBtn = modal.querySelector('#prospekConfirmCancel');
         
-        yesBtn.onclick = async () => {
+        function validateForm() {
             const isChecked = cb1.checked && cb2.checked;
             const hasPesan = pesanInput.value.trim() !== '';
-            const hasBalasan = balasanInput.value.trim() !== '';
+            const isValid = isChecked && hasPesan;
             
-            if (!isChecked || !hasPesan || !hasBalasan) {
-                showNotifTop('⚠️ Harap centang kedua checklist dan isi pesan & balasan!', true);
+            if (isValid) {
+                yesBtn.disabled = false;
+                yesBtn.style.opacity = '1';
+                yesBtn.style.background = '#4f46e5';
+                yesBtn.style.cursor = 'pointer';
+            } else {
+                yesBtn.disabled = true;
+                yesBtn.style.opacity = '0.6';
+                yesBtn.style.background = '#9ca3af';
+                yesBtn.style.cursor = 'not-allowed';
+            }
+        }
+        
+        cb1.onclick = validateForm;
+        cb2.onclick = validateForm;
+        pesanInput.oninput = validateForm;
+        validateForm();
+        
+        yesBtn.onclick = async () => {
+            if (yesBtn.disabled) {
+                showNotifTop('⚠️ Harap centang kedua checklist dan isi pesan!', true);
                 return;
             }
             
             const { data: doc } = await window.db.from('prospek').select('*').eq('id', id).single();
             const currentDeadline = doc.deadline || getTodayDate();
             
+            const dihubungiData = {
+                terkirim: true,
+                dibalas: cb2.checked,
+                pesan: pesanInput.value,
+                balasan: balasanInput.value || null,
+                timestamp: new Date().toISOString()
+            };
+            
             await window.db.from('prospek').update({
-                dihubungi_data: { 
-                    terkirim: true, 
-                    dibalas: true, 
-                    pesan: pesanInput.value,
-                    balasan: balasanInput.value,
-                    timestamp: new Date().toISOString() 
-                },
+                dihubungi_data: dihubungiData,
                 status: 'Negosiasi',
                 deadline: currentDeadline,
                 pesan_terkirim: pesanInput.value,
-                balasan_diterima: balasanInput.value,
+                balasan_diterima: balasanInput.value || null,
                 pesan_dikirim_at: new Date().toISOString()
             }).eq('id', id);
             
@@ -2153,36 +2193,18 @@ function getFirstDayOfNextMonth() {
     return nextMonth.toISOString().split('T')[0];
 }
 
-// ========== FUNGSI updateCustomerStatus (BARU KE FOLLOWUP - TIDAK NAMBAH DEADLINE) ==========
+// ========== FUNGSI updateCustomerStatus ==========
 async function updateCustomerStatus(id, newStatus) {
     const customer = customersData.find(c => c.id === id);
     if (!customer) return;
     
-    // Jika dari Baru ke Follow Up - TIDAK menambah deadline
-    if (customer.status === 'baru' && newStatus === 'followup') {
-        const { error } = await window.db
-            .from('customers')
-            .update({ status: newStatus, updated_at: new Date().toISOString() })
-            .eq('id', id);
-        
-        if (error) {
-            showNotifTop('❌ Gagal update: ' + error.message, true);
-            return;
-        }
-        
-        showNotifTop(`✅ Status berhasil diupdate ke Follow Up. Deadline tidak berubah.`);
-        closeModal('detailModal');
-        await loadCustomers();
-        return;
-    }
-    
-    // Jika dari Follow Up ke Pending - panggil openFollowupConfirm (tidak langsung update deadline)
+    // Jika dari Follow Up ke Pending
     if (customer.status === 'followup' && newStatus === 'pending') {
         openFollowupConfirm(id);
         return;
     }
     
-    // Jika dari Pending ke Closing - update deadline ke tanggal 1 bulan depan
+    // Jika dari Pending ke Closing
     if (customer.status === 'pending' && newStatus === 'closing') {
         const newDeadline = getFirstDayOfNextMonth();
         
@@ -2202,13 +2224,30 @@ async function updateCustomerStatus(id, newStatus) {
         return;
     }
     
-    // Jika dari Closing ke DB Closing - panggil confirmClosingToDB
+    // Jika dari Closing ke DB Closing
     if (customer.status === 'closing' && newStatus === 'db_closing') {
         confirmClosingToDB(id);
         return;
     }
     
-    // Default untuk kasus lain (tidak seharusnya terjadi)
+    // Jika dari Baru ke Follow Up
+    if (customer.status === 'baru' && newStatus === 'followup') {
+        const { error } = await window.db
+            .from('customers')
+            .update({ status: newStatus, updated_at: new Date().toISOString() })
+            .eq('id', id);
+        
+        if (error) {
+            showNotifTop('❌ Gagal update: ' + error.message, true);
+            return;
+        }
+        
+        showNotifTop(`✅ Status berhasil diupdate ke Follow Up. Deadline tidak berubah.`);
+        closeModal('detailModal');
+        await loadCustomers();
+        return;
+    }
+    
     showNotifTop('⚠️ Aksi tidak dikenali!', true);
 }
 
