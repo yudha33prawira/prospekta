@@ -1298,6 +1298,7 @@ function openProspekNegosiasiModal(id) {
             backdrop-filter: blur(5px) !important;
         `;
         
+        // Hitung persentase kelengkapan data negosiasi
         const negosiasiData = data.negosiasi_data || {};
         const fields = ['aplikasi', 'domisili', 'transaksi', 'deposit', 'tertarik', 'penawaran'];
         const filledFields = fields.filter(f => negosiasiData[f] && negosiasiData[f] !== '');
@@ -1334,18 +1335,14 @@ function openProspekNegosiasiModal(id) {
                         <label style="display: block; font-size: 12px; font-weight: 600; color: #374151; margin-bottom: 6px;">Total transaksi per bulan? <span style="color: #ef4444;">*</span></label>
                         <input type="text" id="negosiasi_transaksi" placeholder="Nominal" value="${escapeHtml(data.negosiasi_data?.transaksi || '')}" style="width:100%; padding: 12px 14px; border: 1.5px solid #e5e7eb; border-radius: 14px; font-size: 13px;">
                     </div>
-                    const depositValue = data.negosiasi_data?.deposit || '';
-                    modal.innerHTML = modal.innerHTML.replace(
-                        /<div class="form-group" style="margin-bottom: 16px;">[\s\S]*?Apakah deposit atau saldo pinjaman\?[\s\S]*?<\/div>/,
-                        `<div class="form-group" style="margin-bottom: 16px;">
-                            <label style="display: block; font-size: 12px; font-weight: 600; color: #374151; margin-bottom: 6px;">Apakah deposit atau saldo pinjaman? <span style="color: #ef4444;">*</span></label>
-                            <select id="negosiasi_deposit" style="width:100%; padding: 12px 14px; border: 1.5px solid #e5e7eb; border-radius: 14px; font-size: 13px;">
-                                <option value="">Pilih</option>
-                                <option value="Deposit" ${depositValue === 'Deposit' ? 'selected' : ''}>Deposit</option>
-                                <option value="Saldo Pinjaman" ${depositValue === 'Saldo Pinjaman' ? 'selected' : ''}>Saldo Pinjaman</option>
-                            </select>
-                        </div>`
-                    );
+                    <div class="form-group" style="margin-bottom: 16px;">
+                        <label style="display: block; font-size: 12px; font-weight: 600; color: #374151; margin-bottom: 6px;">Apakah deposit atau saldo pinjaman? <span style="color: #ef4444;">*</span></label>
+                        <select id="negosiasi_deposit" style="width:100%; padding: 12px 14px; border: 1.5px solid #e5e7eb; border-radius: 14px; font-size: 13px;">
+                            <option value="">Pilih</option>
+                            <option value="Deposit" ${data.negosiasi_data?.deposit === 'Deposit' ? 'selected' : ''}>Deposit</option>
+                            <option value="Saldo Pinjaman" ${data.negosiasi_data?.deposit === 'Saldo Pinjaman' ? 'selected' : ''}>Saldo Pinjaman</option>
+                        </select>
+                    </div>
                     <div class="form-group" style="margin-bottom: 16px;">
                         <label style="display: block; font-size: 12px; font-weight: 600; color: #374151; margin-bottom: 6px;">Apakah tertarik dengan penawaran kamu? <span style="color: #ef4444;">*</span></label>
                         <select id="negosiasi_tertarik" style="width:100%; padding: 12px 14px; border: 1.5px solid #e5e7eb; border-radius: 14px; font-size: 13px;">
@@ -1417,14 +1414,84 @@ function openProspekNegosiasiModal(id) {
         
         // Tambahkan event listener ke semua input untuk update status
         const inputs = ['negosiasi_aplikasi', 'negosiasi_domisili', 'negosiasi_transaksi', 'negosiasi_deposit', 'negosiasi_tertarik', 'negosiasi_penawaran'];
-        inputs.forEach(id => {
-            const el = document.getElementById(id);
-            if (el) el.addEventListener('input', updateCompleteStatus);
-            if (el && el.tagName === 'SELECT') el.addEventListener('change', updateCompleteStatus);
+        inputs.forEach(inputId => {
+            const el = document.getElementById(inputId);
+            if (el) {
+                el.addEventListener('input', updateCompleteStatus);
+                if (el.tagName === 'SELECT') {
+                    el.addEventListener('change', updateCompleteStatus);
+                }
+            }
         });
         updateCompleteStatus();
         
-        // Tombol Tertarik
+        // Tombol Simpan - tambah deadline 5 hari dari HARI INI
+        const simpanBtn = document.getElementById('negosiasiSimpanBtnFix');
+        if (simpanBtn) {
+            simpanBtn.addEventListener('click', async function(e) {
+                e.preventDefault();
+                e.stopPropagation();
+                
+                const aplikasi = document.getElementById('negosiasi_aplikasi').value;
+                const domisili = document.getElementById('negosiasi_domisili').value;
+                const transaksi = document.getElementById('negosiasi_transaksi').value;
+                const deposit = document.getElementById('negosiasi_deposit').value;
+                const tertarik = document.getElementById('negosiasi_tertarik').value;
+                const penawaran = document.getElementById('negosiasi_penawaran').value;
+                
+                const hasAnyData = aplikasi || domisili || transaksi || deposit || tertarik || penawaran;
+                if (!hasAnyData) {
+                    showNotifTop('⚠️ Tidak ada data untuk disimpan!', true);
+                    return;
+                }
+                
+                try {
+                    const { data: doc } = await window.db.from('prospek').select('*').eq('id', currentProspekId).single();
+                    const existingData = doc.negosiasi_data || {};
+                    
+                    const hasChanges = aplikasi !== (existingData.aplikasi || '') ||
+                        domisili !== (existingData.domisili || '') ||
+                        transaksi !== (existingData.transaksi || '') ||
+                        deposit !== (existingData.deposit || '') ||
+                        tertarik !== (existingData.tertarik || '') ||
+                        penawaran !== (existingData.penawaran || '');
+                    
+                    if (!hasChanges) {
+                        showNotifTop('⚠️ Tidak ada perubahan data!', true);
+                        return;
+                    }
+                    
+                    const negosiasi_data = {
+                        aplikasi: aplikasi || '',
+                        domisili: domisili || '',
+                        transaksi: transaksi || '',
+                        deposit: deposit || '',
+                        tertarik: tertarik || '',
+                        penawaran: penawaran || '',
+                        timestamp: new Date().toISOString(),
+                        is_complete: !!(aplikasi && domisili && transaksi && deposit && tertarik && penawaran)
+                    };
+                    
+                    // Deadline bertambah 5 hari dari HARI INI
+                    const newDeadline = addDaysFromToday(5);
+                    
+                    await window.db.from('prospek').update({
+                        negosiasi_data: negosiasi_data,
+                        deadline: newDeadline,
+                        updated_at: new Date().toISOString()
+                    }).eq('id', currentProspekId);
+                    
+                    showNotifTop(`💾 Data kuesioner berhasil disimpan. Deadline +5 hari dari hari ini menjadi ${newDeadline}`);
+                    closeModalFix();
+                    await loadProspek();
+                    closeModal('detailModal');
+                } catch (err) {
+                    showNotifTop('❌ Gagal: ' + err.message, true);
+                }
+            });
+        }
+        
+        // Tombol Tertarik - tambah deadline 1 hari dari HARI INI
         const tertarikBtn = document.getElementById('negosiasiTertarikBtnFix');
         if (tertarikBtn) {
             tertarikBtn.addEventListener('click', async function(e) {
@@ -1513,72 +1580,6 @@ function openProspekNegosiasiModal(id) {
                     closeModalFix();
                     await loadProspek();
                     await loadDBTidak();
-                    closeModal('detailModal');
-                } catch (err) {
-                    showNotifTop('❌ Gagal: ' + err.message, true);
-                }
-            });
-        }
-        
-        // Tombol Simpan
-        const simpanBtn = document.getElementById('negosiasiSimpanBtnFix');
-        if (simpanBtn) {
-            simpanBtn.addEventListener('click', async function(e) {
-                e.preventDefault();
-                e.stopPropagation();
-                
-                const aplikasi = document.getElementById('negosiasi_aplikasi').value;
-                const domisili = document.getElementById('negosiasi_domisili').value;
-                const transaksi = document.getElementById('negosiasi_transaksi').value;
-                const deposit = document.getElementById('negosiasi_deposit').value;
-                const tertarik = document.getElementById('negosiasi_tertarik').value;
-                const penawaran = document.getElementById('negosiasi_penawaran').value;
-                
-                const hasAnyData = aplikasi || domisili || transaksi || deposit || tertarik || penawaran;
-                if (!hasAnyData) {
-                    showNotifTop('⚠️ Tidak ada data untuk disimpan!', true);
-                    return;
-                }
-                
-                try {
-                    const { data: doc } = await window.db.from('prospek').select('*').eq('id', currentProspekId).single();
-                    const existingData = doc.negosiasi_data || {};
-                    
-                    const hasChanges = aplikasi !== (existingData.aplikasi || '') ||
-                        domisili !== (existingData.domisili || '') ||
-                        transaksi !== (existingData.transaksi || '') ||
-                        deposit !== (existingData.deposit || '') ||
-                        tertarik !== (existingData.tertarik || '') ||
-                        penawaran !== (existingData.penawaran || '');
-                    
-                    if (!hasChanges) {
-                        showNotifTop('⚠️ Tidak ada perubahan data!', true);
-                        return;
-                    }
-                    
-                    const negosiasi_data = {
-                        aplikasi: aplikasi || '',
-                        domisili: domisili || '',
-                        transaksi: transaksi || '',
-                        deposit: deposit || '',
-                        tertarik: tertarik || '',
-                        penawaran: penawaran || '',
-                        timestamp: new Date().toISOString(),
-                        is_complete: !!(aplikasi && domisili && transaksi && deposit && tertarik && penawaran)
-                    };
-                    
-                    // Deadline bertambah 5 hari dari HARI INI
-                    const newDeadline = addDaysFromToday(5);
-                    
-                    await window.db.from('prospek').update({
-                        negosiasi_data: negosiasi_data,
-                        deadline: newDeadline,
-                        updated_at: new Date().toISOString()
-                    }).eq('id', currentProspekId);
-                    
-                    showNotifTop(`💾 Data kuesioner berhasil disimpan. Deadline +5 hari dari hari ini menjadi ${newDeadline}`);
-                    closeModalFix();
-                    await loadProspek();
                     closeModal('detailModal');
                 } catch (err) {
                     showNotifTop('❌ Gagal: ' + err.message, true);
@@ -2157,7 +2158,7 @@ function confirmTertarikToDB(prospekId) {
     });
 }
 
-// ========== FUNGSI UPDATE DEADLINE BERDASARKAN TANGGAL EDIT ==========
+// ========== FUNGSI TAMBAHAN UNTUK DEADLINE ==========
 function addDaysFromToday(days) {
     const today = getTodayDate();
     return addDaysToDate(today, days);
