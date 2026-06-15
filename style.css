@@ -3095,3 +3095,43 @@ body.dark-mode .progress-bar-track {
 body.dark-mode .progress-bar-fill-custom {
     background: linear-gradient(90deg, #6366f1, #818cf8);
 }
+
+/* ========== PERBAIKAN DARK MODE - ANIMASI LEBIH GELAP ========== */
+
+/* Deadline overdue di dark mode - biru dongker ke merah marun */
+body.dark-mode .card-item.deadline-overdue {
+    border: 2px solid #7f1d1d !important;
+    background: #1a0a0a !important;
+    animation: blinkWarningDark 0.8s ease-in-out infinite !important;
+}
+
+@keyframes blinkWarningDark {
+    0% { border-color: #7f1d1d; background: #1a0a0a; box-shadow: 0 0 0px #7f1d1d; }
+    50% { border-color: #991b1b; background: #2a0a0a; box-shadow: 0 0 6px #991b1b; }
+    100% { border-color: #7f1d1d; background: #1a0a0a; box-shadow: 0 0 0px #7f1d1d; }
+}
+
+/* Deadline today di dark mode - biru dongker ke orange gelap */
+body.dark-mode .card-item.deadline-today {
+    border: 2px solid #78350f !important;
+    background: #1a0a00 !important;
+    animation: pulseTodayDark 0.8s ease-in-out infinite !important;
+}
+
+@keyframes pulseTodayDark {
+    0% { border-color: #78350f; background: #1a0a00; box-shadow: 0 0 0px #78350f; }
+    50% { border-color: #b45309; background: #2a1500; box-shadow: 0 0 6px #b45309; }
+    100% { border-color: #78350f; background: #1a0a00; box-shadow: 0 0 0px #78350f; }
+}
+
+/* Warna chart di dark mode - lebih gelap */
+body.dark-mode .chart-card canvas {
+    filter: brightness(0.85);
+}
+
+/* Card item hover di dark mode */
+body.dark-mode .card-item:hover {
+    background: #1e293b;
+    border-color: #334155;
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
+}
