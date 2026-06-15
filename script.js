@@ -1576,7 +1576,7 @@ function showConvertToCustomerModal(prospekId) {
     document.getElementById('confirmConvertBtn').onclick = async () => {
         const agentId = document.getElementById('convertAgentId').value;
         const aplikasi = document.getElementById('convertAplikasi').value;
-        const followupDate = document.getElementById('convertFollowupDate').value;
+        const followupDateValue = document.getElementById('convertFollowupDate').value;
         
         if (!agentId || !aplikasi) {
             showNotifTop('⚠️ ID Agent dan Aplikasi wajib diisi!', true);
@@ -1602,36 +1602,36 @@ function showConvertToCustomerModal(prospekId) {
                 committed_at: new Date().toISOString(),
                 user_id: data.user_id,
                 original_prospek_id: prospekId,
-                followup_date: followupDate
+                followup_date: followupDateValue
             });
             
-        const followupDate = getTodayDate();
-        await window.db.from('customers').insert({
-            agent_id: agentId,
-            nama: data.nama,
-            hp: data.hp,
-            apk: aplikasi,
-            tanggal: followupDate,
-            status: 'baru',
-            user_id: data.user_id,
-            created_at: new Date().toISOString(),
-            converted_from: 'prospek_commitment',
-            is_new_member: true
-        });
+            await window.db.from('customers').insert({
+                agent_id: agentId,
+                nama: data.nama,
+                hp: data.hp,
+                apk: aplikasi,
+                tanggal: followupDateValue,
+                status: 'baru',
+                user_id: data.user_id,
+                created_at: new Date().toISOString(),
+                converted_from: 'prospek_commitment',
+                is_new_member: true
+            });
             
-        await window.db.from('prospek').delete().eq('id', prospekId);
-        
-        showNotifTop('✅ Berhasil! Member baru telah ditambahkan ke Followup Agen dan tersimpan di Database Commitment');
-        modal.remove();
-        document.body.classList.remove('modal-open');
-        document.body.style.overflow = '';
-        await loadCustomers();
-        await loadProspek();
-        await loadDBCommitment();
-        closeModal('detailModal');
+            await window.db.from('prospek').delete().eq('id', prospekId);
+            
+            showNotifTop('✅ Berhasil! Member baru telah ditambahkan ke Followup Agen dan tersimpan di Database Commitment');
+            modal.remove();
+            document.body.classList.remove('modal-open');
+            document.body.style.overflow = '';
+            await loadCustomers();
+            await loadProspek();
+            await loadDBCommitment();
+            closeModal('detailModal');
+        }
     };
     
-    document.getElementById('cancelTertarikToDBBtn').onclick = () => {
+    document.getElementById('cancelConvertBtn').onclick = () => {
         modal.remove();
         document.body.classList.remove('modal-open');
         document.body.style.overflow = '';
