@@ -3693,3 +3693,24 @@ body.dark-mode .modal .modal-content .detail-footer .btn-delete {
     background: linear-gradient(135deg, #991b1b, #7f1d1d) !important;
     color: #fff !important;
 }
+
+/* ===== KANBAN DARK MODE - UNIFIED ===== */
+body.dark-mode .kanban-column[data-status="baru"],
+body.dark-mode .kanban-column[data-status="Baru"] {
+    background: linear-gradient(135deg, #1e1b4b, #2e1065) !important;
+}
+
+body.dark-mode .kanban-column[data-status="followup"],
+body.dark-mode .kanban-column[data-status="Dihubungi"] {
+    background: linear-gradient(135deg, #1e293b, #1e3a5f) !important;
+}
+
+body.dark-mode .kanban-column[data-status="pending"],
+body.dark-mode .kanban-column[data-status="Negosiasi"] {
+    background: linear-gradient(135deg, #451a03, #78350f) !important;
+}
+
+body.dark-mode .kanban-column[data-status="closing"],
+body.dark-mode .kanban-column[data-status="Tertarik"] {
+    background: linear-gradient(135deg, #064e3b, #065f46) !important;
+}
