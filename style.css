@@ -2120,6 +2120,82 @@ body.dark-mode .kanban-column[data-status="Tertarik"] {
     background: linear-gradient(135deg, #064e3b, #065f46) !important;
 }
 
+/* ===== CHART DARK MODE - FORCE OVERRIDE ===== */
+
+/* 1. Background utama chart card */
+body.dark-mode .chart-card {
+    background: #1e293b !important;
+    border-color: #334155 !important;
+}
+
+/* 2. Canvas di dalam chart card - force background gelap */
+body.dark-mode .chart-card canvas {
+    background: #0f172a !important;
+    border-radius: 12px !important;
+    padding: 10px !important;
+    display: block !important;
+}
+
+/* 3. Chart wrapper di target KPI */
+body.dark-mode .chart-target-wrapper .chart-card {
+    background: #0f172a !important;
+    border: 1px solid #334155 !important;
+}
+
+body.dark-mode .chart-target-wrapper .chart-card canvas {
+    background: transparent !important;
+}
+
+/* 4. Semua canvas di dashboard - force background gelap */
+body.dark-mode #dashboardPage canvas,
+body.dark-mode #followupFullPage canvas,
+body.dark-mode #prospekFullPage canvas {
+    background: #0f172a !important;
+    border-radius: 12px !important;
+}
+
+/* 5. Chart.js default - override semua canvas */
+body.dark-mode canvas {
+    background: #0f172a !important;
+}
+
+/* 6. Canvas dengan class chartjs-render-monitor */
+body.dark-mode canvas.chartjs-render-monitor {
+    background: #0f172a !important;
+}
+
+/* 7. Chart container di target section */
+body.dark-mode .target-kpi-section .chart-target-wrapper .chart-card {
+    background: #0f172a !important;
+    border: 1px solid #334155 !important;
+}
+
+body.dark-mode .target-kpi-section .chart-target-wrapper .chart-card canvas {
+    background: transparent !important;
+}
+
+/* 8. Chart title di dark mode */
+body.dark-mode .chart-card h3 {
+    color: #f1f5f9 !important;
+}
+
+/* 9. Chart tooltip - jika ada */
+body.dark-mode .chartjs-tooltip,
+body.dark-mode .chartjs-tooltip-body {
+    background: #1e293b !important;
+    color: #f1f5f9 !important;
+    border: 1px solid #334155 !important;
+}
+
+/* 10. Legend text di chart */
+body.dark-mode .chartjs-legend li span {
+    color: #f1f5f9 !important;
+}
+
+body.dark-mode .chartjs-legend li {
+    color: #f1f5f9 !important;
+}
+
 /* GRADIENT TEXT */
 body.dark-mode .stat-info .value,
 body.dark-mode .logo,
