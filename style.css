@@ -2046,6 +2046,33 @@ body.dark-mode .search-input::placeholder {
     color: #64748b !important;
 }
 
+/* ===== CHART DARK MODE ===== */
+body.dark-mode .chart-card canvas {
+    background: #0f172a !important;
+    border-radius: 12px !important;
+    padding: 8px !important;
+}
+
+body.dark-mode .chart-card {
+    background: #1e293b !important;
+    border-color: #334155 !important;
+}
+
+/* Chart wrapper di target KPI */
+body.dark-mode .chart-target-wrapper .chart-card {
+    background: #0f172a !important;
+    border: 1px solid #334155 !important;
+}
+
+body.dark-mode .chart-target-wrapper .chart-card canvas {
+    background: transparent !important;
+}
+
+/* Chart.js default background override */
+body.dark-mode canvas.chartjs-render-monitor {
+    background: #0f172a !important;
+}
+
 /* ===== KANBAN DARK MODE ===== */
 body.dark-mode .kanban-column {
     background: #0f0f1a !important;
