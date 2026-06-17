@@ -4015,6 +4015,7 @@ async function restoreToFollowup(id) {
             };
         }
         
+        // ===== PERBAIKAN: Hapus restored_from =====
         // Insert ke customers
         const { error: insertError } = await window.db.from('customers').insert({
             agent_id: item.agent_id || `NOMOR_${Date.now()}`,
@@ -4030,8 +4031,8 @@ async function restoreToFollowup(id) {
             pesan_terkirim: item.followup_data?.pesan || item.dihubungi_data?.pesan || null,
             balasan_diterima: item.followup_data?.balasan || item.dihubungi_data?.balasan || null,
             created_at: new Date().toISOString(),
-            updated_at: new Date().toISOString(),
-            restored_from: 'nomor_salah'
+            updated_at: new Date().toISOString()
+            // restored_from: 'nomor_salah'  // <-- HAPUS BARIS INI
         });
         
         if (insertError) {
@@ -4108,6 +4109,7 @@ async function restoreToProspek(id) {
             negosiasiData = item.negosiasi_data;
         }
         
+        // ===== PERBAIKAN: Hapus restored_from =====
         // Insert ke prospek
         const { error: insertError } = await window.db.from('prospek').insert({
             nama: item.nama,
@@ -4122,8 +4124,8 @@ async function restoreToProspek(id) {
             upline_name: item.upline_name || null,
             upline_phone: item.upline_phone || null,
             created_at: new Date().toISOString(),
-            updated_at: new Date().toISOString(),
-            restored_from: 'nomor_salah'
+            updated_at: new Date().toISOString()
+            // restored_from: 'nomor_salah'  // <-- HAPUS BARIS INI
         });
         
         if (insertError) {
