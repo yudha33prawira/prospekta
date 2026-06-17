@@ -3483,3 +3483,213 @@ body.dark-mode .modal.dynamic-modal .modal-content small,
 body.dark-mode #prospekNegosiasiModalFix .modal-content small {
     color: #94a3b8 !important;
 }
+
+/* ===== PERBAIKAN UNTUK POPUP JADIKAN MEMBER BARU ===== */
+body.dark-mode .modal:not(.dynamic-modal):not(.edit-deadline-modal) .modal-content [style*="background: #eef2ff"],
+body.dark-mode .modal:not(.dynamic-modal):not(.edit-deadline-modal) .modal-content [style*="background:#eef2ff"],
+body.dark-mode .modal:not(.dynamic-modal):not(.edit-deadline-modal) .modal-content [style*="background: #eef2ff;"],
+body.dark-mode .modal:not(.dynamic-modal):not(.edit-deadline-modal) .modal-content [style*="background:#eef2ff;"] {
+    background: #1e293b !important;
+    border: 1px solid #334155 !important;
+    border-radius: 12px !important;
+}
+
+body.dark-mode .modal:not(.dynamic-modal):not(.edit-deadline-modal) .modal-content [style*="background: #eef2ff"] p,
+body.dark-mode .modal:not(.dynamic-modal):not(.edit-deadline-modal) .modal-content [style*="background:#eef2ff"] p,
+body.dark-mode .modal:not(.dynamic-modal):not(.edit-deadline-modal) .modal-content [style*="background: #eef2ff;"] p,
+body.dark-mode .modal:not(.dynamic-modal):not(.edit-deadline-modal) .modal-content [style*="background:#eef2ff;"] p {
+    color: #a5b4fc !important;
+}
+
+body.dark-mode .modal:not(.dynamic-modal):not(.edit-deadline-modal) .modal-content [style*="background: #eef2ff"] strong,
+body.dark-mode .modal:not(.dynamic-modal):not(.edit-deadline-modal) .modal-content [style*="background:#eef2ff"] strong,
+body.dark-mode .modal:not(.dynamic-modal):not(.edit-deadline-modal) .modal-content [style*="background: #eef2ff;"] strong,
+body.dark-mode .modal:not(.dynamic-modal):not(.edit-deadline-modal) .modal-content [style*="background:#eef2ff;"] strong {
+    color: #818cf8 !important;
+}
+
+/* ===== PERBAIKAN UNTUK POPUP PINDAHKAN KE DB CLOSING ===== */
+body.dark-mode .modal:not(.dynamic-modal):not(.edit-deadline-modal) .modal-content [style*="background: #fef3c7"],
+body.dark-mode .modal:not(.dynamic-modal):not(.edit-deadline-modal) .modal-content [style*="background:#fef3c7"],
+body.dark-mode .modal:not(.dynamic-modal):not(.edit-deadline-modal) .modal-content [style*="background: #fef3c7;"],
+body.dark-mode .modal:not(.dynamic-modal):not(.edit-deadline-modal) .modal-content [style*="background:#fef3c7;"],
+body.dark-mode .modal:not(.dynamic-modal):not(.edit-deadline-modal) .modal-content [style*="background: #f3c7"],
+body.dark-mode .modal:not(.dynamic-modal):not(.edit-deadline-modal) .modal-content [style*="background:#f3c7"] {
+    background: #451a03 !important;
+    border: 1px solid #78350f !important;
+    border-left: 4px solid #f59e0b !important;
+    border-radius: 12px !important;
+}
+
+body.dark-mode .modal:not(.dynamic-modal):not(.edit-deadline-modal) .modal-content [style*="background: #fef3c7"] p,
+body.dark-mode .modal:not(.dynamic-modal):not(.edit-deadline-modal) .modal-content [style*="background:#fef3c7"] p,
+body.dark-mode .modal:not(.dynamic-modal):not(.edit-deadline-modal) .modal-content [style*="background: #fef3c7;"] p,
+body.dark-mode .modal:not(.dynamic-modal):not(.edit-deadline-modal) .modal-content [style*="background:#fef3c7;"] p,
+body.dark-mode .modal:not(.dynamic-modal):not(.edit-deadline-modal) .modal-content [style*="background: #f3c7"] p,
+body.dark-mode .modal:not(.dynamic-modal):not(.edit-deadline-modal) .modal-content [style*="background:#f3c7"] p {
+    color: #fcd34d !important;
+}
+
+body.dark-mode .modal:not(.dynamic-modal):not(.edit-deadline-modal) .modal-content [style*="background: #fef3c7"] strong,
+body.dark-mode .modal:not(.dynamic-modal):not(.edit-deadline-modal) .modal-content [style*="background:#fef3c7"] strong,
+body.dark-mode .modal:not(.dynamic-modal):not(.edit-deadline-modal) .modal-content [style*="background: #fef3c7;"] strong,
+body.dark-mode .modal:not(.dynamic-modal):not(.edit-deadline-modal) .modal-content [style*="background:#fef3c7;"] strong {
+    color: #fbbf24 !important;
+}
+
+/* ===== PERBAIKAN UNTUK MODAL DI ATAS (Jadikan Member Baru) - BACKGROUND FORM ===== */
+body.dark-mode .modal .modal-content [style*="background: #eef2ff"],
+body.dark-mode .modal .modal-content [style*="background:#eef2ff"] {
+    background: #1e293b !important;
+    border: 1px solid #334155 !important;
+    border-radius: 12px !important;
+}
+
+body.dark-mode .modal .modal-content [style*="background: #eef2ff"] p,
+body.dark-mode .modal .modal-content [style*="background:#eef2ff"] p {
+    color: #a5b4fc !important;
+}
+
+body.dark-mode .modal .modal-content [style*="background: #eef2ff"] strong,
+body.dark-mode .modal .modal-content [style*="background:#eef2ff"] strong {
+    color: #818cf8 !important;
+}
+
+/* ===== PERBAIKAN UNTUK MODAL DI ATAS - BACKGROUND KUNING ===== */
+body.dark-mode .modal .modal-content [style*="background: #fef3c7"],
+body.dark-mode .modal .modal-content [style*="background:#fef3c7"],
+body.dark-mode .modal .modal-content [style*="background: #f3c7"],
+body.dark-mode .modal .modal-content [style*="background:#f3c7"] {
+    background: #451a03 !important;
+    border: 1px solid #78350f !important;
+    border-left: 4px solid #f59e0b !important;
+    border-radius: 12px !important;
+}
+
+body.dark-mode .modal .modal-content [style*="background: #fef3c7"] p,
+body.dark-mode .modal .modal-content [style*="background:#fef3c7"] p,
+body.dark-mode .modal .modal-content [style*="background: #f3c7"] p,
+body.dark-mode .modal .modal-content [style*="background:#f3c7"] p {
+    color: #fcd34d !important;
+}
+
+body.dark-mode .modal .modal-content [style*="background: #fef3c7"] strong,
+body.dark-mode .modal .modal-content [style*="background:#fef3c7"] strong,
+body.dark-mode .modal .modal-content [style*="background: #f3c7"] strong,
+body.dark-mode .modal .modal-content [style*="background:#f3c7"] strong {
+    color: #fbbf24 !important;
+}
+
+/* ===== PERBAIKAN UNTUK SEMUA MODAL - BACKGROUND PUTIH ===== */
+body.dark-mode .modal .modal-content {
+    background: #1e293b !important;
+    color: #f1f5f9 !important;
+}
+
+body.dark-mode .modal .modal-content h3 {
+    color: #f1f5f9 !important;
+    background: none !important;
+    -webkit-background-clip: unset !important;
+    background-clip: unset !important;
+}
+
+body.dark-mode .modal .modal-content .modal-subtitle {
+    color: #94a3b8 !important;
+}
+
+body.dark-mode .modal .modal-content label,
+body.dark-mode .modal .modal-content .form-group label {
+    color: #e2e8f0 !important;
+}
+
+body.dark-mode .modal .modal-content .form-group .required {
+    color: #f87171 !important;
+}
+
+body.dark-mode .modal .modal-content input,
+body.dark-mode .modal .modal-content select,
+body.dark-mode .modal .modal-content textarea {
+    background: #0f172a !important;
+    border-color: #334155 !important;
+    color: #f1f5f9 !important;
+}
+
+body.dark-mode .modal .modal-content input::placeholder,
+body.dark-mode .modal .modal-content textarea::placeholder {
+    color: #64748b !important;
+}
+
+body.dark-mode .modal .modal-content .input-hint,
+body.dark-mode .modal .modal-content small {
+    color: #94a3b8 !important;
+}
+
+body.dark-mode .modal .modal-content .modal-buttons {
+    background: #1e293b !important;
+    border-top: 1px solid #334155 !important;
+}
+
+body.dark-mode .modal .modal-content .btn-primary {
+    background: linear-gradient(135deg, #4f46e5, #6366f1) !important;
+    color: #fff !important;
+}
+
+body.dark-mode .modal .modal-content .btn-outline {
+    background: #334155 !important;
+    color: #f1f5f9 !important;
+    border: 1px solid #475569 !important;
+}
+
+body.dark-mode .modal .modal-content .btn-danger {
+    background: linear-gradient(135deg, #991b1b, #7f1d1d) !important;
+    color: #fff !important;
+}
+
+body.dark-mode .modal .modal-content .btn-success {
+    background: linear-gradient(135deg, #065f46, #064e3b) !important;
+    color: #fff !important;
+}
+
+body.dark-mode .modal .modal-content input[type="checkbox"] {
+    accent-color: #818cf8 !important;
+}
+
+/* ===== PERBAIKAN UNTUK DETAIL MODAL ===== */
+body.dark-mode .modal .modal-content .detail-header {
+    background: linear-gradient(135deg, #1e293b, #1e1b4b) !important;
+}
+
+body.dark-mode .modal .modal-content .detail-header h3 {
+    color: #f1f5f9 !important;
+}
+
+body.dark-mode .modal .modal-content .detail-info {
+    background: #0f172a !important;
+}
+
+body.dark-mode .modal .modal-content .detail-info-item {
+    border-bottom-color: #334155 !important;
+}
+
+body.dark-mode .modal .modal-content .detail-info-item strong {
+    color: #94a3b8 !important;
+}
+
+body.dark-mode .modal .modal-content .detail-info-item span {
+    color: #f1f5f9 !important;
+}
+
+body.dark-mode .modal .modal-content .detail-footer {
+    background: #1e293b !important;
+    border-top: 1px solid #334155 !important;
+}
+
+body.dark-mode .modal .modal-content .detail-footer .btn-close {
+    background: #334155 !important;
+    color: #f1f5f9 !important;
+}
+
+body.dark-mode .modal .modal-content .detail-footer .btn-delete {
+    background: linear-gradient(135deg, #991b1b, #7f1d1d) !important;
+    color: #fff !important;
+}
