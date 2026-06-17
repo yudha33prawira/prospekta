@@ -2073,6 +2073,32 @@ body.dark-mode canvas.chartjs-render-monitor {
     background: #0f172a !important;
 }
 
+/* Force override untuk chart di dashboard */
+body.dark-mode #dashboardPage .chart-card {
+    background: #1e293b !important;
+}
+
+body.dark-mode #dashboardPage .chart-card canvas {
+    background: #0f172a !important;
+    border-radius: 12px !important;
+}
+
+/* Force override untuk chart di target KPI */
+body.dark-mode .target-kpi-section .chart-card {
+    background: #0f172a !important;
+}
+
+body.dark-mode .target-kpi-section .chart-card canvas {
+    background: transparent !important;
+}
+
+/* Chart tooltip di dark mode */
+body.dark-mode .chartjs-tooltip {
+    background: #1e293b !important;
+    color: #f1f5f9 !important;
+    border: 1px solid #334155 !important;
+}
+
 /* ===== KANBAN DARK MODE ===== */
 body.dark-mode .kanban-column {
     background: #0f0f1a !important;
