@@ -594,6 +594,8 @@ function initDarkMode() {
     if (savedMode === 'enabled') {
         document.body.classList.add('dark-mode');
         darkModeToggle.classList.add('active');
+        // Update charts setelah dark mode aktif
+        setTimeout(updateChartsForDarkMode, 200);
     }
     
     darkModeToggle.addEventListener('click', function(e) {
@@ -609,8 +611,66 @@ function initDarkMode() {
             localStorage.setItem('darkMode', 'disabled');
             showNotifTop('☀️ Mode Terang diaktifkan');
         }
+        
+        // Update charts setelah toggle
+        setTimeout(updateChartsForDarkMode, 200);
     });
 }
+
+// ========== FUNGSI UPDATE CHART DARK MODE ==========
+function updateChartsForDarkMode() {
+    const isDark = document.body.classList.contains('dark-mode');
+    const bgColor = isDark ? '#0f172a' : '#ffffff';
+    const textColor = isDark ? '#f1f5f9' : '#1e293b';
+    
+    // Update semua chart yang ada
+    if (chartCustomer) {
+        chartCustomer.options.plugins.legend.labels.color = textColor;
+        chartCustomer.update();
+    }
+    
+    if (chartProspek) {
+        chartProspek.options.plugins.legend.labels.color = textColor;
+        chartProspek.update();
+    }
+    
+    if (targetChart) {
+        targetChart.options.plugins.legend.labels.color = textColor;
+        targetChart.update();
+    }
+    
+    if (trendChart) {
+        trendChart.options.plugins.legend.labels.color = textColor;
+        trendChart.update();
+    }
+    
+    // Update background canvas secara langsung
+    document.querySelectorAll('canvas').forEach(canvas => {
+        if (isDark) {
+            canvas.style.background = '#0f172a';
+            canvas.style.borderRadius = '12px';
+        } else {
+            canvas.style.background = '';
+            canvas.style.borderRadius = '';
+        }
+    });
+}
+
+// Panggil saat dark mode toggle
+document.addEventListener('DOMContentLoaded', function() {
+    const darkModeToggle = document.getElementById('darkModeToggle');
+    if (darkModeToggle) {
+        // Observer untuk mendeteksi perubahan class pada body
+        const observer = new MutationObserver(function(mutations) {
+            mutations.forEach(function(mutation) {
+                if (mutation.attributeName === 'class') {
+                    setTimeout(updateChartsForDarkMode, 100);
+                }
+            });
+        });
+        observer.observe(document.body, { attributes: true });
+    }
+});
 
 // ========== SIDEBAR HOVER FUNCTIONS ==========
 function initSidebarHover() {
@@ -5032,6 +5092,9 @@ function updateChartCustomer() {
     
     if (chartCustomer) chartCustomer.destroy();
     
+    const isDark = document.body.classList.contains('dark-mode');
+    const textColor = isDark ? '#f1f5f9' : '#1e293b';
+    
     chartCustomer = new Chart(ctx, {
         type: 'doughnut',
         data: {
@@ -5047,9 +5110,13 @@ function updateChartCustomer() {
             responsive: true,
             maintainAspectRatio: true,
             plugins: {
-                legend: { position: 'right', labels: { font: { size: 11 },
-                        color: document.body.classList.contains('dark-mode') ? '#f1f5f9' : '#1e293b'
-                    }
+                legend: { 
+                    position: 'right', 
+                    labels: { 
+                        font: { size: 11 },
+                        color: textColor,
+                        padding: 10
+                    } 
                 },
                 tooltip: {
                     callbacks: {
@@ -5077,6 +5144,9 @@ function updateChartProspek() {
     
     if (chartProspek) chartProspek.destroy();
     
+    const isDark = document.body.classList.contains('dark-mode');
+    const textColor = isDark ? '#f1f5f9' : '#1e293b';
+    
     chartProspek = new Chart(ctx, {
         type: 'doughnut',
         data: {
@@ -5092,8 +5162,14 @@ function updateChartProspek() {
             responsive: true,
             maintainAspectRatio: true,
             plugins: {
-                legend: { position: 'right', labels: { font: { size: 11 },
-                color: document.body.classList.contains('dark-mode') ? '#f1f5f9' : '#1e293b'} },
+                legend: { 
+                    position: 'right', 
+                    labels: { 
+                        font: { size: 11 },
+                        color: textColor,
+                        padding: 10
+                    } 
+                },
                 tooltip: {
                     callbacks: {
                         label: function(context) {
