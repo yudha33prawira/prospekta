@@ -1928,7 +1928,7 @@ function openProspekNegosiasiModal(id) {
             });
         }
         
-        // Tombol Tertarik - tambah deadline 1 hari dari HARI INI
+        // ===== PERBAIKAN: Tombol Tertarik =====
         const tertarikBtn = document.getElementById('negosiasiTertarikBtnFix');
         if (tertarikBtn) {
             tertarikBtn.addEventListener('click', async function(e) {
@@ -1975,10 +1975,10 @@ function openProspekNegosiasiModal(id) {
             });
         }
         
-        // Tombol Tidak Tertarik
+        // ===== PERBAIKAN: Tombol Tidak Tertarik dengan Popup Alasan =====
         const tidakTertarikBtn = document.getElementById('negosiasiTidakTertarikBtnFix');
         if (tidakTertarikBtn) {
-            tidakTertarikBtn.addEventListener('click', async function(e) {
+            tidakTertarikBtn.addEventListener('click', function(e) {
                 e.preventDefault();
                 e.stopPropagation();
                 if (tidakTertarikBtn.disabled) {
@@ -1986,41 +1986,9 @@ function openProspekNegosiasiModal(id) {
                     return;
                 }
                 
-                const aplikasi = document.getElementById('negosiasi_aplikasi').value;
-                const domisili = document.getElementById('negosiasi_domisili').value;
-                const transaksi = document.getElementById('negosiasi_transaksi').value;
-                const deposit = document.getElementById('negosiasi_deposit').value;
-                const tertarik = document.getElementById('negosiasi_tertarik').value;
-                const penawaran = document.getElementById('negosiasi_penawaran').value;
-                
-                if (!confirm('⚠️ PERINGATAN!\n\nData akan dipindahkan ke DATABASE TIDAK TERTARIK.\n\nData yang sudah dipindahkan TIDAK BISA dikembalikan ke Prospek Agen!\n\nLanjutkan?')) return;
-                
-                try {
-                    const { data: doc } = await window.db.from('prospek').select('*').eq('id', currentProspekId).single();
-                    
-                    await window.db.from('db_tidak_tertarik').insert({
-                        nama: doc.nama,
-                        hp: doc.hp,
-                        tanggal: new Date().toISOString(),
-                        user_id: doc.user_id,
-                        alasan: 'Tidak tertarik setelah negosiasi',
-                        status_sebelumnya: doc.status,
-                        negosiasi_data: {
-                            aplikasi, domisili, transaksi, deposit, tertarik, penawaran,
-                            timestamp: new Date().toISOString()
-                        }
-                    });
-                    
-                    await window.db.from('prospek').delete().eq('id', currentProspekId);
-                    
-                    showNotifTop('📵 Data dipindahkan ke Database Tidak Tertarik');
-                    closeModalFix();
-                    await loadProspek();
-                    await loadDBTidak();
-                    closeModal('detailModal');
-                } catch (err) {
-                    showNotifTop('❌ Gagal: ' + err.message, true);
-                }
+                // ===== TAMPILKAN POPUP ALASAN =====
+                showAlasanTidakTertarikModal(currentProspekId);
+                closeModalFix();
             });
         }
         
@@ -2041,6 +2009,194 @@ function openProspekNegosiasiModal(id) {
     }).catch(err => {
         console.error('Error loading prospek data:', err);
         showNotifTop('❌ Gagal memuat data prospek: ' + err.message, true);
+    });
+}
+
+// ========== POPUP ALASAN TIDAK TERTARIK ==========
+function showAlasanTidakTertarikModal(prospekId) {
+    // Hapus modal lama jika ada
+    const existingModal = document.querySelector('.alasan-tidak-tertarik-modal');
+    if (existingModal) {
+        existingModal.remove();
+    }
+    
+    const modal = document.createElement('div');
+    modal.className = 'modal alasan-tidak-tertarik-modal';
+    modal.style.cssText = `
+        position: fixed !important;
+        top: 0 !important;
+        left: 0 !important;
+        width: 100% !important;
+        height: 100% !important;
+        background: rgba(0, 0, 0, 0.8) !important;
+        display: flex !important;
+        justify-content: center !important;
+        align-items: center !important;
+        z-index: 999999999 !important;
+        backdrop-filter: blur(5px) !important;
+    `;
+    
+    modal.innerHTML = `
+        <div class="modal-content" style="max-width: 450px; max-height: 80vh; overflow-y: auto; background: #fff; border-radius: 24px;">
+            <h3 style="font-size: 20px; padding: 20px 20px 0; color: #1f2937;">❌ Konfirmasi Tidak Tertarik</h3>
+            <div class="modal-subtitle" style="font-size: 12px; color: #6b7280; padding: 0 20px 12px; border-bottom: 1px solid #f0f0f0;">
+                Berikan alasan mengapa prospek tidak tertarik
+            </div>
+            
+            <div style="padding: 20px 20px 0;">
+                <div class="form-group" style="margin-bottom: 16px;">
+                    <label style="display: block; font-size: 13px; font-weight: 600; color: #374151; margin-bottom: 6px;">
+                        Alasan Tidak Tertarik <span style="color: #ef4444;">*</span>
+                    </label>
+                    <select id="alasanTidakTertarikSelect" style="width:100%; padding: 12px 14px; border: 1.5px solid #e5e7eb; border-radius: 14px; font-size: 13px; background: #fff;">
+                        <option value="">Pilih Alasan</option>
+                        <option value="Harga terlalu mahal">💰 Harga terlalu mahal</option>
+                        <option value="Sudah punya produk lain">🏷️ Sudah punya produk lain</option>
+                        <option value="Tidak membutuhkan sekarang">⏰ Tidak membutuhkan sekarang</option>
+                        <option value="Membandingkan dengan kompetitor">📊 Membandingkan dengan kompetitor</option>
+                        <option value="Tidak sesuai kebutuhan">❌ Tidak sesuai kebutuhan</option>
+                        <option value="Tidak ada anggaran">💸 Tidak ada anggaran</option>
+                        <option value="Kurang informasi">📄 Kurang informasi</option>
+                        <option value="Tidak nyaman dengan penawaran">😕 Tidak nyaman dengan penawaran</option>
+                        <option value="Lainnya">📝 Lainnya (tulis di keterangan)</option>
+                    </select>
+                </div>
+                <div class="form-group" style="margin-bottom: 16px;">
+                    <label style="display: block; font-size: 13px; font-weight: 600; color: #374151; margin-bottom: 6px;">
+                        Keterangan Tambahan (Opsional)
+                    </label>
+                    <textarea id="alasanTidakTertarikKeterangan" rows="3" placeholder="Tulis keterangan tambahan..." style="width:100%; padding: 12px 14px; border: 1.5px solid #e5e7eb; border-radius: 14px; font-size: 13px; resize: vertical;"></textarea>
+                </div>
+            </div>
+            
+            <div style="background: #fef3c7; padding: 12px; border-radius: 10px; margin: 0 20px 10px 20px;">
+                <p style="font-size: 12px; color: #d97706; margin: 0;">⚠️ <strong>Peringatan:</strong><br>
+                Data akan dipindahkan ke DATABASE TIDAK TERTARIK dan DIHAPUS dari Prospek Agen.<br>
+                Proses ini TIDAK BISA dibatalkan!</p>
+            </div>
+            
+            <div class="modal-buttons" style="display: flex; gap: 10px; flex-wrap: wrap; padding: 16px 20px 20px; border-top: 1px solid #f0f0f0;">
+                <button type="button" id="alasanTidakTertarikConfirmBtn" class="btn-danger" style="flex: 1; padding: 12px; border: 0; border-radius: 14px; font-weight: 600; font-size: 13px; background: #ef4444; color: white; cursor: pointer;">✅ Konfirmasi Pindah</button>
+                <button type="button" id="alasanTidakTertarikBatalBtn" class="btn-outline" style="flex: 1; padding: 12px; border: 0; border-radius: 14px; font-weight: 600; font-size: 13px; background: #f3f4f6; color: #374151; cursor: pointer;">❌ Batal</button>
+            </div>
+        </div>
+    `;
+    
+    document.body.appendChild(modal);
+    document.body.classList.add('modal-open');
+    document.body.style.overflow = 'hidden';
+    
+    function closeModalAlasan() {
+        if (modal && modal.remove) modal.remove();
+        document.body.classList.remove('modal-open');
+        document.body.style.overflow = '';
+    }
+    
+    // Tombol Konfirmasi
+    document.getElementById('alasanTidakTertarikConfirmBtn').addEventListener('click', async function() {
+        const alasanSelect = document.getElementById('alasanTidakTertarikSelect');
+        const keterangan = document.getElementById('alasanTidakTertarikKeterangan').value;
+        const alasan = alasanSelect.value;
+        
+        if (!alasan) {
+            showNotifTop('⚠️ Silakan pilih alasan tidak tertarik!', true);
+            return;
+        }
+        
+        // Gabungkan alasan dengan keterangan
+        const alasanLengkap = keterangan ? `${alasan} - ${keterangan}` : alasan;
+        
+        // Disable button
+        this.disabled = true;
+        this.textContent = '⏳ Memproses...';
+        
+        try {
+            // Ambil data prospek lengkap
+            const { data: doc, error: getError } = await window.db
+                .from('prospek')
+                .select('*')
+                .eq('id', prospekId)
+                .single();
+            
+            if (getError || !doc) {
+                showNotifTop('❌ Data prospek tidak ditemukan!', true);
+                return;
+            }
+            
+            // ===== PERBAIKAN: Siapkan data untuk DB Tidak Tertarik =====
+            // Hanya field yang ada di tabel db_tidak_tertarik
+            const tidakTertarikData = {
+                nama: doc.nama || 'Tidak ada nama',
+                hp: doc.hp || '',
+                tanggal: new Date().toISOString(),
+                alasan: alasanLengkap,
+                user_id: doc.user_id || currentUser.id,
+                created_at: new Date().toISOString(),
+                updated_at: new Date().toISOString()
+                // Field tambahan jika ada di tabel:
+                // status_sebelumnya: doc.status || 'Negosiasi',
+                // negosiasi_data: doc.negosiasi_data || null
+            };
+            
+            console.log('📝 Menyimpan ke db_tidak_tertarik:', tidakTertarikData);
+            
+            // Simpan ke DB Tidak Tertarik
+            const { error: insertError } = await window.db
+                .from('db_tidak_tertarik')
+                .insert(tidakTertarikData);
+            
+            if (insertError) {
+                console.error('❌ Error insert db_tidak_tertarik:', insertError);
+                showNotifTop('❌ Gagal menyimpan ke Database Tidak Tertarik: ' + insertError.message, true);
+                return;
+            }
+            
+            console.log('✅ Berhasil simpan ke db_tidak_tertarik');
+            
+            // Hapus dari Prospek
+            const { error: deleteError } = await window.db
+                .from('prospek')
+                .delete()
+                .eq('id', prospekId);
+            
+            if (deleteError) {
+                console.error('❌ Error delete prospek:', deleteError);
+                showNotifTop('❌ Gagal menghapus data prospek: ' + deleteError.message, true);
+                return;
+            }
+            
+            console.log('✅ Berhasil hapus dari prospek');
+            
+            showNotifTop('📵 Data dipindahkan ke Database Tidak Tertarik');
+            closeModalAlasan();
+            
+            // Reload data
+            await loadProspek();
+            await loadDBTidak();
+            closeModal('detailModal');
+            
+        } catch (err) {
+            console.error('❌ Error dalam proses:', err);
+            showNotifTop('❌ Terjadi kesalahan: ' + err.message, true);
+        } finally {
+            this.disabled = false;
+            this.textContent = '✅ Konfirmasi Pindah';
+        }
+    });
+    
+    // Tombol Batal
+    document.getElementById('alasanTidakTertarikBatalBtn').addEventListener('click', function() {
+        closeModalAlasan();
+        // Buka kembali modal negosiasi
+        openProspekNegosiasiModal(prospekId);
+    });
+    
+    // Klik di luar modal
+    modal.addEventListener('click', (e) => {
+        if (e.target === modal) {
+            closeModalAlasan();
+            openProspekNegosiasiModal(prospekId);
+        }
     });
 }
 
@@ -4012,12 +4168,14 @@ function renderDBTidak(items) {
     container.innerHTML = items.map(item => {
         const isChecked = selectedTidakIds.get(item.id) === true;
         return `
-            <div class="db-item" data-id="${item.id}">
+            <div class="db-item" data-id="${item.id}" data-type="tidak" style="cursor: pointer;">
                 <input type="checkbox" class="db-item-checkbox" data-id="${item.id}" ${isChecked ? 'checked' : ''}>
                 <div class="db-item-info">
                     <h4>${escapeHtml(item.nama)}</h4>
                     <p>📱 ${escapeHtml(item.hp)}</p>
-                    <small>Alasan: ${escapeHtml(item.alasan || '-')}</small>
+                    <small>❌ Alasan: ${escapeHtml(item.alasan || '-')}</small>
+                    <small>📅 ${item.tanggal ? new Date(item.tanggal).toLocaleDateString('id-ID') : '-'}</small>
+                    ${item.status_sebelumnya ? `<small>📌 Status sebelumnya: ${escapeHtml(item.status_sebelumnya)}</small>` : ''}
                 </div>
                 <div class="db-item-actions">
                     <button class="db-item-wa" onclick="event.stopPropagation(); openWA('${item.hp}')">💬 WA</button>
@@ -4027,9 +4185,21 @@ function renderDBTidak(items) {
         `;
     }).join('');
     
+    // Event listener untuk klik detail
+    document.querySelectorAll('#dbTidakList .db-item').forEach(el => {
+        el.addEventListener('click', (e) => {
+            if (e.target.type !== 'checkbox' && 
+                !e.target.classList.contains('db-item-wa') && 
+                !e.target.classList.contains('db-item-delete')) {
+                openDBDetailModal(el.dataset.id, 'tidak');
+            }
+        });
+    });
+    
+    // Event listener untuk checkbox
     document.querySelectorAll('#dbTidakList .db-item-checkbox').forEach(cb => {
         cb.addEventListener('change', (e) => {
-            const id = e.target.dataset.id;
+            const id = cb.dataset.id;
             if (e.target.checked) selectedTidakIds.set(id, true);
             else selectedTidakIds.delete(id);
             updateSelectAllButton('selectAllTidak', '#dbTidakList', selectedTidakIds);
@@ -5412,34 +5582,38 @@ function openDBDetailModal(id, type) {
                 ${negosiasiInfo}
             `;
         }
-        else if (type === 'tidak') {
-            let negosiasiInfo = '';
-            if (d.negosiasi_data) {
-                const nd = d.negosiasi_data;
-                negosiasiInfo = `
-                    <div class="detail-info-item">
-                        <strong>📋 Data Negosiasi:</strong>
-                        <div style="margin-top: 5px; padding-left: 15px;">
-                            Aplikasi: ${escapeHtml(nd.aplikasi || '-')}<br>
-                            Domisili: ${escapeHtml(nd.domisili || '-')}<br>
-                            Transaksi: ${escapeHtml(nd.transaksi || '-')}<br>
-                            Deposit: ${escapeHtml(nd.deposit || '-')}<br>
-                            Tertarik: ${escapeHtml(nd.tertarik || '-')}<br>
-                            Penawaran: ${escapeHtml(nd.penawaran || '-')}
+            else if (type === 'tidak') {
+                let negosiasiInfo = '';
+                if (d.negosiasi_data) {
+                    const nd = d.negosiasi_data;
+                    negosiasiInfo = `
+                        <div class="detail-info-item">
+                            <strong>📋 Data Negosiasi:</strong>
+                            <div style="margin-top: 5px; padding-left: 15px;">
+                                Aplikasi: ${escapeHtml(nd.aplikasi || '-')}<br>
+                                Domisili: ${escapeHtml(nd.domisili || '-')}<br>
+                                Transaksi: ${escapeHtml(nd.transaksi || '-')}<br>
+                                Deposit: ${escapeHtml(nd.deposit || '-')}<br>
+                                Tertarik: ${escapeHtml(nd.tertarik || '-')}<br>
+                                Penawaran: ${escapeHtml(nd.penawaran || '-')}
+                            </div>
                         </div>
-                    </div>
+                    `;
+                }
+                
+                // ===== PERBAIKAN: Tambahkan status sebelumnya =====
+                const statusSebelumnya = d.status_sebelumnya || 'Negosiasi';
+                
+                detailHtml = `
+                    ${ownerInfo}
+                    <div class="detail-info-item"><strong>👤 Nama:</strong> ${escapeHtml(d.nama)}</div>
+                    <div class="detail-info-item"><strong>📱 Nomor WA:</strong> ${escapeHtml(d.hp)}</div>
+                    <div class="detail-info-item"><strong>📅 Tanggal:</strong> ${d.tanggal ? new Date(d.tanggal).toLocaleDateString('id-ID') : '-'}</div>
+                    <div class="detail-info-item"><strong>📌 Status Sebelumnya:</strong> ${escapeHtml(statusSebelumnya)}</div>
+                    <div class="detail-info-item"><strong>❌ Alasan:</strong> ${escapeHtml(d.alasan || 'Tidak tertarik')}</div>
+                    ${negosiasiInfo}
                 `;
-            }
-            
-            detailHtml = `
-                ${ownerInfo}
-                <div class="detail-info-item"><strong>👤 Nama:</strong> ${escapeHtml(d.nama)}</div>
-                <div class="detail-info-item"><strong>📱 Nomor WA:</strong> ${escapeHtml(d.hp)}</div>
-                <div class="detail-info-item"><strong>📅 Tanggal:</strong> ${d.tanggal ? new Date(d.tanggal).toLocaleDateString('id-ID') : '-'}</div>
-                <div class="detail-info-item"><strong>❌ Alasan:</strong> ${escapeHtml(d.alasan || 'Tidak tertarik')}</div>
-                ${negosiasiInfo}
-            `;
-        }
+    }
         else if (type === 'nomor_salah') {
             let followupInfo = '';
             if (d.followup_data) {
@@ -5710,6 +5884,9 @@ document.addEventListener('DOMContentLoaded', function() {
     
     console.log('✅ PROSPEKTA loaded successfully');
 });
+
+// ========== GLOBAL FUNCTIONS ==========
+window.showAlasanTidakTertarikModal = showAlasanTidakTertarikModal;
 
 // ========== TRANSAKSI GLOBAL FUNCTIONS ==========
 async function saveTransaksiGlobal(nominal, keterangan, tanggal, transaksiId = null) {
