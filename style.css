@@ -1724,9 +1724,10 @@ body.dark-mode .alasan-tidak-tertarik-modal .form-group select option {
 }
 
 /* ================================================================ */
-/* ========== ALASAN TIDAK TERTARIK - DETAIL ========== */
+/* ========== ALASAN TIDAK TERTARIK - DARK MODE ========== */
 /* ================================================================ */
 
+/* Container alasan di detail */
 .detail-info-item .alasan-container {
     margin-top: 5px;
     padding: 10px 14px;
@@ -1741,7 +1742,7 @@ body.dark-mode .alasan-tidak-tertarik-modal .form-group select option {
     color: #dc2626;
 }
 
-/* Dark mode */
+/* ===== DARK MODE ===== */
 body.dark-mode .detail-info-item .alasan-container {
     background: #1a0a0a !important;
     border-left: 3px solid #dc2626 !important;
@@ -1752,8 +1753,78 @@ body.dark-mode .detail-info-item .alasan-container strong {
     color: #f87171 !important;
 }
 
-body.dark-mode .detail-info-item {
-    border-bottom-color: #334155 !important;
+body.dark-mode .detail-info-item .alasan-container .alasan-text {
+    color: #fecaca !important;
+}
+
+/* ===== ALTERNATIF: Jika menggunakan div biasa ===== */
+body.dark-mode .detail-info-item [style*="background: #fef2f2"],
+body.dark-mode .detail-info-item [style*="background:#fef2f2"] {
+    background: #1a0a0a !important;
+    color: #fca5a5 !important;
+    border-left: 3px solid #dc2626 !important;
+}
+
+body.dark-mode .detail-info-item [style*="background: #fef2f2"] *,
+body.dark-mode .detail-info-item [style*="background:#fef2f2"] * {
+    color: #fca5a5 !important;
+}
+
+/* ===== UNTUK ALASAN DI MODAL NEGOSIASI ===== */
+body.dark-mode .alasan-tidak-tertarik-modal .modal-content {
+    background: #1e293b !important;
+}
+
+body.dark-mode .alasan-tidak-tertarik-modal .modal-content h3 {
+    color: #f1f5f9 !important;
+}
+
+body.dark-mode .alasan-tidak-tertarik-modal .modal-content .modal-subtitle {
+    color: #94a3b8 !important;
+}
+
+body.dark-mode .alasan-tidak-tertarik-modal .form-group label {
+    color: #f1f5f9 !important;
+}
+
+body.dark-mode .alasan-tidak-tertarik-modal .form-group select,
+body.dark-mode .alasan-tidak-tertarik-modal .form-group textarea {
+    background: #0f172a !important;
+    border-color: #334155 !important;
+    color: #f1f5f9 !important;
+}
+
+body.dark-mode .alasan-tidak-tertarik-modal .form-group select option {
+    background: #1e293b !important;
+    color: #f1f5f9 !important;
+}
+
+body.dark-mode .alasan-tidak-tertarik-modal .modal-buttons {
+    background: #1e293b !important;
+    border-top: 1px solid #334155 !important;
+}
+
+body.dark-mode .alasan-tidak-tertarik-modal .modal-buttons .btn-outline {
+    background: #334155 !important;
+    color: #f1f5f9 !important;
+    border: 1px solid #475569 !important;
+}
+
+/* ===== PERINGATAN KUNING DI DARK MODE ===== */
+body.dark-mode .alasan-tidak-tertarik-modal [style*="background: #fef3c7"],
+body.dark-mode .alasan-tidak-tertarik-modal [style*="background:#fef3c7"] {
+    background: #451a03 !important;
+    border: 1px solid #78350f !important;
+    border-left: 4px solid #f59e0b !important;
+}
+
+body.dark-mode .alasan-tidak-tertarik-modal [style*="background: #fef3c7"] p,
+body.dark-mode .alasan-tidak-tertarik-modal [style*="background:#fef3c7"] p {
+    color: #fcd34d !important;
+}
+
+body.dark-mode .alasan-tidak-tertarik-modal [style*="background: #fef3c7"] strong {
+    color: #fbbf24 !important;
 }
 
 /* ================================================================ */
@@ -3723,4 +3794,150 @@ body.dark-mode .modal .modal-content .detail-info-item strong {
 }
 body.dark-mode .modal .modal-content .detail-info-item span {
     color: #f1f5f9 !important;
+}
+
+/* ================================================================ */
+/* ========== DARK MODE - SEMUA ELEMEN ALASAN ========== */
+/* ================================================================ */
+
+/* Force semua background terang di dark mode menjadi gelap */
+body.dark-mode [style*="background: #fef2f2"],
+body.dark-mode [style*="background:#fef2f2"],
+body.dark-mode [style*="background: #fee2e2"],
+body.dark-mode [style*="background:#fee2e2"],
+body.dark-mode [style*="background: #fecaca"],
+body.dark-mode [style*="background:#fecaca"] {
+    background: #1a0a0a !important;
+}
+
+/* Semua teks di dalamnya menjadi terang */
+body.dark-mode [style*="background: #fef2f2"] *,
+body.dark-mode [style*="background:#fef2f2"] *,
+body.dark-mode [style*="background: #fee2e2"] *,
+body.dark-mode [style*="background:#fee2e2"] *,
+body.dark-mode [style*="background: #fecaca"] *,
+body.dark-mode [style*="background:#fecaca"] * {
+    color: #fca5a5 !important;
+}
+
+/* Border merah di dark mode */
+body.dark-mode [style*="border-left: 3px solid #ef4444"],
+body.dark-mode [style*="border-left:3px solid #ef4444"] {
+    border-left: 3px solid #dc2626 !important;
+}
+
+/* ===== ALASAN CONTAINER DENGAN CLASS ===== */
+body.dark-mode .alasan-container {
+    background: #1a0a0a !important;
+    border-left: 3px solid #dc2626 !important;
+    color: #fca5a5 !important;
+}
+
+body.dark-mode .alasan-container strong {
+    color: #f87171 !important;
+}
+
+body.dark-mode .alasan-container .alasan-text {
+    color: #fecaca !important;
+}
+
+/* ===== BACKGROUND MERAH MUDA LAINNYA ===== */
+body.dark-mode .detail-info-item [class*="alasan"],
+body.dark-mode .detail-info-item [id*="alasan"] {
+    background: #1a0a0a !important;
+    color: #fca5a5 !important;
+}
+
+/* ===== DETAIL INFO ITEM DI DARK MODE ===== */
+body.dark-mode .detail-info-item {
+    border-bottom-color: #334155 !important;
+}
+
+body.dark-mode .detail-info-item strong {
+    color: #94a3b8 !important;
+}
+
+body.dark-mode .detail-info-item span {
+    color: #f1f5f9 !important;
+}
+
+/* ================================================================ */
+/* ========== MODAL NEGOSIASI - DARK MODE ========== */
+/* ================================================================ */
+
+body.dark-mode #prospekNegosiasiModalFix .modal-content {
+    background: #1e293b !important;
+}
+
+body.dark-mode #prospekNegosiasiModalFix .modal-content h3 {
+    color: #f1f5f9 !important;
+}
+
+body.dark-mode #prospekNegosiasiModalFix .modal-content .modal-subtitle {
+    color: #94a3b8 !important;
+}
+
+body.dark-mode #prospekNegosiasiModalFix .modal-content .form-group label {
+    color: #e2e8f0 !important;
+}
+
+body.dark-mode #prospekNegosiasiModalFix .modal-content .form-group input,
+body.dark-mode #prospekNegosiasiModalFix .modal-content .form-group select {
+    background: #0f172a !important;
+    border-color: #334155 !important;
+    color: #f1f5f9 !important;
+}
+
+body.dark-mode #prospekNegosiasiModalFix .modal-content .form-group input::placeholder {
+    color: #64748b !important;
+}
+
+body.dark-mode #prospekNegosiasiModalFix .modal-content [style*="background: #eef2ff"],
+body.dark-mode #prospekNegosiasiModalFix .modal-content [style*="background:#eef2ff"] {
+    background: #1e293b !important;
+    border: 1px solid #334155 !important;
+}
+
+body.dark-mode #prospekNegosiasiModalFix .modal-content [style*="background: #eef2ff"] p,
+body.dark-mode #prospekNegosiasiModalFix .modal-content [style*="background:#eef2ff"] p {
+    color: #a5b4fc !important;
+}
+
+body.dark-mode #prospekNegosiasiModalFix .modal-content [style*="background: #eef2ff"] strong {
+    color: #818cf8 !important;
+}
+
+body.dark-mode #prospekNegosiasiModalFix .modal-content > div[style*="position: sticky"] {
+    background: #1e293b !important;
+}
+
+body.dark-mode #prospekNegosiasiModalFix .modal-content > div[style*="position: sticky"] h3 {
+    color: #f1f5f9 !important;
+}
+
+body.dark-mode #prospekNegosiasiModalFix .modal-content > div[style*="position: sticky"] .modal-subtitle {
+    color: #94a3b8 !important;
+}
+
+body.dark-mode #prospekNegosiasiModalFix .modal-content > div[style*="position: sticky"] .modal-subtitle small {
+    color: #94a3b8 !important;
+}
+
+body.dark-mode #prospekNegosiasiModalFix .modal-content > div[style*="position: sticky"] div[style*="background: #e5e7eb"] {
+    background: #334155 !important;
+}
+
+body.dark-mode #prospekNegosiasiModalFix .modal-content > div[style*="position: sticky"] div[style*="background: #e5e7eb"] div {
+    background: #10b981 !important;
+}
+
+body.dark-mode #prospekNegosiasiModalFix .modal-content .modal-buttons {
+    background: #1e293b !important;
+    border-top: 1px solid #334155 !important;
+}
+
+body.dark-mode #prospekNegosiasiModalFix .modal-content .modal-buttons .btn-outline {
+    background: #334155 !important;
+    color: #f1f5f9 !important;
+    border: 1px solid #475569 !important;
 }
