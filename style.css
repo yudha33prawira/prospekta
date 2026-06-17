@@ -3124,26 +3124,88 @@ body.dark-mode .modal-content textarea {
     color: #f1f5f9 !important;
 }
 
-/* ===== PERBAIKAN MODAL DINAMIS DI DARK MODE ===== */
+/* ===== PERBAIKAN UNTUK MODAL DINAMIS DENGAN INLINE STYLE ===== */
+body.dark-mode .modal.dynamic-modal .modal-content,
+body.dark-mode .modal.dynamic-modal .modal-content * {
+    color: #f1f5f9 !important;
+}
+
 body.dark-mode .modal.dynamic-modal .modal-content {
     background: #1e293b !important;
     border-color: #334155 !important;
-    color: #f1f5f9 !important;
 }
 
+/* H3 dan subtitle */
 body.dark-mode .modal.dynamic-modal .modal-content h3,
-body.dark-mode .modal.dynamic-modal .modal-content .modal-subtitle,
-body.dark-mode .modal.dynamic-modal .modal-content label,
-body.dark-mode .modal.dynamic-modal .modal-content .form-group label,
-body.dark-mode .modal.dynamic-modal .modal-content p,
-body.dark-mode .modal.dynamic-modal .modal-content span,
-body.dark-mode .modal.dynamic-modal .modal-content div:not(.modal-content) {
+body.dark-mode .modal.dynamic-modal .modal-content .modal-subtitle {
     color: #f1f5f9 !important;
+    background: none !important;
+    -webkit-background-clip: unset !important;
+    background-clip: unset !important;
 }
 
+/* KETENTUAN - background eef2ff */
+body.dark-mode .modal.dynamic-modal .modal-content div[style*="background: #eef2ff"],
+body.dark-mode .modal.dynamic-modal .modal-content div[style*="background:#eef2ff"],
+body.dark-mode .modal.dynamic-modal .modal-content div[style*="background: #eef2ff;"],
+body.dark-mode .modal.dynamic-modal .modal-content div[style*="background:#eef2ff;"] {
+    background: #1e293b !important;
+    border: 1px solid #334155 !important;
+    border-radius: 10px !important;
+}
+
+body.dark-mode .modal.dynamic-modal .modal-content div[style*="background: #eef2ff"] p,
+body.dark-mode .modal.dynamic-modal .modal-content div[style*="background:#eef2ff"] p,
+body.dark-mode .modal.dynamic-modal .modal-content div[style*="background: #eef2ff;"] p,
+body.dark-mode .modal.dynamic-modal .modal-content div[style*="background:#eef2ff;"] p {
+    color: #a5b4fc !important;
+}
+
+body.dark-mode .modal.dynamic-modal .modal-content div[style*="background: #eef2ff"] strong,
+body.dark-mode .modal.dynamic-modal .modal-content div[style*="background:#eef2ff"] strong {
+    color: #818cf8 !important;
+}
+
+/* PERINGATAN - background f3c7/fef3c7 */
+body.dark-mode .modal.dynamic-modal .modal-content div[style*="background: #fef3c7"],
+body.dark-mode .modal.dynamic-modal .modal-content div[style*="background:#fef3c7"],
+body.dark-mode .modal.dynamic-modal .modal-content div[style*="background: #fef3c7;"],
+body.dark-mode .modal.dynamic-modal .modal-content div[style*="background:#fef3c7;"],
+body.dark-mode .modal.dynamic-modal .modal-content div[style*="background: #f3c7"],
+body.dark-mode .modal.dynamic-modal .modal-content div[style*="background:#f3c7"] {
+    background: #451a03 !important;
+    border: 1px solid #78350f !important;
+    border-radius: 10px !important;
+}
+
+body.dark-mode .modal.dynamic-modal .modal-content div[style*="background: #fef3c7"] p,
+body.dark-mode .modal.dynamic-modal .modal-content div[style*="background:#fef3c7"] p,
+body.dark-mode .modal.dynamic-modal .modal-content div[style*="background: #fef3c7;"] p,
+body.dark-mode .modal.dynamic-modal .modal-content div[style*="background:#fef3c7;"] p,
+body.dark-mode .modal.dynamic-modal .modal-content div[style*="background: #f3c7"] p,
+body.dark-mode .modal.dynamic-modal .modal-content div[style*="background:#f3c7"] p {
+    color: #fcd34d !important;
+}
+
+body.dark-mode .modal.dynamic-modal .modal-content div[style*="background: #fef3c7"] strong,
+body.dark-mode .modal.dynamic-modal .modal-content div[style*="background:#fef3c7"] strong {
+    color: #fbbf24 !important;
+}
+
+/* LABEL dan FORM GROUP */
+body.dark-mode .modal.dynamic-modal .modal-content .form-group label,
+body.dark-mode .modal.dynamic-modal .modal-content label {
+    color: #e2e8f0 !important;
+}
+
+body.dark-mode .modal.dynamic-modal .modal-content .form-group .required {
+    color: #f87171 !important;
+}
+
+/* INPUT, SELECT, TEXTAREA */
 body.dark-mode .modal.dynamic-modal .modal-content input,
-body.dark-mode .modal.dynamic-modal .modal-content textarea,
-body.dark-mode .modal.dynamic-modal .modal-content select {
+body.dark-mode .modal.dynamic-modal .modal-content select,
+body.dark-mode .modal.dynamic-modal .modal-content textarea {
     background: #0f172a !important;
     border-color: #334155 !important;
     color: #f1f5f9 !important;
@@ -3154,19 +3216,28 @@ body.dark-mode .modal.dynamic-modal .modal-content textarea::placeholder {
     color: #64748b !important;
 }
 
+/* INPUT HINT */
+body.dark-mode .modal.dynamic-modal .modal-content .input-hint,
+body.dark-mode .modal.dynamic-modal .modal-content small {
+    color: #94a3b8 !important;
+}
+
+/* MODAL BUTTONS */
 body.dark-mode .modal.dynamic-modal .modal-content .modal-buttons {
     background: #1e293b !important;
     border-top: 1px solid #334155 !important;
 }
 
-body.dark-mode .modal.dynamic-modal .modal-content .btn-outline {
-    background: #334155 !important;
-    color: #f1f5f9 !important;
-}
-
+/* TOMBOL */
 body.dark-mode .modal.dynamic-modal .modal-content .btn-primary {
     background: linear-gradient(135deg, #4f46e5, #6366f1) !important;
     color: #fff !important;
+}
+
+body.dark-mode .modal.dynamic-modal .modal-content .btn-outline {
+    background: #334155 !important;
+    color: #f1f5f9 !important;
+    border: 1px solid #475569 !important;
 }
 
 body.dark-mode .modal.dynamic-modal .modal-content .btn-danger {
@@ -3179,56 +3250,60 @@ body.dark-mode .modal.dynamic-modal .modal-content .btn-success {
     color: #fff !important;
 }
 
-/* Background info di modal dinamis */
-body.dark-mode .modal.dynamic-modal .modal-content [style*="background: #eef2ff"],
-body.dark-mode .modal.dynamic-modal .modal-content [style*="background:#eef2ff"] {
-    background: #1e293b !important;
-    color: #a5b4fc !important;
+/* CHECKBOX di modal */
+body.dark-mode .modal.dynamic-modal .modal-content input[type="checkbox"] {
+    accent-color: #818cf8 !important;
 }
 
-body.dark-mode .modal.dynamic-modal .modal-content [style*="background: #fef3c7"],
-body.dark-mode .modal.dynamic-modal .modal-content [style*="background:#fef3c7"] {
+/* MODAL YANG SPESIFIK - edit deadline */
+body.dark-mode .edit-deadline-modal .modal-content,
+body.dark-mode .edit-deadline-modal .modal-content * {
+    color: #f1f5f9 !important;
+}
+
+body.dark-mode .edit-deadline-modal .modal-content {
+    background: #1e293b !important;
+}
+
+body.dark-mode .edit-deadline-modal .modal-content .warning-box {
     background: #451a03 !important;
+    border-left: 4px solid #f59e0b !important;
     color: #fcd34d !important;
 }
 
-body.dark-mode .modal.dynamic-modal .modal-content [style*="background: #e5e7eb"] {
-    background: #334155 !important;
+body.dark-mode .edit-deadline-modal .modal-content .warning-box * {
+    color: #fcd34d !important;
 }
 
-body.dark-mode .modal.dynamic-modal .modal-content .form-group small,
-body.dark-mode .modal.dynamic-modal .modal-content .input-hint,
-body.dark-mode .modal.dynamic-modal .modal-content small {
-    color: #94a3b8 !important;
-}
-
-/* ===== MODAL DINAMIS LAINNYA ===== */
+/* MODAL PROSPEK NEGOSIASI */
 body.dark-mode #prospekNegosiasiModalFix .modal-content,
-body.dark-mode .edit-deadline-modal .modal-content {
-    background: #1e293b !important;
-    border-color: #334155 !important;
+body.dark-mode #prospekNegosiasiModalFix .modal-content * {
     color: #f1f5f9 !important;
 }
 
-body.dark-mode #prospekNegosiasiModalFix .modal-content h3,
-body.dark-mode #prospekNegosiasiModalFix .modal-content .modal-subtitle,
-body.dark-mode #prospekNegosiasiModalFix .modal-content label,
-body.dark-mode .edit-deadline-modal .modal-content h3,
-body.dark-mode .edit-deadline-modal .modal-content .modal-subtitle,
-body.dark-mode .edit-deadline-modal .modal-content label {
-    color: #f1f5f9 !important;
+body.dark-mode #prospekNegosiasiModalFix .modal-content {
+    background: #1e293b !important;
+}
+
+body.dark-mode #prospekNegosiasiModalFix .modal-content div[style*="background: #eef2ff"],
+body.dark-mode #prospekNegosiasiModalFix .modal-content div[style*="background:#eef2ff"] {
+    background: #1e293b !important;
+    border: 1px solid #334155 !important;
+}
+
+body.dark-mode #prospekNegosiasiModalFix .modal-content div[style*="background: #eef2ff"] p {
+    color: #a5b4fc !important;
 }
 
 body.dark-mode #prospekNegosiasiModalFix .modal-content input,
 body.dark-mode #prospekNegosiasiModalFix .modal-content select,
-body.dark-mode .edit-deadline-modal .modal-content input {
+body.dark-mode #prospekNegosiasiModalFix .modal-content textarea {
     background: #0f172a !important;
     border-color: #334155 !important;
     color: #f1f5f9 !important;
 }
 
-body.dark-mode #prospekNegosiasiModalFix .modal-content .modal-buttons,
-body.dark-mode .edit-deadline-modal .modal-content .modal-buttons {
+body.dark-mode #prospekNegosiasiModalFix .modal-content .modal-buttons {
     background: #1e293b !important;
     border-top: 1px solid #334155 !important;
 }
