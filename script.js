@@ -5047,7 +5047,10 @@ function updateChartCustomer() {
             responsive: true,
             maintainAspectRatio: true,
             plugins: {
-                legend: { position: 'right', labels: { font: { size: 11 } } },
+                legend: { position: 'right', labels: { font: { size: 11 },
+                        color: document.body.classList.contains('dark-mode') ? '#f1f5f9' : '#1e293b'
+                    }
+                },
                 tooltip: {
                     callbacks: {
                         label: function(context) {
@@ -5089,7 +5092,8 @@ function updateChartProspek() {
             responsive: true,
             maintainAspectRatio: true,
             plugins: {
-                legend: { position: 'right', labels: { font: { size: 11 } } },
+                legend: { position: 'right', labels: { font: { size: 11 },
+                color: document.body.classList.contains('dark-mode') ? '#f1f5f9' : '#1e293b'} },
                 tooltip: {
                     callbacks: {
                         label: function(context) {
