@@ -1674,6 +1674,56 @@ body.dark-mode .notif-icon .badge.badge-active {
 }
 
 /* ================================================================ */
+/* ========== ALASAN TIDAK TERTARIK MODAL ========== */
+/* ================================================================ */
+
+.alasan-tidak-tertarik-modal .modal-content {
+    max-width: 450px;
+    max-height: 80vh;
+    overflow-y: auto;
+    background: #fff;
+    border-radius: 24px;
+}
+
+.alasan-tidak-tertarik-modal .form-group select,
+.alasan-tidak-tertarik-modal .form-group textarea {
+    width: 100%;
+    padding: 12px 14px;
+    border: 1.5px solid #e5e7eb;
+    border-radius: 14px;
+    font-size: 13px;
+    transition: all 0.3s ease;
+}
+
+.alasan-tidak-tertarik-modal .form-group select:focus,
+.alasan-tidak-tertarik-modal .form-group textarea:focus {
+    border-color: #4f46e5;
+    outline: none;
+    box-shadow: 0 0 0 3px rgba(79, 70, 229, 0.1);
+}
+
+/* Dark mode */
+body.dark-mode .alasan-tidak-tertarik-modal .modal-content {
+    background: #1e293b !important;
+}
+
+body.dark-mode .alasan-tidak-tertarik-modal .form-group label {
+    color: #f1f5f9 !important;
+}
+
+body.dark-mode .alasan-tidak-tertarik-modal .form-group select,
+body.dark-mode .alasan-tidak-tertarik-modal .form-group textarea {
+    background: #0f172a !important;
+    border-color: #334155 !important;
+    color: #f1f5f9 !important;
+}
+
+body.dark-mode .alasan-tidak-tertarik-modal .form-group select option {
+    background: #1e293b !important;
+    color: #f1f5f9 !important;
+}
+
+/* ================================================================ */
 /* ========== BUTTON STYLES ========== */
 /* ================================================================ */
 
