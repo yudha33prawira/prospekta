@@ -5322,6 +5322,15 @@ async function updateDeadlineBadge() {
     });
     
     badge.innerText = overdueCount;
+    
+    // ===== PERBAIKAN: Update class berdasarkan nilai =====
+    if (overdueCount === 0) {
+        badge.classList.remove('badge-active');
+        badge.classList.add('badge-zero');
+    } else {
+        badge.classList.remove('badge-zero');
+        badge.classList.add('badge-active');
+    }
 }
 
 async function updatePesanBadge() {
@@ -5331,6 +5340,15 @@ async function updatePesanBadge() {
     
     const unreadCount = messagesData.filter(m => !m.is_read).length;
     badge.innerText = unreadCount;
+    
+    // ===== PERBAIKAN: Update class berdasarkan nilai =====
+    if (unreadCount === 0) {
+        badge.classList.remove('badge-active');
+        badge.classList.add('badge-zero');
+    } else {
+        badge.classList.remove('badge-zero');
+        badge.classList.add('badge-active');
+    }
 }
 
 // ========== DOM READY ==========
@@ -6398,6 +6416,31 @@ function initFullModeSelection() {
     }
 }
 
+// ========== INIT BADGES ==========
+function initBadges() {
+    // Deadline badge
+    const deadlineBadge = document.getElementById('deadlineCount');
+    if (deadlineBadge) {
+        const count = parseInt(deadlineBadge.innerText) || 0;
+        if (count === 0) {
+            deadlineBadge.classList.add('badge-zero');
+        } else {
+            deadlineBadge.classList.add('badge-active');
+        }
+    }
+    
+    // Pesan badge
+    const pesanBadge = document.getElementById('pesanCount');
+    if (pesanBadge) {
+        const count = parseInt(pesanBadge.innerText) || 0;
+        if (count === 0) {
+            pesanBadge.classList.add('badge-zero');
+        } else {
+            pesanBadge.classList.add('badge-active');
+        }
+    }
+}
+
 // ======================================================================
 // ========== DARK MODE OBSERVER ==========
 // ======================================================================
@@ -6948,6 +6991,7 @@ async function checkAuth() {
         
         // ===== PERBAIKAN: Inisialisasi dark mode setelah semua data siap =====
         setTimeout(() => {
+            initBadges();
             initDarkMode(); // Hanya di sini, tidak di initEventListeners
             initDarkModeObserver(); // Panggil setelah initDarkMode
         }, 100);
