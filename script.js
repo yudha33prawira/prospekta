@@ -238,49 +238,98 @@ function applyDarkModeToModal(modalElement) {
     // Tambahkan class untuk styling via CSS
     content.classList.add('dark-mode-content');
     
-    // Untuk inline style yang tidak bisa dijangkau CSS, override manual
-    // Cari semua div dengan background tertentu
-    const allDivs = content.querySelectorAll('div');
-    allDivs.forEach(div => {
-        const bg = div.style.background || div.style.backgroundColor;
-        if (bg && (bg.includes('#eef2ff') || bg.includes('#fef3c7') || bg.includes('#f3c7'))) {
-            if (bg.includes('#eef2ff')) {
-                div.style.background = '#1e293b';
-                div.style.border = '1px solid #334155';
-                div.style.borderRadius = '10px';
-                // Ubah semua child p
-                div.querySelectorAll('p').forEach(p => {
-                    p.style.color = '#a5b4fc';
-                });
-                div.querySelectorAll('strong').forEach(s => {
-                    s.style.color = '#818cf8';
-                });
-            } else if (bg.includes('#fef3c7') || bg.includes('#f3c7')) {
-                div.style.background = '#451a03';
-                div.style.border = '1px solid #78350f';
-                div.style.borderRadius = '10px';
-                div.querySelectorAll('p').forEach(p => {
-                    p.style.color = '#fcd34d';
-                });
-                div.querySelectorAll('strong').forEach(s => {
-                    s.style.color = '#fbbf24';
-                });
-            }
-        }
+    // FORCE OVERRIDE untuk inline style yang bandel
+    // Cari semua div dengan background kuning (#fef3c7) - PERINGATAN
+    const warningDivs = content.querySelectorAll('div[style*="background: #fef3c7"], div[style*="background:#fef3c7"], div[style*="background: #f3c7"]');
+    warningDivs.forEach(div => {
+        div.style.background = '#451a03 !important';
+        div.style.border = '1px solid #78350f !important';
+        div.style.borderLeft = '4px solid #f59e0b !important';
+        div.style.borderRadius = '12px !important';
+        div.style.color = '#fcd34d !important';
+        
+        // Semua p di dalamnya
+        div.querySelectorAll('p').forEach(p => {
+            p.style.color = '#fcd34d !important';
+        });
+        div.querySelectorAll('strong').forEach(s => {
+            s.style.color = '#fbbf24 !important';
+        });
+        div.querySelectorAll('span').forEach(s => {
+            s.style.color = '#fcd34d !important';
+        });
     });
     
-    // Background putih di dalam modal
-    const whiteBg = content.querySelectorAll('div[style*="background: #fff"], div[style*="background:#fff"]');
-    whiteBg.forEach(el => {
-        el.style.background = '#0f172a';
-        el.style.color = '#f1f5f9';
+    // Cari semua div dengan background biru (#eef2ff) - KETENTUAN
+    const infoDivs = content.querySelectorAll('div[style*="background: #eef2ff"], div[style*="background:#eef2ff"]');
+    infoDivs.forEach(div => {
+        div.style.background = '#1e293b !important';
+        div.style.border = '1px solid #334155 !important';
+        div.style.borderRadius = '12px !important';
+        
+        div.querySelectorAll('p').forEach(p => {
+            p.style.color = '#a5b4fc !important';
+        });
+        div.querySelectorAll('strong').forEach(s => {
+            s.style.color = '#818cf8 !important';
+        });
+        div.querySelectorAll('span').forEach(s => {
+            s.style.color = '#a5b4fc !important';
+        });
+    });
+    
+    // Cari header sticky di negosiasi
+    const stickyHeaders = content.querySelectorAll('div[style*="position: sticky"], div[style*="position:sticky"]');
+    stickyHeaders.forEach(div => {
+        if (div.style.background === '#fff' || div.style.background === 'white' || div.style.background === '') {
+            div.style.background = '#1e293b !important';
+            div.style.borderRadius = '24px 24px 0 0 !important';
+        }
+        div.querySelectorAll('h3').forEach(el => el.style.color = '#f1f5f9 !important');
+        div.querySelectorAll('.modal-subtitle').forEach(el => el.style.color = '#94a3b8 !important');
+        div.querySelectorAll('small').forEach(el => el.style.color = '#94a3b8 !important');
+    });
+    
+    // Background e5e7eb (progress bar) di negosiasi
+    const progressBg = content.querySelectorAll('div[style*="background: #e5e7eb"], div[style*="background:#e5e7eb"]');
+    progressBg.forEach(div => {
+        div.style.background = '#334155 !important';
+        const childDiv = div.querySelector('div[style*="background: #10b981"]');
+        if (childDiv) {
+            childDiv.style.background = '#10b981 !important';
+        }
     });
     
     // Background f9fafb
     const grayBg = content.querySelectorAll('div[style*="background: #f9fafb"], div[style*="background:#f9fafb"]');
     grayBg.forEach(el => {
-        el.style.background = '#0f172a';
-        el.style.color = '#f1f5f9';
+        el.style.background = '#0f172a !important';
+        el.style.color = '#f1f5f9 !important';
+    });
+    
+    // Background putih
+    const whiteBg = content.querySelectorAll('div[style*="background: #fff"], div[style*="background:#fff"], div[style*="background: white"]');
+    whiteBg.forEach(el => {
+        if (!el.closest('.modal-buttons') && !el.closest('.detail-footer')) {
+            el.style.background = '#0f172a !important';
+            el.style.color = '#f1f5f9 !important';
+        }
+    });
+    
+    // Modal buttons
+    const buttons = content.querySelector('.modal-buttons');
+    if (buttons) {
+        buttons.style.background = '#1e293b !important';
+        buttons.style.borderTop = '1px solid #334155 !important';
+    }
+    
+    // Input dan textarea
+    content.querySelectorAll('input, select, textarea').forEach(el => {
+        if (!el.closest('.modal-buttons')) {
+            el.style.background = '#0f172a !important';
+            el.style.borderColor = '#334155 !important';
+            el.style.color = '#f1f5f9 !important';
+        }
     });
 }
 
