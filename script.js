@@ -5850,24 +5850,24 @@ function openDBDetailModal(id, type) {
             const statusSebelumnya = d.status_sebelumnya || 'Negosiasi';
             
             // ===== PERBAIKAN: URUTAN - Alasan di PALING BAWAH =====
-            detailHtml = `
-                ${ownerInfo}
-                <div class="detail-info-item"><strong>👤 Nama:</strong> ${escapeHtml(d.nama)}</div>
-                <div class="detail-info-item"><strong>📱 Nomor WA:</strong> ${escapeHtml(d.hp)}</div>
-                <div class="detail-info-item"><strong>📅 Tanggal Pindah:</strong> ${d.tanggal ? new Date(d.tanggal).toLocaleDateString('id-ID') : '-'}</div>
-                <div class="detail-info-item"><strong>📌 Status Sebelumnya:</strong> ${escapeHtml(statusSebelumnya)}</div>
-                ${d.upline_name ? `<div class="detail-info-item"><strong>👤 Upline:</strong> ${escapeHtml(d.upline_name)}</div>` : ''}
-                ${d.upline_phone ? `<div class="detail-info-item"><strong>📞 No. Upline:</strong> ${escapeHtml(d.upline_phone)}</div>` : ''}
-                ${dihubungiInfo}
-                ${negosiasiInfo}
-                <div class="detail-info-item" style="border-top: 2px solid #ef4444; padding-top: 12px; margin-top: 4px;">
-                    <strong>❌ Alasan Tidak Tertarik:</strong>
-                    <div style="margin-top: 5px; padding: 8px 12px; background: #fef2f2; border-radius: 8px; border-left: 3px solid #ef4444;">
-                        ${escapeHtml(d.alasan || 'Tidak tertarik')}
-                    </div>
-                </div>
-            `;
-        }
+    detailHtml = `
+        ${ownerInfo}
+        <div class="detail-info-item"><strong>👤 Nama:</strong> ${escapeHtml(d.nama)}</div>
+        <div class="detail-info-item"><strong>📱 Nomor WA:</strong> ${escapeHtml(d.hp)}</div>
+        <div class="detail-info-item"><strong>📅 Tanggal Pindah:</strong> ${d.tanggal ? new Date(d.tanggal).toLocaleDateString('id-ID') : '-'}</div>
+        <div class="detail-info-item"><strong>📌 Status Sebelumnya:</strong> ${escapeHtml(statusSebelumnya)}</div>
+        ${d.upline_name ? `<div class="detail-info-item"><strong>👤 Upline:</strong> ${escapeHtml(d.upline_name)}</div>` : ''}
+        ${d.upline_phone ? `<div class="detail-info-item"><strong>📞 No. Upline:</strong> ${escapeHtml(d.upline_phone)}</div>` : ''}
+        ${dihubungiInfo}
+        ${negosiasiInfo}
+        <div class="detail-info-item" style="border-top: 2px solid #ef4444; padding-top: 12px; margin-top: 4px;">
+            <strong>❌ Alasan Tidak Tertarik:</strong>
+            <div class="alasan-container">
+                ${escapeHtml(d.alasan || 'Tidak tertarik')}
+            </div>
+        </div>
+    `;
+}
         else if (type === 'nomor_salah') {
             let followupInfo = '';
             if (d.followup_data) {
