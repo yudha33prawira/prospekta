@@ -227,6 +227,57 @@ function showNotifTop(msg, isError = false) {
     }, 3000);
 }
 
+// ========== FUNGSI UNTUK DARKMODE MODAL DINAMIS ==========
+function applyDarkModeToModal(modalElement) {
+    if (!modalElement) return;
+    if (!document.body.classList.contains('dark-mode')) return;
+    
+    const content = modalElement.querySelector('.modal-content');
+    if (!content) return;
+    
+    // Tambahkan class dark-mode ke modal content
+    content.classList.add('dark-mode-content');
+    
+    // Atau gunakan style tanpa !important
+    content.style.background = '#1e293b';
+    content.style.color = '#f1f5f9';
+    
+    // Semua heading
+    content.querySelectorAll('h3, .modal-subtitle, label, .form-group label, p, span, div:not(.modal-buttons)').forEach(el => {
+        if (!el.closest('.modal-buttons') && 
+            !el.closest('input') && 
+            !el.closest('select') && 
+            !el.closest('textarea')) {
+            el.style.color = '#f1f5f9';
+        }
+    });
+    
+    // Input, select, textarea
+    content.querySelectorAll('input, select, textarea').forEach(el => {
+        el.style.background = '#0f172a';
+        el.style.borderColor = '#334155';
+        el.style.color = '#f1f5f9';
+    });
+    
+    // Placeholder
+    content.querySelectorAll('input::placeholder, textarea::placeholder').forEach(el => {
+        el.style.color = '#64748b';
+    });
+    
+    // Modal buttons wrapper
+    const buttons = content.querySelector('.modal-buttons');
+    if (buttons) {
+        buttons.style.background = '#1e293b';
+        buttons.style.borderTop = '1px solid #334155';
+    }
+    
+    // Tombol btn-outline
+    content.querySelectorAll('.btn-outline').forEach(el => {
+        el.style.background = '#334155';
+        el.style.color = '#f1f5f9';
+    });
+}
+
 // ========== FUNGSI UNTUK MEMBUAT MODAL DINAMIS YANG BISA DIKLIK ==========
 function createModalWithHighZIndex(htmlContent, onClose = null) {
     // Hapus modal yang sudah ada dengan id yang sama
@@ -275,6 +326,7 @@ function createModalWithHighZIndex(htmlContent, onClose = null) {
     document.body.classList.add('modal-open');
     document.body.style.overflow = 'hidden';
     document.body.style.pointerEvents = 'auto';
+    applyDarkModeToModal(modal);
     
     return modal;
 }
