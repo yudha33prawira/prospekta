@@ -1724,6 +1724,39 @@ body.dark-mode .alasan-tidak-tertarik-modal .form-group select option {
 }
 
 /* ================================================================ */
+/* ========== ALASAN TIDAK TERTARIK - DETAIL ========== */
+/* ================================================================ */
+
+.detail-info-item .alasan-container {
+    margin-top: 5px;
+    padding: 10px 14px;
+    background: #fef2f2;
+    border-radius: 8px;
+    border-left: 3px solid #ef4444;
+    color: #991b1b;
+    font-weight: 500;
+}
+
+.detail-info-item .alasan-container strong {
+    color: #dc2626;
+}
+
+/* Dark mode */
+body.dark-mode .detail-info-item .alasan-container {
+    background: #1a0a0a !important;
+    border-left: 3px solid #dc2626 !important;
+    color: #fca5a5 !important;
+}
+
+body.dark-mode .detail-info-item .alasan-container strong {
+    color: #f87171 !important;
+}
+
+body.dark-mode .detail-info-item {
+    border-bottom-color: #334155 !important;
+}
+
+/* ================================================================ */
 /* ========== DB TIDAK TERTARIK - ARSIP ========== */
 /* ================================================================ */
 
