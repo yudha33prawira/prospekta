@@ -590,34 +590,48 @@ function initDarkMode() {
     const darkModeToggle = document.getElementById('darkModeToggle');
     if (!darkModeToggle) return;
     
+    // ===== PERBAIKAN: Cek status yang disimpan =====
     const savedMode = localStorage.getItem('darkMode');
-    if (savedMode === 'enabled') {
+    const isDarkMode = savedMode === 'enabled';
+    
+    if (isDarkMode) {
         document.body.classList.add('dark-mode');
         darkModeToggle.classList.add('active');
-        // ===== PERBAIKAN: Update charts setelah dark mode aktif =====
+        // Update charts setelah dark mode aktif
         setTimeout(() => {
             updateChartsForDarkMode();
-            // ===== PERBAIKAN: Re-render charts dengan background gelap =====
+            // Re-render charts dengan background gelap
             if (chartCustomer) {
-                const isDark = document.body.classList.contains('dark-mode');
-                chartCustomer.options.backgroundColor = isDark ? '#0f172a' : '#ffffff';
+                chartCustomer.options.backgroundColor = '#0f172a';
                 chartCustomer.update();
             }
             if (chartProspek) {
-                const isDark = document.body.classList.contains('dark-mode');
-                chartProspek.options.backgroundColor = isDark ? '#0f172a' : '#ffffff';
+                chartProspek.options.backgroundColor = '#0f172a';
                 chartProspek.update();
             }
         }, 300);
     }
     
-    darkModeToggle.addEventListener('click', function(e) {
+    // ===== PERBAIKAN: Hapus event listener lama jika ada =====
+    // Clone untuk menghapus semua event listener yang terpasang
+    const newToggle = darkModeToggle.cloneNode(true);
+    darkModeToggle.parentNode.replaceChild(newToggle, darkModeToggle);
+    
+    // Gunakan referensi baru
+    const freshToggle = document.getElementById('darkModeToggle');
+    if (!freshToggle) return;
+    
+    freshToggle.addEventListener('click', function(e) {
         e.preventDefault();
         e.stopPropagation();
+        
+        // Toggle class
         document.body.classList.toggle('dark-mode');
         this.classList.toggle('active');
         
-        if (document.body.classList.contains('dark-mode')) {
+        const isDark = document.body.classList.contains('dark-mode');
+        
+        if (isDark) {
             localStorage.setItem('darkMode', 'enabled');
             showNotifTop('🌙 Mode Gelap diaktifkan');
         } else {
@@ -625,19 +639,26 @@ function initDarkMode() {
             showNotifTop('☀️ Mode Terang diaktifkan');
         }
         
-        // ===== PERBAIKAN: Update charts setelah toggle =====
+        // Update charts
         setTimeout(() => {
             updateChartsForDarkMode();
+            
             // Force update chart background
             if (chartCustomer) {
-                const isDark = document.body.classList.contains('dark-mode');
                 chartCustomer.options.backgroundColor = isDark ? '#0f172a' : '#ffffff';
                 chartCustomer.update();
             }
             if (chartProspek) {
-                const isDark = document.body.classList.contains('dark-mode');
                 chartProspek.options.backgroundColor = isDark ? '#0f172a' : '#ffffff';
                 chartProspek.update();
+            }
+            if (targetChart) {
+                targetChart.options.backgroundColor = isDark ? '#0f172a' : '#ffffff';
+                targetChart.update();
+            }
+            if (trendChart) {
+                trendChart.options.backgroundColor = isDark ? '#0f172a' : '#ffffff';
+                trendChart.update();
             }
         }, 200);
     });
@@ -5248,8 +5269,6 @@ async function updatePesanBadge() {
 
 // ========== DOM READY ==========
 document.addEventListener('DOMContentLoaded', function() {
-    // ===== INISIALISASI DARK MODE OBSERVER =====
-    darkModeObserver = initDarkModeObserver();
     
     // ===== INISIALISASI EVENT LISTENERS =====
     initEventListeners();
@@ -5258,7 +5277,6 @@ document.addEventListener('DOMContentLoaded', function() {
     checkAuth();
     
     console.log('✅ PROSPEKTA loaded successfully');
-    console.log('🌓 Dark mode observer initialized');
 });
 
 // ========== TRANSAKSI GLOBAL FUNCTIONS ==========
@@ -6318,33 +6336,39 @@ function initFullModeSelection() {
 // ========== DARK MODE OBSERVER ==========
 // ======================================================================
 function initDarkModeObserver() {
+    // ===== PERBAIKAN: Cek apakah observer sudah ada =====
+    if (window._darkModeObserver) {
+        window._darkModeObserver.disconnect();
+    }
+    
     const observer = new MutationObserver(function(mutations) {
         mutations.forEach(function(mutation) {
             if (mutation.attributeName === 'class') {
                 // Update charts saat dark mode berubah
                 setTimeout(() => {
-                    updateChartsForDarkMode();
-                    
-                    // Force update chart background
-                    if (chartCustomer) {
+                    try {
+                        updateChartsForDarkMode();
+                        
+                        // Force update chart background
                         const isDark = document.body.classList.contains('dark-mode');
-                        chartCustomer.options.backgroundColor = isDark ? '#0f172a' : '#ffffff';
-                        chartCustomer.update();
-                    }
-                    if (chartProspek) {
-                        const isDark = document.body.classList.contains('dark-mode');
-                        chartProspek.options.backgroundColor = isDark ? '#0f172a' : '#ffffff';
-                        chartProspek.update();
-                    }
-                    if (targetChart) {
-                        const isDark = document.body.classList.contains('dark-mode');
-                        targetChart.options.backgroundColor = isDark ? '#0f172a' : '#ffffff';
-                        targetChart.update();
-                    }
-                    if (trendChart) {
-                        const isDark = document.body.classList.contains('dark-mode');
-                        trendChart.options.backgroundColor = isDark ? '#0f172a' : '#ffffff';
-                        trendChart.update();
+                        if (chartCustomer) {
+                            chartCustomer.options.backgroundColor = isDark ? '#0f172a' : '#ffffff';
+                            chartCustomer.update();
+                        }
+                        if (chartProspek) {
+                            chartProspek.options.backgroundColor = isDark ? '#0f172a' : '#ffffff';
+                            chartProspek.update();
+                        }
+                        if (targetChart) {
+                            targetChart.options.backgroundColor = isDark ? '#0f172a' : '#ffffff';
+                            targetChart.update();
+                        }
+                        if (trendChart) {
+                            trendChart.options.backgroundColor = isDark ? '#0f172a' : '#ffffff';
+                            trendChart.update();
+                        }
+                    } catch (e) {
+                        console.warn('Dark mode observer error:', e);
                     }
                 }, 100);
             }
@@ -6352,6 +6376,7 @@ function initDarkModeObserver() {
     });
     
     observer.observe(document.body, { attributes: true });
+    window._darkModeObserver = observer; // Simpan referensi global
     return observer;
 }
 
@@ -6363,7 +6388,6 @@ let darkModeObserver = null;
 // ========== EVENT LISTENERS ==========
 function initEventListeners() {
     initSidebarHover();
-    initDarkMode();
     initProfilePhoto();
     
     // Save profile
@@ -6855,6 +6879,12 @@ async function checkAuth() {
         
         initFullModeSelection();
         navigateTo('dashboard');
+        
+        // ===== PERBAIKAN: Inisialisasi dark mode setelah semua data siap =====
+        setTimeout(() => {
+            initDarkMode(); // Hanya di sini, tidak di initEventListeners
+            initDarkModeObserver(); // Panggil setelah initDarkMode
+        }, 100);
         
         // Sembunyikan loading setelah semua data siap
         setTimeout(() => {
