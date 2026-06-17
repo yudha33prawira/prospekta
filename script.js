@@ -1315,7 +1315,7 @@ function openFollowupConfirm(id) {
             closeModal('detailModal');
         };
         
-        // ===== PERBAIKAN: Tombol Nomor Salah - HANYA KOLOM YANG ADA =====
+        // ===== PERBAIKAN FINAL: HANYA KOLOM YANG PASTI ADA =====
         noBtn.onclick = async () => {
             const { data: doc } = await window.db.from('customers').select('*').eq('id', id).single();
             if (!doc) {
@@ -1325,30 +1325,15 @@ function openFollowupConfirm(id) {
             
             if (confirm(`Pindahkan "${escapeHtml(doc.nama)}" ke Database Nomor Salah?`)) {
                 try {
-                    // ===== PERBAIKAN: Hanya kirim field yang ada di tabel nomor_salah =====
+                    // ===== HANYA field yang pasti ada di tabel nomor_salah =====
                     const nomorSalahData = {
                         nama: doc.nama || 'Tidak ada nama',
                         hp: doc.hp || '',
                         alasan: 'Nomor tidak bisa dihubungi / tidak aktif',
-                        deleted_at: new Date().toISOString(),
-                        user_id: doc.user_id || currentUser.id,
-                        // Hanya field yang pasti ada di tabel nomor_salah
-                        followup_data: {
-                            terkirim: cb1.checked,
-                            dibalas: cb2.checked,
-                            pesan: pesanInput.value || null,
-                            balasan: balasanInput.value || null,
-                            timestamp: new Date().toISOString()
-                        },
-                        // Simpan sebagai text biasa (bukan JSON) jika kolomnya ada
-                        // Jika kolom ini tidak ada, hapus dari sini
-                        created_at: new Date().toISOString()
+                        deleted_at: new Date().toISOString()
+                        // ===== HAPUS SEMUA FIELD LAIN =====
+                        // user_id, agent_id, apk, upline_name, upline_phone, followup_data, dll
                     };
-                    
-                    // ===== PERBAIKAN: Tambahkan field opsional hanya jika ada di schema =====
-                    // Field yang mungkin ada: apk, upline_name
-                    if (doc.apk) nomorSalahData.apk = doc.apk;
-                    if (doc.upline_name) nomorSalahData.upline_name = doc.upline_name;
                     
                     console.log('📝 Menyimpan ke nomor_salah:', nomorSalahData);
                     
@@ -1491,7 +1476,7 @@ function openProspekDihubungiConfirm(id) {
             closeModal('detailModal');
         };
         
-        // ===== PERBAIKAN: Tombol Nomor Salah - HANYA KOLOM YANG ADA =====
+        // ===== PERBAIKAN FINAL: HANYA KOLOM YANG PASTI ADA =====
         noBtn.onclick = async () => {
             const { data: doc } = await window.db.from('prospek').select('*').eq('id', id).single();
             if (!doc) {
@@ -1501,26 +1486,15 @@ function openProspekDihubungiConfirm(id) {
             
             if (confirm(`Pindahkan "${escapeHtml(doc.nama)}" ke Database Nomor Salah?`)) {
                 try {
-                    // ===== PERBAIKAN: Hanya kirim field yang ada di tabel nomor_salah =====
+                    // ===== HANYA field yang pasti ada di tabel nomor_salah =====
                     const nomorSalahData = {
                         nama: doc.nama || 'Tidak ada nama',
                         hp: doc.hp || '',
                         alasan: 'Nomor tidak bisa dihubungi / tidak aktif',
-                        deleted_at: new Date().toISOString(),
-                        user_id: doc.user_id || currentUser.id,
-                        // Simpan data dihubungi sebagai JSON
-                        dihubungi_data: {
-                            terkirim: cb1.checked,
-                            dibalas: cb2.checked,
-                            pesan: pesanInput.value || null,
-                            balasan: balasanInput.value || null,
-                            timestamp: new Date().toISOString()
-                        },
-                        created_at: new Date().toISOString()
+                        deleted_at: new Date().toISOString()
+                        // ===== HAPUS SEMUA FIELD LAIN =====
+                        // user_id, dihubungi_data, pesan_terkirim, balasan_diterima, dll
                     };
-                    
-                    // ===== PERBAIKAN: Tambahkan field opsional jika ada =====
-                    if (doc.upline_name) nomorSalahData.upline_name = doc.upline_name;
                     
                     console.log('📝 Menyimpan ke nomor_salah (prospek):', nomorSalahData);
                     
