@@ -3307,3 +3307,179 @@ body.dark-mode #prospekNegosiasiModalFix .modal-content .modal-buttons {
     background: #1e293b !important;
     border-top: 1px solid #334155 !important;
 }
+
+/* ===== PERBAIKAN MODAL DINAMIS - OVERRIDE INLINE STYLE ===== */
+
+/* 1. PERINGATAN KUNING (#fef3c7) - Edit Deadline, Pindah ke DB Closing */
+body.dark-mode .modal.dynamic-modal .modal-content [style*="background: #fef3c7"],
+body.dark-mode .modal.dynamic-modal .modal-content [style*="background:#fef3c7"],
+body.dark-mode .modal.dynamic-modal .modal-content [style*="background: #fef3c7;"],
+body.dark-mode .modal.dynamic-modal .modal-content [style*="background:#fef3c7;"],
+body.dark-mode .modal.dynamic-modal .modal-content [style*="background: #fef3c7 !important"],
+body.dark-mode .modal.dynamic-modal .modal-content [style*="background:#fef3c7!important"],
+body.dark-mode .edit-deadline-modal .modal-content [style*="background: #fef3c7"],
+body.dark-mode .edit-deadline-modal .modal-content [style*="background:#fef3c7"] {
+    background: #451a03 !important;
+    border: 1px solid #78350f !important;
+    border-left: 4px solid #f59e0b !important;
+    border-radius: 12px !important;
+}
+
+body.dark-mode .modal.dynamic-modal .modal-content [style*="background: #fef3c7"] p,
+body.dark-mode .modal.dynamic-modal .modal-content [style*="background:#fef3c7"] p,
+body.dark-mode .modal.dynamic-modal .modal-content [style*="background: #fef3c7;"] p,
+body.dark-mode .modal.dynamic-modal .modal-content [style*="background:#fef3c7;"] p,
+body.dark-mode .edit-deadline-modal .modal-content [style*="background: #fef3c7"] p,
+body.dark-mode .edit-deadline-modal .modal-content [style*="background:#fef3c7"] p {
+    color: #fcd34d !important;
+}
+
+body.dark-mode .modal.dynamic-modal .modal-content [style*="background: #fef3c7"] strong,
+body.dark-mode .modal.dynamic-modal .modal-content [style*="background:#fef3c7"] strong,
+body.dark-mode .edit-deadline-modal .modal-content [style*="background: #fef3c7"] strong,
+body.dark-mode .edit-deadline-modal .modal-content [style*="background:#fef3c7"] strong {
+    color: #fbbf24 !important;
+}
+
+/* 2. KETENTUAN BIRU (#eef2ff) - Konfirmasi Followup, Prospek Negosiasi */
+body.dark-mode .modal.dynamic-modal .modal-content [style*="background: #eef2ff"],
+body.dark-mode .modal.dynamic-modal .modal-content [style*="background:#eef2ff"],
+body.dark-mode .modal.dynamic-modal .modal-content [style*="background: #eef2ff;"],
+body.dark-mode .modal.dynamic-modal .modal-content [style*="background:#eef2ff;"],
+body.dark-mode .modal.dynamic-modal .modal-content [style*="background: #eef2ff !important"],
+body.dark-mode .modal.dynamic-modal .modal-content [style*="background:#eef2ff!important"] {
+    background: #1e293b !important;
+    border: 1px solid #334155 !important;
+    border-radius: 12px !important;
+}
+
+body.dark-mode .modal.dynamic-modal .modal-content [style*="background: #eef2ff"] p,
+body.dark-mode .modal.dynamic-modal .modal-content [style*="background:#eef2ff"] p,
+body.dark-mode .modal.dynamic-modal .modal-content [style*="background: #eef2ff;"] p,
+body.dark-mode .modal.dynamic-modal .modal-content [style*="background:#eef2ff;"] p {
+    color: #a5b4fc !important;
+}
+
+body.dark-mode .modal.dynamic-modal .modal-content [style*="background: #eef2ff"] strong,
+body.dark-mode .modal.dynamic-modal .modal-content [style*="background:#eef2ff"] strong,
+body.dark-mode .modal.dynamic-modal .modal-content [style*="background: #eef2ff;"] strong,
+body.dark-mode .modal.dynamic-modal .modal-content [style*="background:#eef2ff;"] strong {
+    color: #818cf8 !important;
+}
+
+/* 3. Kuesioner Negosiasi - HEADER dengan sticky */
+body.dark-mode #prospekNegosiasiModalFix .modal-content > div[style*="position: sticky"],
+body.dark-mode #prospekNegosiasiModalFix .modal-content > div[style*="position:sticky"] {
+    background: #1e293b !important;
+    border-radius: 24px 24px 0 0 !important;
+}
+
+body.dark-mode #prospekNegosiasiModalFix .modal-content > div[style*="position: sticky"] h3,
+body.dark-mode #prospekNegosiasiModalFix .modal-content > div[style*="position: sticky"] .modal-subtitle,
+body.dark-mode #prospekNegosiasiModalFix .modal-content > div[style*="position: sticky"] small {
+    color: #f1f5f9 !important;
+}
+
+body.dark-mode #prospekNegosiasiModalFix .modal-content > div[style*="position: sticky"] .modal-subtitle div[style*="background: #e5e7eb"] {
+    background: #334155 !important;
+}
+
+body.dark-mode #prospekNegosiasiModalFix .modal-content > div[style*="position: sticky"] .modal-subtitle div[style*="background: #e5e7eb"] div {
+    background: #10b981 !important;
+}
+
+/* 4. Kuesioner Negosiasi - KETENTUAN biru */
+body.dark-mode #prospekNegosiasiModalFix .modal-content [style*="background: #eef2ff"],
+body.dark-mode #prospekNegosiasiModalFix .modal-content [style*="background:#eef2ff"] {
+    background: #1e293b !important;
+    border: 1px solid #334155 !important;
+    border-radius: 12px !important;
+}
+
+body.dark-mode #prospekNegosiasiModalFix .modal-content [style*="background: #eef2ff"] p,
+body.dark-mode #prospekNegosiasiModalFix .modal-content [style*="background:#eef2ff"] p {
+    color: #a5b4fc !important;
+}
+
+body.dark-mode #prospekNegosiasiModalFix .modal-content [style*="background: #eef2ff"] strong {
+    color: #818cf8 !important;
+}
+
+/* 5. Kuesioner Negosiasi - FORM GROUP */
+body.dark-mode #prospekNegosiasiModalFix .modal-content .form-group label {
+    color: #e2e8f0 !important;
+}
+
+body.dark-mode #prospekNegosiasiModalFix .modal-content .form-group label span[style*="color: #ef4444"] {
+    color: #f87171 !important;
+}
+
+body.dark-mode #prospekNegosiasiModalFix .modal-content input,
+body.dark-mode #prospekNegosiasiModalFix .modal-content select {
+    background: #0f172a !important;
+    border-color: #334155 !important;
+    color: #f1f5f9 !important;
+}
+
+body.dark-mode #prospekNegosiasiModalFix .modal-content input::placeholder {
+    color: #64748b !important;
+}
+
+/* 6. MODAL BUTTONS - semua modal */
+body.dark-mode .modal.dynamic-modal .modal-content .modal-buttons,
+body.dark-mode #prospekNegosiasiModalFix .modal-content .modal-buttons,
+body.dark-mode .edit-deadline-modal .modal-content .modal-buttons {
+    background: #1e293b !important;
+    border-top: 1px solid #334155 !important;
+}
+
+/* 7. TOMBOL - semua modal */
+body.dark-mode .modal.dynamic-modal .modal-content .btn-primary,
+body.dark-mode #prospekNegosiasiModalFix .modal-content .btn-primary {
+    background: linear-gradient(135deg, #4f46e5, #6366f1) !important;
+    color: #fff !important;
+}
+
+body.dark-mode .modal.dynamic-modal .modal-content .btn-outline,
+body.dark-mode #prospekNegosiasiModalFix .modal-content .btn-outline,
+body.dark-mode .edit-deadline-modal .modal-content .btn-outline {
+    background: #334155 !important;
+    color: #f1f5f9 !important;
+    border: 1px solid #475569 !important;
+}
+
+body.dark-mode .modal.dynamic-modal .modal-content .btn-danger,
+body.dark-mode #prospekNegosiasiModalFix .modal-content .btn-danger {
+    background: linear-gradient(135deg, #991b1b, #7f1d1d) !important;
+    color: #fff !important;
+}
+
+body.dark-mode .modal.dynamic-modal .modal-content .btn-success,
+body.dark-mode #prospekNegosiasiModalFix .modal-content .btn-success {
+    background: linear-gradient(135deg, #065f46, #064e3b) !important;
+    color: #fff !important;
+}
+
+/* 8. WARNING BOX - edit deadline */
+body.dark-mode .edit-deadline-modal .modal-content .warning-box {
+    background: #451a03 !important;
+    border-left: 4px solid #f59e0b !important;
+    color: #fcd34d !important;
+}
+
+body.dark-mode .edit-deadline-modal .modal-content .warning-box * {
+    color: #fcd34d !important;
+}
+
+/* 9. MODAL SUBTITLE - semua */
+body.dark-mode .modal.dynamic-modal .modal-content .modal-subtitle,
+body.dark-mode #prospekNegosiasiModalFix .modal-content .modal-subtitle {
+    color: #94a3b8 !important;
+}
+
+/* 10. INPUT HINT */
+body.dark-mode .modal.dynamic-modal .modal-content .input-hint,
+body.dark-mode .modal.dynamic-modal .modal-content small,
+body.dark-mode #prospekNegosiasiModalFix .modal-content small {
+    color: #94a3b8 !important;
+}
