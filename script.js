@@ -1258,7 +1258,7 @@ function openFollowupConfirm(id) {
                     <div class="form-group">
                         <label>Balasan dari Customer <span style="color: #ef4444;">*</span></label>
                         <textarea id="followup_balasan" rows="2" placeholder="Tulis balasan dari customer..." style="width:100%; padding: 10px; border-radius: 10px; border: 1px solid #e5e7eb;">${escapeHtml(existingData?.followup_data?.balasan || '')}</textarea>
-                        <small style="color: #6b7280;">⚠️ Wajib diisi untuk pindah ke Pending</small>
+                        <small style="color: #6b7280;">Wajib diisi untuk pindah ke Pending</small>
                     </div>
                     <div style="background: #f3f4f6; padding: 8px 12px; border-radius: 8px; margin-top: 8px;">
                         <small>📊 <strong>Riwayat Followup:</strong> ${followupCount} kali sebelumnya</small>
@@ -1326,7 +1326,7 @@ function openFollowupConfirm(id) {
                 moveBtn.style.cursor = 'not-allowed';
             }
             
-            // ===== Tampilkan peringatan jika pesan sama =====
+            // ===== PERBAIKAN: Hanya peringatan jika pesan sama =====
             let warningEl = modal.querySelector('.pesan-warning');
             if (!isDifferent && hasPesan && isChecked) {
                 if (!warningEl) {
@@ -1340,19 +1340,8 @@ function openFollowupConfirm(id) {
                 if (warningEl) warningEl.remove();
             }
             
-            // ===== Tampilkan peringatan jika balasan kosong =====
-            let balasanWarning = modal.querySelector('.balasan-warning');
-            if (!hasBalasan && isChecked && hasPesan) {
-                if (!balasanWarning) {
-                    const warn = document.createElement('div');
-                    warn.className = 'balasan-warning';
-                    warn.style.cssText = 'color: #f59e0b; font-size: 11px; margin-top: -8px; margin-bottom: 8px; padding: 4px 8px; background: #fef3c7; border-radius: 6px;';
-                    warn.textContent = '💡 Isi balasan untuk dapat pindah ke Pending';
-                    balasanInput.parentNode.appendChild(warn);
-                }
-            } else {
-                if (balasanWarning) balasanWarning.remove();
-            }
+            // ===== PERBAIKAN: HAPUS peringatan balasan kuning =====
+            // Tidak ada lagi balasan-warning
         }
         
         cb1.onclick = validateForm;
@@ -1573,7 +1562,7 @@ function openProspekDihubungiConfirm(id) {
                     <div class="form-group">
                         <label>Balasan dari Prospek <span style="color: #ef4444;">*</span></label>
                         <textarea id="prospek_balasan" rows="2" placeholder="Tulis balasan dari prospek..." style="width:100%; padding: 10px; border-radius: 10px; border: 1px solid #e5e7eb;">${escapeHtml(existingData?.dihubungi_data?.balasan || '')}</textarea>
-                        <small style="color: #6b7280;">⚠️ Wajib diisi untuk pindah ke Negosiasi</small>
+                        <small style="color: #6b7280;">Wajib diisi untuk pindah ke Negosiasi</small>
                     </div>
                     <div style="background: #f3f4f6; padding: 8px 12px; border-radius: 8px; margin-top: 8px;">
                         <small>📊 <strong>Riwayat Dihubungi:</strong> ${dihubungiCount} kali sebelumnya</small>
@@ -1641,7 +1630,7 @@ function openProspekDihubungiConfirm(id) {
                 moveBtn.style.cursor = 'not-allowed';
             }
             
-            // ===== Tampilkan peringatan jika pesan sama =====
+            // ===== PERBAIKAN: Hanya peringatan jika pesan sama =====
             let warningEl = modal.querySelector('.pesan-warning');
             if (!isDifferent && hasPesan && isChecked) {
                 if (!warningEl) {
@@ -1655,19 +1644,8 @@ function openProspekDihubungiConfirm(id) {
                 if (warningEl) warningEl.remove();
             }
             
-            // ===== Tampilkan peringatan jika balasan kosong =====
-            let balasanWarning = modal.querySelector('.balasan-warning');
-            if (!hasBalasan && isChecked && hasPesan) {
-                if (!balasanWarning) {
-                    const warn = document.createElement('div');
-                    warn.className = 'balasan-warning';
-                    warn.style.cssText = 'color: #f59e0b; font-size: 11px; margin-top: -8px; margin-bottom: 8px; padding: 4px 8px; background: #fef3c7; border-radius: 6px;';
-                    warn.textContent = '💡 Isi balasan untuk dapat pindah ke Negosiasi';
-                    balasanInput.parentNode.appendChild(warn);
-                }
-            } else {
-                if (balasanWarning) balasanWarning.remove();
-            }
+            // ===== PERBAIKAN: HAPUS peringatan balasan kuning =====
+            // Tidak ada lagi balasan-warning
         }
         
         cb1.onclick = validateForm;
