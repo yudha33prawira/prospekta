@@ -594,8 +594,21 @@ function initDarkMode() {
     if (savedMode === 'enabled') {
         document.body.classList.add('dark-mode');
         darkModeToggle.classList.add('active');
-        // Update charts setelah dark mode aktif
-        setTimeout(updateChartsForDarkMode, 200);
+        // ===== PERBAIKAN: Update charts setelah dark mode aktif =====
+        setTimeout(() => {
+            updateChartsForDarkMode();
+            // ===== PERBAIKAN: Re-render charts dengan background gelap =====
+            if (chartCustomer) {
+                const isDark = document.body.classList.contains('dark-mode');
+                chartCustomer.options.backgroundColor = isDark ? '#0f172a' : '#ffffff';
+                chartCustomer.update();
+            }
+            if (chartProspek) {
+                const isDark = document.body.classList.contains('dark-mode');
+                chartProspek.options.backgroundColor = isDark ? '#0f172a' : '#ffffff';
+                chartProspek.update();
+            }
+        }, 300);
     }
     
     darkModeToggle.addEventListener('click', function(e) {
@@ -612,35 +625,55 @@ function initDarkMode() {
             showNotifTop('☀️ Mode Terang diaktifkan');
         }
         
-        // Update charts setelah toggle
-        setTimeout(updateChartsForDarkMode, 200);
+        // ===== PERBAIKAN: Update charts setelah toggle =====
+        setTimeout(() => {
+            updateChartsForDarkMode();
+            // Force update chart background
+            if (chartCustomer) {
+                const isDark = document.body.classList.contains('dark-mode');
+                chartCustomer.options.backgroundColor = isDark ? '#0f172a' : '#ffffff';
+                chartCustomer.update();
+            }
+            if (chartProspek) {
+                const isDark = document.body.classList.contains('dark-mode');
+                chartProspek.options.backgroundColor = isDark ? '#0f172a' : '#ffffff';
+                chartProspek.update();
+            }
+        }, 200);
     });
 }
 
-// ========== FUNGSI UPDATE CHART DARK MODE ==========
+// ========== UPDATE CHARTS ==========
 function updateChartsForDarkMode() {
     const isDark = document.body.classList.contains('dark-mode');
-    const bgColor = isDark ? '#0f172a' : '#ffffff';
     const textColor = isDark ? '#f1f5f9' : '#1e293b';
     
     // Update semua chart yang ada
     if (chartCustomer) {
-        chartCustomer.options.plugins.legend.labels.color = textColor;
+        if (chartCustomer.options && chartCustomer.options.plugins && chartCustomer.options.plugins.legend) {
+            chartCustomer.options.plugins.legend.labels.color = textColor;
+        }
         chartCustomer.update();
     }
     
     if (chartProspek) {
-        chartProspek.options.plugins.legend.labels.color = textColor;
+        if (chartProspek.options && chartProspek.options.plugins && chartProspek.options.plugins.legend) {
+            chartProspek.options.plugins.legend.labels.color = textColor;
+        }
         chartProspek.update();
     }
     
     if (targetChart) {
-        targetChart.options.plugins.legend.labels.color = textColor;
+        if (targetChart.options && targetChart.options.plugins && targetChart.options.plugins.legend) {
+            targetChart.options.plugins.legend.labels.color = textColor;
+        }
         targetChart.update();
     }
     
     if (trendChart) {
-        trendChart.options.plugins.legend.labels.color = textColor;
+        if (trendChart.options && trendChart.options.plugins && trendChart.options.plugins.legend) {
+            trendChart.options.plugins.legend.labels.color = textColor;
+        }
         trendChart.update();
     }
     
@@ -649,28 +682,16 @@ function updateChartsForDarkMode() {
         if (isDark) {
             canvas.style.background = '#0f172a';
             canvas.style.borderRadius = '12px';
+            canvas.setAttribute('style', 
+                (canvas.getAttribute('style') || '') + 
+                'background: #0f172a !important; border-radius: 12px !important;'
+            );
         } else {
             canvas.style.background = '';
             canvas.style.borderRadius = '';
         }
     });
 }
-
-// Panggil saat dark mode toggle
-document.addEventListener('DOMContentLoaded', function() {
-    const darkModeToggle = document.getElementById('darkModeToggle');
-    if (darkModeToggle) {
-        // Observer untuk mendeteksi perubahan class pada body
-        const observer = new MutationObserver(function(mutations) {
-            mutations.forEach(function(mutation) {
-                if (mutation.attributeName === 'class') {
-                    setTimeout(updateChartsForDarkMode, 100);
-                }
-            });
-        });
-        observer.observe(document.body, { attributes: true });
-    }
-});
 
 // ========== SIDEBAR HOVER FUNCTIONS ==========
 function initSidebarHover() {
@@ -5095,6 +5116,12 @@ function updateChartCustomer() {
     const isDark = document.body.classList.contains('dark-mode');
     const textColor = isDark ? '#f1f5f9' : '#1e293b';
     
+    // ===== PERBAIKAN: Set background canvas =====
+    // Hapus background yang mungkin ditambahkan Chart.js
+    const canvas = ctx;
+    canvas.style.background = isDark ? '#0f172a' : '#ffffff';
+    canvas.style.borderRadius = '12px';
+    
     chartCustomer = new Chart(ctx, {
         type: 'doughnut',
         data: {
@@ -5109,13 +5136,17 @@ function updateChartCustomer() {
         options: {
             responsive: true,
             maintainAspectRatio: true,
+            // ===== PERBAIKAN: Tambahkan plugin untuk background =====
             plugins: {
                 legend: { 
                     position: 'right', 
                     labels: { 
                         font: { size: 11 },
                         color: textColor,
-                        padding: 10
+                        padding: 10,
+                        // ===== PERBAIKAN: Background label =====
+                        boxWidth: 15,
+                        usePointStyle: true
                     } 
                 },
                 tooltip: {
@@ -5128,7 +5159,9 @@ function updateChartCustomer() {
                         }
                     }
                 }
-            }
+            },
+            // ===== PERBAIKAN: Background untuk seluruh chart =====
+            backgroundColor: isDark ? '#0f172a' : '#ffffff'
         }
     });
 }
@@ -5212,6 +5245,21 @@ async function updatePesanBadge() {
     const unreadCount = messagesData.filter(m => !m.is_read).length;
     badge.innerText = unreadCount;
 }
+
+// ========== DOM READY ==========
+document.addEventListener('DOMContentLoaded', function() {
+    // ===== INISIALISASI DARK MODE OBSERVER =====
+    darkModeObserver = initDarkModeObserver();
+    
+    // ===== INISIALISASI EVENT LISTENERS =====
+    initEventListeners();
+    
+    // ===== CHECK AUTHENTICATION =====
+    checkAuth();
+    
+    console.log('✅ PROSPEKTA loaded successfully');
+    console.log('🌓 Dark mode observer initialized');
+});
 
 // ========== TRANSAKSI GLOBAL FUNCTIONS ==========
 async function saveTransaksiGlobal(nominal, keterangan, tanggal, transaksiId = null) {
@@ -6265,6 +6313,52 @@ function initFullModeSelection() {
         prospekDeleteAllBtn.onclick = () => deleteAllFullProspek();
     }
 }
+
+// ======================================================================
+// ========== DARK MODE OBSERVER ==========
+// ======================================================================
+function initDarkModeObserver() {
+    const observer = new MutationObserver(function(mutations) {
+        mutations.forEach(function(mutation) {
+            if (mutation.attributeName === 'class') {
+                // Update charts saat dark mode berubah
+                setTimeout(() => {
+                    updateChartsForDarkMode();
+                    
+                    // Force update chart background
+                    if (chartCustomer) {
+                        const isDark = document.body.classList.contains('dark-mode');
+                        chartCustomer.options.backgroundColor = isDark ? '#0f172a' : '#ffffff';
+                        chartCustomer.update();
+                    }
+                    if (chartProspek) {
+                        const isDark = document.body.classList.contains('dark-mode');
+                        chartProspek.options.backgroundColor = isDark ? '#0f172a' : '#ffffff';
+                        chartProspek.update();
+                    }
+                    if (targetChart) {
+                        const isDark = document.body.classList.contains('dark-mode');
+                        targetChart.options.backgroundColor = isDark ? '#0f172a' : '#ffffff';
+                        targetChart.update();
+                    }
+                    if (trendChart) {
+                        const isDark = document.body.classList.contains('dark-mode');
+                        trendChart.options.backgroundColor = isDark ? '#0f172a' : '#ffffff';
+                        trendChart.update();
+                    }
+                }, 100);
+            }
+        });
+    });
+    
+    observer.observe(document.body, { attributes: true });
+    return observer;
+}
+
+// Inisialisasi observer setelah DOM siap
+let darkModeObserver = null;
+
+// ======================================================================
 
 // ========== EVENT LISTENERS ==========
 function initEventListeners() {
