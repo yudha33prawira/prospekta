@@ -3123,3 +3123,112 @@ body.dark-mode .modal-content textarea {
     border-color: #334155 !important;
     color: #f1f5f9 !important;
 }
+
+/* ===== PERBAIKAN MODAL DINAMIS DI DARK MODE ===== */
+body.dark-mode .modal.dynamic-modal .modal-content {
+    background: #1e293b !important;
+    border-color: #334155 !important;
+    color: #f1f5f9 !important;
+}
+
+body.dark-mode .modal.dynamic-modal .modal-content h3,
+body.dark-mode .modal.dynamic-modal .modal-content .modal-subtitle,
+body.dark-mode .modal.dynamic-modal .modal-content label,
+body.dark-mode .modal.dynamic-modal .modal-content .form-group label,
+body.dark-mode .modal.dynamic-modal .modal-content p,
+body.dark-mode .modal.dynamic-modal .modal-content span,
+body.dark-mode .modal.dynamic-modal .modal-content div:not(.modal-content) {
+    color: #f1f5f9 !important;
+}
+
+body.dark-mode .modal.dynamic-modal .modal-content input,
+body.dark-mode .modal.dynamic-modal .modal-content textarea,
+body.dark-mode .modal.dynamic-modal .modal-content select {
+    background: #0f172a !important;
+    border-color: #334155 !important;
+    color: #f1f5f9 !important;
+}
+
+body.dark-mode .modal.dynamic-modal .modal-content input::placeholder,
+body.dark-mode .modal.dynamic-modal .modal-content textarea::placeholder {
+    color: #64748b !important;
+}
+
+body.dark-mode .modal.dynamic-modal .modal-content .modal-buttons {
+    background: #1e293b !important;
+    border-top: 1px solid #334155 !important;
+}
+
+body.dark-mode .modal.dynamic-modal .modal-content .btn-outline {
+    background: #334155 !important;
+    color: #f1f5f9 !important;
+}
+
+body.dark-mode .modal.dynamic-modal .modal-content .btn-primary {
+    background: linear-gradient(135deg, #4f46e5, #6366f1) !important;
+    color: #fff !important;
+}
+
+body.dark-mode .modal.dynamic-modal .modal-content .btn-danger {
+    background: linear-gradient(135deg, #991b1b, #7f1d1d) !important;
+    color: #fff !important;
+}
+
+body.dark-mode .modal.dynamic-modal .modal-content .btn-success {
+    background: linear-gradient(135deg, #065f46, #064e3b) !important;
+    color: #fff !important;
+}
+
+/* Background info di modal dinamis */
+body.dark-mode .modal.dynamic-modal .modal-content [style*="background: #eef2ff"],
+body.dark-mode .modal.dynamic-modal .modal-content [style*="background:#eef2ff"] {
+    background: #1e293b !important;
+    color: #a5b4fc !important;
+}
+
+body.dark-mode .modal.dynamic-modal .modal-content [style*="background: #fef3c7"],
+body.dark-mode .modal.dynamic-modal .modal-content [style*="background:#fef3c7"] {
+    background: #451a03 !important;
+    color: #fcd34d !important;
+}
+
+body.dark-mode .modal.dynamic-modal .modal-content [style*="background: #e5e7eb"] {
+    background: #334155 !important;
+}
+
+body.dark-mode .modal.dynamic-modal .modal-content .form-group small,
+body.dark-mode .modal.dynamic-modal .modal-content .input-hint,
+body.dark-mode .modal.dynamic-modal .modal-content small {
+    color: #94a3b8 !important;
+}
+
+/* ===== MODAL DINAMIS LAINNYA ===== */
+body.dark-mode #prospekNegosiasiModalFix .modal-content,
+body.dark-mode .edit-deadline-modal .modal-content {
+    background: #1e293b !important;
+    border-color: #334155 !important;
+    color: #f1f5f9 !important;
+}
+
+body.dark-mode #prospekNegosiasiModalFix .modal-content h3,
+body.dark-mode #prospekNegosiasiModalFix .modal-content .modal-subtitle,
+body.dark-mode #prospekNegosiasiModalFix .modal-content label,
+body.dark-mode .edit-deadline-modal .modal-content h3,
+body.dark-mode .edit-deadline-modal .modal-content .modal-subtitle,
+body.dark-mode .edit-deadline-modal .modal-content label {
+    color: #f1f5f9 !important;
+}
+
+body.dark-mode #prospekNegosiasiModalFix .modal-content input,
+body.dark-mode #prospekNegosiasiModalFix .modal-content select,
+body.dark-mode .edit-deadline-modal .modal-content input {
+    background: #0f172a !important;
+    border-color: #334155 !important;
+    color: #f1f5f9 !important;
+}
+
+body.dark-mode #prospekNegosiasiModalFix .modal-content .modal-buttons,
+body.dark-mode .edit-deadline-modal .modal-content .modal-buttons {
+    background: #1e293b !important;
+    border-top: 1px solid #334155 !important;
+}
