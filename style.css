@@ -656,38 +656,77 @@ body {
     gap: 20px;
 }
 
+/* ================================================================ */
+/* ========== NOTIF BADGE - LENGKAP ========== */
+/* ================================================================ */
+
 .notif-icon {
     position: relative;
     cursor: pointer;
     font-size: 20px;
     color: var(--dark);
     transition: transform 0.2s;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
 }
 .notif-icon:hover {
     transform: scale(1.1);
 }
+
+/* Default badge - abu-abu untuk 0 */
 .notif-icon .badge {
     position: absolute;
     top: -8px;
     right: -10px;
-    background: linear-gradient(135deg, var(--danger), #dc2626);
-    color: #fff;
     font-size: 10px;
     padding: 2px 6px;
     border-radius: 50%;
     min-width: 18px;
+    height: 18px;
     text-align: center;
-    animation: pulse 1s infinite;
+    font-weight: 700;
+    transition: all 0.3s ease;
+    display: flex;
+    align-items: center;
+    justify-content: center;
 }
 
-@keyframes pulse {
-    0%,
-    100% {
+/* Badge zero - abu-abu/netral */
+.notif-icon .badge.badge-zero {
+    background: #d1d5db !important;
+    color: #6b7280 !important;
+    animation: none !important;
+    border: 1px solid #e5e7eb !important;
+}
+
+/* Badge active - merah dengan animasi */
+.notif-icon .badge.badge-active {
+    background: linear-gradient(135deg, var(--danger), #dc2626) !important;
+    color: #fff !important;
+    animation: pulseBadge 1s infinite;
+    border: none !important;
+}
+
+@keyframes pulseBadge {
+    0%, 100% {
         transform: scale(1);
     }
     50% {
-        transform: scale(1.1);
+        transform: scale(1.15);
     }
+}
+
+/* ===== DARK MODE ===== */
+body.dark-mode .notif-icon .badge.badge-zero {
+    background: #334155 !important;
+    color: #94a3b8 !important;
+    border: 1px solid #475569 !important;
+}
+
+body.dark-mode .notif-icon .badge.badge-active {
+    background: linear-gradient(135deg, #dc2626, #991b1b) !important;
+    color: #fff !important;
 }
 
 .profile-img {
