@@ -1250,7 +1250,6 @@ function openFollowupConfirm(id) {
                     <div class="form-group">
                         <label>Isi Pesan yang Dikirim <span style="color: #ef4444;">*</span></label>
                         <textarea id="followup_pesan" rows="3" placeholder="Tulis pesan yang dikirim ke customer..." style="width:100%; padding: 10px; border-radius: 10px; border: 1px solid #e5e7eb;">${escapeHtml(existingData?.followup_data?.pesan || '')}</textarea>
-                        <small style="color: #6b7280;">⚠️ Pesan harus berbeda dari sebelumnya</small>
                     </div>
                     <div class="form-group">
                         <label><input type="checkbox" id="followup_dibalas" style="margin-right: 8px;" ${existingData?.followup_data?.dibalas ? 'checked' : ''}> Apakah sudah di balas? <span style="color: #ef4444;">*</span></label>
@@ -1258,7 +1257,6 @@ function openFollowupConfirm(id) {
                     <div class="form-group">
                         <label>Balasan dari Customer <span style="color: #ef4444;">*</span></label>
                         <textarea id="followup_balasan" rows="2" placeholder="Tulis balasan dari customer..." style="width:100%; padding: 10px; border-radius: 10px; border: 1px solid #e5e7eb;">${escapeHtml(existingData?.followup_data?.balasan || '')}</textarea>
-                        <small style="color: #6b7280;">Wajib diisi untuk pindah ke Pending</small>
                     </div>
                     <div style="background: #f3f4f6; padding: 8px 12px; border-radius: 8px; margin-top: 8px;">
                         <small>📊 <strong>Riwayat Followup:</strong> ${followupCount} kali sebelumnya</small>
@@ -1283,21 +1281,21 @@ function openFollowupConfirm(id) {
         const noBtn = modal.querySelector('#followupConfirmNo');
         const cancelBtn = modal.querySelector('#followupConfirmCancel');
         
-        // ===== PERBAIKAN: Validasi form =====
+        // ===== PERBAIKAN: Validasi form tanpa peringatan =====
         function validateForm() {
             const isChecked = cb1.checked;
             const hasPesan = pesanInput.value.trim() !== '';
             const hasBalasan = balasanInput.value.trim() !== '';
             const isDibalas = cb2.checked;
             
-            // ===== PERBAIKAN: Cek apakah pesan berbeda dari sebelumnya =====
+            // ===== Cek apakah pesan berbeda dari sebelumnya =====
             const previousPesan = followupHistory.length > 0 ? followupHistory[followupHistory.length - 1].pesan : '';
             const isDifferent = pesanInput.value.trim() !== previousPesan.trim();
             
-            // ===== PERBAIKAN: Kondisi untuk tombol Simpan =====
+            // ===== Kondisi untuk tombol Simpan =====
             const canSave = isChecked && hasPesan && isDifferent;
             
-            // ===== PERBAIKAN: Kondisi untuk tombol Pindah =====
+            // ===== Kondisi untuk tombol Pindah =====
             const canMove = isChecked && hasPesan && isDifferent && hasBalasan && isDibalas;
             
             // ===== Update tombol Simpan =====
@@ -1325,23 +1323,6 @@ function openFollowupConfirm(id) {
                 moveBtn.style.background = '#9ca3af';
                 moveBtn.style.cursor = 'not-allowed';
             }
-            
-            // ===== PERBAIKAN: Hanya peringatan jika pesan sama =====
-            let warningEl = modal.querySelector('.pesan-warning');
-            if (!isDifferent && hasPesan && isChecked) {
-                if (!warningEl) {
-                    const warn = document.createElement('div');
-                    warn.className = 'pesan-warning';
-                    warn.style.cssText = 'color: #ef4444; font-size: 11px; margin-top: -8px; margin-bottom: 8px; padding: 4px 8px; background: #fef2f2; border-radius: 6px;';
-                    warn.textContent = '⚠️ Pesan harus berbeda dari sebelumnya!';
-                    pesanInput.parentNode.appendChild(warn);
-                }
-            } else {
-                if (warningEl) warningEl.remove();
-            }
-            
-            // ===== PERBAIKAN: HAPUS peringatan balasan kuning =====
-            // Tidak ada lagi balasan-warning
         }
         
         cb1.onclick = validateForm;
@@ -1350,7 +1331,7 @@ function openFollowupConfirm(id) {
         balasanInput.oninput = validateForm;
         validateForm();
         
-        // ===== PERBAIKAN: Tombol Simpan (Hanya simpan, tidak pindah) =====
+        // ===== Tombol Simpan (Hanya simpan, tidak pindah) =====
         saveBtn.onclick = async () => {
             if (saveBtn.disabled) {
                 showNotifTop('⚠️ Harap centang checklist dan isi pesan yang berbeda!', true);
@@ -1367,11 +1348,9 @@ function openFollowupConfirm(id) {
                     return;
                 }
                 
-                // ===== PERBAIKAN: Deadline +1 hari dari HARI INI =====
                 const newDeadline = addDaysFromToday(1);
-                
-                // ===== PERBAIKAN: Buat history followup =====
                 const followupHistory = doc.followup_history || [];
+                
                 const followupData = {
                     terkirim: true,
                     dibalas: cb2.checked,
@@ -1381,7 +1360,6 @@ function openFollowupConfirm(id) {
                     followup_number: followupHistory.length + 1
                 };
                 
-                // Tambahkan ke history
                 const updatedHistory = [...followupHistory, {
                     pesan: pesanInput.value,
                     balasan: balasanInput.value || null,
@@ -1390,7 +1368,6 @@ function openFollowupConfirm(id) {
                     dibalas: cb2.checked
                 }];
                 
-                // ===== PERBAIKAN: Hanya update, TIDAK pindah status =====
                 await window.db.from('customers').update({
                     followup_data: followupData,
                     followup_history: updatedHistory,
@@ -1415,7 +1392,7 @@ function openFollowupConfirm(id) {
             }
         };
         
-        // ===== PERBAIKAN: Tombol Pindah (Simpan + Pindah ke Pending) =====
+        // ===== Tombol Pindah (Simpan + Pindah ke Pending) =====
         moveBtn.onclick = async () => {
             if (moveBtn.disabled) {
                 showNotifTop('⚠️ Harap lengkapi semua data termasuk balasan!', true);
@@ -1436,11 +1413,9 @@ function openFollowupConfirm(id) {
                     return;
                 }
                 
-                // ===== PERBAIKAN: Deadline +1 hari dari HARI INI =====
                 const newDeadline = addDaysFromToday(1);
-                
-                // ===== PERBAIKAN: Buat history followup =====
                 const followupHistory = doc.followup_history || [];
+                
                 const followupData = {
                     terkirim: true,
                     dibalas: true,
@@ -1458,7 +1433,6 @@ function openFollowupConfirm(id) {
                     dibalas: true
                 }];
                 
-                // ===== PERBAIKAN: Update DAN pindah ke Pending =====
                 await window.db.from('customers').update({
                     followup_data: followupData,
                     followup_history: updatedHistory,
@@ -1554,7 +1528,6 @@ function openProspekDihubungiConfirm(id) {
                     <div class="form-group">
                         <label>Isi Pesan yang Dikirim <span style="color: #ef4444;">*</span></label>
                         <textarea id="prospek_pesan" rows="3" placeholder="Tulis pesan yang dikirim ke prospek..." style="width:100%; padding: 10px; border-radius: 10px; border: 1px solid #e5e7eb;">${escapeHtml(existingData?.dihubungi_data?.pesan || '')}</textarea>
-                        <small style="color: #6b7280;">⚠️ Pesan harus berbeda dari sebelumnya</small>
                     </div>
                     <div class="form-group">
                         <label><input type="checkbox" id="prospek_dibalas" style="margin-right: 8px;" ${existingData?.dihubungi_data?.dibalas ? 'checked' : ''}> Apakah sudah di balas? <span style="color: #ef4444;">*</span></label>
@@ -1562,7 +1535,6 @@ function openProspekDihubungiConfirm(id) {
                     <div class="form-group">
                         <label>Balasan dari Prospek <span style="color: #ef4444;">*</span></label>
                         <textarea id="prospek_balasan" rows="2" placeholder="Tulis balasan dari prospek..." style="width:100%; padding: 10px; border-radius: 10px; border: 1px solid #e5e7eb;">${escapeHtml(existingData?.dihubungi_data?.balasan || '')}</textarea>
-                        <small style="color: #6b7280;">Wajib diisi untuk pindah ke Negosiasi</small>
                     </div>
                     <div style="background: #f3f4f6; padding: 8px 12px; border-radius: 8px; margin-top: 8px;">
                         <small>📊 <strong>Riwayat Dihubungi:</strong> ${dihubungiCount} kali sebelumnya</small>
@@ -1587,21 +1559,21 @@ function openProspekDihubungiConfirm(id) {
         const noBtn = modal.querySelector('#prospekConfirmNo');
         const cancelBtn = modal.querySelector('#prospekConfirmCancel');
         
-        // ===== PERBAIKAN: Validasi form =====
+        // ===== PERBAIKAN: Validasi form tanpa peringatan =====
         function validateForm() {
             const isChecked = cb1.checked;
             const hasPesan = pesanInput.value.trim() !== '';
             const hasBalasan = balasanInput.value.trim() !== '';
             const isDibalas = cb2.checked;
             
-            // ===== PERBAIKAN: Cek apakah pesan berbeda dari sebelumnya =====
+            // ===== Cek apakah pesan berbeda dari sebelumnya =====
             const previousPesan = dihubungiHistory.length > 0 ? dihubungiHistory[dihubungiHistory.length - 1].pesan : '';
             const isDifferent = pesanInput.value.trim() !== previousPesan.trim();
             
-            // ===== PERBAIKAN: Kondisi untuk tombol Simpan =====
+            // ===== Kondisi untuk tombol Simpan =====
             const canSave = isChecked && hasPesan && isDifferent;
             
-            // ===== PERBAIKAN: Kondisi untuk tombol Pindah =====
+            // ===== Kondisi untuk tombol Pindah =====
             const canMove = isChecked && hasPesan && isDifferent && hasBalasan && isDibalas;
             
             // ===== Update tombol Simpan =====
@@ -1629,23 +1601,6 @@ function openProspekDihubungiConfirm(id) {
                 moveBtn.style.background = '#9ca3af';
                 moveBtn.style.cursor = 'not-allowed';
             }
-            
-            // ===== PERBAIKAN: Hanya peringatan jika pesan sama =====
-            let warningEl = modal.querySelector('.pesan-warning');
-            if (!isDifferent && hasPesan && isChecked) {
-                if (!warningEl) {
-                    const warn = document.createElement('div');
-                    warn.className = 'pesan-warning';
-                    warn.style.cssText = 'color: #ef4444; font-size: 11px; margin-top: -8px; margin-bottom: 8px; padding: 4px 8px; background: #fef2f2; border-radius: 6px;';
-                    warn.textContent = '⚠️ Pesan harus berbeda dari sebelumnya!';
-                    pesanInput.parentNode.appendChild(warn);
-                }
-            } else {
-                if (warningEl) warningEl.remove();
-            }
-            
-            // ===== PERBAIKAN: HAPUS peringatan balasan kuning =====
-            // Tidak ada lagi balasan-warning
         }
         
         cb1.onclick = validateForm;
@@ -1654,7 +1609,7 @@ function openProspekDihubungiConfirm(id) {
         balasanInput.oninput = validateForm;
         validateForm();
         
-        // ===== PERBAIKAN: Tombol Simpan (Hanya simpan, tidak pindah) =====
+        // ===== Tombol Simpan (Hanya simpan, tidak pindah) =====
         saveBtn.onclick = async () => {
             if (saveBtn.disabled) {
                 showNotifTop('⚠️ Harap centang checklist dan isi pesan yang berbeda!', true);
@@ -1671,11 +1626,9 @@ function openProspekDihubungiConfirm(id) {
                     return;
                 }
                 
-                // ===== PERBAIKAN: Deadline +5 hari dari HARI INI =====
                 const newDeadline = addDaysFromToday(5);
-                
-                // ===== PERBAIKAN: Buat history dihubungi =====
                 const dihubungiHistory = doc.dihubungi_history || [];
+                
                 const dihubungiData = {
                     terkirim: true,
                     dibalas: cb2.checked,
@@ -1693,7 +1646,6 @@ function openProspekDihubungiConfirm(id) {
                     dibalas: cb2.checked
                 }];
                 
-                // ===== PERBAIKAN: Hanya update, TIDAK pindah status =====
                 await window.db.from('prospek').update({
                     dihubungi_data: dihubungiData,
                     dihubungi_history: updatedHistory,
@@ -1718,7 +1670,7 @@ function openProspekDihubungiConfirm(id) {
             }
         };
         
-        // ===== PERBAIKAN: Tombol Pindah (Simpan + Pindah ke Negosiasi) =====
+        // ===== Tombol Pindah (Simpan + Pindah ke Negosiasi) =====
         moveBtn.onclick = async () => {
             if (moveBtn.disabled) {
                 showNotifTop('⚠️ Harap lengkapi semua data termasuk balasan!', true);
@@ -1739,11 +1691,9 @@ function openProspekDihubungiConfirm(id) {
                     return;
                 }
                 
-                // ===== PERBAIKAN: Deadline +5 hari dari HARI INI =====
                 const newDeadline = addDaysFromToday(5);
-                
-                // ===== PERBAIKAN: Buat history dihubungi =====
                 const dihubungiHistory = doc.dihubungi_history || [];
+                
                 const dihubungiData = {
                     terkirim: true,
                     dibalas: true,
@@ -1761,7 +1711,6 @@ function openProspekDihubungiConfirm(id) {
                     dibalas: true
                 }];
                 
-                // ===== PERBAIKAN: Update DAN pindah ke Negosiasi =====
                 await window.db.from('prospek').update({
                     dihubungi_data: dihubungiData,
                     dihubungi_history: updatedHistory,
