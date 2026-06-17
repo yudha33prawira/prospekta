@@ -1239,10 +1239,9 @@ function openFollowupConfirm(id) {
                 <div class="modal-subtitle">Pastikan sudah melakukan komunikasi dengan customer</div>
                 <div style="background: #eef2ff; padding: 12px; border-radius: 10px; margin: 0 20px 10px 20px;">
                     <p style="font-size: 12px; color: #4f46e5; margin: 0;">📌 <strong>Ketentuan:</strong><br>
-                    • Centang checklist dan isi pesan untuk melanjutkan<br>
-                    • Setiap SAVE akan menambah deadline +1 hari dari HARI INI<br>
-                    • Pesan yang dikirim harus BERBEDA dari sebelumnya<br>
-                    • Setelah SAVE, data akan berpindah ke Pending</p>
+                    • Centang checklist dan isi pesan untuk menyimpan (deadline +1 hari)<br>
+                    • Isi BALASAN untuk dapat pindah ke Pending<br>
+                    • Pesan yang dikirim harus BERBEDA dari sebelumnya</p>
                 </div>
                 <div style="padding: 0 20px;">
                     <div class="form-group">
@@ -1254,11 +1253,12 @@ function openFollowupConfirm(id) {
                         <small style="color: #6b7280;">⚠️ Pesan harus berbeda dari sebelumnya</small>
                     </div>
                     <div class="form-group">
-                        <label><input type="checkbox" id="followup_dibalas" style="margin-right: 8px;" ${existingData?.followup_data?.dibalas ? 'checked' : ''}> Apakah sudah di balas?</label>
+                        <label><input type="checkbox" id="followup_dibalas" style="margin-right: 8px;" ${existingData?.followup_data?.dibalas ? 'checked' : ''}> Apakah sudah di balas? <span style="color: #ef4444;">*</span></label>
                     </div>
                     <div class="form-group">
-                        <label>Balasan dari Customer</label>
+                        <label>Balasan dari Customer <span style="color: #ef4444;">*</span></label>
                         <textarea id="followup_balasan" rows="2" placeholder="Tulis balasan dari customer..." style="width:100%; padding: 10px; border-radius: 10px; border: 1px solid #e5e7eb;">${escapeHtml(existingData?.followup_data?.balasan || '')}</textarea>
+                        <small style="color: #6b7280;">⚠️ Wajib diisi untuk pindah ke Pending</small>
                     </div>
                     <div style="background: #f3f4f6; padding: 8px 12px; border-radius: 8px; margin-top: 8px;">
                         <small>📊 <strong>Riwayat Followup:</strong> ${followupCount} kali sebelumnya</small>
@@ -1266,8 +1266,9 @@ function openFollowupConfirm(id) {
                     </div>
                 </div>
                 <div class="modal-buttons" style="display: flex; gap: 12px; flex-wrap: wrap;">
-                    <button id="followupSaveBtn" class="btn-primary" style="flex: 1;" disabled>💾 Simpan & Pindah ke Pending (+1 hari)</button>
-                    <button id="followupConfirmNo" class="btn-danger" style="flex: 1;">📵 Nomor salah/Tidak bisa dihubungi</button>
+                    <button id="followupSaveBtn" class="btn-primary" style="flex: 1;" disabled>💾 Simpan (+1 hari)</button>
+                    <button id="followupMoveBtn" class="btn-success" style="flex: 1;" disabled>📋 Simpan & Pindah ke Pending</button>
+                    <button id="followupConfirmNo" class="btn-danger" style="flex: 1;">📵 Nomor salah</button>
                     <button id="followupConfirmCancel" class="btn-outline" style="flex: 1;">❌ Batal</button>
                 </div>
             </div>
@@ -1278,6 +1279,7 @@ function openFollowupConfirm(id) {
         const pesanInput = modal.querySelector('#followup_pesan');
         const balasanInput = modal.querySelector('#followup_balasan');
         const saveBtn = modal.querySelector('#followupSaveBtn');
+        const moveBtn = modal.querySelector('#followupMoveBtn');
         const noBtn = modal.querySelector('#followupConfirmNo');
         const cancelBtn = modal.querySelector('#followupConfirmCancel');
         
@@ -1285,14 +1287,21 @@ function openFollowupConfirm(id) {
         function validateForm() {
             const isChecked = cb1.checked;
             const hasPesan = pesanInput.value.trim() !== '';
+            const hasBalasan = balasanInput.value.trim() !== '';
+            const isDibalas = cb2.checked;
             
             // ===== PERBAIKAN: Cek apakah pesan berbeda dari sebelumnya =====
             const previousPesan = followupHistory.length > 0 ? followupHistory[followupHistory.length - 1].pesan : '';
             const isDifferent = pesanInput.value.trim() !== previousPesan.trim();
             
-            const isValid = isChecked && hasPesan && isDifferent;
+            // ===== PERBAIKAN: Kondisi untuk tombol Simpan =====
+            const canSave = isChecked && hasPesan && isDifferent;
             
-            if (isValid) {
+            // ===== PERBAIKAN: Kondisi untuk tombol Pindah =====
+            const canMove = isChecked && hasPesan && isDifferent && hasBalasan && isDibalas;
+            
+            // ===== Update tombol Simpan =====
+            if (canSave) {
                 saveBtn.disabled = false;
                 saveBtn.style.opacity = '1';
                 saveBtn.style.background = '#4f46e5';
@@ -1304,7 +1313,20 @@ function openFollowupConfirm(id) {
                 saveBtn.style.cursor = 'not-allowed';
             }
             
-            // Tampilkan peringatan jika pesan sama
+            // ===== Update tombol Pindah =====
+            if (canMove) {
+                moveBtn.disabled = false;
+                moveBtn.style.opacity = '1';
+                moveBtn.style.background = '#10b981';
+                moveBtn.style.cursor = 'pointer';
+            } else {
+                moveBtn.disabled = true;
+                moveBtn.style.opacity = '0.6';
+                moveBtn.style.background = '#9ca3af';
+                moveBtn.style.cursor = 'not-allowed';
+            }
+            
+            // ===== Tampilkan peringatan jika pesan sama =====
             let warningEl = modal.querySelector('.pesan-warning');
             if (!isDifferent && hasPesan && isChecked) {
                 if (!warningEl) {
@@ -1317,14 +1339,29 @@ function openFollowupConfirm(id) {
             } else {
                 if (warningEl) warningEl.remove();
             }
+            
+            // ===== Tampilkan peringatan jika balasan kosong =====
+            let balasanWarning = modal.querySelector('.balasan-warning');
+            if (!hasBalasan && isChecked && hasPesan) {
+                if (!balasanWarning) {
+                    const warn = document.createElement('div');
+                    warn.className = 'balasan-warning';
+                    warn.style.cssText = 'color: #f59e0b; font-size: 11px; margin-top: -8px; margin-bottom: 8px; padding: 4px 8px; background: #fef3c7; border-radius: 6px;';
+                    warn.textContent = '💡 Isi balasan untuk dapat pindah ke Pending';
+                    balasanInput.parentNode.appendChild(warn);
+                }
+            } else {
+                if (balasanWarning) balasanWarning.remove();
+            }
         }
         
         cb1.onclick = validateForm;
         cb2.onclick = validateForm;
         pesanInput.oninput = validateForm;
+        balasanInput.oninput = validateForm;
         validateForm();
         
-        // ===== PERBAIKAN: Tombol Simpan =====
+        // ===== PERBAIKAN: Tombol Simpan (Hanya simpan, tidak pindah) =====
         saveBtn.onclick = async () => {
             if (saveBtn.disabled) {
                 showNotifTop('⚠️ Harap centang checklist dan isi pesan yang berbeda!', true);
@@ -1342,13 +1379,7 @@ function openFollowupConfirm(id) {
                 }
                 
                 // ===== PERBAIKAN: Deadline +1 hari dari HARI INI =====
-                const today = new Date();
-                const newDeadline = new Date(today);
-                newDeadline.setDate(today.getDate() + 1);
-                const newDeadlineStr = newDeadline.toISOString().split('T')[0];
-                
-                console.log('📅 Deadline baru:', newDeadlineStr);
-                console.log('📅 Hari ini:', getTodayDate());
+                const newDeadline = addDaysFromToday(1);
                 
                 // ===== PERBAIKAN: Buat history followup =====
                 const followupHistory = doc.followup_history || [];
@@ -1370,25 +1401,19 @@ function openFollowupConfirm(id) {
                     dibalas: cb2.checked
                 }];
                 
-                const { error: updateError } = await window.db.from('customers').update({
+                // ===== PERBAIKAN: Hanya update, TIDAK pindah status =====
+                await window.db.from('customers').update({
                     followup_data: followupData,
                     followup_history: updatedHistory,
-                    status: 'pending',
-                    tanggal: newDeadlineStr,
+                    tanggal: newDeadline,
                     pesan_terkirim: pesanInput.value,
                     balasan_diterima: balasanInput.value || null,
                     pesan_dikirim_at: new Date().toISOString(),
                     updated_at: new Date().toISOString()
                 }).eq('id', id);
                 
-                if (updateError) {
-                    console.error('❌ Error update:', updateError);
-                    showNotifTop('❌ Gagal: ' + updateError.message, true);
-                    return;
-                }
-                
                 closeDynamicModal(modal);
-                showNotifTop(`✅ Followup #${followupHistory.length + 1} tersimpan! Deadline +1 hari menjadi ${newDeadlineStr}`);
+                showNotifTop(`✅ Followup #${followupHistory.length + 1} tersimpan! Deadline +1 hari menjadi ${newDeadline}`);
                 await loadCustomers();
                 closeModal('detailModal');
                 
@@ -1397,7 +1422,76 @@ function openFollowupConfirm(id) {
                 showNotifTop('❌ Gagal: ' + err.message, true);
             } finally {
                 saveBtn.disabled = false;
-                saveBtn.textContent = '💾 Simpan & Pindah ke Pending (+1 hari)';
+                saveBtn.textContent = '💾 Simpan (+1 hari)';
+            }
+        };
+        
+        // ===== PERBAIKAN: Tombol Pindah (Simpan + Pindah ke Pending) =====
+        moveBtn.onclick = async () => {
+            if (moveBtn.disabled) {
+                showNotifTop('⚠️ Harap lengkapi semua data termasuk balasan!', true);
+                return;
+            }
+            
+            if (!confirm('Pindahkan data ke Pending? Pastikan semua data sudah lengkap.')) {
+                return;
+            }
+            
+            moveBtn.disabled = true;
+            moveBtn.textContent = '⏳ Memproses...';
+            
+            try {
+                const { data: doc } = await window.db.from('customers').select('*').eq('id', id).single();
+                if (!doc) {
+                    showNotifTop('❌ Data customer tidak ditemukan!', true);
+                    return;
+                }
+                
+                // ===== PERBAIKAN: Deadline +1 hari dari HARI INI =====
+                const newDeadline = addDaysFromToday(1);
+                
+                // ===== PERBAIKAN: Buat history followup =====
+                const followupHistory = doc.followup_history || [];
+                const followupData = {
+                    terkirim: true,
+                    dibalas: true,
+                    pesan: pesanInput.value,
+                    balasan: balasanInput.value,
+                    timestamp: new Date().toISOString(),
+                    followup_number: followupHistory.length + 1
+                };
+                
+                const updatedHistory = [...followupHistory, {
+                    pesan: pesanInput.value,
+                    balasan: balasanInput.value,
+                    timestamp: new Date().toISOString(),
+                    followup_number: followupHistory.length + 1,
+                    dibalas: true
+                }];
+                
+                // ===== PERBAIKAN: Update DAN pindah ke Pending =====
+                await window.db.from('customers').update({
+                    followup_data: followupData,
+                    followup_history: updatedHistory,
+                    status: 'pending',
+                    tanggal: newDeadline,
+                    pesan_terkirim: pesanInput.value,
+                    balasan_diterima: balasanInput.value,
+                    pesan_dikirim_at: new Date().toISOString(),
+                    updated_at: new Date().toISOString()
+                }).eq('id', id);
+                
+                closeDynamicModal(modal);
+                showNotifTop(`✅ Followup #${followupHistory.length + 1} selesai! Data dipindahkan ke Pending. Deadline +1 hari menjadi ${newDeadline}`);
+                await loadCustomers();
+                closeModal('detailModal');
+                
+            } catch (err) {
+                console.error('Error:', err);
+                showNotifTop('❌ Gagal: ' + err.message, true);
+            } finally {
+                moveBtn.disabled = false;
+                moveBtn.textContent = '📋 Simpan & Pindah ke Pending';
             }
         };
         
@@ -1418,20 +1512,7 @@ function openFollowupConfirm(id) {
                         deleted_at: new Date().toISOString()
                     };
                     
-                    console.log('📝 Menyimpan ke nomor_salah:', nomorSalahData);
-                    
-                    const { error: insertError } = await window.db
-                        .from('nomor_salah')
-                        .insert(nomorSalahData);
-                    
-                    if (insertError) {
-                        console.error('❌ Error insert nomor_salah:', insertError);
-                        showNotifTop('❌ Gagal menyimpan ke Database Nomor Salah: ' + insertError.message, true);
-                        return;
-                    }
-                    
-                    console.log('✅ Berhasil simpan ke nomor_salah');
-                    
+                    await window.db.from('nomor_salah').insert(nomorSalahData);
                     await window.db.from('customers').delete().eq('id', id);
                     
                     showNotifTop('📵 Data dipindahkan ke Database Nomor Salah');
@@ -1439,10 +1520,8 @@ function openFollowupConfirm(id) {
                     await loadCustomers();
                     await loadDBNomorSalah();
                     closeModal('detailModal');
-                    
                 } catch (err) {
-                    console.error('❌ Error dalam proses:', err);
-                    showNotifTop('❌ Terjadi kesalahan: ' + err.message, true);
+                    showNotifTop('❌ Gagal: ' + err.message, true);
                 }
             }
         };
@@ -1475,10 +1554,9 @@ function openProspekDihubungiConfirm(id) {
                 <div class="modal-subtitle">Pastikan sudah melakukan komunikasi dengan prospek</div>
                 <div style="background: #eef2ff; padding: 12px; border-radius: 10px; margin: 0 20px 10px 20px;">
                     <p style="font-size: 12px; color: #4f46e5; margin: 0;">📌 <strong>Ketentuan:</strong><br>
-                    • Centang checklist dan isi pesan untuk melanjutkan<br>
-                    • Setiap SAVE akan menambah deadline +5 hari dari HARI INI<br>
-                    • Pesan yang dikirim harus BERBEDA dari sebelumnya<br>
-                    • Setelah SAVE, data akan berpindah ke Negosiasi</p>
+                    • Centang checklist dan isi pesan untuk menyimpan (deadline +5 hari)<br>
+                    • Isi BALASAN untuk dapat pindah ke Negosiasi<br>
+                    • Pesan yang dikirim harus BERBEDA dari sebelumnya</p>
                 </div>
                 <div style="padding: 0 20px;">
                     <div class="form-group">
@@ -1490,11 +1568,12 @@ function openProspekDihubungiConfirm(id) {
                         <small style="color: #6b7280;">⚠️ Pesan harus berbeda dari sebelumnya</small>
                     </div>
                     <div class="form-group">
-                        <label><input type="checkbox" id="prospek_dibalas" style="margin-right: 8px;" ${existingData?.dihubungi_data?.dibalas ? 'checked' : ''}> Apakah sudah di balas?</label>
+                        <label><input type="checkbox" id="prospek_dibalas" style="margin-right: 8px;" ${existingData?.dihubungi_data?.dibalas ? 'checked' : ''}> Apakah sudah di balas? <span style="color: #ef4444;">*</span></label>
                     </div>
                     <div class="form-group">
-                        <label>Balasan dari Prospek</label>
+                        <label>Balasan dari Prospek <span style="color: #ef4444;">*</span></label>
                         <textarea id="prospek_balasan" rows="2" placeholder="Tulis balasan dari prospek..." style="width:100%; padding: 10px; border-radius: 10px; border: 1px solid #e5e7eb;">${escapeHtml(existingData?.dihubungi_data?.balasan || '')}</textarea>
+                        <small style="color: #6b7280;">⚠️ Wajib diisi untuk pindah ke Negosiasi</small>
                     </div>
                     <div style="background: #f3f4f6; padding: 8px 12px; border-radius: 8px; margin-top: 8px;">
                         <small>📊 <strong>Riwayat Dihubungi:</strong> ${dihubungiCount} kali sebelumnya</small>
@@ -1502,8 +1581,9 @@ function openProspekDihubungiConfirm(id) {
                     </div>
                 </div>
                 <div class="modal-buttons" style="display: flex; gap: 12px; flex-wrap: wrap;">
-                    <button id="prospekSaveBtn" class="btn-primary" style="flex: 1;" disabled>💾 Simpan & Pindah ke Negosiasi (+5 hari)</button>
-                    <button id="prospekConfirmNo" class="btn-danger" style="flex: 1;">📵 Nomor salah/Tidak bisa dihubungi</button>
+                    <button id="prospekSaveBtn" class="btn-primary" style="flex: 1;" disabled>💾 Simpan (+5 hari)</button>
+                    <button id="prospekMoveBtn" class="btn-success" style="flex: 1;" disabled>📋 Simpan & Pindah ke Negosiasi</button>
+                    <button id="prospekConfirmNo" class="btn-danger" style="flex: 1;">📵 Nomor salah</button>
                     <button id="prospekConfirmCancel" class="btn-outline" style="flex: 1;">❌ Batal</button>
                 </div>
             </div>
@@ -1514,6 +1594,7 @@ function openProspekDihubungiConfirm(id) {
         const pesanInput = modal.querySelector('#prospek_pesan');
         const balasanInput = modal.querySelector('#prospek_balasan');
         const saveBtn = modal.querySelector('#prospekSaveBtn');
+        const moveBtn = modal.querySelector('#prospekMoveBtn');
         const noBtn = modal.querySelector('#prospekConfirmNo');
         const cancelBtn = modal.querySelector('#prospekConfirmCancel');
         
@@ -1521,14 +1602,21 @@ function openProspekDihubungiConfirm(id) {
         function validateForm() {
             const isChecked = cb1.checked;
             const hasPesan = pesanInput.value.trim() !== '';
+            const hasBalasan = balasanInput.value.trim() !== '';
+            const isDibalas = cb2.checked;
             
             // ===== PERBAIKAN: Cek apakah pesan berbeda dari sebelumnya =====
             const previousPesan = dihubungiHistory.length > 0 ? dihubungiHistory[dihubungiHistory.length - 1].pesan : '';
             const isDifferent = pesanInput.value.trim() !== previousPesan.trim();
             
-            const isValid = isChecked && hasPesan && isDifferent;
+            // ===== PERBAIKAN: Kondisi untuk tombol Simpan =====
+            const canSave = isChecked && hasPesan && isDifferent;
             
-            if (isValid) {
+            // ===== PERBAIKAN: Kondisi untuk tombol Pindah =====
+            const canMove = isChecked && hasPesan && isDifferent && hasBalasan && isDibalas;
+            
+            // ===== Update tombol Simpan =====
+            if (canSave) {
                 saveBtn.disabled = false;
                 saveBtn.style.opacity = '1';
                 saveBtn.style.background = '#4f46e5';
@@ -1540,7 +1628,20 @@ function openProspekDihubungiConfirm(id) {
                 saveBtn.style.cursor = 'not-allowed';
             }
             
-            // Tampilkan peringatan jika pesan sama
+            // ===== Update tombol Pindah =====
+            if (canMove) {
+                moveBtn.disabled = false;
+                moveBtn.style.opacity = '1';
+                moveBtn.style.background = '#10b981';
+                moveBtn.style.cursor = 'pointer';
+            } else {
+                moveBtn.disabled = true;
+                moveBtn.style.opacity = '0.6';
+                moveBtn.style.background = '#9ca3af';
+                moveBtn.style.cursor = 'not-allowed';
+            }
+            
+            // ===== Tampilkan peringatan jika pesan sama =====
             let warningEl = modal.querySelector('.pesan-warning');
             if (!isDifferent && hasPesan && isChecked) {
                 if (!warningEl) {
@@ -1553,14 +1654,29 @@ function openProspekDihubungiConfirm(id) {
             } else {
                 if (warningEl) warningEl.remove();
             }
+            
+            // ===== Tampilkan peringatan jika balasan kosong =====
+            let balasanWarning = modal.querySelector('.balasan-warning');
+            if (!hasBalasan && isChecked && hasPesan) {
+                if (!balasanWarning) {
+                    const warn = document.createElement('div');
+                    warn.className = 'balasan-warning';
+                    warn.style.cssText = 'color: #f59e0b; font-size: 11px; margin-top: -8px; margin-bottom: 8px; padding: 4px 8px; background: #fef3c7; border-radius: 6px;';
+                    warn.textContent = '💡 Isi balasan untuk dapat pindah ke Negosiasi';
+                    balasanInput.parentNode.appendChild(warn);
+                }
+            } else {
+                if (balasanWarning) balasanWarning.remove();
+            }
         }
         
         cb1.onclick = validateForm;
         cb2.onclick = validateForm;
         pesanInput.oninput = validateForm;
+        balasanInput.oninput = validateForm;
         validateForm();
         
-        // ===== PERBAIKAN: Tombol Simpan =====
+        // ===== PERBAIKAN: Tombol Simpan (Hanya simpan, tidak pindah) =====
         saveBtn.onclick = async () => {
             if (saveBtn.disabled) {
                 showNotifTop('⚠️ Harap centang checklist dan isi pesan yang berbeda!', true);
@@ -1578,13 +1694,7 @@ function openProspekDihubungiConfirm(id) {
                 }
                 
                 // ===== PERBAIKAN: Deadline +5 hari dari HARI INI =====
-                const today = new Date();
-                const newDeadline = new Date(today);
-                newDeadline.setDate(today.getDate() + 5);
-                const newDeadlineStr = newDeadline.toISOString().split('T')[0];
-                
-                console.log('📅 Deadline baru (prospek):', newDeadlineStr);
-                console.log('📅 Hari ini:', getTodayDate());
+                const newDeadline = addDaysFromToday(5);
                 
                 // ===== PERBAIKAN: Buat history dihubungi =====
                 const dihubungiHistory = doc.dihubungi_history || [];
@@ -1597,7 +1707,6 @@ function openProspekDihubungiConfirm(id) {
                     dihubungi_number: dihubungiHistory.length + 1
                 };
                 
-                // Tambahkan ke history
                 const updatedHistory = [...dihubungiHistory, {
                     pesan: pesanInput.value,
                     balasan: balasanInput.value || null,
@@ -1606,25 +1715,19 @@ function openProspekDihubungiConfirm(id) {
                     dibalas: cb2.checked
                 }];
                 
-                const { error: updateError } = await window.db.from('prospek').update({
+                // ===== PERBAIKAN: Hanya update, TIDAK pindah status =====
+                await window.db.from('prospek').update({
                     dihubungi_data: dihubungiData,
                     dihubungi_history: updatedHistory,
-                    status: 'Negosiasi',
-                    deadline: newDeadlineStr,
+                    deadline: newDeadline,
                     pesan_terkirim: pesanInput.value,
                     balasan_diterima: balasanInput.value || null,
                     pesan_dikirim_at: new Date().toISOString(),
                     updated_at: new Date().toISOString()
                 }).eq('id', id);
                 
-                if (updateError) {
-                    console.error('❌ Error update:', updateError);
-                    showNotifTop('❌ Gagal: ' + updateError.message, true);
-                    return;
-                }
-                
                 closeDynamicModal(modal);
-                showNotifTop(`✅ Dihubungi #${dihubungiHistory.length + 1} tersimpan! Deadline +5 hari menjadi ${newDeadlineStr}`);
+                showNotifTop(`✅ Dihubungi #${dihubungiHistory.length + 1} tersimpan! Deadline +5 hari menjadi ${newDeadline}`);
                 await loadProspek();
                 closeModal('detailModal');
                 
@@ -1633,7 +1736,76 @@ function openProspekDihubungiConfirm(id) {
                 showNotifTop('❌ Gagal: ' + err.message, true);
             } finally {
                 saveBtn.disabled = false;
-                saveBtn.textContent = '💾 Simpan & Pindah ke Negosiasi (+5 hari)';
+                saveBtn.textContent = '💾 Simpan (+5 hari)';
+            }
+        };
+        
+        // ===== PERBAIKAN: Tombol Pindah (Simpan + Pindah ke Negosiasi) =====
+        moveBtn.onclick = async () => {
+            if (moveBtn.disabled) {
+                showNotifTop('⚠️ Harap lengkapi semua data termasuk balasan!', true);
+                return;
+            }
+            
+            if (!confirm('Pindahkan data ke Negosiasi? Pastikan semua data sudah lengkap.')) {
+                return;
+            }
+            
+            moveBtn.disabled = true;
+            moveBtn.textContent = '⏳ Memproses...';
+            
+            try {
+                const { data: doc } = await window.db.from('prospek').select('*').eq('id', id).single();
+                if (!doc) {
+                    showNotifTop('❌ Data prospek tidak ditemukan!', true);
+                    return;
+                }
+                
+                // ===== PERBAIKAN: Deadline +5 hari dari HARI INI =====
+                const newDeadline = addDaysFromToday(5);
+                
+                // ===== PERBAIKAN: Buat history dihubungi =====
+                const dihubungiHistory = doc.dihubungi_history || [];
+                const dihubungiData = {
+                    terkirim: true,
+                    dibalas: true,
+                    pesan: pesanInput.value,
+                    balasan: balasanInput.value,
+                    timestamp: new Date().toISOString(),
+                    dihubungi_number: dihubungiHistory.length + 1
+                };
+                
+                const updatedHistory = [...dihubungiHistory, {
+                    pesan: pesanInput.value,
+                    balasan: balasanInput.value,
+                    timestamp: new Date().toISOString(),
+                    dihubungi_number: dihubungiHistory.length + 1,
+                    dibalas: true
+                }];
+                
+                // ===== PERBAIKAN: Update DAN pindah ke Negosiasi =====
+                await window.db.from('prospek').update({
+                    dihubungi_data: dihubungiData,
+                    dihubungi_history: updatedHistory,
+                    status: 'Negosiasi',
+                    deadline: newDeadline,
+                    pesan_terkirim: pesanInput.value,
+                    balasan_diterima: balasanInput.value,
+                    pesan_dikirim_at: new Date().toISOString(),
+                    updated_at: new Date().toISOString()
+                }).eq('id', id);
+                
+                closeDynamicModal(modal);
+                showNotifTop(`✅ Dihubungi #${dihubungiHistory.length + 1} selesai! Data dipindahkan ke Negosiasi. Deadline +5 hari menjadi ${newDeadline}`);
+                await loadProspek();
+                closeModal('detailModal');
+                
+            } catch (err) {
+                console.error('Error:', err);
+                showNotifTop('❌ Gagal: ' + err.message, true);
+            } finally {
+                moveBtn.disabled = false;
+                moveBtn.textContent = '📋 Simpan & Pindah ke Negosiasi';
             }
         };
         
@@ -1654,20 +1826,7 @@ function openProspekDihubungiConfirm(id) {
                         deleted_at: new Date().toISOString()
                     };
                     
-                    console.log('📝 Menyimpan ke nomor_salah (prospek):', nomorSalahData);
-                    
-                    const { error: insertError } = await window.db
-                        .from('nomor_salah')
-                        .insert(nomorSalahData);
-                    
-                    if (insertError) {
-                        console.error('❌ Error insert nomor_salah:', insertError);
-                        showNotifTop('❌ Gagal menyimpan ke Database Nomor Salah: ' + insertError.message, true);
-                        return;
-                    }
-                    
-                    console.log('✅ Berhasil simpan ke nomor_salah');
-                    
+                    await window.db.from('nomor_salah').insert(nomorSalahData);
                     await window.db.from('prospek').delete().eq('id', id);
                     
                     showNotifTop('📵 Data dipindahkan ke Database Nomor Salah');
@@ -1675,10 +1834,8 @@ function openProspekDihubungiConfirm(id) {
                     await loadProspek();
                     await loadDBNomorSalah();
                     closeModal('detailModal');
-                    
                 } catch (err) {
-                    console.error('❌ Error dalam proses:', err);
-                    showNotifTop('❌ Terjadi kesalahan: ' + err.message, true);
+                    showNotifTop('❌ Gagal: ' + err.message, true);
                 }
             }
         };
