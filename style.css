@@ -2683,3 +2683,74 @@ body.dark-mode .modal .modal-content .detail-info-item strong {
 body.dark-mode .modal .modal-content .detail-info-item span {
     color: #f1f5f9 !important;
 }
+
+/* ================================================================ */
+/* ========== DARK MODE CHART FIX - ULTIMATE ========== */
+/* ================================================================ */
+
+/* Force all chart canvases in dark mode */
+body.dark-mode canvas {
+    background: #0f172a !important;
+    border-radius: 12px !important;
+}
+
+body.dark-mode .chart-card {
+    background: #1e293b !important;
+    border-color: #334155 !important;
+}
+
+body.dark-mode .chart-card canvas {
+    background: #0f172a !important !important;
+    border-radius: 12px !important;
+    padding: 8px !important;
+}
+
+body.dark-mode .chart-target-wrapper .chart-card {
+    background: #0f172a !important;
+    border: 1px solid #334155 !important;
+}
+
+body.dark-mode .chart-target-wrapper .chart-card canvas {
+    background: transparent !important;
+}
+
+/* Chart.js specific */
+body.dark-mode canvas.chartjs-render-monitor {
+    background: #0f172a !important !important;
+}
+
+body.dark-mode #dashboardPage canvas,
+body.dark-mode #followupFullPage canvas,
+body.dark-mode #prospekFullPage canvas {
+    background: #0f172a !important !important;
+    border-radius: 12px !important;
+}
+
+body.dark-mode #targetChart,
+body.dark-mode #trendChart {
+    background: #0f172a !important !important;
+}
+
+/* Chart title and legend */
+body.dark-mode .chart-card h3 {
+    color: #f1f5f9 !important;
+}
+
+body.dark-mode .chartjs-legend {
+    color: #f1f5f9 !important;
+}
+
+body.dark-mode .chartjs-legend li {
+    color: #f1f5f9 !important;
+}
+
+body.dark-mode .chartjs-legend li span {
+    color: #f1f5f9 !important;
+}
+
+/* Chart tooltip */
+body.dark-mode .chartjs-tooltip {
+    background: #1e293b !important;
+    color: #f1f5f9 !important;
+    border: 1px solid #334155 !important;
+}
