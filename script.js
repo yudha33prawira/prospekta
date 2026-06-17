@@ -3914,25 +3914,45 @@ function renderDBNomorSalah(items) {
     
     container.innerHTML = items.map(item => {
         const isChecked = selectedNomorSalahIds.get(item.id) === true;
+        // ===== PERBAIKAN: Tambahkan tombol kembali =====
         return `
-            <div class="db-item" data-id="${item.id}">
+            <div class="db-item" data-id="${item.id}" data-type="nomor_salah" style="cursor: pointer;">
                 <input type="checkbox" class="db-item-checkbox" data-id="${item.id}" ${isChecked ? 'checked' : ''}>
                 <div class="db-item-info">
                     <h4>${escapeHtml(item.nama)}</h4>
                     <p>📱 ${escapeHtml(item.hp)}</p>
                     <small>Alasan: ${escapeHtml(item.alasan || '-')}</small>
+                    <small>📅 ${item.deleted_at ? new Date(item.deleted_at).toLocaleDateString('id-ID') : '-'}</small>
+                    ${item.followup_data ? `<small>💬 Pesan: ${escapeHtml(item.followup_data.pesan?.substring(0, 30) || '-')}${item.followup_data.pesan?.length > 30 ? '...' : ''}</small>` : ''}
+                    ${item.dihubungi_data ? `<small>💬 Pesan: ${escapeHtml(item.dihubungi_data.pesan?.substring(0, 30) || '-')}${item.dihubungi_data.pesan?.length > 30 ? '...' : ''}</small>` : ''}
                 </div>
                 <div class="db-item-actions">
                     <button class="db-item-wa" onclick="event.stopPropagation(); openWA('${item.hp}')">💬 WA</button>
+                    <button class="db-item-restore-followup" onclick="event.stopPropagation(); restoreToFollowup('${item.id}')">🔄 Kembali ke Followup</button>
+                    <button class="db-item-restore-prospek" onclick="event.stopPropagation(); restoreToProspek('${item.id}')">🔄 Kembali ke Prospek</button>
                     <button class="db-item-delete" onclick="event.stopPropagation(); deleteDBItem('nomor_salah', '${item.id}')">🗑️ Hapus</button>
                 </div>
             </div>
         `;
     }).join('');
     
+    // Event listener untuk klik detail
+    document.querySelectorAll('#dbNomorSalahList .db-item').forEach(el => {
+        el.addEventListener('click', (e) => {
+            if (e.target.type !== 'checkbox' && 
+                !e.target.classList.contains('db-item-wa') && 
+                !e.target.classList.contains('db-item-restore-followup') &&
+                !e.target.classList.contains('db-item-restore-prospek') &&
+                !e.target.classList.contains('db-item-delete')) {
+                openDBDetailModal(el.dataset.id, 'nomor_salah');
+            }
+        });
+    });
+    
+    // Event listener untuk checkbox
     document.querySelectorAll('#dbNomorSalahList .db-item-checkbox').forEach(cb => {
         cb.addEventListener('change', (e) => {
-            const id = e.target.dataset.id;
+            const id = cb.dataset.id;
             if (e.target.checked) selectedNomorSalahIds.set(id, true);
             else selectedNomorSalahIds.delete(id);
             updateSelectAllButton('selectAllNomorSalah', '#dbNomorSalahList', selectedNomorSalahIds);
@@ -3940,6 +3960,196 @@ function renderDBNomorSalah(items) {
     });
     
     updateSelectAllButton('selectAllNomorSalah', '#dbNomorSalahList', selectedNomorSalahIds);
+}
+
+// ========== RESTORE NOMOR SALAH KE FOLLOWUP ==========
+async function restoreToFollowup(id) {
+    // Ambil data dari nomor_salah
+    const { data: item, error: getError } = await window.db
+        .from('nomor_salah')
+        .select('*')
+        .eq('id', id)
+        .single();
+    
+    if (getError || !item) {
+        showNotifTop('❌ Gagal mengambil data: ' + (getError?.message || 'Data tidak ditemukan'), true);
+        return;
+    }
+    
+    // Cek apakah sudah ada di customers
+    const { data: existing } = await window.db
+        .from('customers')
+        .select('id')
+        .eq('hp', item.hp)
+        .maybeSingle();
+    
+    if (existing) {
+        showNotifTop(`⚠️ Nomor "${item.hp}" sudah terdaftar di Followup Agen!`, true);
+        return;
+    }
+    
+    if (!confirm(`Kembalikan data "${escapeHtml(item.nama)}" ke Followup Agen?`)) return;
+    
+    try {
+        // Siapkan data followup
+        let followupData = null;
+        let dihubungiData = null;
+        
+        if (item.followup_data) {
+            followupData = {
+                terkirim: item.followup_data.terkirim || false,
+                dibalas: item.followup_data.dibalas || false,
+                pesan: item.followup_data.pesan || null,
+                balasan: item.followup_data.balasan || null,
+                timestamp: item.followup_data.timestamp || new Date().toISOString()
+            };
+        }
+        
+        if (item.dihubungi_data) {
+            dihubungiData = {
+                terkirim: item.dihubungi_data.terkirim || false,
+                dibalas: item.dihubungi_data.dibalas || false,
+                pesan: item.dihubungi_data.pesan || null,
+                balasan: item.dihubungi_data.balasan || null,
+                timestamp: item.dihubungi_data.timestamp || new Date().toISOString()
+            };
+        }
+        
+        // Insert ke customers
+        const { error: insertError } = await window.db.from('customers').insert({
+            agent_id: item.agent_id || `NOMOR_${Date.now()}`,
+            nama: item.nama,
+            hp: item.hp,
+            apk: item.apk || null,
+            upline_name: item.upline_name || null,
+            upline_phone: item.upline_phone || null,
+            tanggal: getTodayDate(),
+            status: 'baru',
+            user_id: item.user_id || currentUser.id,
+            followup_data: followupData,
+            pesan_terkirim: item.followup_data?.pesan || item.dihubungi_data?.pesan || null,
+            balasan_diterima: item.followup_data?.balasan || item.dihubungi_data?.balasan || null,
+            created_at: new Date().toISOString(),
+            updated_at: new Date().toISOString(),
+            restored_from: 'nomor_salah'
+        });
+        
+        if (insertError) {
+            showNotifTop('❌ Gagal memindahkan: ' + insertError.message, true);
+            return;
+        }
+        
+        // Hapus dari nomor_salah
+        await window.db.from('nomor_salah').delete().eq('id', id);
+        
+        // Hapus dari selected jika ada
+        selectedNomorSalahIds.delete(id);
+        
+        showNotifTop(`✅ "${escapeHtml(item.nama)}" berhasil dikembalikan ke Followup Agen!`);
+        
+        // Reload data
+        await loadCustomers();
+        await loadDBNomorSalah();
+        renderFullFollowupKanban();
+        updateStats();
+        updateChartCustomer();
+        updateDeadlineBadge();
+        
+    } catch (err) {
+        console.error('Error restore to followup:', err);
+        showNotifTop('❌ Gagal: ' + err.message, true);
+    }
+}
+
+// ========== RESTORE NOMOR SALAH KE PROSPEK ==========
+async function restoreToProspek(id) {
+    // Ambil data dari nomor_salah
+    const { data: item, error: getError } = await window.db
+        .from('nomor_salah')
+        .select('*')
+        .eq('id', id)
+        .single();
+    
+    if (getError || !item) {
+        showNotifTop('❌ Gagal mengambil data: ' + (getError?.message || 'Data tidak ditemukan'), true);
+        return;
+    }
+    
+    // Cek apakah sudah ada di prospek
+    const { data: existing } = await window.db
+        .from('prospek')
+        .select('id')
+        .eq('hp', item.hp)
+        .maybeSingle();
+    
+    if (existing) {
+        showNotifTop(`⚠️ Nomor "${item.hp}" sudah terdaftar di Prospek Agen!`, true);
+        return;
+    }
+    
+    if (!confirm(`Kembalikan data "${escapeHtml(item.nama)}" ke Prospek Agen?`)) return;
+    
+    try {
+        // Siapkan data dihubungi jika ada
+        let dihubungiData = null;
+        let negosiasiData = null;
+        
+        if (item.dihubungi_data) {
+            dihubungiData = {
+                terkirim: item.dihubungi_data.terkirim || false,
+                dibalas: item.dihubungi_data.dibalas || false,
+                pesan: item.dihubungi_data.pesan || null,
+                balasan: item.dihubungi_data.balasan || null,
+                timestamp: item.dihubungi_data.timestamp || new Date().toISOString()
+            };
+        }
+        
+        if (item.negosiasi_data) {
+            negosiasiData = item.negosiasi_data;
+        }
+        
+        // Insert ke prospek
+        const { error: insertError } = await window.db.from('prospek').insert({
+            nama: item.nama,
+            hp: item.hp,
+            deadline: getTodayDate(),
+            status: 'Baru',
+            user_id: item.user_id || currentUser.id,
+            dihubungi_data: dihubungiData,
+            negosiasi_data: negosiasiData,
+            pesan_terkirim: item.dihubungi_data?.pesan || null,
+            balasan_diterima: item.dihubungi_data?.balasan || null,
+            upline_name: item.upline_name || null,
+            upline_phone: item.upline_phone || null,
+            created_at: new Date().toISOString(),
+            updated_at: new Date().toISOString(),
+            restored_from: 'nomor_salah'
+        });
+        
+        if (insertError) {
+            showNotifTop('❌ Gagal memindahkan: ' + insertError.message, true);
+            return;
+        }
+        
+        // Hapus dari nomor_salah
+        await window.db.from('nomor_salah').delete().eq('id', id);
+        
+        // Hapus dari selected jika ada
+        selectedNomorSalahIds.delete(id);
+        
+        showNotifTop(`✅ "${escapeHtml(item.nama)}" berhasil dikembalikan ke Prospek Agen!`);
+        
+        // Reload data
+        await loadProspek();
+        await loadDBNomorSalah();
+        renderFullProspekKanban();
+        updateChartProspek();
+        updateDeadlineBadge();
+        
+    } catch (err) {
+        console.error('Error restore to prospek:', err);
+        showNotifTop('❌ Gagal: ' + err.message, true);
+    }
 }
 
 function renderDBCommitment(items) {
