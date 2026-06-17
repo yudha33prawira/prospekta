@@ -712,6 +712,19 @@ function updateChartsForDarkMode() {
             canvas.style.borderRadius = '';
         }
     });
+    
+    // ===== PERBAIKAN: Update card-id di dark mode =====
+    document.querySelectorAll('.card-id').forEach(el => {
+        if (isDark) {
+            el.style.background = '#1e293b';
+            el.style.color = '#a5b4fc';
+            el.style.border = '1px solid #334155';
+        } else {
+            el.style.background = '#eef2ff';
+            el.style.color = '#4f46e5';
+            el.style.border = 'none';
+        }
+    });
 }
 
 // ========== SIDEBAR HOVER FUNCTIONS ==========
@@ -2997,8 +3010,9 @@ function renderFollowupKanban() {
             
             const actionButton = getActionButtonForStatus(item.status, item.id, canProceed, disabledReason);
             
+            // ===== PERBAIKAN: Tambahkan style inline untuk dark mode =====
             return `<div class="card-item ${deadlineClass}" data-id="${item.id}">
-                <div class="card-id">🆔 ${escapeHtml(item.agent_id || '-')}</div>
+                <div class="card-id" style="background: #eef2ff; padding: 3px 8px; border-radius: 20px; margin-bottom: 6px; display: inline-block; font-weight: 600; font-size: 10px; color: #4f46e5; max-width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">🆔 ${escapeHtml(item.agent_id || '-')}</div>
                 <div class="card-name" title="${escapeHtml(item.nama)}">${escapeHtml(item.nama)}</div>
                 <div class="card-phone">
                     <span title="${item.hp}">${escapeHtml(item.hp)}</span>
