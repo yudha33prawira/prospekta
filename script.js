@@ -235,45 +235,51 @@ function applyDarkModeToModal(modalElement) {
     const content = modalElement.querySelector('.modal-content');
     if (!content) return;
     
-    // Tambahkan class dark-mode ke modal content
+    // Tambahkan class untuk styling via CSS
     content.classList.add('dark-mode-content');
     
-    // Atau gunakan style tanpa !important
-    content.style.background = '#1e293b';
-    content.style.color = '#f1f5f9';
-    
-    // Semua heading
-    content.querySelectorAll('h3, .modal-subtitle, label, .form-group label, p, span, div:not(.modal-buttons)').forEach(el => {
-        if (!el.closest('.modal-buttons') && 
-            !el.closest('input') && 
-            !el.closest('select') && 
-            !el.closest('textarea')) {
-            el.style.color = '#f1f5f9';
+    // Untuk inline style yang tidak bisa dijangkau CSS, override manual
+    // Cari semua div dengan background tertentu
+    const allDivs = content.querySelectorAll('div');
+    allDivs.forEach(div => {
+        const bg = div.style.background || div.style.backgroundColor;
+        if (bg && (bg.includes('#eef2ff') || bg.includes('#fef3c7') || bg.includes('#f3c7'))) {
+            if (bg.includes('#eef2ff')) {
+                div.style.background = '#1e293b';
+                div.style.border = '1px solid #334155';
+                div.style.borderRadius = '10px';
+                // Ubah semua child p
+                div.querySelectorAll('p').forEach(p => {
+                    p.style.color = '#a5b4fc';
+                });
+                div.querySelectorAll('strong').forEach(s => {
+                    s.style.color = '#818cf8';
+                });
+            } else if (bg.includes('#fef3c7') || bg.includes('#f3c7')) {
+                div.style.background = '#451a03';
+                div.style.border = '1px solid #78350f';
+                div.style.borderRadius = '10px';
+                div.querySelectorAll('p').forEach(p => {
+                    p.style.color = '#fcd34d';
+                });
+                div.querySelectorAll('strong').forEach(s => {
+                    s.style.color = '#fbbf24';
+                });
+            }
         }
     });
     
-    // Input, select, textarea
-    content.querySelectorAll('input, select, textarea').forEach(el => {
+    // Background putih di dalam modal
+    const whiteBg = content.querySelectorAll('div[style*="background: #fff"], div[style*="background:#fff"]');
+    whiteBg.forEach(el => {
         el.style.background = '#0f172a';
-        el.style.borderColor = '#334155';
         el.style.color = '#f1f5f9';
     });
     
-    // Placeholder
-    content.querySelectorAll('input::placeholder, textarea::placeholder').forEach(el => {
-        el.style.color = '#64748b';
-    });
-    
-    // Modal buttons wrapper
-    const buttons = content.querySelector('.modal-buttons');
-    if (buttons) {
-        buttons.style.background = '#1e293b';
-        buttons.style.borderTop = '1px solid #334155';
-    }
-    
-    // Tombol btn-outline
-    content.querySelectorAll('.btn-outline').forEach(el => {
-        el.style.background = '#334155';
+    // Background f9fafb
+    const grayBg = content.querySelectorAll('div[style*="background: #f9fafb"], div[style*="background:#f9fafb"]');
+    grayBg.forEach(el => {
+        el.style.background = '#0f172a';
         el.style.color = '#f1f5f9';
     });
 }
