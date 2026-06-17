@@ -1724,6 +1724,34 @@ body.dark-mode .alasan-tidak-tertarik-modal .form-group select option {
 }
 
 /* ================================================================ */
+/* ========== DB TIDAK TERTARIK - ARSIP ========== */
+/* ================================================================ */
+
+.db-item-info .arsip-preview {
+    font-size: 11px;
+    color: #6b7280;
+    margin-top: 4px;
+    padding: 4px 8px;
+    background: #f3f4f6;
+    border-radius: 6px;
+    display: inline-block;
+}
+
+.db-item-info .arsip-preview strong {
+    color: #4f46e5;
+}
+
+/* Dark mode */
+body.dark-mode .db-item-info .arsip-preview {
+    background: #0f172a;
+    color: #94a3b8;
+}
+
+body.dark-mode .db-item-info .arsip-preview strong {
+    color: #818cf8;
+}
+
+/* ================================================================ */
 /* ========== BUTTON STYLES ========== */
 /* ================================================================ */
 
