@@ -3214,7 +3214,7 @@ function renderFullFollowupKanban() {
     document.getElementById('fullCountPending').innerText = lists.pending.length;
     document.getElementById('fullCountClosing').innerText = lists.closing.length;
     
-    const renderColumn = (containerId, items) => {
+    const renderColumn = (containerId, items, columnType) => {
         const container = document.getElementById(containerId);
         if (!container) return;
         container.innerHTML = items.map(item => {
@@ -3225,10 +3225,30 @@ function renderFullFollowupKanban() {
             else if (isToday) deadlineClass = 'deadline-today';
             const isChecked = selectedFullFollowupIds.get(item.id) === true;
             const checkboxHtml = currentUserRole === 'owner' ? `<input type="checkbox" class="full-item-checkbox" data-id="${item.id}" ${isChecked ? 'checked' : ''} style="margin-right: 8px;">` : '';
+            
+            // ===== PERBAIKAN: Tambahkan tombol aksi =====
+            let canProceed = true;
+            let disabledReason = '';
+            
+            if (columnType === 'followup') {
+                canProceed = item.followup_data && item.followup_data.terkirim && item.followup_data.dibalas;
+                disabledReason = 'Harap lengkapi data follow up terlebih dahulu';
+            } else if (columnType === 'pending') {
+                const pendingData = item.pending_data || [];
+                canProceed = pendingData.length > 0 && pendingData.every(p => p.checked === true && p.text && p.text.trim() !== '');
+                disabledReason = 'Harap isi semua balasan pending dan centang';
+            } else if (columnType === 'closing') {
+                canProceed = true;
+            } else {
+                canProceed = true;
+            }
+            
+            const actionButton = getActionButtonForStatus(item.status, item.id, canProceed, disabledReason);
+            
             return `<div class="card-item ${deadlineClass}" data-id="${item.id}">
-                <div style="display: flex; align-items: center;">
+                <div style="display: flex; align-items: center; gap: 8px;">
                     ${checkboxHtml}
-                    <div style="flex: 1; cursor: pointer;" class="card-click-area">
+                    <div style="flex: 1; min-width: 0;">
                         <div class="card-id">🆔 ${escapeHtml(item.agent_id || '-')}</div>
                         <div class="card-name" title="${escapeHtml(item.nama)}">${escapeHtml(item.nama)}</div>
                         <div class="card-phone">
@@ -3236,19 +3256,26 @@ function renderFullFollowupKanban() {
                             <span class="whatsapp-icon" onclick="event.stopPropagation(); openWA('${item.hp}')">💬</span>
                         </div>
                         <div class="card-deadline">📅 ${item.tanggal || '-'}</div>
+                        ${actionButton}
                     </div>
                 </div>
             </div>`;
         }).join('');
         
-        container.querySelectorAll('.card-click-area').forEach(area => {
-            area.addEventListener('click', (e) => {
-                e.stopPropagation();
-                const card = area.closest('.card-item');
-                if (card) openDetailCustomer(card.dataset.id);
+        // Event listener untuk klik pada area card (tanpa checkbox)
+        container.querySelectorAll('.card-item').forEach(card => {
+            card.addEventListener('click', (e) => {
+                // Abaikan jika klik pada checkbox, whatsapp, atau action button
+                if (e.target.classList.contains('full-item-checkbox') || 
+                    e.target.classList.contains('whatsapp-icon') || 
+                    e.target.classList.contains('action-btn')) {
+                    return;
+                }
+                openDetailCustomer(card.dataset.id);
             });
         });
         
+        // Event listener untuk checkbox
         if (currentUserRole === 'owner') {
             container.querySelectorAll('.full-item-checkbox').forEach(cb => {
                 cb.addEventListener('change', (e) => {
@@ -3262,10 +3289,10 @@ function renderFullFollowupKanban() {
         }
     };
     
-    renderColumn('fullBaruList', lists.baru);
-    renderColumn('fullFollowupList', lists.followup);
-    renderColumn('fullPendingList', lists.pending);
-    renderColumn('fullClosingList', lists.closing);
+    renderColumn('fullBaruList', lists.baru, 'baru');
+    renderColumn('fullFollowupList', lists.followup, 'followup');
+    renderColumn('fullPendingList', lists.pending, 'pending');
+    renderColumn('fullClosingList', lists.closing, 'closing');
     
     updateSelectAllFullFollowupButton();
 }
@@ -3292,7 +3319,7 @@ function renderFullProspekKanban() {
     document.getElementById('fullCountNegosiasi').innerText = lists.negosiasi.length;
     document.getElementById('fullCountTertarik').innerText = lists.tertarik.length;
     
-    const renderColumn = (containerId, items) => {
+    const renderColumn = (containerId, items, columnType) => {
         const container = document.getElementById(containerId);
         if (!container) return;
         container.innerHTML = items.map(item => {
@@ -3303,29 +3330,54 @@ function renderFullProspekKanban() {
             else if (isToday) deadlineClass = 'deadline-today';
             const isChecked = selectedFullProspekIds.get(item.id) === true;
             const checkboxHtml = currentUserRole === 'owner' ? `<input type="checkbox" class="full-item-checkbox" data-id="${item.id}" ${isChecked ? 'checked' : ''} style="margin-right: 8px;">` : '';
+            
+            // ===== PERBAIKAN: Tambahkan tombol aksi =====
+            let canProceed = true;
+            let disabledReason = '';
+            
+            if (columnType === 'dihubungi') {
+                canProceed = item.dihubungi_data && item.dihubungi_data.terkirim && item.dihubungi_data.dibalas;
+                disabledReason = 'Harap lengkapi data dihubungi terlebih dahulu';
+            } else if (columnType === 'negosiasi') {
+                canProceed = true;
+            } else if (columnType === 'tertarik') {
+                canProceed = true;
+            } else {
+                canProceed = true;
+            }
+            
+            const actionButton = getProspekActionButtonForStatus(item.status, item.id, item, canProceed, disabledReason);
+            
             return `<div class="card-item ${deadlineClass}" data-id="${item.id}">
-                <div style="display: flex; align-items: center;">
+                <div style="display: flex; align-items: center; gap: 8px;">
                     ${checkboxHtml}
-                    <div style="flex: 1; cursor: pointer;" class="card-click-area">
+                    <div style="flex: 1; min-width: 0;">
                         <div class="card-name" title="${escapeHtml(item.nama)}">${escapeHtml(item.nama)}</div>
                         <div class="card-phone">
                             <span title="${item.hp}">${escapeHtml(item.hp)}</span>
                             <span class="whatsapp-icon" onclick="event.stopPropagation(); openWA('${item.hp}')">💬</span>
                         </div>
                         <div class="card-deadline">📅 ${item.deadline || '-'}</div>
+                        ${actionButton}
                     </div>
                 </div>
             </div>`;
         }).join('');
         
-        container.querySelectorAll('.card-click-area').forEach(area => {
-            area.addEventListener('click', (e) => {
-                e.stopPropagation();
-                const card = area.closest('.card-item');
-                if (card) openDetailProspek(card.dataset.id);
+        // Event listener untuk klik pada area card (tanpa checkbox)
+        container.querySelectorAll('.card-item').forEach(card => {
+            card.addEventListener('click', (e) => {
+                // Abaikan jika klik pada checkbox, whatsapp, atau action button
+                if (e.target.classList.contains('full-item-checkbox') || 
+                    e.target.classList.contains('whatsapp-icon') || 
+                    e.target.classList.contains('action-btn')) {
+                    return;
+                }
+                openDetailProspek(card.dataset.id);
             });
         });
         
+        // Event listener untuk checkbox
         if (currentUserRole === 'owner') {
             container.querySelectorAll('.full-item-checkbox').forEach(cb => {
                 cb.addEventListener('change', (e) => {
@@ -3339,10 +3391,10 @@ function renderFullProspekKanban() {
         }
     };
     
-    renderColumn('fullProspekBaruList', lists.baru);
-    renderColumn('fullProspekDihubungiList', lists.dihubungi);
-    renderColumn('fullProspekNegosiasiList', lists.negosiasi);
-    renderColumn('fullProspekTertarikList', lists.tertarik);
+    renderColumn('fullProspekBaruList', lists.baru, 'baru');
+    renderColumn('fullProspekDihubungiList', lists.dihubungi, 'dihubungi');
+    renderColumn('fullProspekNegosiasiList', lists.negosiasi, 'negosiasi');
+    renderColumn('fullProspekTertarikList', lists.tertarik, 'tertarik');
     
     updateSelectAllFullProspekButton();
 }
