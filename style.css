@@ -2196,6 +2196,69 @@ body.dark-mode .chartjs-legend li {
     color: #f1f5f9 !important;
 }
 
+/* ===== CHART DARK MODE - ULTIMATE FIX ===== */
+
+/* Force semua canvas di dark mode */
+body.dark-mode canvas {
+    background: #0f172a !important;
+    border-radius: 12px !important;
+}
+
+/* Chart card background */
+body.dark-mode .chart-card {
+    background: #1e293b !important;
+    border-color: #334155 !important;
+}
+
+body.dark-mode .chart-card canvas {
+    background: #0f172a !important !important;
+    border-radius: 12px !important;
+    padding: 8px !important;
+}
+
+/* Chart wrapper di target KPI */
+body.dark-mode .chart-target-wrapper .chart-card {
+    background: #0f172a !important;
+    border: 1px solid #334155 !important;
+}
+
+body.dark-mode .chart-target-wrapper .chart-card canvas {
+    background: transparent !important;
+}
+
+/* Chart.js render monitor */
+body.dark-mode canvas.chartjs-render-monitor {
+    background: #0f172a !important !important;
+}
+
+/* Semua canvas di dashboard */
+body.dark-mode #dashboardPage canvas,
+body.dark-mode #followupFullPage canvas,
+body.dark-mode #prospekFullPage canvas {
+    background: #0f172a !important !important;
+    border-radius: 12px !important;
+}
+
+/* Target chart */
+body.dark-mode #targetChart,
+body.dark-mode #trendChart {
+    background: #0f172a !important !important;
+}
+
+/* Chart title */
+body.dark-mode .chart-card h3 {
+    color: #f1f5f9 !important;
+}
+
+/* Legend text */
+body.dark-mode .chartjs-legend {
+    color: #f1f5f9 !important;
+}
+
+body.dark-mode .chartjs-legend li {
+    color: #f1f5f9 !important;
+}
+
 /* GRADIENT TEXT */
 body.dark-mode .stat-info .value,
 body.dark-mode .logo,
