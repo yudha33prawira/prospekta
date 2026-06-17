@@ -401,14 +401,21 @@ function escapeHtml(text) {
 }
 
 function getTodayDate() {
-    return new Date().toISOString().split('T')[0];
+    const today = new Date();
+    const year = today.getFullYear();
+    const month = String(today.getMonth() + 1).padStart(2, '0');
+    const day = String(today.getDate()).padStart(2, '0');
+    return `${year}-${month}-${day}`;
 }
 
 function addDaysToDate(dateStr, days) {
     if (!dateStr) return getTodayDate();
     const date = new Date(dateStr);
     date.setDate(date.getDate() + days);
-    return date.toISOString().split('T')[0];
+    const year = date.getFullYear();
+    const month = String(date.getMonth() + 1).padStart(2, '0');
+    const day = String(date.getDate()).padStart(2, '0');
+    return `${year}-${month}-${day}`;
 }
 
 function formatRupiah(angka) {
@@ -1334,7 +1341,14 @@ function openFollowupConfirm(id) {
                     return;
                 }
                 
-                const currentDeadline = doc.tanggal || getTodayDate();
+                // ===== PERBAIKAN: Deadline +1 hari dari HARI INI =====
+                const today = new Date();
+                const newDeadline = new Date(today);
+                newDeadline.setDate(today.getDate() + 1);
+                const newDeadlineStr = newDeadline.toISOString().split('T')[0];
+                
+                console.log('📅 Deadline baru:', newDeadlineStr);
+                console.log('📅 Hari ini:', getTodayDate());
                 
                 // ===== PERBAIKAN: Buat history followup =====
                 const followupHistory = doc.followup_history || [];
@@ -1347,9 +1361,6 @@ function openFollowupConfirm(id) {
                     followup_number: followupHistory.length + 1
                 };
                 
-                // ===== PERBAIKAN: Deadline +1 hari dari HARI INI =====
-                const newDeadline = addDaysFromToday(1);
-                
                 // Tambahkan ke history
                 const updatedHistory = [...followupHistory, {
                     pesan: pesanInput.value,
@@ -1359,19 +1370,25 @@ function openFollowupConfirm(id) {
                     dibalas: cb2.checked
                 }];
                 
-                await window.db.from('customers').update({
+                const { error: updateError } = await window.db.from('customers').update({
                     followup_data: followupData,
                     followup_history: updatedHistory,
                     status: 'pending',
-                    tanggal: newDeadline,
+                    tanggal: newDeadlineStr,
                     pesan_terkirim: pesanInput.value,
                     balasan_diterima: balasanInput.value || null,
                     pesan_dikirim_at: new Date().toISOString(),
                     updated_at: new Date().toISOString()
                 }).eq('id', id);
                 
+                if (updateError) {
+                    console.error('❌ Error update:', updateError);
+                    showNotifTop('❌ Gagal: ' + updateError.message, true);
+                    return;
+                }
+                
                 closeDynamicModal(modal);
-                showNotifTop(`✅ Followup #${followupHistory.length + 1} tersimpan! Deadline +1 hari menjadi ${newDeadline}`);
+                showNotifTop(`✅ Followup #${followupHistory.length + 1} tersimpan! Deadline +1 hari menjadi ${newDeadlineStr}`);
                 await loadCustomers();
                 closeModal('detailModal');
                 
@@ -1459,7 +1476,7 @@ function openProspekDihubungiConfirm(id) {
                 <div style="background: #eef2ff; padding: 12px; border-radius: 10px; margin: 0 20px 10px 20px;">
                     <p style="font-size: 12px; color: #4f46e5; margin: 0;">📌 <strong>Ketentuan:</strong><br>
                     • Centang checklist dan isi pesan untuk melanjutkan<br>
-                    • Setiap SAVE akan menambah deadline +1 hari dari HARI INI<br>
+                    • Setiap SAVE akan menambah deadline +5 hari dari HARI INI<br>
                     • Pesan yang dikirim harus BERBEDA dari sebelumnya<br>
                     • Setelah SAVE, data akan berpindah ke Negosiasi</p>
                 </div>
@@ -1485,7 +1502,7 @@ function openProspekDihubungiConfirm(id) {
                     </div>
                 </div>
                 <div class="modal-buttons" style="display: flex; gap: 12px; flex-wrap: wrap;">
-                    <button id="prospekSaveBtn" class="btn-primary" style="flex: 1;" disabled>💾 Simpan & Pindah ke Negosiasi (+1 hari)</button>
+                    <button id="prospekSaveBtn" class="btn-primary" style="flex: 1;" disabled>💾 Simpan & Pindah ke Negosiasi (+5 hari)</button>
                     <button id="prospekConfirmNo" class="btn-danger" style="flex: 1;">📵 Nomor salah/Tidak bisa dihubungi</button>
                     <button id="prospekConfirmCancel" class="btn-outline" style="flex: 1;">❌ Batal</button>
                 </div>
@@ -1560,7 +1577,14 @@ function openProspekDihubungiConfirm(id) {
                     return;
                 }
                 
-                const currentDeadline = doc.deadline || getTodayDate();
+                // ===== PERBAIKAN: Deadline +5 hari dari HARI INI =====
+                const today = new Date();
+                const newDeadline = new Date(today);
+                newDeadline.setDate(today.getDate() + 5);
+                const newDeadlineStr = newDeadline.toISOString().split('T')[0];
+                
+                console.log('📅 Deadline baru (prospek):', newDeadlineStr);
+                console.log('📅 Hari ini:', getTodayDate());
                 
                 // ===== PERBAIKAN: Buat history dihubungi =====
                 const dihubungiHistory = doc.dihubungi_history || [];
@@ -1573,9 +1597,6 @@ function openProspekDihubungiConfirm(id) {
                     dihubungi_number: dihubungiHistory.length + 1
                 };
                 
-                // ===== PERBAIKAN: Deadline +1 hari dari HARI INI =====
-                const newDeadline = addDaysFromToday(1);
-                
                 // Tambahkan ke history
                 const updatedHistory = [...dihubungiHistory, {
                     pesan: pesanInput.value,
@@ -1585,19 +1606,25 @@ function openProspekDihubungiConfirm(id) {
                     dibalas: cb2.checked
                 }];
                 
-                await window.db.from('prospek').update({
+                const { error: updateError } = await window.db.from('prospek').update({
                     dihubungi_data: dihubungiData,
                     dihubungi_history: updatedHistory,
                     status: 'Negosiasi',
-                    deadline: newDeadline,
+                    deadline: newDeadlineStr,
                     pesan_terkirim: pesanInput.value,
                     balasan_diterima: balasanInput.value || null,
                     pesan_dikirim_at: new Date().toISOString(),
                     updated_at: new Date().toISOString()
                 }).eq('id', id);
                 
+                if (updateError) {
+                    console.error('❌ Error update:', updateError);
+                    showNotifTop('❌ Gagal: ' + updateError.message, true);
+                    return;
+                }
+                
                 closeDynamicModal(modal);
-                showNotifTop(`✅ Dihubungi #${dihubungiHistory.length + 1} tersimpan! Deadline +1 hari menjadi ${newDeadline}`);
+                showNotifTop(`✅ Dihubungi #${dihubungiHistory.length + 1} tersimpan! Deadline +5 hari menjadi ${newDeadlineStr}`);
                 await loadProspek();
                 closeModal('detailModal');
                 
@@ -1606,7 +1633,7 @@ function openProspekDihubungiConfirm(id) {
                 showNotifTop('❌ Gagal: ' + err.message, true);
             } finally {
                 saveBtn.disabled = false;
-                saveBtn.textContent = '💾 Simpan & Pindah ke Negosiasi (+1 hari)';
+                saveBtn.textContent = '💾 Simpan & Pindah ke Negosiasi (+5 hari)';
             }
         };
         
@@ -3138,14 +3165,24 @@ function confirmTertarikToDB(prospekId) {
 
 // ========== FUNGSI TAMBAHAN UNTUK DEADLINE ==========
 function addDaysFromToday(days) {
-    const today = getTodayDate();
-    return addDaysToDate(today, days);
+    // ===== PERBAIKAN: Gunakan tanggal lokal, hindari timezone UTC =====
+    const today = new Date();
+    today.setDate(today.getDate() + days);
+    
+    // Format manual ke YYYY-MM-DD dengan waktu LOKAL
+    const year = today.getFullYear();
+    const month = String(today.getMonth() + 1).padStart(2, '0');
+    const day = String(today.getDate()).padStart(2, '0');
+    return `${year}-${month}-${day}`;
 }
 
 function getFirstDayOfNextMonth() {
     const today = new Date();
     const nextMonth = new Date(today.getFullYear(), today.getMonth() + 1, 1);
-    return nextMonth.toISOString().split('T')[0];
+    const year = nextMonth.getFullYear();
+    const month = String(nextMonth.getMonth() + 1).padStart(2, '0');
+    const day = String(nextMonth.getDate()).padStart(2, '0');
+    return `${year}-${month}-${day}`;
 }
 
 // ========== FUNGSI updateCustomerStatus ==========
