@@ -537,6 +537,60 @@ body {
 }
 
 /* ================================================================ */
+/* ========== FULL MODE CARD ========== */
+/* ================================================================ */
+
+/* Full mode card item - lebih rapi */
+.fullpage-content .card-item {
+    padding: 12px 14px;
+}
+
+.fullpage-content .card-item .card-id {
+    font-size: 11px;
+    padding: 4px 10px;
+}
+
+.fullpage-content .card-item .card-name {
+    font-size: 14px;
+}
+
+.fullpage-content .card-item .card-phone {
+    font-size: 12px;
+}
+
+.fullpage-content .card-item .card-deadline {
+    font-size: 11px;
+}
+
+/* Tombol aksi di full mode - lebih besar */
+.fullpage-content .action-btn {
+    font-size: 11px;
+    padding: 5px 10px;
+    margin-top: 6px;
+}
+
+/* Responsive full mode */
+@media (max-width: 640px) {
+    .fullpage-content .card-item .card-id {
+        font-size: 9px;
+        padding: 2px 6px;
+    }
+    .fullpage-content .card-item .card-name {
+        font-size: 11px;
+    }
+    .fullpage-content .card-item .card-phone {
+        font-size: 10px;
+    }
+    .fullpage-content .card-item .card-deadline {
+        font-size: 9px;
+    }
+    .fullpage-content .action-btn {
+        font-size: 9px;
+        padding: 3px 6px;
+    }
+}
+
+/* ================================================================ */
 /* ========== TOPBAR ========== */
 /* ================================================================ */
 
