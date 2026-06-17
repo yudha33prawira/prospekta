@@ -2111,7 +2111,7 @@ function showAlasanTidakTertarikModal(prospekId) {
         this.textContent = '⏳ Memproses...';
         
         try {
-            // Ambil data prospek lengkap
+            // ===== PERBAIKAN: Ambil data prospek LENGKAP =====
             const { data: doc, error: getError } = await window.db
                 .from('prospek')
                 .select('*')
@@ -2123,22 +2123,51 @@ function showAlasanTidakTertarikModal(prospekId) {
                 return;
             }
             
-            // ===== PERBAIKAN: Siapkan data untuk DB Tidak Tertarik =====
-            // Hanya field yang ada di tabel db_tidak_tertarik
+            // ===== PERBAIKAN: Siapkan data negosiasi lengkap =====
+            const negosiasiData = doc.negosiasi_data || {};
+            
+            // ===== PERBAIKAN: Siapkan data dihubungi lengkap =====
+            const dihubungiData = doc.dihubungi_data || {};
+            
+            // ===== PERBAIKAN: Data lengkap untuk arsip =====
             const tidakTertarikData = {
+                // Field utama
                 nama: doc.nama || 'Tidak ada nama',
                 hp: doc.hp || '',
                 tanggal: new Date().toISOString(),
                 alasan: alasanLengkap,
                 user_id: doc.user_id || currentUser.id,
+                
+                // ===== PERBAIKAN: Arsip data status sebelumnya =====
+                status_sebelumnya: doc.status || 'Negosiasi',
+                
+                // ===== PERBAIKAN: Arsip data dihubungi =====
+                dihubungi_data: dihubungiData,
+                pesan_terkirim: doc.pesan_terkirim || dihubungiData.pesan || null,
+                balasan_diterima: doc.balasan_diterima || dihubungiData.balasan || null,
+                
+                // ===== PERBAIKAN: Arsip data negosiasi LENGKAP =====
+                negosiasi_data: {
+                    aplikasi: negosiasiData.aplikasi || '',
+                    domisili: negosiasiData.domisili || '',
+                    transaksi: negosiasiData.transaksi || '',
+                    deposit: negosiasiData.deposit || '',
+                    tertarik: negosiasiData.tertarik || '',
+                    penawaran: negosiasiData.penawaran || '',
+                    is_complete: negosiasiData.is_complete || false,
+                    timestamp: negosiasiData.timestamp || new Date().toISOString()
+                },
+                
+                // ===== PERBAIKAN: Arsip upline =====
+                upline_name: doc.upline_name || null,
+                upline_phone: doc.upline_phone || null,
+                
+                // Timestamp
                 created_at: new Date().toISOString(),
                 updated_at: new Date().toISOString()
-                // Field tambahan jika ada di tabel:
-                // status_sebelumnya: doc.status || 'Negosiasi',
-                // negosiasi_data: doc.negosiasi_data || null
             };
             
-            console.log('📝 Menyimpan ke db_tidak_tertarik:', tidakTertarikData);
+            console.log('📝 Menyimpan ke db_tidak_tertarik (LENGKAP):', tidakTertarikData);
             
             // Simpan ke DB Tidak Tertarik
             const { error: insertError } = await window.db
@@ -2167,7 +2196,7 @@ function showAlasanTidakTertarikModal(prospekId) {
             
             console.log('✅ Berhasil hapus dari prospek');
             
-            showNotifTop('📵 Data dipindahkan ke Database Tidak Tertarik');
+            showNotifTop('📵 Data dipindahkan ke Database Tidak Tertarik (dengan arsip lengkap)');
             closeModalAlasan();
             
             // Reload data
@@ -4167,6 +4196,30 @@ function renderDBTidak(items) {
     
     container.innerHTML = items.map(item => {
         const isChecked = selectedTidakIds.get(item.id) === true;
+        
+        // ===== PERBAIKAN: Tampilkan data negosiasi jika ada =====
+        let negosiasiPreview = '';
+        if (item.negosiasi_data) {
+            const nd = item.negosiasi_data;
+            const fields = [];
+            if (nd.aplikasi) fields.push(`📱 ${nd.aplikasi}`);
+            if (nd.domisili) fields.push(`📍 ${nd.domisili}`);
+            if (nd.transaksi) fields.push(`💰 ${nd.transaksi}`);
+            if (nd.penawaran) fields.push(`🏷️ ${nd.penawaran}`);
+            negosiasiPreview = fields.length > 0 ? 
+                `<small>📋 ${fields.join(' | ')}</small>` : '';
+        }
+        
+        // ===== PERBAIKAN: Tampilkan data dihubungi jika ada =====
+        let dihubungiPreview = '';
+        if (item.dihubungi_data && item.dihubungi_data.pesan) {
+            const pesan = item.dihubungi_data.pesan.substring(0, 30);
+            dihubungiPreview = `<small>💬 Pesan: ${escapeHtml(pesan)}${item.dihubungi_data.pesan.length > 30 ? '...' : ''}</small>`;
+        } else if (item.pesan_terkirim) {
+            const pesan = item.pesan_terkirim.substring(0, 30);
+            dihubungiPreview = `<small>💬 Pesan: ${escapeHtml(pesan)}${item.pesan_terkirim.length > 30 ? '...' : ''}</small>`;
+        }
+        
         return `
             <div class="db-item" data-id="${item.id}" data-type="tidak" style="cursor: pointer;">
                 <input type="checkbox" class="db-item-checkbox" data-id="${item.id}" ${isChecked ? 'checked' : ''}>
@@ -4176,6 +4229,9 @@ function renderDBTidak(items) {
                     <small>❌ Alasan: ${escapeHtml(item.alasan || '-')}</small>
                     <small>📅 ${item.tanggal ? new Date(item.tanggal).toLocaleDateString('id-ID') : '-'}</small>
                     ${item.status_sebelumnya ? `<small>📌 Status sebelumnya: ${escapeHtml(item.status_sebelumnya)}</small>` : ''}
+                    ${negosiasiPreview}
+                    ${dihubungiPreview}
+                    ${item.upline_name ? `<small>👤 Upline: ${escapeHtml(item.upline_name)}</small>` : ''}
                 </div>
                 <div class="db-item-actions">
                     <button class="db-item-wa" onclick="event.stopPropagation(); openWA('${item.hp}')">💬 WA</button>
@@ -5582,38 +5638,69 @@ function openDBDetailModal(id, type) {
                 ${negosiasiInfo}
             `;
         }
-            else if (type === 'tidak') {
-                let negosiasiInfo = '';
-                if (d.negosiasi_data) {
-                    const nd = d.negosiasi_data;
-                    negosiasiInfo = `
-                        <div class="detail-info-item">
-                            <strong>📋 Data Negosiasi:</strong>
-                            <div style="margin-top: 5px; padding-left: 15px;">
-                                Aplikasi: ${escapeHtml(nd.aplikasi || '-')}<br>
-                                Domisili: ${escapeHtml(nd.domisili || '-')}<br>
-                                Transaksi: ${escapeHtml(nd.transaksi || '-')}<br>
-                                Deposit: ${escapeHtml(nd.deposit || '-')}<br>
-                                Tertarik: ${escapeHtml(nd.tertarik || '-')}<br>
-                                Penawaran: ${escapeHtml(nd.penawaran || '-')}
-                            </div>
+        else if (type === 'tidak') {
+            // ===== PERBAIKAN: Tampilkan data dihubungi =====
+            let dihubungiInfo = '';
+            if (d.dihubungi_data) {
+                const dd = d.dihubungi_data;
+                dihubungiInfo = `
+                    <div class="detail-info-item">
+                        <strong>✅ Data Dihubungi:</strong>
+                        <div style="margin-top: 5px; padding-left: 15px;">
+                            Terkirim: ${dd.terkirim ? 'Ya' : 'Tidak'}<br>
+                            Dibalas: ${dd.dibalas ? 'Ya' : 'Tidak'}<br>
+                            <strong>Pesan Terkirim:</strong> ${escapeHtml(dd.pesan || '-')}<br>
+                            <strong>Balasan:</strong> ${escapeHtml(dd.balasan || '-')}
                         </div>
-                    `;
-                }
-                
-                // ===== PERBAIKAN: Tambahkan status sebelumnya =====
-                const statusSebelumnya = d.status_sebelumnya || 'Negosiasi';
-                
-                detailHtml = `
-                    ${ownerInfo}
-                    <div class="detail-info-item"><strong>👤 Nama:</strong> ${escapeHtml(d.nama)}</div>
-                    <div class="detail-info-item"><strong>📱 Nomor WA:</strong> ${escapeHtml(d.hp)}</div>
-                    <div class="detail-info-item"><strong>📅 Tanggal:</strong> ${d.tanggal ? new Date(d.tanggal).toLocaleDateString('id-ID') : '-'}</div>
-                    <div class="detail-info-item"><strong>📌 Status Sebelumnya:</strong> ${escapeHtml(statusSebelumnya)}</div>
-                    <div class="detail-info-item"><strong>❌ Alasan:</strong> ${escapeHtml(d.alasan || 'Tidak tertarik')}</div>
-                    ${negosiasiInfo}
+                    </div>
                 `;
-    }
+            } else if (d.pesan_terkirim) {
+                dihubungiInfo = `
+                    <div class="detail-info-item">
+                        <strong>✅ Data Dihubungi:</strong>
+                        <div style="margin-top: 5px; padding-left: 15px;">
+                            <strong>Pesan Terkirim:</strong> ${escapeHtml(d.pesan_terkirim || '-')}<br>
+                            <strong>Balasan:</strong> ${escapeHtml(d.balasan_diterima || '-')}
+                        </div>
+                    </div>
+                `;
+            }
+            
+            // ===== PERBAIKAN: Tampilkan data negosiasi =====
+            let negosiasiInfo = '';
+            if (d.negosiasi_data) {
+                const nd = d.negosiasi_data;
+                negosiasiInfo = `
+                    <div class="detail-info-item">
+                        <strong>📋 Data Negosiasi (Arsip):</strong>
+                        <div style="margin-top: 5px; padding-left: 15px;">
+                            Aplikasi: ${escapeHtml(nd.aplikasi || '-')}<br>
+                            Domisili: ${escapeHtml(nd.domisili || '-')}<br>
+                            Transaksi: ${escapeHtml(nd.transaksi || '-')}<br>
+                            Deposit: ${escapeHtml(nd.deposit || '-')}<br>
+                            Tertarik: ${escapeHtml(nd.tertarik || '-')}<br>
+                            Penawaran: ${escapeHtml(nd.penawaran || '-')}
+                            ${nd.is_complete ? '<br>✅ Kuesioner Lengkap' : '<br>⏳ Kuesioner Belum Lengkap'}
+                        </div>
+                    </div>
+                `;
+            }
+            
+            const statusSebelumnya = d.status_sebelumnya || 'Negosiasi';
+            
+            detailHtml = `
+                ${ownerInfo}
+                <div class="detail-info-item"><strong>👤 Nama:</strong> ${escapeHtml(d.nama)}</div>
+                <div class="detail-info-item"><strong>📱 Nomor WA:</strong> ${escapeHtml(d.hp)}</div>
+                <div class="detail-info-item"><strong>📅 Tanggal Pindah:</strong> ${d.tanggal ? new Date(d.tanggal).toLocaleDateString('id-ID') : '-'}</div>
+                <div class="detail-info-item"><strong>📌 Status Sebelumnya:</strong> ${escapeHtml(statusSebelumnya)}</div>
+                <div class="detail-info-item"><strong>❌ Alasan Tidak Tertarik:</strong> ${escapeHtml(d.alasan || 'Tidak tertarik')}</div>
+                ${d.upline_name ? `<div class="detail-info-item"><strong>👤 Upline:</strong> ${escapeHtml(d.upline_name)}</div>` : ''}
+                ${d.upline_phone ? `<div class="detail-info-item"><strong>📞 No. Upline:</strong> ${escapeHtml(d.upline_phone)}</div>` : ''}
+                ${dihubungiInfo}
+                ${negosiasiInfo}
+            `;
+        }
         else if (type === 'nomor_salah') {
             let followupInfo = '';
             if (d.followup_data) {
