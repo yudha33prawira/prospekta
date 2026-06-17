@@ -1315,7 +1315,7 @@ function openFollowupConfirm(id) {
             closeModal('detailModal');
         };
         
-        // ===== PERBAIKAN: Tombol Nomor Salah =====
+        // ===== PERBAIKAN: Tombol Nomor Salah - HANYA KOLOM YANG ADA =====
         noBtn.onclick = async () => {
             const { data: doc } = await window.db.from('customers').select('*').eq('id', id).single();
             if (!doc) {
@@ -1325,17 +1325,14 @@ function openFollowupConfirm(id) {
             
             if (confirm(`Pindahkan "${escapeHtml(doc.nama)}" ke Database Nomor Salah?`)) {
                 try {
-                    // ===== PERBAIKAN: Pastikan semua field yang diperlukan ada =====
+                    // ===== PERBAIKAN: Hanya kirim field yang ada di tabel nomor_salah =====
                     const nomorSalahData = {
                         nama: doc.nama || 'Tidak ada nama',
                         hp: doc.hp || '',
                         alasan: 'Nomor tidak bisa dihubungi / tidak aktif',
                         deleted_at: new Date().toISOString(),
                         user_id: doc.user_id || currentUser.id,
-                        agent_id: doc.agent_id || null,
-                        apk: doc.apk || null,
-                        upline_name: doc.upline_name || null,
-                        upline_phone: doc.upline_phone || null,
+                        // Hanya field yang pasti ada di tabel nomor_salah
                         followup_data: {
                             terkirim: cb1.checked,
                             dibalas: cb2.checked,
@@ -1343,10 +1340,15 @@ function openFollowupConfirm(id) {
                             balasan: balasanInput.value || null,
                             timestamp: new Date().toISOString()
                         },
-                        pesan_terkirim: pesanInput.value || null,
-                        balasan_diterima: balasanInput.value || null,
+                        // Simpan sebagai text biasa (bukan JSON) jika kolomnya ada
+                        // Jika kolom ini tidak ada, hapus dari sini
                         created_at: new Date().toISOString()
                     };
+                    
+                    // ===== PERBAIKAN: Tambahkan field opsional hanya jika ada di schema =====
+                    // Field yang mungkin ada: apk, upline_name
+                    if (doc.apk) nomorSalahData.apk = doc.apk;
+                    if (doc.upline_name) nomorSalahData.upline_name = doc.upline_name;
                     
                     console.log('📝 Menyimpan ke nomor_salah:', nomorSalahData);
                     
@@ -1363,18 +1365,7 @@ function openFollowupConfirm(id) {
                     console.log('✅ Berhasil simpan ke nomor_salah');
                     
                     // Hapus dari customers
-                    const { error: deleteError } = await window.db
-                        .from('customers')
-                        .delete()
-                        .eq('id', id);
-                    
-                    if (deleteError) {
-                        console.error('❌ Error delete customer:', deleteError);
-                        showNotifTop('❌ Gagal menghapus data customer: ' + deleteError.message, true);
-                        return;
-                    }
-                    
-                    console.log('✅ Berhasil hapus dari customers');
+                    await window.db.from('customers').delete().eq('id', id);
                     
                     showNotifTop('📵 Data dipindahkan ke Database Nomor Salah');
                     closeDynamicModal(modal);
@@ -1500,7 +1491,7 @@ function openProspekDihubungiConfirm(id) {
             closeModal('detailModal');
         };
         
-        // ===== PERBAIKAN: Tombol Nomor Salah =====
+        // ===== PERBAIKAN: Tombol Nomor Salah - HANYA KOLOM YANG ADA =====
         noBtn.onclick = async () => {
             const { data: doc } = await window.db.from('prospek').select('*').eq('id', id).single();
             if (!doc) {
@@ -1510,15 +1501,14 @@ function openProspekDihubungiConfirm(id) {
             
             if (confirm(`Pindahkan "${escapeHtml(doc.nama)}" ke Database Nomor Salah?`)) {
                 try {
-                    // ===== PERBAIKAN: Pastikan semua field yang diperlukan ada =====
+                    // ===== PERBAIKAN: Hanya kirim field yang ada di tabel nomor_salah =====
                     const nomorSalahData = {
                         nama: doc.nama || 'Tidak ada nama',
                         hp: doc.hp || '',
                         alasan: 'Nomor tidak bisa dihubungi / tidak aktif',
                         deleted_at: new Date().toISOString(),
                         user_id: doc.user_id || currentUser.id,
-                        upline_name: doc.upline_name || null,
-                        upline_phone: doc.upline_phone || null,
+                        // Simpan data dihubungi sebagai JSON
                         dihubungi_data: {
                             terkirim: cb1.checked,
                             dibalas: cb2.checked,
@@ -1526,10 +1516,11 @@ function openProspekDihubungiConfirm(id) {
                             balasan: balasanInput.value || null,
                             timestamp: new Date().toISOString()
                         },
-                        pesan_terkirim: pesanInput.value || null,
-                        balasan_diterima: balasanInput.value || null,
                         created_at: new Date().toISOString()
                     };
+                    
+                    // ===== PERBAIKAN: Tambahkan field opsional jika ada =====
+                    if (doc.upline_name) nomorSalahData.upline_name = doc.upline_name;
                     
                     console.log('📝 Menyimpan ke nomor_salah (prospek):', nomorSalahData);
                     
@@ -1546,18 +1537,7 @@ function openProspekDihubungiConfirm(id) {
                     console.log('✅ Berhasil simpan ke nomor_salah');
                     
                     // Hapus dari prospek
-                    const { error: deleteError } = await window.db
-                        .from('prospek')
-                        .delete()
-                        .eq('id', id);
-                    
-                    if (deleteError) {
-                        console.error('❌ Error delete prospek:', deleteError);
-                        showNotifTop('❌ Gagal menghapus data prospek: ' + deleteError.message, true);
-                        return;
-                    }
-                    
-                    console.log('✅ Berhasil hapus dari prospek');
+                    await window.db.from('prospek').delete().eq('id', id);
                     
                     showNotifTop('📵 Data dipindahkan ke Database Nomor Salah');
                     closeDynamicModal(modal);
@@ -2207,103 +2187,144 @@ function showConvertToCustomerModal(prospekId) {
 }
 
 // ========== CRUD OPERATIONS ==========
+let isAddingCustomer = false;
+let isAddingProspek = false;
+
 async function addCustomer(agentId, nama, hp, apk, uplineName, deadline) {
-    // ===== PERBAIKAN: Cek duplikat berdasarkan agent_id =====
-    const { data: existingById, error: checkError1 } = await window.db
-        .from('customers')
-        .select('id')
-        .eq('agent_id', agentId)
-        .maybeSingle();
-    
-    if (existingById) {
-        showNotifTop(`⚠️ ID Agent "${agentId}" sudah terdaftar!`, true);
+    // ===== PERBAIKAN: Cegah multiple submit =====
+    if (isAddingCustomer) {
+        showNotifTop('⏳ Data sedang diproses, harap tunggu...', true);
         return false;
     }
+    isAddingCustomer = true;
     
-    // ===== PERBAIKAN: Cek duplikat berdasarkan hp =====
-    if (hp) {
-        const { data: existingByHp } = await window.db
+    try {
+        // ===== PERBAIKAN: Cek duplikat berdasarkan agent_id =====
+        const { data: existingById } = await window.db
             .from('customers')
             .select('id')
-            .eq('hp', hp)
+            .eq('agent_id', agentId)
             .maybeSingle();
         
-        if (existingByHp) {
-            showNotifTop(`⚠️ Nomor HP "${hp}" sudah terdaftar!`, true);
+        if (existingById) {
+            showNotifTop(`⚠️ ID Agent "${agentId}" sudah terdaftar!`, true);
             return false;
         }
+        
+        // ===== PERBAIKAN: Cek duplikat berdasarkan hp =====
+        if (hp) {
+            const { data: existingByHp } = await window.db
+                .from('customers')
+                .select('id')
+                .eq('hp', hp)
+                .maybeSingle();
+            
+            if (existingByHp) {
+                showNotifTop(`⚠️ Nomor HP "${hp}" sudah terdaftar!`, true);
+                return false;
+            }
+        }
+        
+        // ===== PERBAIKAN: Cek duplikat berdasarkan nama =====
+        if (nama) {
+            const { data: existingByName } = await window.db
+                .from('customers')
+                .select('id')
+                .eq('nama', nama)
+                .maybeSingle();
+            
+            if (existingByName) {
+                showNotifTop(`⚠️ Nama "${nama}" sudah terdaftar!`, true);
+                return false;
+            }
+        }
+        
+        const { error } = await window.db.from('customers').insert({
+            agent_id: agentId,
+            nama: nama,
+            hp: hp || '',
+            apk: apk || null,
+            upline_name: uplineName || null,
+            tanggal: deadline,
+            status: 'baru',
+            user_id: currentUser.id,
+            created_at: new Date().toISOString(),
+            updated_at: new Date().toISOString()
+        });
+        
+        if (error) {
+            showNotifTop('❌ Gagal simpan: ' + error.message, true);
+            return false;
+        }
+        
+        showNotifTop('✅ Data customer berhasil ditambahkan');
+        await loadCustomers();
+        return true;
+        
+    } finally {
+        isAddingCustomer = false;
     }
-    
-    const { error } = await window.db.from('customers').insert({
-        agent_id: agentId,
-        nama: nama,
-        hp: hp || '',
-        apk: apk || null,
-        upline_name: uplineName || null,
-        tanggal: deadline,
-        status: 'baru',
-        user_id: currentUser.id,
-        created_at: new Date().toISOString(),
-        updated_at: new Date().toISOString()
-    });
-    
-    if (error) {
-        showNotifTop('❌ Gagal simpan: ' + error.message, true);
-        return false;
-    }
-    
-    showNotifTop('✅ Data customer berhasil ditambahkan');
-    await loadCustomers();
-    return true;
 }
 
 async function addProspek(nama, hp, deadline) {
-    // ===== PERBAIKAN: Cek duplikat berdasarkan hp =====
-    if (hp) {
-        const { data: existingByHp } = await window.db
-            .from('prospek')
-            .select('id')
-            .eq('hp', hp)
-            .maybeSingle();
-        
-        if (existingByHp) {
-            showNotifTop(`⚠️ Nomor HP "${hp}" sudah terdaftar di Prospek!`, true);
-            return false;
-        }
-    }
-    
-    // ===== PERBAIKAN: Cek duplikat berdasarkan nama =====
-    if (nama) {
-        const { data: existingByName } = await window.db
-            .from('prospek')
-            .select('id')
-            .eq('nama', nama)
-            .maybeSingle();
-        
-        if (existingByName) {
-            showNotifTop(`⚠️ Nama "${nama}" sudah terdaftar di Prospek!`, true);
-            return false;
-        }
-    }
-    
-    const { error } = await window.db.from('prospek').insert({
-        nama: nama,
-        hp: hp || '',
-        deadline: deadline,
-        status: 'Baru',
-        user_id: currentUser.id,
-        created_at: new Date().toISOString(),
-        updated_at: new Date().toISOString()
-    });
-    
-    if (error) {
-        showNotifTop('❌ Gagal simpan: ' + error.message, true);
+    // ===== PERBAIKAN: Cegah multiple submit =====
+    if (isAddingProspek) {
+        showNotifTop('⏳ Data sedang diproses, harap tunggu...', true);
         return false;
     }
+    isAddingProspek = true;
     
-    showNotifTop('✅ Data prospek berhasil ditambahkan');
-    await loadProspek();
-    return true;
+    try {
+        // ===== PERBAIKAN: Cek duplikat berdasarkan hp =====
+        if (hp) {
+            const { data: existingByHp } = await window.db
+                .from('prospek')
+                .select('id')
+                .eq('hp', hp)
+                .maybeSingle();
+            
+            if (existingByHp) {
+                showNotifTop(`⚠️ Nomor HP "${hp}" sudah terdaftar di Prospek!`, true);
+                return false;
+            }
+        }
+        
+        // ===== PERBAIKAN: Cek duplikat berdasarkan nama =====
+        if (nama) {
+            const { data: existingByName } = await window.db
+                .from('prospek')
+                .select('id')
+                .eq('nama', nama)
+                .maybeSingle();
+            
+            if (existingByName) {
+                showNotifTop(`⚠️ Nama "${nama}" sudah terdaftar di Prospek!`, true);
+                return false;
+            }
+        }
+        
+        const { error } = await window.db.from('prospek').insert({
+            nama: nama,
+            hp: hp || '',
+            deadline: deadline,
+            status: 'Baru',
+            user_id: currentUser.id,
+            created_at: new Date().toISOString(),
+            updated_at: new Date().toISOString()
+        });
+        
+        if (error) {
+            showNotifTop('❌ Gagal simpan: ' + error.message, true);
+            return false;
+        }
+        
+        showNotifTop('✅ Data prospek berhasil ditambahkan');
+        await loadProspek();
+        return true;
+        
+    } finally {
+        isAddingProspek = false;
+    }
 }
 
 // ========== KONFIRMASI CLOSING KE DB ==========
@@ -6861,24 +6882,35 @@ function initEventListeners() {
     // Add customer
     document.getElementById('addCustomerBtn')?.addEventListener('click', () => {
         document.getElementById('customerDate').value = getTodayDate();
-        showModal('customerModal');
-    });
-    document.getElementById('addCustomerFullBtn')?.addEventListener('click', () => {
-        document.getElementById('customerDate').value = getTodayDate();
+        // Reset form
+        document.getElementById('customerId').value = '';
+        document.getElementById('customerName').value = '';
+        document.getElementById('customerPhone').value = '';
+        document.getElementById('customerApk').value = '';
+        document.getElementById('customerUpline').value = '';
         showModal('customerModal');
     });
     
-    document.getElementById('saveCustomerBtn')?.addEventListener('click', async () => {
-        if (isSubmittingCustomer) {
+    document.getElementById('addCustomerFullBtn')?.addEventListener('click', () => {
+        document.getElementById('customerDate').value = getTodayDate();
+        document.getElementById('customerId').value = '';
+        document.getElementById('customerName').value = '';
+        document.getElementById('customerPhone').value = '';
+        document.getElementById('customerApk').value = '';
+        document.getElementById('customerUpline').value = '';
+        showModal('customerModal');
+    });
+    
+    document.getElementById('saveCustomerBtn')?.addEventListener('click', async function(e) {
+        // ===== PERBAIKAN: Prevent multiple click =====
+        if (this.disabled) {
             showNotifTop('⏳ Mohon tunggu, data sedang diproses...', true);
             return;
         }
         
-        isSubmittingCustomer = true;
-        const btn = document.getElementById('saveCustomerBtn');
-        const originalText = btn.textContent;
-        btn.textContent = '⏳ Menyimpan...';
-        btn.disabled = true;
+        this.disabled = true;
+        const originalText = this.textContent;
+        this.textContent = '⏳ Menyimpan...';
         
         try {
             const agentId = document.getElementById('customerId').value;
@@ -6896,44 +6928,49 @@ function initEventListeners() {
             hp = hp.replace(/[^\d]/g, '');
             if (hp.startsWith('0')) hp = hp.substring(1);
             
-            await addCustomer(agentId, nama, hp, apk, upline, deadline);
-            closeModal('customerModal');
-            document.getElementById('customerId').value = '';
-            document.getElementById('customerName').value = '';
-            document.getElementById('customerPhone').value = '';
-            document.getElementById('customerApk').value = '';
-            document.getElementById('customerUpline').value = '';
+            const success = await addCustomer(agentId, nama, hp, apk, upline, deadline);
+            if (success) {
+                closeModal('customerModal');
+                document.getElementById('customerId').value = '';
+                document.getElementById('customerName').value = '';
+                document.getElementById('customerPhone').value = '';
+                document.getElementById('customerApk').value = '';
+                document.getElementById('customerUpline').value = '';
+            }
         } catch (err) {
             console.error('Error:', err);
             showNotifTop('❌ Gagal: ' + err.message, true);
         } finally {
-            isSubmittingCustomer = false;
-            btn.textContent = originalText;
-            btn.disabled = false;
+            this.disabled = false;
+            this.textContent = originalText;
         }
     });
     
     // Add prospek
     document.getElementById('addProspekBtn')?.addEventListener('click', () => {
         document.getElementById('prospekDeadline').value = getTodayDate();
-        showModal('prospekModal');
-    });
-    document.getElementById('addProspekFullBtn')?.addEventListener('click', () => {
-        document.getElementById('prospekDeadline').value = getTodayDate();
+        document.getElementById('prospekName').value = '';
+        document.getElementById('prospekPhone').value = '';
         showModal('prospekModal');
     });
     
-    document.getElementById('saveProspekBtn')?.addEventListener('click', async () => {
-        if (isSubmittingProspek) {
+    document.getElementById('addProspekFullBtn')?.addEventListener('click', () => {
+        document.getElementById('prospekDeadline').value = getTodayDate();
+        document.getElementById('prospekName').value = '';
+        document.getElementById('prospekPhone').value = '';
+        showModal('prospekModal');
+    });
+    
+    document.getElementById('saveProspekBtn')?.addEventListener('click', async function(e) {
+        // ===== PERBAIKAN: Prevent multiple click =====
+        if (this.disabled) {
             showNotifTop('⏳ Mohon tunggu, data sedang diproses...', true);
             return;
         }
         
-        isSubmittingProspek = true;
-        const btn = document.getElementById('saveProspekBtn');
-        const originalText = btn.textContent;
-        btn.textContent = '⏳ Menyimpan...';
-        btn.disabled = true;
+        this.disabled = true;
+        const originalText = this.textContent;
+        this.textContent = '⏳ Menyimpan...';
         
         try {
             const nama = document.getElementById('prospekName').value;
@@ -6948,17 +6985,18 @@ function initEventListeners() {
             hp = hp.replace(/[^\d]/g, '');
             if (hp.startsWith('0')) hp = hp.substring(1);
             
-            await addProspek(nama, hp, deadline);
-            closeModal('prospekModal');
-            document.getElementById('prospekName').value = '';
-            document.getElementById('prospekPhone').value = '';
+            const success = await addProspek(nama, hp, deadline);
+            if (success) {
+                closeModal('prospekModal');
+                document.getElementById('prospekName').value = '';
+                document.getElementById('prospekPhone').value = '';
+            }
         } catch (err) {
             console.error('Error:', err);
             showNotifTop('❌ Gagal: ' + err.message, true);
         } finally {
-            isSubmittingProspek = false;
-            btn.textContent = originalText;
-            btn.disabled = false;
+            this.disabled = false;
+            this.textContent = originalText;
         }
     });
     
