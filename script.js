@@ -8015,110 +8015,138 @@ function setupImportExcel() {
                                 });
                                 success++;
                                 
-                            } else if (importType === 'transaksi') {
-                                // ===== IMPORT DB TRANSAKSI =====
-                                const agentId = row.agent_id || row.Agent_ID || '';
-                                const transaksiBulanLalu = parseFloat(row.transaksi_bulan_lalu || row.bulan_lalu || 0);
-                                const transaksiBulanIni = parseFloat(row.transaksi_bulan_ini || row.bulan_ini || 0);
-                                
-                                let tanggalBulanLalu = row.tanggal_bulan_lalu || row.tanggal_lalu || '';
-                                let tanggalBulanIni = row.tanggal_bulan_ini || row.tanggal_ini || '';
-                                
-                                if (!agentId) {
-                                    failed++;
-                                    errors.push(`Baris ${i+1}: agent_id kosong`);
-                                    continue;
-                                }
-                                
-                                if (isNaN(transaksiBulanLalu) || isNaN(transaksiBulanIni)) {
-                                    failed++;
-                                    errors.push(`Baris ${i+1}: transaksi_bulan_lalu atau transaksi_bulan_ini bukan angka`);
-                                    continue;
-                                }
-                                
-                                // Format tanggal jika ada
-                                if (tanggalBulanLalu) {
+                        // ===== DI DALAM SETUP IMPORT EXCEL - BAGIAN TRANSAKSI =====
+                        } else if (importType === 'transaksi') {
+                            // ===== IMPORT DB TRANSAKSI =====
+                            // Kolom wajib: agent_id, transaksi_bulan_lalu, transaksi_bulan_ini
+                            // Kolom opsional: apk, nama, hp, upline, hp_upline
+                            // Kolom periode: periode_bulan_lalu, periode_bulan_ini (format: "Januari 2024" atau "2024-01-01")
+                            
+                            const agentId = row.agent_id || row.Agent_ID || '';
+                            const transaksiBulanLalu = parseFloat(row.transaksi_bulan_lalu || row.bulan_lalu || 0);
+                            const transaksiBulanIni = parseFloat(row.transaksi_bulan_ini || row.bulan_ini || 0);
+                            
+                            // Ambil periode (opsional) - bisa berupa teks "Januari 2024" atau tanggal "2024-01-01"
+                            let periodeBulanLalu = row.periode_bulan_lalu || row.periode_lalu || '';
+                            let periodeBulanIni = row.periode_bulan_ini || row.periode_ini || '';
+                            
+                            // Jika tidak ada periode, gunakan tanggal default
+                            if (!periodeBulanLalu) {
+                                // Coba gunakan tanggal_bulan_lalu jika ada
+                                const tanggalLalu = row.tanggal_bulan_lalu || '';
+                                if (tanggalLalu) {
                                     try {
-                                        const dateObj = new Date(tanggalBulanLalu);
-                                        if (!isNaN(dateObj.getTime())) {
-                                            tanggalBulanLalu = dateObj.toISOString().split('T')[0];
-                                        } else {
-                                            tanggalBulanLalu = '';
+                                        const date = new Date(tanggalLalu);
+                                        if (!isNaN(date.getTime())) {
+                                            const monthNames = ['Januari', 'Februari', 'Maret', 'April', 'Mei', 'Juni', 
+                                                               'Juli', 'Agustus', 'September', 'Oktober', 'November', 'Desember'];
+                                            periodeBulanLalu = `${monthNames[date.getMonth()]} ${date.getFullYear()}`;
                                         }
-                                    } catch (err) {
-                                        tanggalBulanLalu = '';
-                                    }
+                                    } catch (e) {}
                                 }
-                                
-                                if (tanggalBulanIni) {
-                                    try {
-                                        const dateObj = new Date(tanggalBulanIni);
-                                        if (!isNaN(dateObj.getTime())) {
-                                            tanggalBulanIni = dateObj.toISOString().split('T')[0];
-                                        } else {
-                                            tanggalBulanIni = '';
-                                        }
-                                    } catch (err) {
-                                        tanggalBulanIni = '';
-                                    }
+                                if (!periodeBulanLalu) {
+                                    const now = new Date();
+                                    const monthNames = ['Januari', 'Februari', 'Maret', 'April', 'Mei', 'Juni', 
+                                                       'Juli', 'Agustus', 'September', 'Oktober', 'November', 'Desember'];
+                                    const lastMonth = new Date(now.getFullYear(), now.getMonth() - 1, 1);
+                                    periodeBulanLalu = `${monthNames[lastMonth.getMonth()]} ${lastMonth.getFullYear()}`;
                                 }
-                                
-                                const selisih = transaksiBulanIni - transaksiBulanLalu;
-                                let progresJenis = '';
-                                let progresJumlah = 0;
-                                
-                                if (transaksiBulanLalu === 0 && transaksiBulanIni === 0) {
-                                    progresJenis = 'tidak_transaksi';
-                                    progresJumlah = 0;
-                                } else if (selisih >= 100) {
-                                    progresJenis = 'naik';
-                                    progresJumlah = selisih;
-                                } else if (selisih <= -100) {
-                                    progresJenis = 'turun';
-                                    progresJumlah = Math.abs(selisih);
-                                } else {
-                                    progresJenis = 'normal';
-                                    progresJumlah = selisih;
-                                }
-                                
-                                const apk = row.apk || row.APK || '';
-                                const nama = row.nama || row.Nama || `Agent ${agentId}`;
-                                let hp = row.hp || row.HP || '';
-                                const uplineName = row.upline || row.upline_name || '';
-                                let uplinePhone = row.hp_upline || row.upline_phone || '';
-                                
-                                if (hp) {
-                                    hp = String(hp).replace(/[^\d]/g, '');
-                                    if (hp.startsWith('0')) hp = hp.substring(1);
-                                    if (hp && !hp.startsWith('62')) hp = '62' + hp;
-                                }
-                                
-                                if (uplinePhone) {
-                                    uplinePhone = String(uplinePhone).replace(/[^\d]/g, '');
-                                    if (uplinePhone.startsWith('0')) uplinePhone = uplinePhone.substring(1);
-                                    if (uplinePhone && !uplinePhone.startsWith('62')) uplinePhone = '62' + uplinePhone;
-                                }
-                                
-                                await window.db.from('db_transaksi').insert({
-                                    agent_id: agentId.toUpperCase(),
-                                    nama: nama,
-                                    hp: hp || '',
-                                    apk: apk || '',
-                                    upline_name: uplineName || '',
-                                    upline_phone: uplinePhone || '',
-                                    progres_jenis: progresJenis,
-                                    progres_jumlah: Math.abs(progresJumlah),
-                                    transaksi_bulan_lalu: transaksiBulanLalu,
-                                    transaksi_bulan_ini: transaksiBulanIni,
-                                    tanggal_bulan_lalu: tanggalBulanLalu || null,
-                                    tanggal_bulan_ini: tanggalBulanIni || null,
-                                    tanggal_transaksi: getTodayDate(),
-                                    status: 'pending_import',
-                                    user_id: currentUser.id,
-                                    created_at: new Date().toISOString()
-                                });
-                                success++;
                             }
+                            
+                            if (!periodeBulanIni) {
+                                const tanggalIni = row.tanggal_bulan_ini || '';
+                                if (tanggalIni) {
+                                    try {
+                                        const date = new Date(tanggalIni);
+                                        if (!isNaN(date.getTime())) {
+                                            const monthNames = ['Januari', 'Februari', 'Maret', 'April', 'Mei', 'Juni', 
+                                                               'Juli', 'Agustus', 'September', 'Oktober', 'November', 'Desember'];
+                                            periodeBulanIni = `${monthNames[date.getMonth()]} ${date.getFullYear()}`;
+                                        }
+                                    } catch (e) {}
+                                }
+                                if (!periodeBulanIni) {
+                                    const now = new Date();
+                                    const monthNames = ['Januari', 'Februari', 'Maret', 'April', 'Mei', 'Juni', 
+                                                       'Juli', 'Agustus', 'September', 'Oktober', 'November', 'Desember'];
+                                    periodeBulanIni = `${monthNames[now.getMonth()]} ${now.getFullYear()}`;
+                                }
+                            }
+                            
+                            // Validasi agent_id wajib
+                            if (!agentId) {
+                                failed++;
+                                errors.push(`Baris ${i+1}: agent_id kosong`);
+                                continue;
+                            }
+                            
+                            // Validasi angka
+                            if (isNaN(transaksiBulanLalu) || isNaN(transaksiBulanIni)) {
+                                failed++;
+                                errors.push(`Baris ${i+1}: transaksi_bulan_lalu atau transaksi_bulan_ini bukan angka`);
+                                continue;
+                            }
+                            
+                            // ===== HITUNG SELISIH =====
+                            const selisih = transaksiBulanIni - transaksiBulanLalu;
+                            let progresJenis = '';
+                            let progresJumlah = 0;
+                            
+                            if (transaksiBulanLalu === 0 && transaksiBulanIni === 0) {
+                                progresJenis = 'tidak_transaksi';
+                                progresJumlah = 0;
+                            } else if (selisih >= 100) {
+                                progresJenis = 'naik';
+                                progresJumlah = selisih;
+                            } else if (selisih <= -100) {
+                                progresJenis = 'turun';
+                                progresJumlah = Math.abs(selisih);
+                            } else {
+                                progresJenis = 'normal';
+                                progresJumlah = selisih;
+                            }
+                            
+                            // Ambil data opsional
+                            const apk = row.apk || row.APK || '';
+                            const nama = row.nama || row.Nama || `Agent ${agentId}`;
+                            let hp = row.hp || row.HP || '';
+                            const uplineName = row.upline || row.upline_name || '';
+                            let uplinePhone = row.hp_upline || row.upline_phone || '';
+                            
+                            // Format HP
+                            if (hp) {
+                                hp = String(hp).replace(/[^\d]/g, '');
+                                if (hp.startsWith('0')) hp = hp.substring(1);
+                                if (hp && !hp.startsWith('62')) hp = '62' + hp;
+                            }
+                            
+                            if (uplinePhone) {
+                                uplinePhone = String(uplinePhone).replace(/[^\d]/g, '');
+                                if (uplinePhone.startsWith('0')) uplinePhone = uplinePhone.substring(1);
+                                if (uplinePhone && !uplinePhone.startsWith('62')) uplinePhone = '62' + uplinePhone;
+                            }
+                            
+                            // Insert ke DB Transaksi
+                            await window.db.from('db_transaksi').insert({
+                                agent_id: agentId.toUpperCase(),
+                                nama: nama,
+                                hp: hp || '',
+                                apk: apk || '',
+                                upline_name: uplineName || '',
+                                upline_phone: uplinePhone || '',
+                                progres_jenis: progresJenis,
+                                progres_jumlah: Math.abs(progresJumlah),
+                                transaksi_bulan_lalu: transaksiBulanLalu,
+                                transaksi_bulan_ini: transaksiBulanIni,
+                                periode_bulan_lalu: periodeBulanLalu,
+                                periode_bulan_ini: periodeBulanIni,
+                                tanggal_transaksi: getTodayDate(),
+                                status: 'pending_import',
+                                user_id: currentUser.id,
+                                created_at: new Date().toISOString()
+                            });
+                            success++;
+                        }
                         } catch (err) {
                             console.error(`Error baris ${i+1}:`, err);
                             failed++;
