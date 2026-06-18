@@ -4287,3 +4287,341 @@ body.dark-mode .deadline-item.overdue:hover {
 body.dark-mode .deadline-item.today:hover {
     background: #2a0a00 !important;
 }
+
+/* ================================================================ */
+/* ========== DATABASE TRANSAKSI PREMIUM ========== */
+/* ================================================================ */
+
+/* Filter Container */
+.filter-container input:focus,
+.filter-container select:focus {
+    outline: none;
+    border-color: #4f46e5 !important;
+    box-shadow: 0 0 0 3px rgba(79, 70, 229, 0.1);
+}
+
+.filter-container button:hover {
+    background: #e2e8f0 !important;
+    transform: translateY(-1px);
+}
+
+/* Transaksi Item Premium */
+.transaksi-item-premium {
+    display: flex;
+    align-items: stretch;
+    gap: 12px;
+    padding: 14px 16px;
+    margin-bottom: 8px;
+    background: #ffffff;
+    border-radius: 14px;
+    border: 1px solid #e5e7eb;
+    cursor: pointer;
+    transition: all 0.25s cubic-bezier(0.4, 0, 0.2, 1);
+    position: relative;
+    box-shadow: 0 1px 3px rgba(0,0,0,0.04);
+}
+
+.transaksi-item-premium:hover {
+    transform: translateY(-3px);
+    box-shadow: 0 8px 25px rgba(0,0,0,0.08);
+    border-color: #4f46e5;
+    background: #fafbff;
+}
+
+.transaksi-item-premium .nomor-urut {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    min-width: 34px;
+    font-weight: 700;
+    font-size: 13px;
+    color: #94a3b8;
+    background: #f1f5f9;
+    border-radius: 10px;
+    padding: 0 10px;
+    font-variant-numeric: tabular-nums;
+}
+
+.transaksi-item-premium .checkbox-wrapper {
+    display: flex;
+    align-items: center;
+}
+
+.transaksi-item-premium .checkbox-wrapper input[type="checkbox"] {
+    width: 18px;
+    height: 18px;
+    cursor: pointer;
+    accent-color: #4f46e5;
+    border-radius: 4px;
+    transition: transform 0.2s;
+}
+
+.transaksi-item-premium .checkbox-wrapper input[type="checkbox"]:hover {
+    transform: scale(1.1);
+}
+
+.transaksi-item-premium .info-utama {
+    flex: 1;
+    min-width: 0;
+}
+
+.transaksi-item-premium .info-utama .header-row {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    flex-wrap: wrap;
+}
+
+.transaksi-item-premium .info-utama .nama {
+    font-weight: 600;
+    font-size: 14px;
+    color: #1e293b;
+}
+
+.transaksi-item-premium .info-utama .agent-id {
+    font-size: 11px;
+    color: #64748b;
+    background: #f1f5f9;
+    padding: 2px 10px;
+    border-radius: 20px;
+    font-weight: 500;
+}
+
+.transaksi-item-premium .info-utama .badge-jenis {
+    padding: 2px 12px;
+    border-radius: 20px;
+    font-size: 10px;
+    font-weight: 600;
+}
+
+.transaksi-item-premium .info-utama .badge-jenis.naik {
+    background: #d1fae5;
+    color: #065f46;
+}
+
+.transaksi-item-premium .info-utama .badge-jenis.turun {
+    background: #fee2e2;
+    color: #991b1b;
+}
+
+.transaksi-item-premium .info-utama .badge-jenis.normal {
+    background: #fef3c7;
+    color: #92400e;
+}
+
+.transaksi-item-premium .info-utama .badge-status {
+    padding: 2px 12px;
+    border-radius: 20px;
+    font-size: 10px;
+    font-weight: 600;
+}
+
+.transaksi-item-premium .info-utama .badge-status.imported {
+    background: #d1fae5;
+    color: #065f46;
+}
+
+.transaksi-item-premium .info-utama .badge-status.pending {
+    background: #fef3c7;
+    color: #92400e;
+}
+
+.transaksi-item-premium .info-utama .badge-status.baru {
+    background: #e2e8f0;
+    color: #475569;
+}
+
+.transaksi-item-premium .info-utama .detail-row {
+    display: flex;
+    align-items: center;
+    gap: 14px;
+    margin-top: 4px;
+    flex-wrap: wrap;
+}
+
+.transaksi-item-premium .info-utama .detail-row span {
+    font-size: 12px;
+    color: #64748b;
+}
+
+.transaksi-item-premium .nilai-container {
+    min-width: 130px;
+    display: flex;
+    flex-direction: column;
+    align-items: flex-end;
+    gap: 4px;
+}
+
+.transaksi-item-premium .nilai-container .nilai {
+    font-weight: 700;
+    font-size: 18px;
+}
+
+.transaksi-item-premium .nilai-container .nilai.naik {
+    color: #10b981;
+}
+
+.transaksi-item-premium .nilai-container .nilai.turun {
+    color: #ef4444;
+}
+
+.transaksi-item-premium .nilai-container .nilai.normal {
+    color: #f59e0b;
+}
+
+.transaksi-item-premium .nilai-container .progress-track {
+    width: 100%;
+    height: 5px;
+    background: #f1f5f9;
+    border-radius: 4px;
+    overflow: hidden;
+}
+
+.transaksi-item-premium .nilai-container .progress-track .progress-fill {
+    height: 100%;
+    border-radius: 4px;
+    transition: width 0.6s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.transaksi-item-premium .nilai-container .progress-track .progress-fill.naik {
+    background: linear-gradient(90deg, #34d399, #10b981);
+}
+
+.transaksi-item-premium .nilai-container .progress-track .progress-fill.turun {
+    background: linear-gradient(90deg, #f87171, #ef4444);
+}
+
+.transaksi-item-premium .nilai-container .progress-track .progress-fill.normal {
+    background: linear-gradient(90deg, #fbbf24, #f59e0b);
+}
+
+.transaksi-item-premium .nilai-container .nilai-label {
+    font-size: 9px;
+    color: #94a3b8;
+    font-weight: 500;
+}
+
+.transaksi-item-premium .aksi-container {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    flex-shrink: 0;
+}
+
+.transaksi-item-premium .aksi-container .btn-wa {
+    background: #25D366;
+    color: white;
+    border: none;
+    border-radius: 10px;
+    padding: 6px 12px;
+    font-size: 12px;
+    cursor: pointer;
+    transition: all 0.2s;
+    font-weight: 500;
+}
+
+.transaksi-item-premium .aksi-container .btn-wa:hover {
+    transform: scale(1.05);
+    box-shadow: 0 4px 12px rgba(37, 211, 102, 0.3);
+}
+
+.transaksi-item-premium .aksi-container .btn-move {
+    background: #4f46e5;
+    color: white;
+    border: none;
+    border-radius: 10px;
+    padding: 6px 12px;
+    font-size: 11px;
+    cursor: pointer;
+    transition: all 0.2s;
+    font-weight: 500;
+    white-space: nowrap;
+}
+
+.transaksi-item-premium .aksi-container .btn-move:hover {
+    transform: scale(1.05);
+    box-shadow: 0 4px 12px rgba(79, 70, 229, 0.3);
+}
+
+.transaksi-item-premium .aksi-container .btn-delete {
+    background: #fef2f2;
+    color: #ef4444;
+    border: none;
+    border-radius: 10px;
+    padding: 6px 10px;
+    font-size: 12px;
+    cursor: pointer;
+    transition: all 0.2s;
+}
+
+.transaksi-item-premium .aksi-container .btn-delete:hover {
+    background: #fee2e2;
+    transform: scale(1.05);
+}
+
+/* Dark Mode */
+body.dark-mode .transaksi-item-premium {
+    background: #1e293b !important;
+    border-color: #334155 !important;
+}
+
+body.dark-mode .transaksi-item-premium:hover {
+    background: #0f172a !important;
+    border-color: #4f46e5 !important;
+}
+
+body.dark-mode .transaksi-item-premium .nomor-urut {
+    background: #0f172a !important;
+    color: #64748b !important;
+}
+
+body.dark-mode .transaksi-item-premium .info-utama .nama {
+    color: #f1f5f9 !important;
+}
+
+body.dark-mode .transaksi-item-premium .info-utama .agent-id {
+    background: #0f172a !important;
+    color: #94a3b8 !important;
+}
+
+body.dark-mode .transaksi-item-premium .info-utama .detail-row span {
+    color: #94a3b8 !important;
+}
+
+body.dark-mode .transaksi-item-premium .nilai-container .nilai-label {
+    color: #64748b !important;
+}
+
+body.dark-mode .transaksi-item-premium .nilai-container .progress-track {
+    background: #0f172a !important;
+}
+
+body.dark-mode .transaksi-item-premium .aksi-container .btn-delete {
+    background: #1a0a0a !important;
+}
+
+body.dark-mode .filter-container {
+    background: #0f172a !important;
+    border-color: #334155 !important;
+}
+
+body.dark-mode .filter-container input,
+body.dark-mode .filter-container select {
+    background: #1e293b !important;
+    border-color: #334155 !important;
+    color: #f1f5f9 !important;
+}
+
+body.dark-mode .filter-container input::placeholder {
+    color: #64748b !important;
+}
+
+body.dark-mode .filter-container button {
+    background: #334155 !important;
+    border-color: #475569 !important;
+    color: #e2e8f0 !important;
+}
+
+body.dark-mode .filter-container button:hover {
+    background: #475569 !important;
+}
