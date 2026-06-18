@@ -5320,20 +5320,49 @@ function openDetailTransaksi(id) {
                                 ${item.progres_jenis === 'tidak_transaksi' ? '0' : (item.progres_jumlah > 0 ? '+' : '')}${(item.progres_jumlah || 0).toLocaleString()}
                             </div>
                         </div>
-                        <div>
-                            <div style="font-size: 11px; color: #6b7280;">Transaksi Bulan Lalu</div>
-                            <div style="font-weight: 600; font-size: 14px; color: #1f2937;">${(item.transaksi_bulan_lalu || 0).toLocaleString()}</div>
+                    </div>
+                </div>
+                
+                <!-- ===== DETAIL TRANSAKSI BULAN LALU & BULAN INI ===== -->
+                <div style="margin-top: 16px; background: #f9fafb; border-radius: 14px; padding: 16px;">
+                    <div style="font-weight: 600; font-size: 13px; color: #1f2937; margin-bottom: 12px;">📊 Data Perbandingan Transaksi</div>
+                    <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 16px;">
+                        <div style="background: #f1f5f9; border-radius: 10px; padding: 12px; border-left: 3px solid #f59e0b;">
+                            <div style="font-size: 10px; color: #6b7280; text-transform: uppercase; letter-spacing: 0.5px;">Bulan Lalu</div>
+                            <div style="font-weight: 700; font-size: 20px; color: #1f2937; margin-top: 4px;">${(item.transaksi_bulan_lalu || 0).toLocaleString()}</div>
+                            ${item.tanggal_bulan_lalu ? `<div style="font-size: 11px; color: #6b7280; margin-top: 2px;">📅 ${new Date(item.tanggal_bulan_lalu).toLocaleDateString('id-ID')}</div>` : '<div style="font-size: 11px; color: #9ca3af; margin-top: 2px;">📅 Tanggal tidak tersedia</div>'}
                         </div>
-                        <div>
-                            <div style="font-size: 11px; color: #6b7280;">Transaksi Bulan Ini</div>
-                            <div style="font-weight: 600; font-size: 14px; color: #1f2937;">${(item.transaksi_bulan_ini || 0).toLocaleString()}</div>
+                        <div style="background: #f1f5f9; border-radius: 10px; padding: 12px; border-left: 3px solid #4f46e5;">
+                            <div style="font-size: 10px; color: #6b7280; text-transform: uppercase; letter-spacing: 0.5px;">Bulan Ini</div>
+                            <div style="font-weight: 700; font-size: 20px; color: #1f2937; margin-top: 4px;">${(item.transaksi_bulan_ini || 0).toLocaleString()}</div>
+                            ${item.tanggal_bulan_ini ? `<div style="font-size: 11px; color: #6b7280; margin-top: 2px;">📅 ${new Date(item.tanggal_bulan_ini).toLocaleDateString('id-ID')}</div>` : '<div style="font-size: 11px; color: #9ca3af; margin-top: 2px;">📅 Tanggal tidak tersedia</div>'}
                         </div>
+                    </div>
+                    <div style="margin-top: 12px; text-align: center; font-size: 13px; color: #6b7280;">
+                        Selisih: <strong style="color: ${item.progres_jenis === 'naik' ? '#10b981' : (item.progres_jenis === 'turun' ? '#ef4444' : '#f59e0b')}">
+                            ${item.progres_jenis === 'tidak_transaksi' ? '0' : (item.progres_jumlah > 0 ? '+' : '')}${(item.progres_jumlah || 0).toLocaleString()}
+                        </strong>
+                    </div>
+                </div>
+                
+                <div style="margin-top: 12px; background: #f9fafb; border-radius: 14px; padding: 12px 16px;">
+                    <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 8px;">
                         <div>
                             <div style="font-size: 11px; color: #6b7280;">Status</div>
                             <div style="font-weight: 600; font-size: 14px; color: #1f2937;">${item.status === 'imported' ? '✅ Sudah Dipindah' : (item.status === 'pending_import' ? '⏳ Pending' : '📋 Baru')}</div>
                         </div>
+                        <div>
+                            <div style="font-size: 11px; color: #6b7280;">Tanggal Import</div>
+                            <div style="font-weight: 600; font-size: 14px; color: #1f2937;">${item.tanggal_transaksi ? new Date(item.tanggal_transaksi).toLocaleDateString('id-ID') : '-'}</div>
+                        </div>
                     </div>
                 </div>
+                
+                ${item.user_id && currentUserRole === 'owner' ? `
+                    <div style="margin-top: 12px; font-size: 12px; color: #6b7280;">
+                        👤 Pemilik: ${item.user_id === currentUser.id ? 'Anda' : 'CS Lain'}
+                    </div>
+                ` : ''}
             </div>
             
             <div class="modal-buttons" style="display: flex; gap: 12px; padding: 16px 24px 24px; border-top: 1px solid #e5e7eb; flex-wrap: wrap;">
@@ -8067,28 +8096,52 @@ function setupImportExcel() {
                                 
                             } else if (importType === 'transaksi') {
                                 // ===== IMPORT DB TRANSAKSI =====
-                                // Kolom wajib: agent_id, transaksi_bulan_lalu, transaksi_bulan_ini
-                                // Kolom opsional: apk, nama, hp, upline, hp_upline
-                                
                                 const agentId = row.agent_id || row.Agent_ID || '';
                                 const transaksiBulanLalu = parseFloat(row.transaksi_bulan_lalu || row.bulan_lalu || 0);
                                 const transaksiBulanIni = parseFloat(row.transaksi_bulan_ini || row.bulan_ini || 0);
                                 
-                                // Validasi agent_id wajib
+                                let tanggalBulanLalu = row.tanggal_bulan_lalu || row.tanggal_lalu || '';
+                                let tanggalBulanIni = row.tanggal_bulan_ini || row.tanggal_ini || '';
+                                
                                 if (!agentId) {
                                     failed++;
                                     errors.push(`Baris ${i+1}: agent_id kosong`);
                                     continue;
                                 }
                                 
-                                // Validasi angka
                                 if (isNaN(transaksiBulanLalu) || isNaN(transaksiBulanIni)) {
                                     failed++;
                                     errors.push(`Baris ${i+1}: transaksi_bulan_lalu atau transaksi_bulan_ini bukan angka`);
                                     continue;
                                 }
                                 
-                                // ===== HITUNG SELISIH =====
+                                // Format tanggal jika ada
+                                if (tanggalBulanLalu) {
+                                    try {
+                                        const dateObj = new Date(tanggalBulanLalu);
+                                        if (!isNaN(dateObj.getTime())) {
+                                            tanggalBulanLalu = dateObj.toISOString().split('T')[0];
+                                        } else {
+                                            tanggalBulanLalu = '';
+                                        }
+                                    } catch (err) {
+                                        tanggalBulanLalu = '';
+                                    }
+                                }
+                                
+                                if (tanggalBulanIni) {
+                                    try {
+                                        const dateObj = new Date(tanggalBulanIni);
+                                        if (!isNaN(dateObj.getTime())) {
+                                            tanggalBulanIni = dateObj.toISOString().split('T')[0];
+                                        } else {
+                                            tanggalBulanIni = '';
+                                        }
+                                    } catch (err) {
+                                        tanggalBulanIni = '';
+                                    }
+                                }
+                                
                                 const selisih = transaksiBulanIni - transaksiBulanLalu;
                                 let progresJenis = '';
                                 let progresJumlah = 0;
@@ -8107,14 +8160,12 @@ function setupImportExcel() {
                                     progresJumlah = selisih;
                                 }
                                 
-                                // Ambil data opsional
                                 const apk = row.apk || row.APK || '';
                                 const nama = row.nama || row.Nama || `Agent ${agentId}`;
                                 let hp = row.hp || row.HP || '';
                                 const uplineName = row.upline || row.upline_name || '';
                                 let uplinePhone = row.hp_upline || row.upline_phone || '';
                                 
-                                // Format HP
                                 if (hp) {
                                     hp = String(hp).replace(/[^\d]/g, '');
                                     if (hp.startsWith('0')) hp = hp.substring(1);
@@ -8127,7 +8178,6 @@ function setupImportExcel() {
                                     if (uplinePhone && !uplinePhone.startsWith('62')) uplinePhone = '62' + uplinePhone;
                                 }
                                 
-                                // Insert ke DB Transaksi
                                 await window.db.from('db_transaksi').insert({
                                     agent_id: agentId.toUpperCase(),
                                     nama: nama,
@@ -8139,6 +8189,8 @@ function setupImportExcel() {
                                     progres_jumlah: Math.abs(progresJumlah),
                                     transaksi_bulan_lalu: transaksiBulanLalu,
                                     transaksi_bulan_ini: transaksiBulanIni,
+                                    tanggal_bulan_lalu: tanggalBulanLalu || null,
+                                    tanggal_bulan_ini: tanggalBulanIni || null,
                                     tanggal_transaksi: getTodayDate(),
                                     status: 'pending_import',
                                     user_id: currentUser.id,
@@ -8203,75 +8255,108 @@ function setupImportExcel() {
         });
     }
     
-    // ===== DOWNLOAD CONTOH FILE =====
-    document.getElementById('downloadCustomerExample')?.addEventListener('click', () => {
-        const data = [{ agent_id: 'AG-001', nama: 'Budi Santoso', hp: '6281234567890', apk: 'GNP' }];
-        const ws = XLSX.utils.json_to_sheet(data);
-        const wb = XLSX.utils.book_new();
-        XLSX.utils.book_append_sheet(wb, ws, 'Customer');
-        XLSX.writeFile(wb, 'contoh_customer.xlsx');
-        showNotifTop('📋 Contoh file Customer berhasil diunduh');
-    });
+    // ===== PERBAIKAN: Download Contoh File - Hanya 1x =====
+    // Hapus event listener lama dengan clone untuk setiap tombol
     
-    document.getElementById('downloadProspekExample')?.addEventListener('click', () => {
-        const data = [{ nama: 'Rina Marlina', hp: '6281234567893' }];
-        const ws = XLSX.utils.json_to_sheet(data);
-        const wb = XLSX.utils.book_new();
-        XLSX.utils.book_append_sheet(wb, ws, 'Prospek');
-        XLSX.writeFile(wb, 'contoh_prospek.xlsx');
-        showNotifTop('📋 Contoh file Prospek berhasil diunduh');
-    });
+    // Customer Example
+    const customerExampleBtn = document.getElementById('downloadCustomerExample');
+    if (customerExampleBtn) {
+        const newCustomerBtn = customerExampleBtn.cloneNode(true);
+        customerExampleBtn.parentNode.replaceChild(newCustomerBtn, customerExampleBtn);
+        document.getElementById('downloadCustomerExample')?.addEventListener('click', function(e) {
+            e.preventDefault();
+            e.stopPropagation();
+            const data = [{ agent_id: 'AG-001', nama: 'Budi Santoso', hp: '6281234567890', apk: 'GNP' }];
+            const ws = XLSX.utils.json_to_sheet(data);
+            const wb = XLSX.utils.book_new();
+            XLSX.utils.book_append_sheet(wb, ws, 'Customer');
+            XLSX.writeFile(wb, 'contoh_customer.xlsx');
+            showNotifTop('📋 Contoh file Customer berhasil diunduh');
+        });
+    }
     
-    // ===== Download Contoh DB Transaksi =====
-    document.getElementById('downloadTransaksiExample')?.addEventListener('click', () => {
-        const data = [
-            {
-                apk: 'GNP',
-                agent_id: 'AG-001',
-                nama: 'Budi Santoso',
-                hp: '6281234567890',
-                upline: 'Pak Upline',
-                hp_upline: '6281234567891',
-                transaksi_bulan_lalu: 50,
-                transaksi_bulan_ini: 200
-            },
-            {
-                apk: 'BSB',
-                agent_id: 'AG-002',
-                nama: 'Ani Lestari',
-                hp: '6281234567892',
-                upline: 'Bu Upline',
-                hp_upline: '6281234567893',
-                transaksi_bulan_lalu: 300,
-                transaksi_bulan_ini: 150
-            },
-            {
-                apk: 'BTN',
-                agent_id: 'AG-003',
-                nama: 'Cahya Wijaya',
-                hp: '6281234567894',
-                upline: '',
-                hp_upline: '',
-                transaksi_bulan_lalu: 50,
-                transaksi_bulan_ini: 80
-            },
-            {
-                apk: 'GNP',
-                agent_id: 'AG-004',
-                nama: 'Dewi Sartika',
-                hp: '6281234567895',
-                upline: 'Pak Upline',
-                hp_upline: '6281234567891',
-                transaksi_bulan_lalu: 0,
-                transaksi_bulan_ini: 0
-            }
-        ];
-        const ws = XLSX.utils.json_to_sheet(data);
-        const wb = XLSX.utils.book_new();
-        XLSX.utils.book_append_sheet(wb, ws, 'DB Transaksi');
-        XLSX.writeFile(wb, 'contoh_db_transaksi.xlsx');
-        showNotifTop('📋 Contoh file DB Transaksi berhasil diunduh');
-    });
+    // Prospek Example
+    const prospekExampleBtn = document.getElementById('downloadProspekExample');
+    if (prospekExampleBtn) {
+        const newProspekBtn = prospekExampleBtn.cloneNode(true);
+        prospekExampleBtn.parentNode.replaceChild(newProspekBtn, prospekExampleBtn);
+        document.getElementById('downloadProspekExample')?.addEventListener('click', function(e) {
+            e.preventDefault();
+            e.stopPropagation();
+            const data = [{ nama: 'Rina Marlina', hp: '6281234567893' }];
+            const ws = XLSX.utils.json_to_sheet(data);
+            const wb = XLSX.utils.book_new();
+            XLSX.utils.book_append_sheet(wb, ws, 'Prospek');
+            XLSX.writeFile(wb, 'contoh_prospek.xlsx');
+            showNotifTop('📋 Contoh file Prospek berhasil diunduh');
+        });
+    }
+    
+    // Transaksi Example
+    const transaksiExampleBtn = document.getElementById('downloadTransaksiExample');
+    if (transaksiExampleBtn) {
+        const newTransaksiBtn = transaksiExampleBtn.cloneNode(true);
+        transaksiExampleBtn.parentNode.replaceChild(newTransaksiBtn, transaksiExampleBtn);
+        document.getElementById('downloadTransaksiExample')?.addEventListener('click', function(e) {
+            e.preventDefault();
+            e.stopPropagation();
+            const data = [
+                {
+                    apk: 'GNP',
+                    agent_id: 'AG-001',
+                    nama: 'Budi Santoso',
+                    hp: '6281234567890',
+                    upline: 'Pak Upline',
+                    hp_upline: '6281234567891',
+                    tanggal_bulan_lalu: '2024-01-01',
+                    transaksi_bulan_lalu: 50,
+                    tanggal_bulan_ini: '2024-02-01',
+                    transaksi_bulan_ini: 200
+                },
+                {
+                    apk: 'BSB',
+                    agent_id: 'AG-002',
+                    nama: 'Ani Lestari',
+                    hp: '6281234567892',
+                    upline: 'Bu Upline',
+                    hp_upline: '6281234567893',
+                    tanggal_bulan_lalu: '2024-01-01',
+                    transaksi_bulan_lalu: 300,
+                    tanggal_bulan_ini: '2024-02-01',
+                    transaksi_bulan_ini: 150
+                },
+                {
+                    apk: 'BTN',
+                    agent_id: 'AG-003',
+                    nama: 'Cahya Wijaya',
+                    hp: '6281234567894',
+                    upline: '',
+                    hp_upline: '',
+                    tanggal_bulan_lalu: '2024-01-01',
+                    transaksi_bulan_lalu: 50,
+                    tanggal_bulan_ini: '2024-02-01',
+                    transaksi_bulan_ini: 80
+                },
+                {
+                    apk: 'GNP',
+                    agent_id: 'AG-004',
+                    nama: 'Dewi Sartika',
+                    hp: '6281234567895',
+                    upline: 'Pak Upline',
+                    hp_upline: '6281234567891',
+                    tanggal_bulan_lalu: '2024-01-01',
+                    transaksi_bulan_lalu: 0,
+                    tanggal_bulan_ini: '2024-02-01',
+                    transaksi_bulan_ini: 0
+                }
+            ];
+            const ws = XLSX.utils.json_to_sheet(data);
+            const wb = XLSX.utils.book_new();
+            XLSX.utils.book_append_sheet(wb, ws, 'DB Transaksi');
+            XLSX.writeFile(wb, 'contoh_db_transaksi.xlsx');
+            showNotifTop('📋 Contoh file DB Transaksi berhasil diunduh');
+        });
+    }
 }
 
 function setupAgentImport() {
