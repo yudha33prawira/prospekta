@@ -4975,7 +4975,9 @@ function renderTransaksiList() {
         return;
     }
     
-    container.innerHTML = filtered.map((item, index) => {
+    // Build HTML
+    let html = '';
+    filtered.forEach((item, index) => {
         const isChecked = selectedTransaksiIds.get(item.id) === true;
         const absValue = Math.abs(item.progres_jumlah || 0);
         
@@ -5016,18 +5018,14 @@ function renderTransaksiList() {
         const maxValue = Math.max(...transaksiData.map(t => Math.abs(t.progres_jumlah || 0)), 1);
         const barPercent = Math.min((absValue / maxValue) * 100, 100);
         
-        // Tampilkan data bulan lalu dan bulan ini
         const bulanLalu = item.transaksi_bulan_lalu || 0;
         const bulanIni = item.transaksi_bulan_ini || 0;
         
-        // Gunakan data-id dan onclick langsung
-        const itemId = item.id;
-        
-        return `
-            <div class="transaksi-item-premium" data-id="${itemId}">
+        html += `
+            <div class="transaksi-item-premium" data-id="${item.id}">
                 <div class="nomor-urut">${index + 1}</div>
                 <div class="checkbox-wrapper">
-                    <input type="checkbox" class="transaksi-checkbox" data-id="${itemId}" ${isChecked ? 'checked' : ''}>
+                    <input type="checkbox" class="transaksi-checkbox" data-id="${item.id}" ${isChecked ? 'checked' : ''}>
                 </div>
                 <div class="info-utama">
                     <div class="header-row">
@@ -5053,69 +5051,84 @@ function renderTransaksiList() {
                     <span class="nilai-label">${absValue.toLocaleString()}</span>
                 </div>
                 <div class="aksi-container">
-                    <button class="btn-wa" data-id="${itemId}" data-hp="${escapeHtml(item.hp || '')}">💬</button>
+                    <button class="btn-wa" data-hp="${escapeHtml(item.hp || '')}">💬</button>
                     ${item.status !== 'imported' ? `
-                        <button class="btn-move" data-id="${itemId}">📋 Pindah</button>
+                        <button class="btn-move" data-id="${item.id}">📋 Pindah</button>
                     ` : ''}
-                    <button class="btn-delete" data-id="${itemId}">🗑️</button>
+                    <button class="btn-delete" data-id="${item.id}">🗑️</button>
                 </div>
             </div>
         `;
-    }).join('');
+    });
     
-    // ===== EVENT LISTENER - Gunakan event delegation =====
-    // Hapus semua event listener lama dengan clone
+    // Set HTML
+    container.innerHTML = html;
+    
+    // ===== EVENT DELEGATION - SATU EVENT LISTENER =====
+    // Hapus event listener lama dengan clone
     const newContainer = container.cloneNode(false);
     container.parentNode.replaceChild(newContainer, container);
     
-    // Gunakan container baru
     const freshContainer = document.getElementById('dbTransaksiList');
     if (!freshContainer) return;
     
-    // Set innerHTML
-    freshContainer.innerHTML = container.innerHTML;
+    // Pindahkan HTML ke container baru
+    freshContainer.innerHTML = html;
     
-    // Event delegation untuk klik item
+    // ===== SATU EVENT LISTENER UNTUK SEMUA =====
     freshContainer.addEventListener('click', function(e) {
         const target = e.target;
-        const itemElement = target.closest('.transaksi-item-premium');
-        if (!itemElement) return;
-        
-        const id = itemElement.dataset.id;
         
         // Tombol Delete
-        if (target.closest('.btn-delete')) {
+        if (target.classList.contains('btn-delete')) {
             e.stopPropagation();
-            deleteTransaksiItem(id);
+            e.preventDefault();
+            const id = target.dataset.id;
+            if (id) {
+                deleteTransaksiItem(id);
+            }
             return;
         }
         
         // Tombol WA
-        if (target.closest('.btn-wa')) {
+        if (target.classList.contains('btn-wa')) {
             e.stopPropagation();
-            const hp = target.closest('.btn-wa').dataset.hp;
-            if (hp) openWA(hp);
+            e.preventDefault();
+            const hp = target.dataset.hp;
+            if (hp) {
+                openWA(hp);
+            }
             return;
         }
         
         // Tombol Pindah
-        if (target.closest('.btn-move')) {
+        if (target.classList.contains('btn-move')) {
             e.stopPropagation();
-            moveSingleToFollowup(id);
+            e.preventDefault();
+            const id = target.dataset.id;
+            if (id) {
+                moveSingleToFollowup(id);
+            }
             return;
         }
         
         // Checkbox
-        if (target.closest('.transaksi-checkbox')) {
-            // Handle checkbox di event terpisah
+        if (target.classList.contains('transaksi-checkbox')) {
+            // Handle di event change
             return;
         }
         
         // Klik pada item (bukan tombol)
-        openDetailTransaksi(id);
+        const itemElement = target.closest('.transaksi-item-premium');
+        if (itemElement && !target.closest('.aksi-container') && !target.closest('.checkbox-wrapper')) {
+            const id = itemElement.dataset.id;
+            if (id) {
+                openDetailTransaksi(id);
+            }
+        }
     });
     
-    // Event listener untuk checkbox
+    // ===== SATU EVENT LISTENER UNTUK CHECKBOX =====
     freshContainer.addEventListener('change', function(e) {
         if (e.target.classList.contains('transaksi-checkbox')) {
             const id = e.target.dataset.id;
@@ -5128,9 +5141,6 @@ function renderTransaksiList() {
             updateTransaksiSelectionCount();
         }
     });
-    
-    // Update ID referensi
-    document.getElementById('dbTransaksiList') === freshContainer;
     
     updateSelectAllTransaksiButton();
     updateTransaksiSelectionCount();
@@ -5456,6 +5466,104 @@ function toggleSelectAllTransaksi() {
     
     updateSelectAllTransaksiButton();
     updateTransaksiSelectionCount();
+}
+
+// ========== MOVE SELECTED TO FOLLOWUP ==========
+let isMovingSelected = false;
+
+async function moveSelectedToFollowup() {
+    if (isMovingSelected) {
+        showNotifTop('⏳ Proses pemindahan sedang berjalan...', true);
+        return;
+    }
+    
+    if (currentUserRole !== 'owner') {
+        showNotifTop('⚠️ Hanya Owner yang dapat memindahkan massal!', true);
+        return;
+    }
+    
+    const selectedIds = Array.from(selectedTransaksiIds.keys());
+    if (selectedIds.length === 0) {
+        showNotifTop('⚠️ Tidak ada data yang dipilih!', true);
+        return;
+    }
+    
+    if (!confirm(`Pindahkan ${selectedIds.length} data ke Followup Agen?`)) {
+        return;
+    }
+    
+    isMovingSelected = true;
+    const progress = showFloatingProgress('📋 Memindahkan ke Followup', selectedIds.length);
+    let moved = 0;
+    let failed = 0;
+    
+    try {
+        for (const id of selectedIds) {
+            try {
+                const item = transaksiData.find(t => t.id === id);
+                if (!item) {
+                    failed++;
+                    continue;
+                }
+                
+                // Cek duplikat
+                const { data: existing } = await window.db
+                    .from('customers')
+                    .select('id')
+                    .eq('agent_id', item.agent_id)
+                    .maybeSingle();
+                
+                if (existing) {
+                    failed++;
+                    continue;
+                }
+                
+                // Insert ke customers
+                await window.db.from('customers').insert({
+                    agent_id: item.agent_id,
+                    nama: item.nama || `Agent ${item.agent_id}`,
+                    hp: item.hp || '',
+                    apk: item.apk || '',
+                    upline_name: item.upline_name || '',
+                    upline_phone: item.upline_phone || '',
+                    tanggal: getTodayDate(),
+                    status: 'baru',
+                    user_id: currentUser.id,
+                    created_at: new Date().toISOString()
+                });
+                
+                // Update status di db_transaksi
+                await window.db.from('db_transaksi').update({ 
+                    status: 'imported', 
+                    updated_at: new Date().toISOString() 
+                }).eq('id', id);
+                
+                selectedTransaksiIds.delete(id);
+                moved++;
+                
+                const percent = Math.floor((moved / selectedIds.length) * 100);
+                progress.update(percent, 'Memindahkan', `Memproses...`, moved, selectedIds.length);
+                await delay(30);
+                
+            } catch (e) {
+                console.error(`Gagal pindah ${id}:`, e);
+                failed++;
+            }
+        }
+        
+        progress.update(100, 'Selesai', `Berhasil: ${moved}, Gagal: ${failed}`, moved, selectedIds.length);
+        showNotifTop(`✅ ${moved} data dipindahkan ke Followup Agen, Gagal: ${failed}`);
+        
+        await loadDbTransaksi();
+        await loadCustomers();
+        
+    } catch (err) {
+        console.error('Error move selected:', err);
+        showNotifTop('❌ Gagal: ' + err.message, true);
+    } finally {
+        isMovingSelected = false;
+        setTimeout(() => progress.hide(), 2000);
+    }
 }
 
 // ========== DELETE SELECTED TRANSAKSI ==========
@@ -8825,13 +8933,38 @@ function initEventListeners() {
     // Save profile
     document.getElementById('saveProfileBtn')?.addEventListener('click', saveUserProfile);
 
-    // Transaksi filters
+    // ===== PERBAIKAN: Hanya 1 event listener untuk transaksi =====
+    // Hapus semua event listener yang ada dengan clone
+    const selectAllBtn = document.getElementById('selectAllTransaksi');
+    if (selectAllBtn) {
+        const newSelectAll = selectAllBtn.cloneNode(true);
+        selectAllBtn.parentNode.replaceChild(newSelectAll, selectAllBtn);
+        document.getElementById('selectAllTransaksi')?.addEventListener('click', toggleSelectAllTransaksi);
+    }
+    
+    const deleteSelectedBtn = document.getElementById('deleteSelectedTransaksi');
+    if (deleteSelectedBtn) {
+        const newDeleteSelected = deleteSelectedBtn.cloneNode(true);
+        deleteSelectedBtn.parentNode.replaceChild(newDeleteSelected, deleteSelectedBtn);
+        document.getElementById('deleteSelectedTransaksi')?.addEventListener('click', deleteSelectedTransaksi);
+    }
+    
+    const deleteAllBtn = document.getElementById('deleteAllTransaksiBtn');
+    if (deleteAllBtn) {
+        const newDeleteAll = deleteAllBtn.cloneNode(true);
+        deleteAllBtn.parentNode.replaceChild(newDeleteAll, deleteAllBtn);
+        document.getElementById('deleteAllTransaksiBtn')?.addEventListener('click', deleteAllTransaksi);
+    }
+    
+    const moveSelectedBtn = document.getElementById('moveSelectedToFollowupBtn');
+    if (moveSelectedBtn) {
+        const newMoveSelected = moveSelectedBtn.cloneNode(true);
+        moveSelectedBtn.parentNode.replaceChild(newMoveSelected, moveSelectedBtn);
+        document.getElementById('moveSelectedToFollowupBtn')?.addEventListener('click', moveSelectedToFollowup);
+    }
+    
+    // Transaksi filters - setup sekali
     setupTransaksiFilters();
-
-    // Select All Transaksi
-    document.getElementById('selectAllTransaksi')?.addEventListener('click', toggleSelectAllTransaksi);
-    document.getElementById('deleteSelectedTransaksi')?.addEventListener('click', deleteSelectedTransaksi);
-    document.getElementById('deleteAllTransaksiBtn')?.addEventListener('click', deleteAllTransaksi);
     
     let isSubmittingCustomer = false;
     let isSubmittingProspek = false;
