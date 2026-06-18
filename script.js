@@ -4965,11 +4965,15 @@ function renderTransaksiList() {
         totalAllSpan.innerText = transaksiData.length;
     }
     
+    // Update total naik/turun
+    updateTransaksiTotals(filtered);
+    
     if (filtered.length === 0) {
         container.innerHTML = `
             <div style="text-align: center; padding: 60px 20px; color: #9ca3af;">
                 <div style="font-size: 48px; margin-bottom: 16px;">📭</div>
-                <p>Tidak ada data transaksi</p>
+                <p style="font-size: 16px; font-weight: 500;">Tidak ada data transaksi</p>
+                <p style="font-size: 13px; margin-top: 4px;">Coba ubah filter atau import data baru</p>
             </div>
         `;
         return;
@@ -4977,183 +4981,142 @@ function renderTransaksiList() {
     
     container.innerHTML = filtered.map((item, index) => {
         const isChecked = selectedTransaksiIds.get(item.id) === true;
-        
-        // Status badge
-        let statusBadge = '';
-        if (item.status === 'imported') {
-            statusBadge = '<span style="background: #10b981; color: white; padding: 2px 10px; border-radius: 12px; font-size: 10px; font-weight: 600;">✅ Sudah Dipindah</span>';
-        } else if (item.status === 'pending_import') {
-            statusBadge = '<span style="background: #f59e0b; color: white; padding: 2px 10px; border-radius: 12px; font-size: 10px; font-weight: 600;">⏳ Pending</span>';
-        } else {
-            statusBadge = '<span style="background: #6b7280; color: white; padding: 2px 10px; border-radius: 12px; font-size: 10px; font-weight: 600;">📋 Baru</span>';
-        }
-        
-        // Progres jenis badge
-        let jenisBadge = '';
-        if (item.progres_jenis === 'naik') {
-            jenisBadge = '<span style="background: #d1fae5; color: #065f46; padding: 2px 10px; border-radius: 12px; font-size: 10px; font-weight: 600;">📈 Naik</span>';
-        } else if (item.progres_jenis === 'turun') {
-            jenisBadge = '<span style="background: #fee2e2; color: #991b1b; padding: 2px 10px; border-radius: 12px; font-size: 10px; font-weight: 600;">📉 Turun</span>';
-        } else {
-            jenisBadge = '<span style="background: #fef3c7; color: #92400e; padding: 2px 10px; border-radius: 12px; font-size: 10px; font-weight: 600;">⚖️ Normal</span>';
-        }
-        
-        // Progress bar untuk nilai
-        const maxValue = Math.max(...transaksiData.map(t => Math.abs(t.progres_jumlah || 0)), 1);
         const absValue = Math.abs(item.progres_jumlah || 0);
+        
+        // Status badge class
+        let statusClass = 'baru';
+        let statusText = '📋 Baru';
+        if (item.status === 'imported') {
+            statusClass = 'imported';
+            statusText = '✅ Sudah Dipindah';
+        } else if (item.status === 'pending_import') {
+            statusClass = 'pending';
+            statusText = '⏳ Pending';
+        }
+        
+        // Jenis badge class
+        let jenisClass = 'normal';
+        let jenisText = '⚖️ Normal';
+        let nilaiClass = 'normal';
+        let progressClass = 'normal';
+        if (item.progres_jenis === 'naik') {
+            jenisClass = 'naik';
+            jenisText = '📈 Naik';
+            nilaiClass = 'naik';
+            progressClass = 'naik';
+        } else if (item.progres_jenis === 'turun') {
+            jenisClass = 'turun';
+            jenisText = '📉 Turun';
+            nilaiClass = 'turun';
+            progressClass = 'turun';
+        }
+        
+        // Progress bar
+        const maxValue = Math.max(...transaksiData.map(t => Math.abs(t.progres_jumlah || 0)), 1);
         const barPercent = Math.min((absValue / maxValue) * 100, 100);
-        const barColor = item.progres_jenis === 'naik' ? '#10b981' : (item.progres_jenis === 'turun' ? '#ef4444' : '#f59e0b');
         
         return `
-            <div class="transaksi-item-premium" data-id="${item.id}" style="
-                display: flex;
-                align-items: stretch;
-                gap: 12px;
-                padding: 14px 16px;
-                margin-bottom: 8px;
-                background: #ffffff;
-                border-radius: 14px;
-                border: 1px solid #e5e7eb;
-                cursor: pointer;
-                transition: all 0.2s ease;
-                position: relative;
-                box-shadow: 0 1px 3px rgba(0,0,0,0.04);
-            ">
+            <div class="transaksi-item-premium" data-id="${item.id}">
                 <!-- Nomor Urut -->
-                <div style="
-                    display: flex;
-                    align-items: center;
-                    justify-content: center;
-                    min-width: 32px;
-                    font-weight: 700;
-                    font-size: 13px;
-                    color: #9ca3af;
-                    background: #f9fafb;
-                    border-radius: 8px;
-                    padding: 0 8px;
-                ">
-                    ${index + 1}
-                </div>
+                <div class="nomor-urut">${index + 1}</div>
                 
                 <!-- Checkbox -->
-                <div style="display: flex; align-items: center;">
-                    <input type="checkbox" class="transaksi-checkbox" data-id="${item.id}" ${isChecked ? 'checked' : ''} style="
-                        width: 18px;
-                        height: 18px;
-                        cursor: pointer;
-                        accent-color: #4f46e5;
-                    ">
+                <div class="checkbox-wrapper">
+                    <input type="checkbox" class="transaksi-checkbox" data-id="${item.id}" ${isChecked ? 'checked' : ''}>
                 </div>
                 
                 <!-- Info Utama -->
-                <div style="flex: 1; min-width: 0;">
-                    <div style="display: flex; align-items: center; gap: 10px; flex-wrap: wrap;">
-                        <span style="font-weight: 600; font-size: 14px; color: #1f2937;">${escapeHtml(item.nama || item.agent_id)}</span>
-                        <span style="font-size: 11px; color: #6b7280; background: #f3f4f6; padding: 2px 8px; border-radius: 6px;">🆔 ${escapeHtml(item.agent_id || '-')}</span>
-                        ${jenisBadge}
-                        ${statusBadge}
+                <div class="info-utama">
+                    <div class="header-row">
+                        <span class="nama">${escapeHtml(item.nama || item.agent_id)}</span>
+                        <span class="agent-id">🆔 ${escapeHtml(item.agent_id || '-')}</span>
+                        <span class="badge-jenis ${jenisClass}">${jenisText}</span>
+                        <span class="badge-status ${statusClass}">${statusText}</span>
                     </div>
-                    <div style="display: flex; align-items: center; gap: 12px; margin-top: 4px; flex-wrap: wrap;">
-                        <span style="font-size: 12px; color: #6b7280;">📱 ${escapeHtml(item.hp || '-')}</span>
-                        <span style="font-size: 12px; color: #6b7280;">👤 ${escapeHtml(item.upline_name || '-')}</span>
-                        <span style="font-size: 12px; color: #6b7280;">📅 ${item.tanggal_transaksi ? new Date(item.tanggal_transaksi).toLocaleDateString('id-ID') : '-'}</span>
+                    <div class="detail-row">
+                        <span>📱 ${escapeHtml(item.hp || '-')}</span>
+                        <span>👤 ${escapeHtml(item.upline_name || '-')}</span>
+                        <span>📅 ${item.tanggal_transaksi ? new Date(item.tanggal_transaksi).toLocaleDateString('id-ID') : '-'}</span>
+                        ${item.apk ? `<span>📱 ${escapeHtml(item.apk)}</span>` : ''}
                     </div>
                 </div>
                 
                 <!-- Nilai dengan Progress Bar -->
-                <div style="min-width: 120px; display: flex; flex-direction: column; align-items: flex-end; gap: 4px;">
-                    <div style="font-weight: 700; font-size: 18px; color: ${barColor};">
+                <div class="nilai-container">
+                    <div class="nilai ${nilaiClass}">
                         ${item.progres_jumlah > 0 ? '+' : ''}${(item.progres_jumlah || 0).toLocaleString()}
                     </div>
-                    <div style="width: 100%; height: 4px; background: #f3f4f6; border-radius: 4px; overflow: hidden;">
-                        <div style="width: ${barPercent}%; height: 100%; background: ${barColor}; border-radius: 4px; transition: width 0.3s;"></div>
+                    <div class="progress-track">
+                        <div class="progress-fill ${progressClass}" style="width: ${barPercent}%;"></div>
                     </div>
-                    <span style="font-size: 9px; color: #9ca3af;">${Math.round(absValue).toLocaleString()}</span>
+                    <span class="nilai-label">${absValue.toLocaleString()}</span>
                 </div>
                 
                 <!-- Tombol Aksi -->
-                <div style="display: flex; align-items: center; gap: 6px; flex-shrink: 0;">
-                    <button class="transaksi-wa-btn" onclick="event.stopPropagation(); openWA('${escapeHtml(item.hp || '')}')" style="
-                        background: #25D366;
-                        color: white;
-                        border: none;
-                        border-radius: 8px;
-                        padding: 6px 10px;
-                        font-size: 12px;
-                        cursor: pointer;
-                        transition: all 0.2s;
-                    ">💬</button>
+                <div class="aksi-container">
+                    <button class="btn-wa" onclick="event.stopPropagation(); openWA('${escapeHtml(item.hp || '')}')">💬</button>
                     ${item.status !== 'imported' ? `
-                        <button class="transaksi-move-btn" onclick="event.stopPropagation(); moveSingleToFollowup('${item.id}')" style="
-                            background: #4f46e5;
-                            color: white;
-                            border: none;
-                            border-radius: 8px;
-                            padding: 6px 10px;
-                            font-size: 11px;
-                            cursor: pointer;
-                            transition: all 0.2s;
-                            white-space: nowrap;
-                        ">📋 Pindah</button>
+                        <button class="btn-move" onclick="event.stopPropagation(); moveSingleToFollowup('${item.id}')">📋 Pindah</button>
                     ` : ''}
-                    <button class="transaksi-delete-btn" onclick="event.stopPropagation(); deleteTransaksiItem('${item.id}')" style="
-                        background: #fef2f2;
-                        color: #ef4444;
-                        border: none;
-                        border-radius: 8px;
-                        padding: 6px 10px;
-                        font-size: 12px;
-                        cursor: pointer;
-                        transition: all 0.2s;
-                    ">🗑️</button>
+                    <button class="btn-delete" onclick="event.stopPropagation(); deleteTransaksiItem('${item.id}')">🗑️</button>
                 </div>
             </div>
         `;
     }).join('');
-
+    
     // ===== EVENT LISTENER UNTUK KLIK ITEM =====
     document.querySelectorAll('.transaksi-item-premium').forEach(el => {
         el.addEventListener('click', function(e) {
             if (e.target.closest('input[type="checkbox"]') || 
-                e.target.closest('.transaksi-wa-btn') || 
-                e.target.closest('.transaksi-move-btn') || 
-                e.target.closest('.transaksi-delete-btn')) {
+                e.target.closest('.btn-wa') || 
+                e.target.closest('.btn-move') || 
+                e.target.closest('.btn-delete')) {
                 return;
             }
             const id = this.dataset.id;
             openDetailTransaksi(id);
         });
-        
-        // Hover effect
-        el.addEventListener('mouseenter', function() {
-            this.style.transform = 'translateY(-2px)';
-            this.style.boxShadow = '0 4px 12px rgba(0,0,0,0.08)';
-            this.style.borderColor = '#4f46e5';
-        });
-        el.addEventListener('mouseleave', function() {
-            this.style.transform = 'translateY(0)';
-            this.style.boxShadow = '0 1px 3px rgba(0,0,0,0.04)';
-            this.style.borderColor = '#e5e7eb';
-        });
     });
     
     // ===== EVENT LISTENER UNTUK CHECKBOX =====
     document.querySelectorAll('.transaksi-checkbox').forEach(cb => {
-        cb.addEventListener('change', function(e) {
-            e.stopPropagation();
-            const id = this.dataset.id;
-            if (this.checked) {
-                selectedTransaksiIds.set(id, true);
-            } else {
-                selectedTransaksiIds.delete(id);
-            }
-            updateSelectAllTransaksiButton();
-            updateTransaksiSelectionCount();
-        });
+        cb.removeEventListener('change', handleTransaksiCheckboxChange);
+        cb.addEventListener('change', handleTransaksiCheckboxChange);
     });
     
     updateSelectAllTransaksiButton();
     updateTransaksiSelectionCount();
+}
+
+// ===== HANDLE TRANSAKSI CHECKBOX CHANGE =====
+function handleTransaksiCheckboxChange(e) {
+    e.stopPropagation();
+    const id = this.dataset.id;
+    if (this.checked) {
+        selectedTransaksiIds.set(id, true);
+    } else {
+        selectedTransaksiIds.delete(id);
+    }
+    updateSelectAllTransaksiButton();
+    updateTransaksiSelectionCount();
+}
+
+// ===== UPDATE TRANSAKSI TOTALS =====
+function updateTransaksiTotals(filteredData) {
+    const data = filteredData || transaksiData;
+    let totalNaik = 0;
+    let totalTurun = 0;
+    
+    data.forEach(t => {
+        const val = t.progres_jumlah || 0;
+        if (t.progres_jenis === 'naik') totalNaik += val;
+        else if (t.progres_jenis === 'turun') totalTurun += Math.abs(val);
+    });
+    
+    const naikSpan = document.getElementById('transaksiTotalNaik');
+    const turunSpan = document.getElementById('transaksiTotalTurun');
+    if (naikSpan) naikSpan.innerText = totalNaik.toLocaleString();
+    if (turunSpan) turunSpan.innerText = totalTurun.toLocaleString();
 }
 
 // ========== UPDATE TRANSAKSI SELECTION COUNT ==========
@@ -5510,24 +5473,42 @@ async function deleteAllTransaksi() {
     await loadDbTransaksi();
 }
 
+// ========== DELETE TRANSAKSI ITEM ==========
 async function deleteTransaksiItem(id) {
-    if (!confirm('Yakin hapus data transaksi ini?')) return;
-    
-    const { error } = await window.db.from('db_transaksi').delete().eq('id', id);
-    if (error) {
-        showNotifTop('❌ Gagal hapus: ' + error.message, true);
+    const item = transaksiData.find(t => t.id === id);
+    if (!item) {
+        showNotifTop('❌ Data tidak ditemukan!', true);
         return;
     }
     
-    selectedTransaksiIds.delete(id);
-    showNotifTop('🗑️ Data transaksi berhasil dihapus');
-    await loadDbTransaksi();
+    if (!confirm(`Hapus data transaksi "${escapeHtml(item.nama || item.agent_id)}"?`)) return;
+    
+    try {
+        const { error } = await window.db.from('db_transaksi').delete().eq('id', id);
+        if (error) {
+            showNotifTop('❌ Gagal hapus: ' + error.message, true);
+            return;
+        }
+        
+        selectedTransaksiIds.delete(id);
+        showNotifTop('🗑️ Data transaksi berhasil dihapus');
+        await loadDbTransaksi();
+        
+    } catch (err) {
+        console.error('Error delete transaksi:', err);
+        showNotifTop('❌ Gagal: ' + err.message, true);
+    }
 }
 
+// ========== MOVE SINGLE TO FOLLOWUP ==========
 async function moveSingleToFollowup(id) {
     const item = transaksiData.find(t => t.id === id);
-    if (!item) return;
+    if (!item) {
+        showNotifTop('❌ Data tidak ditemukan!', true);
+        return;
+    }
     
+    // Cek apakah sudah ada di customers
     const { data: existing } = await window.db
         .from('customers')
         .select('id')
@@ -5535,32 +5516,51 @@ async function moveSingleToFollowup(id) {
         .maybeSingle();
     
     if (existing) {
-        showNotifTop(`⚠️ ID Agent "${item.agent_id}" sudah terdaftar!`, true);
+        showNotifTop(`⚠️ ID Agent "${item.agent_id}" sudah terdaftar di Followup Agen!`, true);
         return;
     }
     
-    const { error } = await window.db.from('customers').insert({
-        agent_id: item.agent_id,
-        nama: item.nama || `Agent ${item.agent_id}`,
-        hp: item.hp || '',
-        apk: item.apk || '',
-        upline_name: item.upline_name || '',
-        upline_phone: item.upline_phone || '',
-        tanggal: getTodayDate(),
-        status: 'baru',
-        user_id: currentUser.id,
-        created_at: new Date().toISOString()
-    });
-    
-    if (error) {
-        showNotifTop('❌ Gagal pindah: ' + error.message, true);
+    if (!confirm(`Pindahkan data "${escapeHtml(item.nama || item.agent_id)}" ke Followup Agen?`)) {
         return;
     }
     
-    await window.db.from('db_transaksi').update({ status: 'imported', updated_at: new Date().toISOString() }).eq('id', id);
-    showNotifTop('✅ Data berhasil dipindahkan ke Followup Agen!');
-    await loadDbTransaksi();
-    await loadCustomers();
+    try {
+        // Insert ke customers
+        const { error: insertError } = await window.db.from('customers').insert({
+            agent_id: item.agent_id,
+            nama: item.nama || `Agent ${item.agent_id}`,
+            hp: item.hp || '',
+            apk: item.apk || '',
+            upline_name: item.upline_name || '',
+            upline_phone: item.upline_phone || '',
+            tanggal: getTodayDate(),
+            status: 'baru',
+            user_id: currentUser.id,
+            created_at: new Date().toISOString()
+        });
+        
+        if (insertError) {
+            showNotifTop('❌ Gagal pindah: ' + insertError.message, true);
+            return;
+        }
+        
+        // Update status di db_transaksi
+        await window.db.from('db_transaksi').update({ 
+            status: 'imported', 
+            updated_at: new Date().toISOString() 
+        }).eq('id', id);
+        
+        // Hapus dari selected
+        selectedTransaksiIds.delete(id);
+        
+        showNotifTop('✅ Data berhasil dipindahkan ke Followup Agen!');
+        await loadDbTransaksi();
+        await loadCustomers();
+        
+    } catch (err) {
+        console.error('Error move to followup:', err);
+        showNotifTop('❌ Gagal: ' + err.message, true);
+    }
 }
 
 // ========== DATABASE ARCHIVE RENDER FUNCTIONS ==========
