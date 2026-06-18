@@ -657,6 +657,33 @@ function parseDateDDMMYYYY(dateStr) {
     }
 }
 
+// ========== FORMAT BULAN TAHUN ==========
+function formatMonthYear(dateStr) {
+    if (!dateStr) return '-';
+    try {
+        const date = new Date(dateStr);
+        if (isNaN(date.getTime())) return dateStr;
+        const monthNames = ['Januari', 'Februari', 'Maret', 'April', 'Mei', 'Juni', 
+                           'Juli', 'Agustus', 'September', 'Oktober', 'November', 'Desember'];
+        return `${monthNames[date.getMonth()]} ${date.getFullYear()}`;
+    } catch (e) {
+        return dateStr;
+    }
+}
+
+function formatMonthYearShort(dateStr) {
+    if (!dateStr) return '-';
+    try {
+        const date = new Date(dateStr);
+        if (isNaN(date.getTime())) return dateStr;
+        const monthNames = ['Jan', 'Feb', 'Mar', 'Apr', 'Mei', 'Jun', 
+                           'Jul', 'Ags', 'Sep', 'Okt', 'Nov', 'Des'];
+        return `${monthNames[date.getMonth()]} ${date.getFullYear()}`;
+    } catch (e) {
+        return dateStr;
+    }
+}
+
 // ========== DARK MODE FUNCTIONS ==========
 function initDarkMode() {
     const darkModeToggle = document.getElementById('darkModeToggle');
@@ -5064,9 +5091,9 @@ function renderTransaksiList() {
         const bulanLalu = item.transaksi_bulan_lalu || 0;
         const bulanIni = item.transaksi_bulan_ini || 0;
         
-        // ===== PERBAIKAN: Format tanggal DD-MM-YYYY =====
-        const tanggalLalu = item.tanggal_bulan_lalu ? formatDateDDMMYYYY(item.tanggal_bulan_lalu) : '-';
-        const tanggalIni = item.tanggal_bulan_ini ? formatDateDDMMYYYY(item.tanggal_bulan_ini) : '-';
+        // ===== PERBAIKAN: Format Bulan-Tahun =====
+        const periodeLalu = item.tanggal_bulan_lalu ? formatMonthYearShort(item.tanggal_bulan_lalu) : '-';
+        const periodeIni = item.tanggal_bulan_ini ? formatMonthYearShort(item.tanggal_bulan_ini) : '-';
         
         html += `
             <div class="transaksi-item-premium" data-id="${item.id}">
@@ -5088,8 +5115,8 @@ function renderTransaksiList() {
                         ${item.apk ? `<span>📱 ${escapeHtml(item.apk)}</span>` : ''}
                     </div>
                     <div class="detail-row" style="font-size: 10px; color: #94a3b8; margin-top: 2px;">
-                        <span>📅 Bulan Lalu: ${tanggalLalu}</span>
-                        <span>📅 Bulan Ini: ${tanggalIni}</span>
+                        <span>📅 Periode Lalu: ${periodeLalu}</span>
+                        <span>📅 Periode Ini: ${periodeIni}</span>
                     </div>
                 </div>
                 <div class="nilai-container">
@@ -5288,9 +5315,9 @@ function openDetailTransaksi(id) {
     const item = transaksiData.find(t => t.id === id);
     if (!item) return;
     
-    // ===== PERBAIKAN: Format tanggal DD-MM-YYYY =====
-    const tanggalLalu = item.tanggal_bulan_lalu ? formatDateDDMMYYYY(item.tanggal_bulan_lalu) : 'Tidak tersedia';
-    const tanggalIni = item.tanggal_bulan_ini ? formatDateDDMMYYYY(item.tanggal_bulan_ini) : 'Tidak tersedia';
+    // ===== PERBAIKAN: Format Bulan-Tahun =====
+    const periodeLalu = item.tanggal_bulan_lalu ? formatMonthYear(item.tanggal_bulan_lalu) : 'Tidak tersedia';
+    const periodeIni = item.tanggal_bulan_ini ? formatMonthYear(item.tanggal_bulan_ini) : 'Tidak tersedia';
     const tanggalImport = item.tanggal_transaksi ? formatDateDDMMYYYY(item.tanggal_transaksi) : '-';
     
     const modalHtml = `
@@ -5364,14 +5391,14 @@ function openDetailTransaksi(id) {
                     <div style="font-weight: 600; font-size: 13px; color: #1f2937; margin-bottom: 12px;">📊 Data Perbandingan Transaksi</div>
                     <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 16px;">
                         <div style="background: #f1f5f9; border-radius: 10px; padding: 12px; border-left: 3px solid #f59e0b;">
-                            <div style="font-size: 10px; color: #6b7280; text-transform: uppercase; letter-spacing: 0.5px;">Bulan Lalu</div>
+                            <div style="font-size: 10px; color: #6b7280; text-transform: uppercase; letter-spacing: 0.5px;">Periode Lalu</div>
                             <div style="font-weight: 700; font-size: 20px; color: #1f2937; margin-top: 4px;">${(item.transaksi_bulan_lalu || 0).toLocaleString()}</div>
-                            <div style="font-size: 11px; color: #6b7280; margin-top: 2px;">📅 ${tanggalLalu}</div>
+                            <div style="font-size: 11px; color: #6b7280; margin-top: 2px;">📅 ${periodeLalu}</div>
                         </div>
                         <div style="background: #f1f5f9; border-radius: 10px; padding: 12px; border-left: 3px solid #4f46e5;">
-                            <div style="font-size: 10px; color: #6b7280; text-transform: uppercase; letter-spacing: 0.5px;">Bulan Ini</div>
+                            <div style="font-size: 10px; color: #6b7280; text-transform: uppercase; letter-spacing: 0.5px;">Periode Ini</div>
                             <div style="font-weight: 700; font-size: 20px; color: #1f2937; margin-top: 4px;">${(item.transaksi_bulan_ini || 0).toLocaleString()}</div>
-                            <div style="font-size: 11px; color: #6b7280; margin-top: 2px;">📅 ${tanggalIni}</div>
+                            <div style="font-size: 11px; color: #6b7280; margin-top: 2px;">📅 ${periodeIni}</div>
                         </div>
                     </div>
                     <div style="margin-top: 12px; text-align: center; font-size: 13px; color: #6b7280;">
@@ -8191,65 +8218,66 @@ function setupImportExcel() {
     if (transaksiExampleBtn) {
         const newTransaksiBtn = transaksiExampleBtn.cloneNode(true);
         transaksiExampleBtn.parentNode.replaceChild(newTransaksiBtn, transaksiExampleBtn);
-        document.getElementById('downloadTransaksiExample')?.addEventListener('click', function(e) {
-            e.preventDefault();
-            e.stopPropagation();
-            const data = [
-                {
-                    apk: 'GNP',
-                    agent_id: 'AG-001',
-                    nama: 'Budi Santoso',
-                    hp: '6281234567890',
-                    upline: 'Pak Upline',
-                    hp_upline: '6281234567891',
-                    tanggal_bulan_lalu: '2024-01-01',
-                    transaksi_bulan_lalu: 50,
-                    tanggal_bulan_ini: '2024-02-01',
-                    transaksi_bulan_ini: 200
-                },
-                {
-                    apk: 'BSB',
-                    agent_id: 'AG-002',
-                    nama: 'Ani Lestari',
-                    hp: '6281234567892',
-                    upline: 'Bu Upline',
-                    hp_upline: '6281234567893',
-                    tanggal_bulan_lalu: '2024-01-01',
-                    transaksi_bulan_lalu: 300,
-                    tanggal_bulan_ini: '2024-02-01',
-                    transaksi_bulan_ini: 150
-                },
-                {
-                    apk: 'BTN',
-                    agent_id: 'AG-003',
-                    nama: 'Cahya Wijaya',
-                    hp: '6281234567894',
-                    upline: '',
-                    hp_upline: '',
-                    tanggal_bulan_lalu: '2024-01-01',
-                    transaksi_bulan_lalu: 50,
-                    tanggal_bulan_ini: '2024-02-01',
-                    transaksi_bulan_ini: 80
-                },
-                {
-                    apk: 'GNP',
-                    agent_id: 'AG-004',
-                    nama: 'Dewi Sartika',
-                    hp: '6281234567895',
-                    upline: 'Pak Upline',
-                    hp_upline: '6281234567891',
-                    tanggal_bulan_lalu: '2024-01-01',
-                    transaksi_bulan_lalu: 0,
-                    tanggal_bulan_ini: '2024-02-01',
-                    transaksi_bulan_ini: 0
-                }
-            ];
-            const ws = XLSX.utils.json_to_sheet(data);
-            const wb = XLSX.utils.book_new();
-            XLSX.utils.book_append_sheet(wb, ws, 'DB Transaksi');
-            XLSX.writeFile(wb, 'contoh_db_transaksi.xlsx');
-            showNotifTop('📋 Contoh file DB Transaksi berhasil diunduh');
-        });
+    // ===== Download Contoh DB Transaksi =====
+    document.getElementById('downloadTransaksiExample')?.addEventListener('click', function(e) {
+        e.preventDefault();
+        e.stopPropagation();
+        const data = [
+            {
+                apk: 'GNP',
+                agent_id: 'AG-001',
+                nama: 'Budi Santoso',
+                hp: '6281234567890',
+                upline: 'Pak Upline',
+                hp_upline: '6281234567891',
+                periode_bulan_lalu: 'Januari 2024',
+                transaksi_bulan_lalu: 50,
+                periode_bulan_ini: 'Februari 2024',
+                transaksi_bulan_ini: 200
+            },
+            {
+                apk: 'BSB',
+                agent_id: 'AG-002',
+                nama: 'Ani Lestari',
+                hp: '6281234567892',
+                upline: 'Bu Upline',
+                hp_upline: '6281234567893',
+                periode_bulan_lalu: 'Januari 2024',
+                transaksi_bulan_lalu: 300,
+                periode_bulan_ini: 'Februari 2024',
+                transaksi_bulan_ini: 150
+            },
+            {
+                apk: 'BTN',
+                agent_id: 'AG-003',
+                nama: 'Cahya Wijaya',
+                hp: '6281234567894',
+                upline: '',
+                hp_upline: '',
+                periode_bulan_lalu: 'Januari 2024',
+                transaksi_bulan_lalu: 50,
+                periode_bulan_ini: 'Februari 2024',
+                transaksi_bulan_ini: 80
+            },
+            {
+                apk: 'GNP',
+                agent_id: 'AG-004',
+                nama: 'Dewi Sartika',
+                hp: '6281234567895',
+                upline: 'Pak Upline',
+                hp_upline: '6281234567891',
+                periode_bulan_lalu: 'Januari 2024',
+                transaksi_bulan_lalu: 0,
+                periode_bulan_ini: 'Februari 2024',
+                transaksi_bulan_ini: 0
+            }
+        ];
+        const ws = XLSX.utils.json_to_sheet(data);
+        const wb = XLSX.utils.book_new();
+        XLSX.utils.book_append_sheet(wb, ws, 'DB Transaksi');
+        XLSX.writeFile(wb, 'contoh_db_transaksi.xlsx');
+        showNotifTop('📋 Contoh file DB Transaksi berhasil diunduh');
+    });
     }
 }
 
