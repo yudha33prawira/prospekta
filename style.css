@@ -4121,80 +4121,61 @@ body.dark-mode [style*="background: #f3f4f6"] strong {
 /* ========== PREVIEW PHOTO MODAL ========== */
 /* ================================================================ */
 
-#previewPhotoModal .modal-content {
-    max-width: 600px;
-    max-height: 80vh;
-    overflow: hidden;
-    border-radius: 24px;
+.preview-photo-content {
+    max-width: 600px !important;
+    max-height: 85vh !important;
+    padding: 0 !important;
+    overflow: hidden !important;
 }
 
-#previewPhotoModal .preview-photo-body {
-    padding: 20px;
+.preview-photo-header {
     display: flex;
-    justify-content: center;
+    justify-content: space-between;
     align-items: center;
-    min-height: 200px;
+    padding: 16px 24px;
+    border-bottom: 1px solid var(--border);
+    background: #fff;
+    border-radius: 32px 32px 0 0;
+}
+.preview-photo-header h3 {
+    color: var(--dark) !important;
+    background: none !important;
+    -webkit-background-clip: unset !important;
+    background-clip: unset !important;
+    padding: 0 !important;
+}
+
+.preview-photo-body {
+    padding: 20px;
+    text-align: center;
     background: #f8fafc;
-    border-radius: 0;
+    min-height: 200px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
 }
 
-#previewPhotoModal .preview-photo-body img {
+.preview-photo-body img {
     max-width: 100%;
-    max-height: 60vh;
+    max-height: 70vh;
+    border-radius: 16px;
     object-fit: contain;
-    border-radius: 12px;
+    display: block;
+    margin: 0 auto;
     box-shadow: 0 4px 20px rgba(0, 0, 0, 0.1);
-    transition: transform 0.3s ease;
 }
 
-#previewPhotoModal .preview-photo-body img:hover {
-    transform: scale(1.02);
-}
-
-/* ===== DARK MODE ===== */
-body.dark-mode #previewPhotoModal .preview-photo-body {
-    background: #0f172a;
-}
-
-body.dark-mode #previewPhotoModal .preview-photo-header {
+/* Dark mode */
+body.dark-mode .preview-photo-header {
+    background: #1e293b;
     border-bottom-color: #334155;
 }
-
-body.dark-mode #previewPhotoModal .preview-photo-header h3 {
-    color: #f1f5f9;
+body.dark-mode .preview-photo-header h3 {
+    color: #f1f5f9 !important;
 }
-
-body.dark-mode #previewPhotoModal .preview-photo-header button {
-    color: #94a3b8;
+body.dark-mode .preview-photo-header button {
+    color: #94a3b8 !important;
 }
-
-body.dark-mode #previewPhotoModal .modal-buttons {
-    background: #1e293b;
-    border-top-color: #334155;
-}
-
-/* ===== PROFILE PHOTO CLICKABLE ===== */
-#previewFoto {
-    cursor: pointer !important;
-    transition: transform 0.3s ease, box-shadow 0.3s ease;
-    border-radius: 50% !important;
-    object-fit: cover !important;
-    width: 80px;
-    height: 80px;
-    border: 3px solid #4f46e5;
-}
-
-#previewFoto:hover {
-    transform: scale(1.05);
-    box-shadow: 0 4px 20px rgba(79, 70, 229, 0.3);
-}
-
-.profile-img {
-    cursor: pointer !important;
-    transition: transform 0.3s ease, box-shadow 0.3s ease;
-}
-
-.profile-img:hover {
-    transform: scale(1.05);
-    box-shadow: 0 0 0 4px rgba(79, 70, 229, 0.2);
+body.dark-mode .preview-photo-body {
+    background: #0f172a;
 }
