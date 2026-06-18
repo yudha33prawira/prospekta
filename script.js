@@ -4924,8 +4924,7 @@ function renderTransaksiList() {
     const searchTerm = document.getElementById('searchTransaksiInput')?.value.toLowerCase() || '';
     const filterJenis = document.getElementById('filterTransaksiJenis')?.value || '';
     const filterStatus = document.getElementById('filterTransaksiStatus')?.value || '';
-    const filterDateStart = document.getElementById('filterTransaksiDateStart')?.value || '';
-    const filterDateEnd = document.getElementById('filterTransaksiDateEnd')?.value || '';
+    const filterUpline = document.getElementById('filterTransaksiUpline')?.value.toLowerCase() || '';
     
     let filtered = [...transaksiData];
     
@@ -4933,8 +4932,7 @@ function renderTransaksiList() {
         filtered = filtered.filter(item =>
             (item.nama && String(item.nama).toLowerCase().includes(searchTerm)) ||
             (item.agent_id && String(item.agent_id).toLowerCase().includes(searchTerm)) ||
-            (item.hp && String(item.hp).includes(searchTerm)) ||
-            (item.upline_name && String(item.upline_name).toLowerCase().includes(searchTerm))
+            (item.hp && String(item.hp).includes(searchTerm))
         );
     }
     
@@ -4946,12 +4944,10 @@ function renderTransaksiList() {
         filtered = filtered.filter(item => item.status === filterStatus);
     }
     
-    if (filterDateStart) {
-        filtered = filtered.filter(item => item.tanggal_transaksi >= filterDateStart);
-    }
-    
-    if (filterDateEnd) {
-        filtered = filtered.filter(item => item.tanggal_transaksi <= filterDateEnd);
+    if (filterUpline) {
+        filtered = filtered.filter(item => 
+            item.upline_name && String(item.upline_name).toLowerCase().includes(filterUpline)
+        );
     }
     
     // Update total count
@@ -4965,7 +4961,7 @@ function renderTransaksiList() {
         totalAllSpan.innerText = transaksiData.length;
     }
     
-    // Update total naik/turun
+    // Update totals
     updateTransaksiTotals(filtered);
     
     if (filtered.length === 0) {
@@ -5009,23 +5005,27 @@ function renderTransaksiList() {
             jenisText = '📉 Turun';
             nilaiClass = 'turun';
             progressClass = 'turun';
+        } else if (item.progres_jenis === 'tidak_transaksi') {
+            jenisClass = 'tidak';
+            jenisText = '🚫 Tidak Transaksi';
+            nilaiClass = 'tidak';
+            progressClass = 'tidak';
         }
         
         // Progress bar
         const maxValue = Math.max(...transaksiData.map(t => Math.abs(t.progres_jumlah || 0)), 1);
         const barPercent = Math.min((absValue / maxValue) * 100, 100);
         
+        // Tampilkan data bulan lalu dan bulan ini
+        const bulanLalu = item.transaksi_bulan_lalu || 0;
+        const bulanIni = item.transaksi_bulan_ini || 0;
+        
         return `
             <div class="transaksi-item-premium" data-id="${item.id}">
-                <!-- Nomor Urut -->
                 <div class="nomor-urut">${index + 1}</div>
-                
-                <!-- Checkbox -->
                 <div class="checkbox-wrapper">
                     <input type="checkbox" class="transaksi-checkbox" data-id="${item.id}" ${isChecked ? 'checked' : ''}>
                 </div>
-                
-                <!-- Info Utama -->
                 <div class="info-utama">
                     <div class="header-row">
                         <span class="nama">${escapeHtml(item.nama || item.agent_id)}</span>
@@ -5036,23 +5036,19 @@ function renderTransaksiList() {
                     <div class="detail-row">
                         <span>📱 ${escapeHtml(item.hp || '-')}</span>
                         <span>👤 ${escapeHtml(item.upline_name || '-')}</span>
-                        <span>📅 ${item.tanggal_transaksi ? new Date(item.tanggal_transaksi).toLocaleDateString('id-ID') : '-'}</span>
+                        <span>📊 ${bulanLalu.toLocaleString()} → ${bulanIni.toLocaleString()}</span>
                         ${item.apk ? `<span>📱 ${escapeHtml(item.apk)}</span>` : ''}
                     </div>
                 </div>
-                
-                <!-- Nilai dengan Progress Bar -->
                 <div class="nilai-container">
                     <div class="nilai ${nilaiClass}">
-                        ${item.progres_jumlah > 0 ? '+' : ''}${(item.progres_jumlah || 0).toLocaleString()}
+                        ${item.progres_jenis === 'tidak_transaksi' ? '0' : (item.progres_jumlah > 0 ? '+' : '')}${(item.progres_jumlah || 0).toLocaleString()}
                     </div>
                     <div class="progress-track">
                         <div class="progress-fill ${progressClass}" style="width: ${barPercent}%;"></div>
                     </div>
                     <span class="nilai-label">${absValue.toLocaleString()}</span>
                 </div>
-                
-                <!-- Tombol Aksi -->
                 <div class="aksi-container">
                     <button class="btn-wa" onclick="event.stopPropagation(); openWA('${escapeHtml(item.hp || '')}')">💬</button>
                     ${item.status !== 'imported' ? `
@@ -5064,7 +5060,7 @@ function renderTransaksiList() {
         `;
     }).join('');
     
-    // ===== EVENT LISTENER UNTUK KLIK ITEM =====
+    // Event listeners
     document.querySelectorAll('.transaksi-item-premium').forEach(el => {
         el.addEventListener('click', function(e) {
             if (e.target.closest('input[type="checkbox"]') || 
@@ -5078,7 +5074,6 @@ function renderTransaksiList() {
         });
     });
     
-    // ===== EVENT LISTENER UNTUK CHECKBOX =====
     document.querySelectorAll('.transaksi-checkbox').forEach(cb => {
         cb.removeEventListener('change', handleTransaksiCheckboxChange);
         cb.addEventListener('change', handleTransaksiCheckboxChange);
@@ -5101,22 +5096,36 @@ function handleTransaksiCheckboxChange(e) {
     updateTransaksiSelectionCount();
 }
 
-// ===== UPDATE TRANSAKSI TOTALS =====
+// ========== UPDATE TRANSAKSI TOTALS ==========
 function updateTransaksiTotals(filteredData) {
     const data = filteredData || transaksiData;
     let totalNaik = 0;
     let totalTurun = 0;
+    let totalNormal = 0;
+    let totalTidak = 0;
     
     data.forEach(t => {
         const val = t.progres_jumlah || 0;
-        if (t.progres_jenis === 'naik') totalNaik += val;
-        else if (t.progres_jenis === 'turun') totalTurun += Math.abs(val);
+        if (t.progres_jenis === 'naik') {
+            totalNaik += val;
+        } else if (t.progres_jenis === 'turun') {
+            totalTurun += Math.abs(val);
+        } else if (t.progres_jenis === 'tidak_transaksi') {
+            totalTidak++;
+        } else {
+            totalNormal += Math.abs(val);
+        }
     });
     
     const naikSpan = document.getElementById('transaksiTotalNaik');
     const turunSpan = document.getElementById('transaksiTotalTurun');
+    const normalSpan = document.getElementById('transaksiTotalNormal');
+    const tidakSpan = document.getElementById('transaksiTotalTidak');
+    
     if (naikSpan) naikSpan.innerText = totalNaik.toLocaleString();
     if (turunSpan) turunSpan.innerText = totalTurun.toLocaleString();
+    if (normalSpan) normalSpan.innerText = totalNormal.toLocaleString();
+    if (tidakSpan) tidakSpan.innerText = totalTidak.toLocaleString();
 }
 
 // ========== UPDATE TRANSAKSI SELECTION COUNT ==========
@@ -5185,21 +5194,23 @@ function openDetailTransaksi(id) {
     const item = transaksiData.find(t => t.id === id);
     if (!item) return;
     
-    let ownerInfo = '';
-    if (currentUserRole === 'owner' && item.user_id !== currentUser.id) {
-        window.db.from('users').select('nama').eq('id', item.user_id).single().then(({ data }) => {
-            const ownerName = data?.nama || 'CS Agent';
-            // Update owner info
-        });
-    }
-    
     const modalHtml = `
-        <div class="modal-content" style="max-width: 500px; max-height: 85vh; overflow-y: auto;">
-            <div style="padding: 20px 24px 0;">
-                <h3 style="font-size: 20px; margin-bottom: 4px;">📊 Detail Transaksi</h3>
-                <div class="modal-subtitle" style="font-size: 13px; color: #6b7280; padding: 0 0 12px 0;">
-                    Informasi lengkap data transaksi
-                </div>
+        <div class="modal-content" style="max-width: 500px; max-height: 85vh; overflow-y: auto; background: #fff; border-radius: 24px; position: relative;">
+            <div style="padding: 20px 24px 0; display: flex; justify-content: space-between; align-items: center;">
+                <h3 style="font-size: 20px; margin: 0; color: #1f2937;">📊 Detail Transaksi</h3>
+                <button onclick="closeDetailModal()" style="
+                    background: none;
+                    border: none;
+                    font-size: 28px;
+                    cursor: pointer;
+                    color: #6b7280;
+                    padding: 0 4px;
+                    transition: all 0.2s;
+                    line-height: 1;
+                " onmouseover="this.style.color='#ef4444'" onmouseout="this.style.color='#6b7280'">✕</button>
+            </div>
+            <div class="modal-subtitle" style="font-size: 13px; color: #6b7280; padding: 0 24px 12px 24px; border-bottom: 1px solid #f0f0f0;">
+                Informasi lengkap data transaksi
             </div>
             
             <div style="padding: 0 24px 20px;">
@@ -5236,19 +5247,23 @@ function openDetailTransaksi(id) {
                     <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 12px;">
                         <div>
                             <div style="font-size: 11px; color: #6b7280;">Jenis Progres</div>
-                            <div style="font-weight: 600; font-size: 14px; color: ${item.progres_jenis === 'naik' ? '#10b981' : (item.progres_jenis === 'turun' ? '#ef4444' : '#f59e0b')};">
-                                ${item.progres_jenis === 'naik' ? '📈 Naik' : (item.progres_jenis === 'turun' ? '📉 Turun' : '⚖️ Normal')}
+                            <div style="font-weight: 600; font-size: 14px; color: ${item.progres_jenis === 'naik' ? '#10b981' : (item.progres_jenis === 'turun' ? '#ef4444' : (item.progres_jenis === 'tidak_transaksi' ? '#6b7280' : '#f59e0b'))};">
+                                ${item.progres_jenis === 'naik' ? '📈 Naik' : (item.progres_jenis === 'turun' ? '📉 Turun' : (item.progres_jenis === 'tidak_transaksi' ? '🚫 Tidak Transaksi' : '⚖️ Normal'))}
                             </div>
                         </div>
                         <div>
-                            <div style="font-size: 11px; color: #6b7280;">Jumlah</div>
-                            <div style="font-weight: 700; font-size: 18px; color: ${item.progres_jenis === 'naik' ? '#10b981' : (item.progres_jenis === 'turun' ? '#ef4444' : '#f59e0b')};">
-                                ${item.progres_jumlah > 0 ? '+' : ''}${(item.progres_jumlah || 0).toLocaleString()}
+                            <div style="font-size: 11px; color: #6b7280;">Selisih</div>
+                            <div style="font-weight: 700; font-size: 18px; color: ${item.progres_jenis === 'naik' ? '#10b981' : (item.progres_jenis === 'turun' ? '#ef4444' : (item.progres_jenis === 'tidak_transaksi' ? '#6b7280' : '#f59e0b'))};">
+                                ${item.progres_jenis === 'tidak_transaksi' ? '0' : (item.progres_jumlah > 0 ? '+' : '')}${(item.progres_jumlah || 0).toLocaleString()}
                             </div>
                         </div>
                         <div>
-                            <div style="font-size: 11px; color: #6b7280;">Tanggal Transaksi</div>
-                            <div style="font-weight: 600; font-size: 14px; color: #1f2937;">${item.tanggal_transaksi ? new Date(item.tanggal_transaksi).toLocaleDateString('id-ID') : '-'}</div>
+                            <div style="font-size: 11px; color: #6b7280;">Transaksi Bulan Lalu</div>
+                            <div style="font-weight: 600; font-size: 14px; color: #1f2937;">${(item.transaksi_bulan_lalu || 0).toLocaleString()}</div>
+                        </div>
+                        <div>
+                            <div style="font-size: 11px; color: #6b7280;">Transaksi Bulan Ini</div>
+                            <div style="font-weight: 600; font-size: 14px; color: #1f2937;">${(item.transaksi_bulan_ini || 0).toLocaleString()}</div>
                         </div>
                         <div>
                             <div style="font-size: 11px; color: #6b7280;">Status</div>
@@ -5256,27 +5271,22 @@ function openDetailTransaksi(id) {
                         </div>
                     </div>
                 </div>
-                
-                ${item.user_id && currentUserRole === 'owner' ? `
-                    <div style="margin-top: 12px; font-size: 12px; color: #6b7280;">
-                        👤 Pemilik: ${item.user_id === currentUser.id ? 'Anda' : 'CS Lain'}
-                    </div>
-                ` : ''}
             </div>
             
-            <div class="modal-buttons" style="display: flex; gap: 12px; padding: 16px 24px 24px; border-top: 1px solid #e5e7eb;">
-                <button onclick="closeModal('detailModal')" class="btn-primary" style="flex: 1;">Tutup</button>
-                <button onclick="closeModal('detailModal'); openWA('${escapeHtml(item.hp || '')}')" class="btn-success" style="flex: 1; background: #25D366;">💬 WhatsApp</button>
+            <div class="modal-buttons" style="display: flex; gap: 12px; padding: 16px 24px 24px; border-top: 1px solid #e5e7eb; flex-wrap: wrap;">
+                <button onclick="closeDetailModal()" class="btn-primary" style="flex: 1; padding: 12px; border: none; border-radius: 14px; font-weight: 600; cursor: pointer; background: linear-gradient(135deg, #4f46e5, #6366f1); color: white;">Tutup</button>
+                <button onclick="closeDetailModal(); openWA('${escapeHtml(item.hp || '')}')" class="btn-success" style="flex: 1; padding: 12px; border: none; border-radius: 14px; font-weight: 600; cursor: pointer; background: #25D366; color: white;">💬 WhatsApp</button>
                 ${item.status !== 'imported' ? `
-                    <button onclick="closeModal('detailModal'); moveSingleToFollowup('${item.id}')" class="btn-primary" style="flex: 1;">📋 Pindah ke Followup</button>
+                    <button onclick="closeDetailModal(); moveSingleToFollowup('${item.id}')" class="btn-primary" style="flex: 1; padding: 12px; border: none; border-radius: 14px; font-weight: 600; cursor: pointer; background: linear-gradient(135deg, #4f46e5, #6366f1); color: white;">📋 Pindah ke Followup</button>
                 ` : ''}
-                <button onclick="closeModal('detailModal'); deleteTransaksiItem('${item.id}')" class="btn-danger" style="flex: 1;">🗑️ Hapus</button>
+                <button onclick="closeDetailModal(); deleteTransaksiItem('${item.id}')" class="btn-danger" style="flex: 1; padding: 12px; border: none; border-radius: 14px; font-weight: 600; cursor: pointer; background: linear-gradient(135deg, #ef4444, #dc2626); color: white;">🗑️ Hapus</button>
             </div>
         </div>
     `;
     
     // Buat modal
     const modal = document.createElement('div');
+    modal.id = 'detailTransaksiModal';
     modal.className = 'modal';
     modal.style.cssText = `
         position: fixed !important;
@@ -5298,15 +5308,25 @@ function openDetailTransaksi(id) {
     document.body.classList.add('modal-open');
     document.body.style.overflow = 'hidden';
     
+    // Klik di luar modal untuk tutup
     modal.addEventListener('click', function(e) {
         if (e.target === this) {
-            modal.remove();
-            document.body.classList.remove('modal-open');
-            document.body.style.overflow = '';
+            closeDetailModal();
         }
     });
     
     applyDarkModeToModal(modal);
+}
+
+// ========== CLOSE DETAIL MODAL ==========
+function closeDetailModal() {
+    const modal = document.getElementById('detailTransaksiModal');
+    if (modal) {
+        modal.remove();
+    }
+    document.body.classList.remove('modal-open');
+    document.body.style.overflow = '';
+    document.body.style.pointerEvents = '';
 }
 
 // ========== SETUP TRANSAKSI FILTERS ==========
@@ -7806,87 +7826,87 @@ function setupImportExcel() {
                                 });
                                 success++;
                                 
-                            } else if (importType === 'transaksi') {
-                                // ===== PERBAIKAN: IMPORT DB TRANSAKSI =====
-                                // Kolom wajib: agent_id, progres_jumlah
-                                // Kolom opsional: apk, nama, hp, upline, hp_upline
-                                // progres_jenis: naik (>=100), turun (<=-100), normal (99 s/d -99)
-                                
-                                const agentId = row.agent_id || row.Agent_ID || '';
-                                let progresJumlah = parseFloat(row.progres_jumlah || row.jumlah || 0);
-                                
-                                // Validasi agent_id wajib
-                                if (!agentId) {
-                                    failed++;
-                                    errors.push(`Baris ${i+1}: agent_id kosong`);
-                                    continue;
-                                }
-                                
-                                // Validasi progres_jumlah harus angka
-                                if (isNaN(progresJumlah)) {
-                                    failed++;
-                                    errors.push(`Baris ${i+1}: progres_jumlah bukan angka (${row.progres_jumlah})`);
-                                    continue;
-                                }
-                                
-                                // ===== PERBAIKAN: Tentukan progres_jenis berdasarkan nilai =====
-                                let progresJenis = '';
-                                
-                                if (progresJumlah >= 100) {
-                                    progresJenis = 'naik';
-                                } else if (progresJumlah <= -100) {
-                                    progresJenis = 'turun';
-                                } else if (progresJumlah > -100 && progresJumlah < 100) {
-                                    progresJenis = 'normal';
-                                } else {
-                                    // Jika tidak masuk kategori, gunakan dari kolom jika ada
-                                    const manualJenis = row.progres_jenis || row.jenis_progres || '';
-                                    if (manualJenis && ['naik', 'turun', 'normal'].includes(manualJenis.toLowerCase())) {
-                                        progresJenis = manualJenis.toLowerCase();
-                                    } else {
-                                        failed++;
-                                        errors.push(`Baris ${i+1}: progres_jumlah (${progresJumlah}) tidak valid, harus >=100 (naik), <=-100 (turun), atau antara -99 s/d 99 (normal)`);
-                                        continue;
-                                    }
-                                }
-                                
-                                // Ambil data opsional
-                                const apk = row.apk || row.APK || '';
-                                const nama = row.nama || row.Nama || `Agent ${agentId}`;
-                                let hp = row.hp || row.HP || '';
-                                const uplineName = row.upline || row.upline_name || '';
-                                let uplinePhone = row.hp_upline || row.upline_phone || '';
-                                
-                                // Format HP
-                                if (hp) {
-                                    hp = String(hp).replace(/[^\d]/g, '');
-                                    if (hp.startsWith('0')) hp = hp.substring(1);
-                                    if (hp && !hp.startsWith('62')) hp = '62' + hp;
-                                }
-                                
-                                if (uplinePhone) {
-                                    uplinePhone = String(uplinePhone).replace(/[^\d]/g, '');
-                                    if (uplinePhone.startsWith('0')) uplinePhone = uplinePhone.substring(1);
-                                    if (uplinePhone && !uplinePhone.startsWith('62')) uplinePhone = '62' + uplinePhone;
-                                }
-                                
-                                // Insert ke DB Transaksi
-                                await window.db.from('db_transaksi').insert({
-                                    agent_id: agentId.toUpperCase(),
-                                    nama: nama,
-                                    hp: hp || '',
-                                    apk: apk || '',
-                                    upline_name: uplineName || '',
-                                    upline_phone: uplinePhone || '',
-                                    progres_jenis: progresJenis,
-                                    progres_jumlah: Math.abs(progresJumlah), // Simpan nilai absolut
-                                    tanggal_transaksi: getTodayDate(),
-                                    status: 'pending_import',
-                                    user_id: currentUser.id,
-                                    created_at: new Date().toISOString()
-                                });
-                                success++;
+                        } else if (importType === 'transaksi') {
+                            // ===== PERBAIKAN: IMPORT DB TRANSAKSI =====
+                            // Kolom wajib: agent_id, transaksi_bulan_lalu, transaksi_bulan_ini
+                            // Kolom opsional: apk, nama, hp, upline, hp_upline
+                            
+                            const agentId = row.agent_id || row.Agent_ID || '';
+                            const transaksiBulanLalu = parseFloat(row.transaksi_bulan_lalu || row.bulan_lalu || 0);
+                            const transaksiBulanIni = parseFloat(row.transaksi_bulan_ini || row.bulan_ini || 0);
+                            
+                            // Validasi agent_id wajib
+                            if (!agentId) {
+                                failed++;
+                                errors.push(`Baris ${i+1}: agent_id kosong`);
+                                continue;
                             }
+                            
+                            // Validasi angka
+                            if (isNaN(transaksiBulanLalu) || isNaN(transaksiBulanIni)) {
+                                failed++;
+                                errors.push(`Baris ${i+1}: transaksi_bulan_lalu atau transaksi_bulan_ini bukan angka`);
+                                continue;
+                            }
+                            
+                            // ===== HITUNG SELISIH =====
+                            const selisih = transaksiBulanIni - transaksiBulanLalu;
+                            let progresJenis = '';
+                            let progresJumlah = 0;
+                            
+                            if (transaksiBulanLalu === 0 && transaksiBulanIni === 0) {
+                                progresJenis = 'tidak_transaksi';
+                                progresJumlah = 0;
+                            } else if (selisih >= 100) {
+                                progresJenis = 'naik';
+                                progresJumlah = selisih;
+                            } else if (selisih <= -100) {
+                                progresJenis = 'turun';
+                                progresJumlah = Math.abs(selisih);
+                            } else {
+                                progresJenis = 'normal';
+                                progresJumlah = selisih;
+                            }
+                            
+                            // Ambil data opsional
+                            const apk = row.apk || row.APK || '';
+                            const nama = row.nama || row.Nama || `Agent ${agentId}`;
+                            let hp = row.hp || row.HP || '';
+                            const uplineName = row.upline || row.upline_name || '';
+                            let uplinePhone = row.hp_upline || row.upline_phone || '';
+                            
+                            // Format HP
+                            if (hp) {
+                                hp = String(hp).replace(/[^\d]/g, '');
+                                if (hp.startsWith('0')) hp = hp.substring(1);
+                                if (hp && !hp.startsWith('62')) hp = '62' + hp;
+                            }
+                            
+                            if (uplinePhone) {
+                                uplinePhone = String(uplinePhone).replace(/[^\d]/g, '');
+                                if (uplinePhone.startsWith('0')) uplinePhone = uplinePhone.substring(1);
+                                if (uplinePhone && !uplinePhone.startsWith('62')) uplinePhone = '62' + uplinePhone;
+                            }
+                            
+                            // Insert ke DB Transaksi
+                            await window.db.from('db_transaksi').insert({
+                                agent_id: agentId.toUpperCase(),
+                                nama: nama,
+                                hp: hp || '',
+                                apk: apk || '',
+                                upline_name: uplineName || '',
+                                upline_phone: uplinePhone || '',
+                                progres_jenis: progresJenis,
+                                progres_jumlah: Math.abs(progresJumlah),
+                                transaksi_bulan_lalu: transaksiBulanLalu,
+                                transaksi_bulan_ini: transaksiBulanIni,
+                                tanggal_transaksi: getTodayDate(),
+                                status: 'pending_import',
+                                user_id: currentUser.id,
+                                created_at: new Date().toISOString()
+                            });
+                            success++;
+                        }
                         } catch (err) {
                             console.error(`Error baris ${i+1}:`, err);
                             failed++;
@@ -7964,47 +7984,56 @@ function setupImportExcel() {
         showNotifTop('📋 Contoh file Prospek berhasil diunduh');
     });
     
-    // ===== PERBAIKAN: Download Contoh DB Transaksi =====
-    document.getElementById('downloadTransaksiExample')?.addEventListener('click', () => {
-        const data = [
-            {
-                apk: 'GNP',
-                agent_id: 'AG-001',
-                nama: 'Budi Santoso',
-                hp: '6281234567890',
-                upline: 'Pak Upline',
-                hp_upline: '6281234567891',
-                progres_jumlah: 100,  // NAik (>=100)
-                progres_jenis: 'naik'
-            },
-            {
-                apk: 'BSB',
-                agent_id: 'AG-002',
-                nama: 'Ani Lestari',
-                hp: '6281234567892',
-                upline: 'Bu Upline',
-                hp_upline: '6281234567893',
-                progres_jumlah: -150,  // Turun (<=-100)
-                progres_jenis: 'turun'
-            },
-            {
-                apk: 'BTN',
-                agent_id: 'AG-003',
-                nama: 'Cahya Wijaya',
-                hp: '6281234567894',
-                upline: '',
-                hp_upline: '',
-                progres_jumlah: 50,  // Normal (antara -99 s/d 99)
-                progres_jenis: 'normal'
-            }
-        ];
-        const ws = XLSX.utils.json_to_sheet(data);
-        const wb = XLSX.utils.book_new();
-        XLSX.utils.book_append_sheet(wb, ws, 'DB Transaksi');
-        XLSX.writeFile(wb, 'contoh_db_transaksi.xlsx');
-        showNotifTop('📋 Contoh file DB Transaksi berhasil diunduh');
-    });
-}
+// ===== Download Contoh DB Transaksi =====
+document.getElementById('downloadTransaksiExample')?.addEventListener('click', () => {
+    const data = [
+        {
+            apk: 'GNP',
+            agent_id: 'AG-001',
+            nama: 'Budi Santoso',
+            hp: '6281234567890',
+            upline: 'Pak Upline',
+            hp_upline: '6281234567891',
+            transaksi_bulan_lalu: 50,
+            transaksi_bulan_ini: 200  // Selisih 150 -> Naik
+        },
+        {
+            apk: 'BSB',
+            agent_id: 'AG-002',
+            nama: 'Ani Lestari',
+            hp: '6281234567892',
+            upline: 'Bu Upline',
+            hp_upline: '6281234567893',
+            transaksi_bulan_lalu: 300,
+            transaksi_bulan_ini: 150  // Selisih -150 -> Turun
+        },
+        {
+            apk: 'BTN',
+            agent_id: 'AG-003',
+            nama: 'Cahya Wijaya',
+            hp: '6281234567894',
+            upline: '',
+            hp_upline: '',
+            transaksi_bulan_lalu: 50,
+            transaksi_bulan_ini: 80  // Selisih 30 -> Normal
+        },
+        {
+            apk: 'GNP',
+            agent_id: 'AG-004',
+            nama: 'Dewi Sartika',
+            hp: '6281234567895',
+            upline: 'Pak Upline',
+            hp_upline: '6281234567891',
+            transaksi_bulan_lalu: 0,
+            transaksi_bulan_ini: 0  // Tidak Transaksi
+        }
+    ];
+    const ws = XLSX.utils.json_to_sheet(data);
+    const wb = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(wb, ws, 'DB Transaksi');
+    XLSX.writeFile(wb, 'contoh_db_transaksi.xlsx');
+    showNotifTop('📋 Contoh file DB Transaksi berhasil diunduh');
+});
 
 function setupAgentImport() {
     const importBtn = document.getElementById('importAgentExcelBtn');
