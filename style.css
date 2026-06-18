@@ -4625,3 +4625,62 @@ body.dark-mode .filter-container button {
 body.dark-mode .filter-container button:hover {
     background: #475569 !important;
 }
+
+/* ================================================================ */
+/* ========== DARK MODE - TEXT COLOR FIX ========== */
+/* ================================================================ */
+
+body.dark-mode,
+body.dark-mode * {
+    color: #f1f5f9 !important;
+}
+
+body.dark-mode .text-muted,
+body.dark-mode .text-gray,
+body.dark-mode .text-secondary,
+body.dark-mode small,
+body.dark-mode .small,
+body.dark-mode .modal-subtitle,
+body.dark-mode .detail-info-item strong,
+body.dark-mode .stat-info h4,
+body.dark-mode .stat-info small,
+body.dark-mode .card-phone,
+body.dark-mode .card-deadline,
+body.dark-mode .db-item-info small,
+body.dark-mode .db-item-info p,
+body.dark-mode .search-result-info p,
+body.dark-mode .broadcast-card h4,
+body.dark-mode .info-list li,
+body.dark-mode .import-card h4,
+body.dark-mode .target-card-sub,
+body.dark-mode .input-hint,
+body.dark-mode .variable-hint small,
+body.dark-mode .warning-text,
+body.dark-mode .deadline-item .deadline-detail,
+body.dark-mode .transaksi-item-premium .detail-row span,
+body.dark-mode .transaksi-item-premium .nilai-label,
+body.dark-mode .transaksi-item-premium .agent-id {
+    color: #94a3b8 !important;
+}
+
+body.dark-mode h1, body.dark-mode h2, body.dark-mode h3, 
+body.dark-mode h4, body.dark-mode h5, body.dark-mode h6,
+body.dark-mode .card-name,
+body.dark-mode .db-item-info h4,
+body.dark-mode .search-result-info h4,
+body.dark-mode .transaksi-item-premium .nama,
+body.dark-mode .stat-info .value,
+body.dark-mode .target-card-value,
+body.dark-mode .deadline-item .deadline-name {
+    color: #f1f5f9 !important;
+}
+
+body.dark-mode .detail-info-item span,
+body.dark-mode .detail-info-item div,
+body.dark-mode .detail-info-item strong {
+    color: #f1f5f9 !important;
+}
+
+body.dark-mode .detail-info-item strong {
+    color: #94a3b8 !important;
+}
