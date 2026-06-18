@@ -8507,14 +8507,13 @@ function initEventListeners() {
 
 // ========== CHECK AUTH & START ==========
 async function checkAuth() {
-    // Tampilkan loading screen
     showLoading('Memeriksa autentikasi...', true);
     
     const { data: { session } } = await window.db.auth.getSession();
     
     if (session) {
         currentUser = session.user;
-        updateLoadingStep(0); // Menyiapkan sistem
+        updateLoadingStep(0);
         
         await withLoading(loadUserProfile(), 1);
         updateLoadingStep(2);
@@ -8579,19 +8578,18 @@ async function checkAuth() {
         initFullModeSelection();
         navigateTo('dashboard');
         
-        // ===== PERBAIKAN: Inisialisasi dark mode setelah semua data siap =====
-        setTimeout(() => {
+        // ===== PERBAIKAN: Inisialisasi notifikasi setelah data load =====
+        setTimeout(function() {
             initBadges();
-            initDarkMode(); // Hanya di sini, tidak di initEventListeners
-            initDarkModeObserver(); // Panggil setelah initDarkMode
-        }, 100);
-
-            // ===== PERBAIKAN: Inisialisasi deadline notification =====
-            const deadlineBtn = document.getElementById('deadlineNotifBtn');
+            initDarkMode();
+            initDarkModeObserver();
+            
+            // Inisialisasi deadline notification
+            var deadlineBtn = document.getElementById('deadlineNotifBtn');
             if (deadlineBtn) {
-                const newDeadlineBtn = deadlineBtn.cloneNode(true);
+                var newDeadlineBtn = deadlineBtn.cloneNode(true);
                 deadlineBtn.parentNode.replaceChild(newDeadlineBtn, deadlineBtn);
-                const freshBtn = document.getElementById('deadlineNotifBtn');
+                var freshBtn = document.getElementById('deadlineNotifBtn');
                 if (freshBtn) {
                     freshBtn.addEventListener('click', function(e) {
                         e.preventDefault();
@@ -8601,12 +8599,12 @@ async function checkAuth() {
                 }
             }
             
-            // ===== PERBAIKAN: Inisialisasi pesan notification =====
-            const pesanBtn = document.getElementById('pesanNotifBtn');
+            // Inisialisasi pesan notification
+            var pesanBtn = document.getElementById('pesanNotifBtn');
             if (pesanBtn) {
-                const newPesanBtn = pesanBtn.cloneNode(true);
+                var newPesanBtn = pesanBtn.cloneNode(true);
                 pesanBtn.parentNode.replaceChild(newPesanBtn, pesanBtn);
-                const freshPesanBtn = document.getElementById('pesanNotifBtn');
+                var freshPesanBtn = document.getElementById('pesanNotifBtn');
                 if (freshPesanBtn) {
                     freshPesanBtn.addEventListener('click', function(e) {
                         e.preventDefault();
@@ -8617,7 +8615,7 @@ async function checkAuth() {
             }
         }, 100);
         
-        setTimeout(() => {
+        setTimeout(function() {
             hideLoading();
         }, 500);
         
