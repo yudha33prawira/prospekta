@@ -742,8 +742,8 @@ function initSidebarHover() {
     
     if (!hoverZone || !sidebar) return;
     
-    // Hover zone untuk desktop
-    hoverZone.addEventListener('mouseenter', function() {
+    // ===== PERBAIKAN: Hover untuk desktop =====
+    hoverZone.addEventListener('mouseenter', function(e) {
         if (window.innerWidth > 768) {
             clearTimeout(sidebarTimeout);
             sidebar.classList.add('active');
@@ -764,73 +764,55 @@ function initSidebarHover() {
         clearTimeout(sidebarTimeout);
     });
     
-    // ===== PERBAIKAN: Tombol toggle dengan event listener yang benar =====
+    // ===== PERBAIKAN: Tombol toggle untuk semua device =====
     if (toggleBtn) {
         // Hapus semua event listener lama dengan clone
         const newToggleBtn = toggleBtn.cloneNode(true);
         toggleBtn.parentNode.replaceChild(newToggleBtn, toggleBtn);
         
-        // Gunakan referensi baru
         const freshToggleBtn = document.getElementById('toggleSidebarBtn');
         if (freshToggleBtn) {
             freshToggleBtn.addEventListener('click', function(e) {
                 e.preventDefault();
                 e.stopPropagation();
                 
-                // Toggle sidebar
+                console.log('Toggle sidebar clicked'); // Debug
+                
                 sidebar.classList.toggle('active');
                 updateSidebarBodyClass();
                 
-                // Log untuk debugging
-                console.log('Sidebar toggled, active:', sidebar.classList.contains('active'));
+                // Force reflow untuk memastikan animasi
+                void sidebar.offsetHeight;
             });
+            
+            // Pastikan pointer-events aktif
+            freshToggleBtn.style.pointerEvents = 'auto';
+            freshToggleBtn.style.cursor = 'pointer';
+            freshToggleBtn.style.position = 'relative';
+            freshToggleBtn.style.zIndex = '1000';
         }
     }
-
-        // Buat overlay untuk mobile
-    const overlay = document.createElement('div');
-    overlay.id = 'sidebarOverlay';
-    overlay.style.cssText = `
-        position: fixed;
-        top: 0;
-        left: 0;
-        width: 100%;
-        height: 100%;
-        background: rgba(0, 0, 0, 0.5);
-        z-index: 999;
-        display: none;
-        pointer-events: auto;
-    `;
-    document.body.appendChild(overlay);
     
-    overlay.addEventListener('click', function() {
-        sidebar.classList.remove('active');
-        updateSidebarBodyClass();
-        overlay.style.display = 'none';
-    });
-    
-    // Update overlay saat sidebar berubah
-    const originalToggle = sidebar.classList.toggle.bind(sidebar.classList);
-    sidebar.classList.toggle = function(className, force) {
-        const result = originalToggle(className, force);
-        if (className === 'active') {
-            if (sidebar.classList.contains('active')) {
-                overlay.style.display = 'block';
-            } else {
-                overlay.style.display = 'none';
-            }
-        }
-        return result;
-    };
-    
-    // Tutup sidebar saat klik di luar (untuk mobile)
+    // ===== PERBAIKAN: Klik di luar untuk mobile =====
     document.addEventListener('click', function(e) {
         if (window.innerWidth <= 768 && sidebar && toggleBtn && 
-            !sidebar.contains(e.target) && e.target !== toggleBtn && !toggleBtn.contains(e.target)) {
+            !sidebar.contains(e.target) && 
+            e.target !== toggleBtn && 
+            !toggleBtn.contains(e.target)) {
             sidebar.classList.remove('active');
             updateSidebarBodyClass();
         }
     });
+}
+
+// ===== PERBAIKAN: Fungsi update sidebar body class =====
+function updateSidebarBodyClass() {
+    const sidebar = document.getElementById('sidebar');
+    if (sidebar && sidebar.classList.contains('active')) {
+        document.body.classList.add('sidebar-open');
+    } else {
+        document.body.classList.remove('sidebar-open');
+    }
 }
 
 // ========== PROFILE PHOTO FUNCTIONS ==========
