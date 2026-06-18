@@ -7953,226 +7953,252 @@ function setupImportExcel() {
                     
                     let success = 0, failed = 0;
                     const errors = [];
+                    const successData = [];
                     
                     progress.update(10, '📥 Import Data', `Memproses ${json.length} baris...`);
                     
-                    for (let i = 0; i < json.length; i++) {
-                        const row = json[i];
-                        try {
-                            if (importType === 'customer') {
-                                // ===== IMPORT CUSTOMER =====
-                                const agentId = row.agent_id || row.Agent_ID || '';
-                                const nama = row.nama || row.Nama || '';
-                                let hp = row.hp || row.HP || '';
-                                const apk = row.apk || row.APK || '';
-                                const upline = row.upline_name || row.upline || '';
-                                
-                                if (!agentId || !nama) {
-                                    failed++;
-                                    errors.push(`Baris ${i+1}: agent_id atau nama kosong`);
-                                    continue;
-                                }
-                                
-                                hp = String(hp).replace(/[^\d]/g, '');
-                                if (hp.startsWith('0')) hp = hp.substring(1);
-                                if (hp && !hp.startsWith('62')) hp = '62' + hp;
-                                
-                                await window.db.from('customers').insert({
-                                    agent_id: agentId.toUpperCase(),
-                                    nama: nama,
-                                    hp: hp || '',
-                                    apk: apk,
-                                    upline_name: upline,
-                                    tanggal: getTodayDate(),
-                                    status: 'baru',
-                                    user_id: currentUser.id,
-                                    created_at: new Date().toISOString()
-                                });
-                                success++;
-                                
-                            } else if (importType === 'prospek') {
-                                // ===== IMPORT PROSPEK =====
-                                const nama = row.nama || row.Nama || '';
-                                let hp = row.hp || row.HP || '';
-                                
-                                if (!nama) {
-                                    failed++;
-                                    errors.push(`Baris ${i+1}: nama kosong`);
-                                    continue;
-                                }
-                                
-                                hp = String(hp).replace(/[^\d]/g, '');
-                                if (hp.startsWith('0')) hp = hp.substring(1);
-                                if (hp && !hp.startsWith('62')) hp = '62' + hp;
-                                
-                                await window.db.from('prospek').insert({
-                                    nama: nama,
-                                    hp: hp || '',
-                                    deadline: getTodayDate(),
-                                    status: 'Baru',
-                                    user_id: currentUser.id,
-                                    created_at: new Date().toISOString()
-                                });
-                                success++;
-                                
-                        // ===== DI DALAM SETUP IMPORT EXCEL - BAGIAN TRANSAKSI =====
-                        } else if (importType === 'transaksi') {
-                            // ===== IMPORT DB TRANSAKSI =====
-                            // Kolom wajib: agent_id, transaksi_bulan_lalu, transaksi_bulan_ini
-                            // Kolom opsional: apk, nama, hp, upline, hp_upline
-                            // Kolom periode: periode_bulan_lalu, periode_bulan_ini (format: "Januari 2024" atau "2024-01-01")
+                    // ===== PERBAIKAN: Batch processing untuk kecepatan =====
+                    const BATCH_SIZE = 50;
+                    const batches = [];
+                    
+                    for (let i = 0; i < json.length; i += BATCH_SIZE) {
+                        batches.push(json.slice(i, i + BATCH_SIZE));
+                    }
+                    
+                    let processedCount = 0;
+                    
+                    for (let batchIndex = 0; batchIndex < batches.length; batchIndex++) {
+                        const batch = batches[batchIndex];
+                        const batchPromises = [];
+                        
+                        for (let j = 0; j < batch.length; j++) {
+                            const row = batch[j];
+                            const rowIndex = (batchIndex * BATCH_SIZE) + j;
                             
-                            const agentId = row.agent_id || row.Agent_ID || '';
-                            const transaksiBulanLalu = parseFloat(row.transaksi_bulan_lalu || row.bulan_lalu || 0);
-                            const transaksiBulanIni = parseFloat(row.transaksi_bulan_ini || row.bulan_ini || 0);
-                            
-                            // Ambil periode (opsional) - bisa berupa teks "Januari 2024" atau tanggal "2024-01-01"
-                            let periodeBulanLalu = row.periode_bulan_lalu || row.periode_lalu || '';
-                            let periodeBulanIni = row.periode_bulan_ini || row.periode_ini || '';
-                            
-                            // Jika tidak ada periode, gunakan tanggal default
-                            if (!periodeBulanLalu) {
-                                // Coba gunakan tanggal_bulan_lalu jika ada
-                                const tanggalLalu = row.tanggal_bulan_lalu || '';
-                                if (tanggalLalu) {
-                                    try {
-                                        const date = new Date(tanggalLalu);
-                                        if (!isNaN(date.getTime())) {
+                            try {
+                                if (importType === 'customer') {
+                                    // ===== IMPORT CUSTOMER =====
+                                    const agentId = row.agent_id || row.Agent_ID || '';
+                                    const nama = row.nama || row.Nama || '';
+                                    let hp = row.hp || row.HP || '';
+                                    const apk = row.apk || row.APK || '';
+                                    const upline = row.upline_name || row.upline || '';
+                                    
+                                    if (!agentId || !nama) {
+                                        failed++;
+                                        errors.push(`Baris ${rowIndex+1}: agent_id atau nama kosong`);
+                                        continue;
+                                    }
+                                    
+                                    hp = String(hp).replace(/[^\d]/g, '');
+                                    if (hp.startsWith('0')) hp = hp.substring(1);
+                                    if (hp && !hp.startsWith('62')) hp = '62' + hp;
+                                    
+                                    batchPromises.push(
+                                        window.db.from('customers').insert({
+                                            agent_id: agentId.toUpperCase(),
+                                            nama: nama,
+                                            hp: hp || '',
+                                            apk: apk,
+                                            upline_name: upline,
+                                            tanggal: getTodayDate(),
+                                            status: 'baru',
+                                            user_id: currentUser.id,
+                                            created_at: new Date().toISOString()
+                                        }).then(() => {
+                                            success++;
+                                            successData.push(`Baris ${rowIndex+1}: ${nama} berhasil`);
+                                        }).catch((err) => {
+                                            failed++;
+                                            errors.push(`Baris ${rowIndex+1}: ${err.message}`);
+                                        })
+                                    );
+                                    
+                                } else if (importType === 'prospek') {
+                                    // ===== IMPORT PROSPEK =====
+                                    const nama = row.nama || row.Nama || '';
+                                    let hp = row.hp || row.HP || '';
+                                    
+                                    if (!nama) {
+                                        failed++;
+                                        errors.push(`Baris ${rowIndex+1}: nama kosong`);
+                                        continue;
+                                    }
+                                    
+                                    hp = String(hp).replace(/[^\d]/g, '');
+                                    if (hp.startsWith('0')) hp = hp.substring(1);
+                                    if (hp && !hp.startsWith('62')) hp = '62' + hp;
+                                    
+                                    batchPromises.push(
+                                        window.db.from('prospek').insert({
+                                            nama: nama,
+                                            hp: hp || '',
+                                            deadline: getTodayDate(),
+                                            status: 'Baru',
+                                            user_id: currentUser.id,
+                                            created_at: new Date().toISOString()
+                                        }).then(() => {
+                                            success++;
+                                            successData.push(`Baris ${rowIndex+1}: ${nama} berhasil`);
+                                        }).catch((err) => {
+                                            failed++;
+                                            errors.push(`Baris ${rowIndex+1}: ${err.message}`);
+                                        })
+                                    );
+                                    
+                                } else if (importType === 'transaksi') {
+                                    // ===== IMPORT DB TRANSAKSI =====
+                                    const agentId = row.agent_id || row.Agent_ID || '';
+                                    const transaksiBulanLalu = parseFloat(row.transaksi_bulan_lalu || row.bulan_lalu || 0);
+                                    const transaksiBulanIni = parseFloat(row.transaksi_bulan_ini || row.bulan_ini || 0);
+                                    
+                                    // Ambil periode (opsional)
+                                    let periodeBulanLalu = row.periode_bulan_lalu || row.periode_lalu || '';
+                                    let periodeBulanIni = row.periode_bulan_ini || row.periode_ini || '';
+                                    
+                                    // Jika tidak ada periode, gunakan tanggal default
+                                    if (!periodeBulanLalu) {
+                                        const tanggalLalu = row.tanggal_bulan_lalu || '';
+                                        if (tanggalLalu) {
+                                            try {
+                                                const date = new Date(tanggalLalu);
+                                                if (!isNaN(date.getTime())) {
+                                                    const monthNames = ['Januari', 'Februari', 'Maret', 'April', 'Mei', 'Juni', 
+                                                                       'Juli', 'Agustus', 'September', 'Oktober', 'November', 'Desember'];
+                                                    periodeBulanLalu = `${monthNames[date.getMonth()]} ${date.getFullYear()}`;
+                                                }
+                                            } catch (e) {}
+                                        }
+                                        if (!periodeBulanLalu) {
+                                            const now = new Date();
                                             const monthNames = ['Januari', 'Februari', 'Maret', 'April', 'Mei', 'Juni', 
                                                                'Juli', 'Agustus', 'September', 'Oktober', 'November', 'Desember'];
-                                            periodeBulanLalu = `${monthNames[date.getMonth()]} ${date.getFullYear()}`;
+                                            const lastMonth = new Date(now.getFullYear(), now.getMonth() - 1, 1);
+                                            periodeBulanLalu = `${monthNames[lastMonth.getMonth()]} ${lastMonth.getFullYear()}`;
                                         }
-                                    } catch (e) {}
-                                }
-                                if (!periodeBulanLalu) {
-                                    const now = new Date();
-                                    const monthNames = ['Januari', 'Februari', 'Maret', 'April', 'Mei', 'Juni', 
-                                                       'Juli', 'Agustus', 'September', 'Oktober', 'November', 'Desember'];
-                                    const lastMonth = new Date(now.getFullYear(), now.getMonth() - 1, 1);
-                                    periodeBulanLalu = `${monthNames[lastMonth.getMonth()]} ${lastMonth.getFullYear()}`;
-                                }
-                            }
-                            
-                            if (!periodeBulanIni) {
-                                const tanggalIni = row.tanggal_bulan_ini || '';
-                                if (tanggalIni) {
-                                    try {
-                                        const date = new Date(tanggalIni);
-                                        if (!isNaN(date.getTime())) {
+                                    }
+                                    
+                                    if (!periodeBulanIni) {
+                                        const tanggalIni = row.tanggal_bulan_ini || '';
+                                        if (tanggalIni) {
+                                            try {
+                                                const date = new Date(tanggalIni);
+                                                if (!isNaN(date.getTime())) {
+                                                    const monthNames = ['Januari', 'Februari', 'Maret', 'April', 'Mei', 'Juni', 
+                                                                       'Juli', 'Agustus', 'September', 'Oktober', 'November', 'Desember'];
+                                                    periodeBulanIni = `${monthNames[date.getMonth()]} ${date.getFullYear()}`;
+                                                }
+                                            } catch (e) {}
+                                        }
+                                        if (!periodeBulanIni) {
+                                            const now = new Date();
                                             const monthNames = ['Januari', 'Februari', 'Maret', 'April', 'Mei', 'Juni', 
                                                                'Juli', 'Agustus', 'September', 'Oktober', 'November', 'Desember'];
-                                            periodeBulanIni = `${monthNames[date.getMonth()]} ${date.getFullYear()}`;
+                                            periodeBulanIni = `${monthNames[now.getMonth()]} ${now.getFullYear()}`;
                                         }
-                                    } catch (e) {}
+                                    }
+                                    
+                                    // Validasi agent_id wajib
+                                    if (!agentId) {
+                                        failed++;
+                                        errors.push(`Baris ${rowIndex+1}: agent_id kosong`);
+                                        continue;
+                                    }
+                                    
+                                    // Validasi angka
+                                    if (isNaN(transaksiBulanLalu) || isNaN(transaksiBulanIni)) {
+                                        failed++;
+                                        errors.push(`Baris ${rowIndex+1}: transaksi_bulan_lalu atau transaksi_bulan_ini bukan angka`);
+                                        continue;
+                                    }
+                                    
+                                    // ===== HITUNG SELISIH =====
+                                    const selisih = transaksiBulanIni - transaksiBulanLalu;
+                                    let progresJenis = '';
+                                    let progresJumlah = 0;
+                                    
+                                    if (transaksiBulanLalu === 0 && transaksiBulanIni === 0) {
+                                        progresJenis = 'tidak_transaksi';
+                                        progresJumlah = 0;
+                                    } else if (selisih >= 100) {
+                                        progresJenis = 'naik';
+                                        progresJumlah = selisih;
+                                    } else if (selisih <= -100) {
+                                        progresJenis = 'turun';
+                                        progresJumlah = Math.abs(selisih);
+                                    } else {
+                                        progresJenis = 'normal';
+                                        progresJumlah = selisih;
+                                    }
+                                    
+                                    // Ambil data opsional
+                                    const apk = row.apk || row.APK || '';
+                                    const nama = row.nama || row.Nama || `Agent ${agentId}`;
+                                    let hp = row.hp || row.HP || '';
+                                    const uplineName = row.upline || row.upline_name || '';
+                                    let uplinePhone = row.hp_upline || row.upline_phone || '';
+                                    
+                                    // Format HP
+                                    if (hp) {
+                                        hp = String(hp).replace(/[^\d]/g, '');
+                                        if (hp.startsWith('0')) hp = hp.substring(1);
+                                        if (hp && !hp.startsWith('62')) hp = '62' + hp;
+                                    }
+                                    
+                                    if (uplinePhone) {
+                                        uplinePhone = String(uplinePhone).replace(/[^\d]/g, '');
+                                        if (uplinePhone.startsWith('0')) uplinePhone = uplinePhone.substring(1);
+                                        if (uplinePhone && !uplinePhone.startsWith('62')) uplinePhone = '62' + uplinePhone;
+                                    }
+                                    
+                                    batchPromises.push(
+                                        window.db.from('db_transaksi').insert({
+                                            agent_id: agentId.toUpperCase(),
+                                            nama: nama,
+                                            hp: hp || '',
+                                            apk: apk || '',
+                                            upline_name: uplineName || '',
+                                            upline_phone: uplinePhone || '',
+                                            progres_jenis: progresJenis,
+                                            progres_jumlah: Math.abs(progresJumlah),
+                                            transaksi_bulan_lalu: transaksiBulanLalu,
+                                            transaksi_bulan_ini: transaksiBulanIni,
+                                            periode_bulan_lalu: periodeBulanLalu,
+                                            periode_bulan_ini: periodeBulanIni,
+                                            tanggal_transaksi: getTodayDate(),
+                                            status: 'pending_import',
+                                            user_id: currentUser.id,
+                                            created_at: new Date().toISOString()
+                                        }).then(() => {
+                                            success++;
+                                            successData.push(`Baris ${rowIndex+1}: ${agentId} berhasil (${progresJenis})`);
+                                        }).catch((err) => {
+                                            failed++;
+                                            errors.push(`Baris ${rowIndex+1}: ${err.message}`);
+                                        })
+                                    );
                                 }
-                                if (!periodeBulanIni) {
-                                    const now = new Date();
-                                    const monthNames = ['Januari', 'Februari', 'Maret', 'April', 'Mei', 'Juni', 
-                                                       'Juli', 'Agustus', 'September', 'Oktober', 'November', 'Desember'];
-                                    periodeBulanIni = `${monthNames[now.getMonth()]} ${now.getFullYear()}`;
-                                }
-                            }
-                            
-                            // Validasi agent_id wajib
-                            if (!agentId) {
+                            } catch (err) {
+                                console.error(`Error baris ${rowIndex+1}:`, err);
                                 failed++;
-                                errors.push(`Baris ${i+1}: agent_id kosong`);
-                                continue;
+                                errors.push(`Baris ${rowIndex+1}: ${err.message}`);
                             }
-                            
-                            // Validasi angka
-                            if (isNaN(transaksiBulanLalu) || isNaN(transaksiBulanIni)) {
-                                failed++;
-                                errors.push(`Baris ${i+1}: transaksi_bulan_lalu atau transaksi_bulan_ini bukan angka`);
-                                continue;
-                            }
-                            
-                            // ===== HITUNG SELISIH =====
-                            const selisih = transaksiBulanIni - transaksiBulanLalu;
-                            let progresJenis = '';
-                            let progresJumlah = 0;
-                            
-                            if (transaksiBulanLalu === 0 && transaksiBulanIni === 0) {
-                                progresJenis = 'tidak_transaksi';
-                                progresJumlah = 0;
-                            } else if (selisih >= 100) {
-                                progresJenis = 'naik';
-                                progresJumlah = selisih;
-                            } else if (selisih <= -100) {
-                                progresJenis = 'turun';
-                                progresJumlah = Math.abs(selisih);
-                            } else {
-                                progresJenis = 'normal';
-                                progresJumlah = selisih;
-                            }
-                            
-                            // Ambil data opsional
-                            const apk = row.apk || row.APK || '';
-                            const nama = row.nama || row.Nama || `Agent ${agentId}`;
-                            let hp = row.hp || row.HP || '';
-                            const uplineName = row.upline || row.upline_name || '';
-                            let uplinePhone = row.hp_upline || row.upline_phone || '';
-                            
-                            // Format HP
-                            if (hp) {
-                                hp = String(hp).replace(/[^\d]/g, '');
-                                if (hp.startsWith('0')) hp = hp.substring(1);
-                                if (hp && !hp.startsWith('62')) hp = '62' + hp;
-                            }
-                            
-                            if (uplinePhone) {
-                                uplinePhone = String(uplinePhone).replace(/[^\d]/g, '');
-                                if (uplinePhone.startsWith('0')) uplinePhone = uplinePhone.substring(1);
-                                if (uplinePhone && !uplinePhone.startsWith('62')) uplinePhone = '62' + uplinePhone;
-                            }
-                            
-                            // Insert ke DB Transaksi
-                            await window.db.from('db_transaksi').insert({
-                                agent_id: agentId.toUpperCase(),
-                                nama: nama,
-                                hp: hp || '',
-                                apk: apk || '',
-                                upline_name: uplineName || '',
-                                upline_phone: uplinePhone || '',
-                                progres_jenis: progresJenis,
-                                progres_jumlah: Math.abs(progresJumlah),
-                                transaksi_bulan_lalu: transaksiBulanLalu,
-                                transaksi_bulan_ini: transaksiBulanIni,
-                                periode_bulan_lalu: periodeBulanLalu,
-                                periode_bulan_ini: periodeBulanIni,
-                                tanggal_transaksi: getTodayDate(),
-                                status: 'pending_import',
-                                user_id: currentUser.id,
-                                created_at: new Date().toISOString()
-                            });
-                            success++;
-                        }
-                        } catch (err) {
-                            console.error(`Error baris ${i+1}:`, err);
-                            failed++;
-                            errors.push(`Baris ${i+1}: ${err.message}`);
                         }
                         
-                        if ((i + 1) % 50 === 0) {
-                            const percent = 10 + Math.floor(((i + 1) / json.length) * 80);
-                            progress.update(percent, '📥 Import Data', `Memproses... (${i+1}/${json.length})`, i+1, json.length);
-                            await delay(10);
+                        // ===== EKSEKUSI BATCH SECARA PARALEL =====
+                        if (batchPromises.length > 0) {
+                            await Promise.allSettled(batchPromises);
                         }
+                        
+                        processedCount += batch.length;
+                        const percent = 10 + Math.floor((processedCount / json.length) * 80);
+                        progress.update(percent, '📥 Import Data', `Memproses... (${processedCount}/${json.length})`, processedCount, json.length);
                     }
                     
                     progress.update(100, '✅ Selesai', `Berhasil: ${success}, Gagal: ${failed}`, success, json.length);
                     
-                    let message = `✅ Import selesai! Berhasil: ${success}`;
-                    if (failed > 0) {
-                        message += `, Gagal: ${failed}`;
-                        console.log('❌ Error details:', errors);
-                    }
-                    showNotifTop(message);
-                    
-                    if (failed > 0 && errors.length > 0) {
-                        const errorSample = errors.slice(0, 5).join('\n');
-                        showNotifTop(`⚠️ ${failed} data gagal. Detail: ${errorSample}`, true);
-                    }
+                    // ===== TAMPILKAN POPUP DETAIL HASIL IMPORT =====
+                    showImportResultPopup(success, failed, errors, successData, importType);
                     
                     setTimeout(() => progress.hide(), 3000);
                     
@@ -8521,6 +8547,168 @@ function exportProdukToExcel() {
     XLSX.utils.book_append_sheet(wb, ws, 'Produk');
     XLSX.writeFile(wb, `produk_${new Date().toISOString().split('T')[0]}.xlsx`);
     showNotifTop('✅ Export produk berhasil!');
+}
+
+// ========== SHOW IMPORT RESULT POPUP ==========
+function showImportResultPopup(success, failed, errors, successData, importType) {
+    // Hapus modal lama jika ada
+    const existingModal = document.querySelector('.import-result-modal');
+    if (existingModal) {
+        existingModal.remove();
+    }
+    
+    const typeNames = {
+        'customer': 'Customer/Followup Agen',
+        'prospek': 'Prospek Agen',
+        'transaksi': 'Database Transaksi'
+    };
+    
+    const typeName = typeNames[importType] || 'Data';
+    
+    // Buat daftar error (max 10)
+    const errorList = errors.slice(0, 10).map(err => `<li style="color: #ef4444; font-size: 12px; padding: 4px 0; border-bottom: 1px solid #fef2f2;">${escapeHtml(err)}</li>`).join('');
+    const errorMore = errors.length > 10 ? `<li style="color: #6b7280; font-size: 12px; padding: 4px 0;">... dan ${errors.length - 10} error lainnya</li>` : '';
+    
+    // Buat daftar sukses (max 5)
+    const successList = successData.slice(0, 5).map(s => `<li style="color: #10b981; font-size: 12px; padding: 4px 0; border-bottom: 1px solid #f0fdf4;">${escapeHtml(s)}</li>`).join('');
+    const successMore = successData.length > 5 ? `<li style="color: #6b7280; font-size: 12px; padding: 4px 0;">... dan ${successData.length - 5} data lainnya</li>` : '';
+    
+    const modalHtml = `
+        <div class="modal-content" style="max-width: 500px; max-height: 85vh; overflow: hidden; display: flex; flex-direction: column; background: #fff; border-radius: 24px;">
+            <!-- Header -->
+            <div style="padding: 20px 24px 0; display: flex; justify-content: space-between; align-items: center;">
+                <h3 style="font-size: 20px; margin: 0; color: #1f2937;">📊 Hasil Import</h3>
+                <button onclick="closeImportResultPopup()" style="
+                    background: none;
+                    border: none;
+                    font-size: 28px;
+                    cursor: pointer;
+                    color: #6b7280;
+                    padding: 0 4px;
+                    transition: all 0.2s;
+                    line-height: 1;
+                " onmouseover="this.style.color='#ef4444'" onmouseout="this.style.color='#6b7280'">✕</button>
+            </div>
+            <div class="modal-subtitle" style="font-size: 13px; color: #6b7280; padding: 0 24px 12px 24px; border-bottom: 1px solid #f0f0f0;">
+                Import ${typeName}
+            </div>
+            
+            <!-- Statistik -->
+            <div style="padding: 16px 24px; display: flex; gap: 12px; flex-wrap: wrap;">
+                <div style="flex: 1; min-width: 80px; background: #f0fdf4; border-radius: 12px; padding: 12px 16px; border-left: 4px solid #10b981; text-align: center;">
+                    <div style="font-size: 28px; font-weight: 800; color: #10b981;">${success}</div>
+                    <div style="font-size: 11px; color: #6b7280;">✅ Berhasil</div>
+                </div>
+                <div style="flex: 1; min-width: 80px; background: #fef2f2; border-radius: 12px; padding: 12px 16px; border-left: 4px solid #ef4444; text-align: center;">
+                    <div style="font-size: 28px; font-weight: 800; color: #ef4444;">${failed}</div>
+                    <div style="font-size: 11px; color: #6b7280;">❌ Gagal</div>
+                </div>
+                <div style="flex: 1; min-width: 80px; background: #eef2ff; border-radius: 12px; padding: 12px 16px; border-left: 4px solid #4f46e5; text-align: center;">
+                    <div style="font-size: 28px; font-weight: 800; color: #4f46e5;">${success + failed}</div>
+                    <div style="font-size: 11px; color: #6b7280;">📋 Total</div>
+                </div>
+            </div>
+            
+            <!-- Detail -->
+            <div style="padding: 0 24px; flex: 1; overflow-y: auto; max-height: 250px;">
+                ${successData.length > 0 ? `
+                    <div style="margin-bottom: 12px;">
+                        <div style="font-weight: 600; color: #10b981; font-size: 13px; margin-bottom: 6px;">✅ Data Berhasil (${successData.length})</div>
+                        <ul style="list-style: none; padding: 0; margin: 0; background: #f0fdf4; border-radius: 8px; padding: 8px 12px;">
+                            ${successList}
+                            ${successMore}
+                        </ul>
+                    </div>
+                ` : ''}
+                
+                ${errors.length > 0 ? `
+                    <div>
+                        <div style="font-weight: 600; color: #ef4444; font-size: 13px; margin-bottom: 6px;">❌ Data Gagal (${errors.length})</div>
+                        <ul style="list-style: none; padding: 0; margin: 0; background: #fef2f2; border-radius: 8px; padding: 8px 12px;">
+                            ${errorList}
+                            ${errorMore}
+                        </ul>
+                    </div>
+                ` : ''}
+            </div>
+            
+            <!-- Tombol -->
+            <div class="modal-buttons" style="display: flex; gap: 12px; padding: 16px 24px 24px; border-top: 1px solid #e5e7eb;">
+                <button onclick="closeImportResultPopup()" class="btn-primary" style="flex: 1; padding: 12px; border: none; border-radius: 14px; font-weight: 600; cursor: pointer; background: linear-gradient(135deg, #4f46e5, #6366f1); color: white;">Tutup</button>
+                ${failed > 0 ? `
+                    <button onclick="closeImportResultPopup(); downloadImportErrors('${importType}', ${JSON.stringify(errors).replace(/"/g, '&quot;')})" class="btn-warning" style="flex: 1; padding: 12px; border: none; border-radius: 14px; font-weight: 600; cursor: pointer; background: linear-gradient(135deg, #f59e0b, #d97706); color: white;">📥 Download Error</button>
+                ` : ''}
+            </div>
+        </div>
+    `;
+    
+    const modal = document.createElement('div');
+    modal.className = 'modal import-result-modal';
+    modal.style.cssText = `
+        position: fixed !important;
+        top: 0 !important;
+        left: 0 !important;
+        width: 100% !important;
+        height: 100% !important;
+        background: rgba(0, 0, 0, 0.7) !important;
+        display: flex !important;
+        justify-content: center !important;
+        align-items: center !important;
+        z-index: 999999999 !important;
+        backdrop-filter: blur(5px) !important;
+        pointer-events: auto !important;
+    `;
+    modal.innerHTML = modalHtml;
+    
+    document.body.appendChild(modal);
+    document.body.classList.add('modal-open');
+    document.body.style.overflow = 'hidden';
+    
+    modal.addEventListener('click', function(e) {
+        if (e.target === this) {
+            closeImportResultPopup();
+        }
+    });
+    
+    applyDarkModeToModal(modal);
+}
+
+// ========== CLOSE IMPORT RESULT POPUP ==========
+function closeImportResultPopup() {
+    const modal = document.querySelector('.import-result-modal');
+    if (modal) {
+        modal.remove();
+    }
+    document.body.classList.remove('modal-open');
+    document.body.style.overflow = '';
+    document.body.style.pointerEvents = '';
+}
+
+// ========== DOWNLOAD IMPORT ERRORS ==========
+function downloadImportErrors(importType, errorsData) {
+    try {
+        const errors = typeof errorsData === 'string' ? JSON.parse(errorsData) : errorsData;
+        
+        if (!errors || errors.length === 0) {
+            showNotifTop('Tidak ada error untuk di-download', true);
+            return;
+        }
+        
+        const data = errors.map((err, index) => ({
+            'No': index + 1,
+            'Error': err
+        }));
+        
+        const ws = XLSX.utils.json_to_sheet(data);
+        const wb = XLSX.utils.book_new();
+        XLSX.utils.book_append_sheet(wb, ws, 'Error Import');
+        XLSX.writeFile(wb, `error_import_${importType}_${new Date().toISOString().split('T')[0]}.xlsx`);
+        
+        showNotifTop('📥 File error berhasil diunduh');
+    } catch (e) {
+        console.error('Error download:', e);
+        showNotifTop('❌ Gagal download file error', true);
+    }
 }
 
 // ========== DELETE SELECTED FUNCTIONS ==========
