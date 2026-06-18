@@ -78,6 +78,10 @@ let activeProgress = null;
 let sidebarTimeout = null;
 let pendingItems = [];
 
+// ========== DEADLINE & NOTIFICATION VARIABLES ==========
+let deadlineModalOpen = false;
+let pesanModalOpen = false;
+
 // ========== HELPER FUNCTIONS ==========
 function showNotif(msg, isError = false) {
     const notif = document.createElement('div');
@@ -445,7 +449,14 @@ function updateSidebarBodyClass() {
     }
 }
 
+// ========== CLOSE MODAL ==========
 function closeModal(modalId) {
+    // Jika modal adalah deadline popup, gunakan fungsi khusus
+    if (modalId === 'deadlinePopupModal') {
+        closeDeadlinePopup();
+        return;
+    }
+    
     const modal = document.getElementById(modalId);
     if (modal) {
         modal.style.display = 'none';
@@ -455,40 +466,49 @@ function closeModal(modalId) {
     document.body.style.pointerEvents = '';
 }
 
+// ========== SHOW MODAL ==========
 function showModal(modalId) {
-    const modal = document.getElementById(modalId);
-    if (modal) {
-        // Pastikan modal memiliki z-index tertinggi dan bisa diklik
-        modal.style.display = 'flex';
-        modal.style.zIndex = '999999999';
-        modal.style.position = 'fixed';
-        modal.style.top = '0';
-        modal.style.left = '0';
-        modal.style.width = '100%';
-        modal.style.height = '100%';
-        modal.style.backgroundColor = 'rgba(0, 0, 0, 0.7)';
-        modal.style.backdropFilter = 'blur(5px)';
-        modal.style.pointerEvents = 'auto';
-        
-        // Pastikan modal content juga memiliki z-index tinggi dan bisa diklik
-        const modalContent = modal.querySelector('.modal-content');
-        if (modalContent) {
-            modalContent.style.zIndex = '999999999';
-            modalContent.style.position = 'relative';
-            modalContent.style.pointerEvents = 'auto';
-        }
-        
-        // Pastikan semua tombol di modal bisa diklik
-        const buttons = modal.querySelectorAll('button');
-        buttons.forEach(btn => {
-            btn.style.pointerEvents = 'auto';
-            btn.style.cursor = 'pointer';
-        });
-        
-        document.body.classList.add('modal-open');
-        document.body.style.overflow = 'hidden';
-        document.body.style.pointerEvents = 'auto';
+    // Deadline popup dihandle terpisah
+    if (modalId === 'deadlinePopupModal') {
+        showDeadlinePopup();
+        return;
     }
+    
+    const modal = document.getElementById(modalId);
+    if (!modal) {
+        console.warn('Modal not found:', modalId);
+        return;
+    }
+    
+    modal.style.display = 'flex';
+    modal.style.zIndex = '999999999';
+    modal.style.position = 'fixed';
+    modal.style.top = '0';
+    modal.style.left = '0';
+    modal.style.width = '100%';
+    modal.style.height = '100%';
+    modal.style.backgroundColor = 'rgba(0, 0, 0, 0.7)';
+    modal.style.backdropFilter = 'blur(5px)';
+    modal.style.pointerEvents = 'auto';
+    
+    const modalContent = modal.querySelector('.modal-content');
+    if (modalContent) {
+        modalContent.style.zIndex = '999999999';
+        modalContent.style.position = 'relative';
+        modalContent.style.pointerEvents = 'auto';
+    }
+    
+    const buttons = modal.querySelectorAll('button');
+    buttons.forEach(btn => {
+        btn.style.pointerEvents = 'auto';
+        btn.style.cursor = 'pointer';
+    });
+    
+    document.body.classList.add('modal-open');
+    document.body.style.overflow = 'hidden';
+    document.body.style.pointerEvents = 'auto';
+    
+    applyDarkModeToModal(modal);
 }
 
 function setupModalClickOutside(modalId) {
@@ -813,6 +833,278 @@ function updateSidebarBodyClass() {
     } else {
         document.body.classList.remove('sidebar-open');
     }
+}
+
+// ========== SHOW DEADLINE POPUP ==========
+function showDeadlinePopup() {
+    // Cegah multiple popup
+    if (deadlineModalOpen) {
+        return;
+    }
+    
+    const today = getTodayDate();
+    
+    // Filter data yang overdue
+    const overdueCustomers = customersData.filter(c => 
+        c.tanggal && c.tanggal < today && c.status !== 'closing'
+    );
+    const overdueProspek = prospekData.filter(p => 
+        p.deadline && p.deadline < today
+    );
+    const totalOverdue = overdueCustomers.length + overdueProspek.length;
+    
+    // Filter data yang deadline hari ini
+    const todayCustomers = customersData.filter(c => 
+        c.tanggal === today && c.status !== 'closing'
+    );
+    const todayProspek = prospekData.filter(p => 
+        p.deadline === today
+    );
+    const totalToday = todayCustomers.length + todayProspek.length;
+    
+    // Hapus modal lama jika ada
+    const existingModal = document.getElementById('deadlinePopupModal');
+    if (existingModal) {
+        existingModal.remove();
+        deadlineModalOpen = false;
+    }
+    
+    // Buat modal HTML
+    const modalHtml = `
+        <div class="modal-content" style="max-width: 550px; max-height: 80vh; overflow: hidden; display: flex; flex-direction: column; background: #fff; border-radius: 24px;">
+            <div style="padding: 20px 24px 0;">
+                <h3 style="font-size: 20px; margin-bottom: 4px; color: #1f2937;">📅 Info Deadline</h3>
+                <div style="font-size: 13px; color: #6b7280; padding: 0 0 12px 0;">
+                    Ringkasan deadline yang perlu diperhatikan
+                </div>
+            </div>
+            
+            <div style="padding: 0 24px 12px; display: flex; gap: 12px; flex-wrap: wrap;">
+                <div style="flex: 1; min-width: 100px; background: #fef2f2; border-radius: 12px; padding: 12px 16px; border-left: 4px solid #ef4444;">
+                    <div style="font-size: 24px; font-weight: 800; color: #dc2626;">${totalOverdue}</div>
+                    <div style="font-size: 11px; color: #6b7280;">⚠️ Terlewat</div>
+                </div>
+                <div style="flex: 1; min-width: 100px; background: #fef3c7; border-radius: 12px; padding: 12px 16px; border-left: 4px solid #f59e0b;">
+                    <div style="font-size: 24px; font-weight: 800; color: #d97706;">${totalToday}</div>
+                    <div style="font-size: 11px; color: #6b7280;">📌 Hari Ini</div>
+                </div>
+                <div style="flex: 1; min-width: 100px; background: #ecfdf5; border-radius: 12px; padding: 12px 16px; border-left: 4px solid #10b981;">
+                    <div style="font-size: 24px; font-weight: 800; color: #059669;">${customersData.length + prospekData.length}</div>
+                    <div style="font-size: 11px; color: #6b7280;">📋 Total Data</div>
+                </div>
+            </div>
+            
+            <div style="padding: 0 24px; flex: 1; overflow-y: auto; max-height: 300px;">
+                ${totalOverdue === 0 && totalToday === 0 ? `
+                    <div style="text-align: center; padding: 30px 0; color: #9ca3af;">
+                        <div style="font-size: 48px; margin-bottom: 12px;">✅</div>
+                        <p>Semua deadline terpenuhi!</p>
+                    </div>
+                ` : `
+                    ${totalOverdue > 0 ? `
+                        <div style="margin-bottom: 16px;">
+                            <div style="font-weight: 600; color: #dc2626; margin-bottom: 8px; font-size: 13px;">⚠️ Terlewat (${totalOverdue})</div>
+                            ${overdueCustomers.slice(0, 10).map(c => `
+                                <div class="deadline-item overdue" data-id="${c.id}" data-type="customer" style="
+                                    display: flex;
+                                    align-items: center;
+                                    gap: 10px;
+                                    padding: 8px 12px;
+                                    margin-bottom: 4px;
+                                    background: #fef2f2;
+                                    border-radius: 8px;
+                                    cursor: pointer;
+                                    transition: all 0.2s;
+                                    border-left: 3px solid #ef4444;
+                                ">
+                                    <span style="font-size: 16px;">🔴</span>
+                                    <div style="flex: 1; min-width: 0;">
+                                        <div style="font-weight: 500; font-size: 13px; color: #1f2937;">${escapeHtml(c.nama)}</div>
+                                        <div style="font-size: 11px; color: #6b7280;">📅 ${c.tanggal} | 🆔 ${escapeHtml(c.agent_id || '-')}</div>
+                                    </div>
+                                    <button class="wa-btn-small" onclick="event.stopPropagation(); openWA('${c.hp}')" style="
+                                        background: #25D366;
+                                        color: white;
+                                        border: none;
+                                        border-radius: 6px;
+                                        padding: 4px 10px;
+                                        font-size: 11px;
+                                        cursor: pointer;
+                                    ">💬</button>
+                                </div>
+                            `).join('')}
+                            ${overdueCustomers.length > 10 ? `<div style="text-align: center; font-size: 12px; color: #9ca3af; padding: 4px 0;">... dan ${overdueCustomers.length - 10} lainnya</div>` : ''}
+                            ${overdueProspek.slice(0, 10).map(p => `
+                                <div class="deadline-item overdue" data-id="${p.id}" data-type="prospek" style="
+                                    display: flex;
+                                    align-items: center;
+                                    gap: 10px;
+                                    padding: 8px 12px;
+                                    margin-bottom: 4px;
+                                    background: #fef2f2;
+                                    border-radius: 8px;
+                                    cursor: pointer;
+                                    transition: all 0.2s;
+                                    border-left: 3px solid #ef4444;
+                                ">
+                                    <span style="font-size: 16px;">🔴</span>
+                                    <div style="flex: 1; min-width: 0;">
+                                        <div style="font-weight: 500; font-size: 13px; color: #1f2937;">${escapeHtml(p.nama)}</div>
+                                        <div style="font-size: 11px; color: #6b7280;">📅 ${p.deadline} | 🎯 Prospek</div>
+                                    </div>
+                                    <button class="wa-btn-small" onclick="event.stopPropagation(); openWA('${p.hp}')" style="
+                                        background: #25D366;
+                                        color: white;
+                                        border: none;
+                                        border-radius: 6px;
+                                        padding: 4px 10px;
+                                        font-size: 11px;
+                                        cursor: pointer;
+                                    ">💬</button>
+                                </div>
+                            `).join('')}
+                            ${overdueProspek.length > 10 ? `<div style="text-align: center; font-size: 12px; color: #9ca3af; padding: 4px 0;">... dan ${overdueProspek.length - 10} lainnya</div>` : ''}
+                        </div>
+                    ` : ''}
+                    
+                    ${totalToday > 0 ? `
+                        <div style="margin-bottom: 16px;">
+                            <div style="font-weight: 600; color: #d97706; margin-bottom: 8px; font-size: 13px;">📌 Deadline Hari Ini (${totalToday})</div>
+                            ${todayCustomers.slice(0, 10).map(c => `
+                                <div class="deadline-item today" data-id="${c.id}" data-type="customer" style="
+                                    display: flex;
+                                    align-items: center;
+                                    gap: 10px;
+                                    padding: 8px 12px;
+                                    margin-bottom: 4px;
+                                    background: #fef3c7;
+                                    border-radius: 8px;
+                                    cursor: pointer;
+                                    transition: all 0.2s;
+                                    border-left: 3px solid #f59e0b;
+                                ">
+                                    <span style="font-size: 16px;">🟡</span>
+                                    <div style="flex: 1; min-width: 0;">
+                                        <div style="font-weight: 500; font-size: 13px; color: #1f2937;">${escapeHtml(c.nama)}</div>
+                                        <div style="font-size: 11px; color: #6b7280;">📅 ${c.tanggal} | 🆔 ${escapeHtml(c.agent_id || '-')}</div>
+                                    </div>
+                                    <button class="wa-btn-small" onclick="event.stopPropagation(); openWA('${c.hp}')" style="
+                                        background: #25D366;
+                                        color: white;
+                                        border: none;
+                                        border-radius: 6px;
+                                        padding: 4px 10px;
+                                        font-size: 11px;
+                                        cursor: pointer;
+                                    ">💬</button>
+                                </div>
+                            `).join('')}
+                            ${todayCustomers.length > 10 ? `<div style="text-align: center; font-size: 12px; color: #9ca3af; padding: 4px 0;">... dan ${todayCustomers.length - 10} lainnya</div>` : ''}
+                            ${todayProspek.slice(0, 10).map(p => `
+                                <div class="deadline-item today" data-id="${p.id}" data-type="prospek" style="
+                                    display: flex;
+                                    align-items: center;
+                                    gap: 10px;
+                                    padding: 8px 12px;
+                                    margin-bottom: 4px;
+                                    background: #fef3c7;
+                                    border-radius: 8px;
+                                    cursor: pointer;
+                                    transition: all 0.2s;
+                                    border-left: 3px solid #f59e0b;
+                                ">
+                                    <span style="font-size: 16px;">🟡</span>
+                                    <div style="flex: 1; min-width: 0;">
+                                        <div style="font-weight: 500; font-size: 13px; color: #1f2937;">${escapeHtml(p.nama)}</div>
+                                        <div style="font-size: 11px; color: #6b7280;">📅 ${p.deadline} | 🎯 Prospek</div>
+                                    </div>
+                                    <button class="wa-btn-small" onclick="event.stopPropagation(); openWA('${p.hp}')" style="
+                                        background: #25D366;
+                                        color: white;
+                                        border: none;
+                                        border-radius: 6px;
+                                        padding: 4px 10px;
+                                        font-size: 11px;
+                                        cursor: pointer;
+                                    ">💬</button>
+                                </div>
+                            `).join('')}
+                            ${todayProspek.length > 10 ? `<div style="text-align: center; font-size: 12px; color: #9ca3af; padding: 4px 0;">... dan ${todayProspek.length - 10} lainnya</div>` : ''}
+                        </div>
+                    ` : ''}
+                `}
+            </div>
+            
+            <div style="padding: 16px 24px 24px; border-top: 1px solid #e5e7eb; display: flex; gap: 12px;">
+                <button onclick="closeDeadlinePopup()" class="btn-primary" style="flex: 1; padding: 12px; border: none; border-radius: 14px; font-weight: 600; cursor: pointer; background: linear-gradient(135deg, #4f46e5, #6366f1); color: white;">Tutup</button>
+            </div>
+        </div>
+    `;
+    
+    // Buat modal
+    const modal = document.createElement('div');
+    modal.id = 'deadlinePopupModal';
+    modal.className = 'modal';
+    modal.style.cssText = `
+        position: fixed !important;
+        top: 0 !important;
+        left: 0 !important;
+        width: 100% !important;
+        height: 100% !important;
+        background: rgba(0, 0, 0, 0.7) !important;
+        display: flex !important;
+        justify-content: center !important;
+        align-items: center !important;
+        z-index: 999999999 !important;
+        backdrop-filter: blur(5px) !important;
+        pointer-events: auto !important;
+    `;
+    modal.innerHTML = modalHtml;
+    
+    document.body.appendChild(modal);
+    document.body.classList.add('modal-open');
+    document.body.style.overflow = 'hidden';
+    document.body.style.pointerEvents = 'auto';
+    
+    deadlineModalOpen = true;
+    
+    // Event klik untuk item deadline
+    modal.querySelectorAll('.deadline-item').forEach(item => {
+        item.addEventListener('click', function(e) {
+            if (e.target.closest('.wa-btn-small')) return;
+            
+            const id = this.dataset.id;
+            const type = this.dataset.type;
+            closeDeadlinePopup();
+            if (type === 'customer') {
+                openDetailCustomer(id);
+            } else if (type === 'prospek') {
+                openDetailProspek(id);
+            }
+        });
+    });
+    
+    // Klik di luar modal untuk tutup
+    modal.addEventListener('click', function(e) {
+        if (e.target === this) {
+            closeDeadlinePopup();
+        }
+    });
+    
+    // Apply dark mode
+    applyDarkModeToModal(modal);
+}
+
+// ========== CLOSE DEADLINE POPUP ==========
+function closeDeadlinePopup() {
+    const modal = document.getElementById('deadlinePopupModal');
+    if (modal) {
+        modal.remove();
+        deadlineModalOpen = false;
+    }
+    document.body.style.overflow = '';
+    document.body.classList.remove('modal-open');
+    document.body.style.pointerEvents = '';
 }
 
 // ========== PROFILE PHOTO FUNCTIONS ==========
@@ -7931,23 +8223,34 @@ function initEventListeners() {
     document.getElementById('infoModalClose')?.addEventListener('click', () => closeModal('infoModal'));
     
     // Deadline notification
-    document.getElementById('deadlineNotifBtn')?.addEventListener('click', async () => {
-        const today = getTodayDate();
-        const overdueCustomers = customersData.filter(c => c.tanggal && c.tanggal < today && c.status !== 'closing');
-        const overdueProspek = prospekData.filter(p => p.deadline && p.deadline < today);
-        
-        if (overdueCustomers.length + overdueProspek.length > 0) {
-            let message = `📅 DEADLINE TERLEWAT (${overdueCustomers.length + overdueProspek.length}):\n`;
-            overdueCustomers.slice(0, 10).forEach(c => message += `\n• ${c.nama} (Customer) - ${c.tanggal}`);
-            overdueProspek.slice(0, 10).forEach(p => message += `\n• ${p.nama} (Prospek) - ${p.deadline}`);
-            alert(message);
-        } else {
-            showNotifTop('✅ Semua deadline terpenuhi!');
+    const deadlineBtn = document.getElementById('deadlineNotifBtn');
+    if (deadlineBtn) {
+        const newDeadlineBtn = deadlineBtn.cloneNode(true);
+        deadlineBtn.parentNode.replaceChild(newDeadlineBtn, deadlineBtn);
+        const freshDeadlineBtn = document.getElementById('deadlineNotifBtn');
+        if (freshDeadlineBtn) {
+            freshDeadlineBtn.addEventListener('click', function(e) {
+                e.preventDefault();
+                e.stopPropagation();
+                showDeadlinePopup();
+            });
         }
-    });
+    }
     
-    // Pesan notification
-    document.getElementById('pesanNotifBtn')?.addEventListener('click', () => navigateTo('pesan'));
+    // ===== Pesan Notification =====
+    const pesanBtn = document.getElementById('pesanNotifBtn');
+    if (pesanBtn) {
+        const newPesanBtn = pesanBtn.cloneNode(true);
+        pesanBtn.parentNode.replaceChild(newPesanBtn, pesanBtn);
+        const freshPesanBtn = document.getElementById('pesanNotifBtn');
+        if (freshPesanBtn) {
+            freshPesanBtn.addEventListener('click', function(e) {
+                e.preventDefault();
+                e.stopPropagation();
+                navigateTo('pesan');
+            });
+        }
+    }
     
     // Logout
     document.getElementById('logoutBtn')?.addEventListener('click', handleLogout);
@@ -8282,8 +8585,38 @@ async function checkAuth() {
             initDarkMode(); // Hanya di sini, tidak di initEventListeners
             initDarkModeObserver(); // Panggil setelah initDarkMode
         }, 100);
+
+            // ===== PERBAIKAN: Inisialisasi deadline notification =====
+            const deadlineBtn = document.getElementById('deadlineNotifBtn');
+            if (deadlineBtn) {
+                const newDeadlineBtn = deadlineBtn.cloneNode(true);
+                deadlineBtn.parentNode.replaceChild(newDeadlineBtn, deadlineBtn);
+                const freshBtn = document.getElementById('deadlineNotifBtn');
+                if (freshBtn) {
+                    freshBtn.addEventListener('click', function(e) {
+                        e.preventDefault();
+                        e.stopPropagation();
+                        showDeadlinePopup();
+                    });
+                }
+            }
+            
+            // ===== PERBAIKAN: Inisialisasi pesan notification =====
+            const pesanBtn = document.getElementById('pesanNotifBtn');
+            if (pesanBtn) {
+                const newPesanBtn = pesanBtn.cloneNode(true);
+                pesanBtn.parentNode.replaceChild(newPesanBtn, pesanBtn);
+                const freshPesanBtn = document.getElementById('pesanNotifBtn');
+                if (freshPesanBtn) {
+                    freshPesanBtn.addEventListener('click', function(e) {
+                        e.preventDefault();
+                        e.stopPropagation();
+                        navigateTo('pesan');
+                    });
+                }
+            }
+        }, 100);
         
-        // Sembunyikan loading setelah semua data siap
         setTimeout(() => {
             hideLoading();
         }, 500);
