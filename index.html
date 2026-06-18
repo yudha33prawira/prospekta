@@ -242,15 +242,14 @@
                 <option value="naik">📈 Naik</option>
                 <option value="turun">📉 Turun</option>
                 <option value="normal">⚖️ Normal</option>
+                <option value="tidak_transaksi">🚫 Tidak Transaksi</option>
             </select>
             <select id="filterTransaksiStatus" style="padding: 8px 14px; border: 1.5px solid #e5e7eb; border-radius: 10px; font-size: 13px; background: #fff;">
                 <option value="">📋 Semua Status</option>
                 <option value="imported">✅ Sudah Dipindah</option>
                 <option value="pending_import">⏳ Pending</option>
             </select>
-            <input type="date" id="filterTransaksiDateStart" style="padding: 8px 14px; border: 1.5px solid #e5e7eb; border-radius: 10px; font-size: 13px; background: #fff;">
-            <span style="font-size: 13px; color: #6b7280; font-weight: 500;">s/d</span>
-            <input type="date" id="filterTransaksiDateEnd" style="padding: 8px 14px; border: 1.5px solid #e5e7eb; border-radius: 10px; font-size: 13px; background: #fff;">
+            <input type="text" id="filterTransaksiUpline" placeholder="👤 Cari Upline..." style="padding: 8px 14px; border: 1.5px solid #e5e7eb; border-radius: 10px; font-size: 13px; width: 150px; background: #fff;">
             <button id="resetTransaksiFilterBtn" style="padding: 8px 16px; background: #f1f5f9; border: 1.5px solid #e5e7eb; border-radius: 10px; cursor: pointer; font-size: 13px; font-weight: 500; color: #475569; transition: all 0.3s;">🔄 Reset</button>
         </div>
         
@@ -259,10 +258,12 @@
             <div style="font-size: 14px; color: #64748b;">
                 📊 Menampilkan <strong id="transaksiTotalCount" style="color: #1e293b; font-weight: 700;">0</strong> dari <strong id="transaksiTotalAll" style="color: #1e293b; font-weight: 700;">0</strong> data
             </div>
-            <div style="display: flex; gap: 16px; font-size: 14px; color: #64748b;">
-                <span>✅ Terpilih: <strong id="transaksiSelectedCount" style="color: #4f46e5; font-weight: 700;">0</strong> data</span>
-                <span>📈 Total Naik: <strong id="transaksiTotalNaik" style="color: #10b981; font-weight: 700;">0</strong></span>
-                <span>📉 Total Turun: <strong id="transaksiTotalTurun" style="color: #ef4444; font-weight: 700;">0</strong></span>
+            <div style="display: flex; gap: 16px; font-size: 14px; color: #64748b; flex-wrap: wrap;">
+                <span>✅ Terpilih: <strong id="transaksiSelectedCount" style="color: #4f46e5; font-weight: 700;">0</strong></span>
+                <span>📈 Naik: <strong id="transaksiTotalNaik" style="color: #10b981; font-weight: 700;">0</strong></span>
+                <span>📉 Turun: <strong id="transaksiTotalTurun" style="color: #ef4444; font-weight: 700;">0</strong></span>
+                <span>⚖️ Normal: <strong id="transaksiTotalNormal" style="color: #f59e0b; font-weight: 700;">0</strong></span>
+                <span>🚫 Tidak Transaksi: <strong id="transaksiTotalTidak" style="color: #6b7280; font-weight: 700;">0</strong></span>
             </div>
         </div>
         
