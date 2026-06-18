@@ -4684,3 +4684,44 @@ body.dark-mode .detail-info-item strong {
 body.dark-mode .detail-info-item strong {
     color: #94a3b8 !important;
 }
+
+/* ================================================================ */
+/* ========== TRANSAKSI ITEM - HOVER & ACTIVE ========== */
+/* ================================================================ */
+
+.transaksi-item-premium {
+    display: flex;
+    align-items: stretch;
+    gap: 12px;
+    padding: 14px 16px;
+    margin-bottom: 8px;
+    background: #ffffff;
+    border-radius: 14px;
+    border: 1px solid #e5e7eb;
+    cursor: pointer;
+    transition: all 0.25s cubic-bezier(0.4, 0, 0.2, 1);
+    position: relative;
+    box-shadow: 0 1px 3px rgba(0,0,0,0.04);
+}
+
+.transaksi-item-premium:hover {
+    transform: translateY(-3px);
+    box-shadow: 0 8px 25px rgba(0,0,0,0.08);
+    border-color: #4f46e5;
+    background: #fafbff;
+}
+
+.transaksi-item-premium .btn-delete:hover {
+    background: #fecaca !important;
+    color: #dc2626 !important;
+}
+
+.transaksi-item-premium .btn-move:hover {
+    background: #6366f1 !important;
+    box-shadow: 0 4px 12px rgba(79, 70, 229, 0.3);
+}
+
+.transaksi-item-premium .btn-wa:hover {
+    transform: scale(1.1);
+    box-shadow: 0 4px 12px rgba(37, 211, 102, 0.3);
+}
