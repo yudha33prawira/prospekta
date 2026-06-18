@@ -4082,3 +4082,37 @@ body.dark-mode [style*="background: #f3f4f6"] strong {
     height: 100%;
     pointer-events: auto; /* Tapi area ini tetap bisa trigger hover */
 }
+
+/* ================================================================ */
+/* ========== BUTTON LOADING STATE ========== */
+/* ================================================================ */
+
+.btn-primary:disabled,
+.btn-success:disabled,
+.btn-danger:disabled,
+.btn-outline:disabled {
+    opacity: 0.6 !important;
+    cursor: not-allowed !important;
+    transform: none !important;
+    pointer-events: none !important;
+}
+
+/* Spinner kecil di dalam tombol */
+.btn-loading {
+    position: relative;
+    color: transparent !important;
+}
+.btn-loading::after {
+    content: '';
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    width: 20px;
+    height: 20px;
+    margin-top: -10px;
+    margin-left: -10px;
+    border: 2px solid rgba(255, 255, 255, 0.3);
+    border-top-color: #fff;
+    border-radius: 50%;
+    animation: spin 0.8s linear infinite;
+}
