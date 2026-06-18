@@ -844,20 +844,55 @@ function initProfilePhoto() {
         });
     }
     
+    // ===== PERBAIKAN: Kompres gambar sebelum upload =====
     if (profileFotoInput) {
         profileFotoInput.addEventListener('change', function(e) {
             const file = e.target.files[0];
             if (file && file.type.startsWith('image/')) {
-                if (file.size > 2 * 1024 * 1024) {
-                    showNotifTop('⚠️ Ukuran foto maksimal 2MB!', true);
+                // Perbesar batas ukuran menjadi 5MB
+                if (file.size > 5 * 1024 * 1024) {
+                    showNotifTop('⚠️ Ukuran foto maksimal 5MB!', true);
                     return;
                 }
+                
+                // ===== PERBAIKAN: Kompres gambar =====
                 const reader = new FileReader();
                 reader.onload = function(e) {
-                    const imageUrl = e.target.result;
-                    if (previewFoto) previewFoto.src = imageUrl;
-                    if (profileImg) profileImg.src = imageUrl;
-                    showNotifTop('📷 Foto baru dipilih. Klik Simpan untuk menyimpan perubahan.');
+                    const img = new Image();
+                    img.onload = function() {
+                        // Kompres ke ukuran yang lebih kecil (300x300)
+                        const canvas = document.createElement('canvas');
+                        const MAX_SIZE = 300;
+                        let width = img.width;
+                        let height = img.height;
+                        
+                        if (width > height) {
+                            if (width > MAX_SIZE) {
+                                height = Math.round((height * MAX_SIZE) / width);
+                                width = MAX_SIZE;
+                            }
+                        } else {
+                            if (height > MAX_SIZE) {
+                                width = Math.round((width * MAX_SIZE) / height);
+                                height = MAX_SIZE;
+                            }
+                        }
+                        
+                        canvas.width = width;
+                        canvas.height = height;
+                        const ctx = canvas.getContext('2d');
+                        ctx.imageSmoothingEnabled = true;
+                        ctx.imageSmoothingQuality = 'high';
+                        ctx.drawImage(img, 0, 0, width, height);
+                        
+                        // Kompres ke JPEG dengan kualitas 80%
+                        const compressedDataUrl = canvas.toDataURL('image/jpeg', 0.8);
+                        
+                        if (previewFoto) previewFoto.src = compressedDataUrl;
+                        if (profileImg) profileImg.src = compressedDataUrl;
+                        showNotifTop('📷 Foto berhasil dipilih (terkompresi). Klik Simpan untuk menyimpan.');
+                    };
+                    img.src = e.target.result;
                 };
                 reader.readAsDataURL(file);
             } else {
@@ -867,6 +902,128 @@ function initProfilePhoto() {
     }
 }
 
+// ===== PERBAIKAN: Save profile dengan progress =====
+async function saveUserProfile() {
+    const nama = document.getElementById('profileName')?.value;
+    let hp = document.getElementById('profilePhone')?.value;
+    const foto = document.getElementById('previewFoto')?.src;
+    const profileImg = document.getElementById('profileImg');
+    const saveBtn = document.getElementById('saveProfileBtn');
+    
+    if (!nama) {
+        showNotifTop('⚠️ Nama wajib diisi!', true);
+        return false;
+    }
+    
+    // ===== PERBAIKAN: Tampilkan loading =====
+    if (saveBtn) {
+        saveBtn.disabled = true;
+        saveBtn.textContent = '⏳ Menyimpan...';
+        saveBtn.style.opacity = '0.6';
+    }
+    
+    // Tampilkan progress di notif
+    showNotifTop('⏳ Menyimpan profile...', false);
+    
+    try {
+        // Format HP
+        if (hp) {
+            hp = hp.replace(/[^\d]/g, '');
+            if (hp.startsWith('0')) hp = hp.substring(1);
+            if (hp && !hp.startsWith('62')) hp = '62' + hp;
+            hp = '+' + hp;
+        }
+        
+        // ===== PERBAIKAN: Cek perubahan data =====
+        const { data: existingUser, error: fetchError } = await window.db
+            .from('users')
+            .select('*')
+            .eq('id', currentUser.id)
+            .single();
+        
+        if (fetchError && fetchError.code !== 'PGRST116') {
+            throw fetchError;
+        }
+        
+        // ===== PERBAIKAN: Upload foto ke Supabase Storage =====
+        let fotoUrl = existingUser?.foto || 'https://i.pravatar.cc/40';
+        
+        // Cek apakah foto berubah (bukan URL default)
+        if (foto && !foto.startsWith('https://i.pravatar.cc') && !foto.startsWith('http')) {
+            try {
+                // Convert base64 ke blob
+                const response = await fetch(foto);
+                const blob = await response.blob();
+                
+                // Upload ke Supabase Storage
+                const fileName = `profile_${currentUser.id}_${Date.now()}.jpg`;
+                const { data: uploadData, error: uploadError } = await window.db.storage
+                    .from('profiles')
+                    .upload(fileName, blob, {
+                        contentType: 'image/jpeg',
+                        upsert: true
+                    });
+                
+                if (uploadError) {
+                    console.warn('Upload to storage failed, using base64:', uploadError);
+                    // Jika upload gagal, gunakan base64 langsung
+                    fotoUrl = foto;
+                } else {
+                    // Dapatkan public URL
+                    const { data: publicUrlData } = window.db.storage
+                        .from('profiles')
+                        .getPublicUrl(fileName);
+                    fotoUrl = publicUrlData.publicUrl;
+                }
+            } catch (err) {
+                console.warn('Error uploading photo:', err);
+                // Fallback ke base64
+                fotoUrl = foto;
+            }
+        }
+        
+        // ===== PERBAIKAN: Update database =====
+        const updateData = {
+            id: currentUser.id,
+            nama: nama,
+            hp: hp || null,
+            foto: fotoUrl,
+            email: currentUser.email,
+            role: existingUser?.role || 'cs',
+            updated_at: new Date().toISOString()
+        };
+        
+        const { error } = await window.db
+            .from('users')
+            .upsert(updateData);
+        
+        if (error) throw error;
+        
+        // Update UI
+        currentUserName = nama;
+        document.getElementById('topUserName').innerText = nama;
+        if (profileImg) profileImg.src = fotoUrl;
+        
+        showNotifTop('✅ Profile berhasil disimpan!');
+        closeModal('profileModal');
+        return true;
+        
+    } catch (error) {
+        console.error('Save profile error:', error);
+        showNotifTop('❌ Gagal menyimpan profile: ' + error.message, true);
+        return false;
+        
+    } finally {
+        // ===== PERBAIKAN: Reset button =====
+        if (saveBtn) {
+            saveBtn.disabled = false;
+            saveBtn.textContent = '💾 Simpan';
+            saveBtn.style.opacity = '1';
+        }
+    }
+}
+
+// ===== PERBAIKAN: Load profile data dengan cepat =====
 function loadProfileData() {
     const profileName = document.getElementById('profileName');
     const profileEmail = document.getElementById('profileEmail');
@@ -878,73 +1035,22 @@ function loadProfileData() {
     if (profileEmail && currentUser) profileEmail.value = currentUser.email || '';
     if (previewFoto && profileImg) previewFoto.src = profileImg.src;
     
+    // ===== PERBAIKAN: Load HP secara async tanpa blocking =====
     if (profilePhone && currentUser) {
-        window.db.from('users').select('hp').eq('id', currentUser.id).single().then(({ data }) => {
-            if (data && data.hp) {
-                profilePhone.value = data.hp.replace('+62', '');
-            }
-        });
-    }
-}
-
-function showPhotoPreview(imageUrl) {
-    const previewModal = document.getElementById('previewPhotoModal');
-    const previewImage = document.getElementById('previewPhotoLarge');
-    if (!previewModal) return;
-    if (previewImage) previewImage.src = imageUrl;
-    showModal('previewPhotoModal');
-}
-
-async function saveUserProfile() {
-    const nama = document.getElementById('profileName')?.value;
-    let hp = document.getElementById('profilePhone')?.value;
-    const foto = document.getElementById('previewFoto')?.src;
-    const profileImg = document.getElementById('profileImg');
-    
-    if (!nama) {
-        showNotifTop('⚠️ Nama wajib diisi!', true);
-        return false;
-    }
-    
-    if (hp) {
-        hp = hp.replace(/[^\d]/g, '');
-        if (hp.startsWith('0')) hp = hp.substring(1);
-        if (hp && !hp.startsWith('62')) hp = '62' + hp;
-        hp = '+' + hp;
-    }
-    
-    try {
-        const { data: existingUser } = await window.db
-            .from('users')
-            .select('*')
+        // Set default dulu
+        profilePhone.value = '';
+        
+        // Load async
+        window.db.from('users')
+            .select('hp')
             .eq('id', currentUser.id)
-            .single();
-        
-        const { error } = await window.db
-            .from('users')
-            .upsert({
-                id: currentUser.id,
-                nama: nama,
-                hp: hp || null,
-                foto: foto || 'https://i.pravatar.cc/40',
-                email: currentUser.email,
-                role: existingUser?.role || 'cs',
-                updated_at: new Date().toISOString()
-            });
-        
-        if (error) throw error;
-        
-        currentUserName = nama;
-        document.getElementById('topUserName').innerText = nama;
-        if (profileImg) profileImg.src = foto || 'https://i.pravatar.cc/40';
-        
-        showNotifTop('✅ Profile berhasil disimpan!');
-        closeModal('profileModal');
-        return true;
-    } catch (error) {
-        console.error('Save profile error:', error);
-        showNotifTop('❌ Gagal menyimpan profile: ' + error.message, true);
-        return false;
+            .single()
+            .then(({ data }) => {
+                if (data && data.hp) {
+                    profilePhone.value = data.hp.replace('+62', '');
+                }
+            })
+            .catch(() => {});
     }
 }
 
