@@ -4179,3 +4179,111 @@ body.dark-mode .preview-photo-header button {
 body.dark-mode .preview-photo-body {
     background: #0f172a;
 }
+
+/* ================================================================ */
+/* ========== DEADLINE POPUP ========== */
+/* ================================================================ */
+
+#deadlinePopupModal .modal-content {
+    max-width: 550px;
+    max-height: 80vh;
+    overflow: hidden;
+    display: flex;
+    flex-direction: column;
+    background: #fff;
+    border-radius: 24px;
+}
+
+.deadline-item {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 10px 14px;
+    margin-bottom: 6px;
+    border-radius: 10px;
+    cursor: pointer;
+    transition: all 0.2s ease;
+}
+
+.deadline-item.overdue {
+    background: #fef2f2;
+    border-left: 3px solid #ef4444;
+}
+
+.deadline-item.today {
+    background: #fef3c7;
+    border-left: 3px solid #f59e0b;
+}
+
+.deadline-item:hover {
+    transform: translateX(4px);
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
+}
+
+.deadline-item .deadline-info {
+    flex: 1;
+    min-width: 0;
+}
+
+.deadline-item .deadline-name {
+    font-weight: 500;
+    font-size: 13px;
+    color: #1f2937;
+}
+
+.deadline-item .deadline-detail {
+    font-size: 11px;
+    color: #6b7280;
+}
+
+.deadline-item .wa-btn-small {
+    background: #25D366;
+    color: white;
+    border: none;
+    border-radius: 6px;
+    padding: 4px 10px;
+    font-size: 11px;
+    cursor: pointer;
+    transition: all 0.2s;
+    flex-shrink: 0;
+}
+
+.deadline-item .wa-btn-small:hover {
+    transform: scale(1.05);
+    box-shadow: 0 2px 8px rgba(37, 211, 102, 0.3);
+}
+
+/* Dark mode */
+body.dark-mode #deadlinePopupModal .modal-content {
+    background: #1e293b !important;
+}
+
+body.dark-mode .deadline-item.overdue {
+    background: #1a0a0a !important;
+    border-left: 3px solid #dc2626 !important;
+}
+
+body.dark-mode .deadline-item.today {
+    background: #1a0a00 !important;
+    border-left: 3px solid #f59e0b !important;
+}
+
+body.dark-mode .deadline-item .deadline-name {
+    color: #f1f5f9 !important;
+}
+
+body.dark-mode .deadline-item .deadline-detail {
+    color: #94a3b8 !important;
+}
+
+body.dark-mode .deadline-item:hover {
+    background: #0f172a !important;
+}
+
+body.dark-mode .deadline-item.overdue:hover {
+    background: #2a0a0a !important;
+}
+
+body.dark-mode .deadline-item.today:hover {
+    background: #2a0a00 !important;
+}
