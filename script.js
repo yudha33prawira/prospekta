@@ -5020,11 +5020,14 @@ function renderTransaksiList() {
         const bulanLalu = item.transaksi_bulan_lalu || 0;
         const bulanIni = item.transaksi_bulan_ini || 0;
         
+        // Gunakan data-id dan onclick langsung
+        const itemId = item.id;
+        
         return `
-            <div class="transaksi-item-premium" data-id="${item.id}">
+            <div class="transaksi-item-premium" data-id="${itemId}">
                 <div class="nomor-urut">${index + 1}</div>
                 <div class="checkbox-wrapper">
-                    <input type="checkbox" class="transaksi-checkbox" data-id="${item.id}" ${isChecked ? 'checked' : ''}>
+                    <input type="checkbox" class="transaksi-checkbox" data-id="${itemId}" ${isChecked ? 'checked' : ''}>
                 </div>
                 <div class="info-utama">
                     <div class="header-row">
@@ -5050,34 +5053,84 @@ function renderTransaksiList() {
                     <span class="nilai-label">${absValue.toLocaleString()}</span>
                 </div>
                 <div class="aksi-container">
-                    <button class="btn-wa" onclick="event.stopPropagation(); openWA('${escapeHtml(item.hp || '')}')">💬</button>
+                    <button class="btn-wa" data-id="${itemId}" data-hp="${escapeHtml(item.hp || '')}">💬</button>
                     ${item.status !== 'imported' ? `
-                        <button class="btn-move" onclick="event.stopPropagation(); moveSingleToFollowup('${item.id}')">📋 Pindah</button>
+                        <button class="btn-move" data-id="${itemId}">📋 Pindah</button>
                     ` : ''}
-                    <button class="btn-delete" onclick="event.stopPropagation(); deleteTransaksiItem('${item.id}')">🗑️</button>
+                    <button class="btn-delete" data-id="${itemId}">🗑️</button>
                 </div>
             </div>
         `;
     }).join('');
     
-    // Event listeners
-    document.querySelectorAll('.transaksi-item-premium').forEach(el => {
-        el.addEventListener('click', function(e) {
-            if (e.target.closest('input[type="checkbox"]') || 
-                e.target.closest('.btn-wa') || 
-                e.target.closest('.btn-move') || 
-                e.target.closest('.btn-delete')) {
-                return;
-            }
-            const id = this.dataset.id;
-            openDetailTransaksi(id);
-        });
+    // ===== EVENT LISTENER - Gunakan event delegation =====
+    // Hapus semua event listener lama dengan clone
+    const newContainer = container.cloneNode(false);
+    container.parentNode.replaceChild(newContainer, container);
+    
+    // Gunakan container baru
+    const freshContainer = document.getElementById('dbTransaksiList');
+    if (!freshContainer) return;
+    
+    // Set innerHTML
+    freshContainer.innerHTML = container.innerHTML;
+    
+    // Event delegation untuk klik item
+    freshContainer.addEventListener('click', function(e) {
+        const target = e.target;
+        const itemElement = target.closest('.transaksi-item-premium');
+        if (!itemElement) return;
+        
+        const id = itemElement.dataset.id;
+        
+        // Tombol Delete
+        if (target.closest('.btn-delete')) {
+            e.stopPropagation();
+            deleteTransaksiItem(id);
+            return;
+        }
+        
+        // Tombol WA
+        if (target.closest('.btn-wa')) {
+            e.stopPropagation();
+            const hp = target.closest('.btn-wa').dataset.hp;
+            if (hp) openWA(hp);
+            return;
+        }
+        
+        // Tombol Pindah
+        if (target.closest('.btn-move')) {
+            e.stopPropagation();
+            moveSingleToFollowup(id);
+            return;
+        }
+        
+        // Checkbox
+        if (target.closest('.transaksi-checkbox')) {
+            // Handle checkbox di event terpisah
+            return;
+        }
+        
+        // Klik pada item (bukan tombol)
+        openDetailTransaksi(id);
     });
     
-    document.querySelectorAll('.transaksi-checkbox').forEach(cb => {
-        cb.removeEventListener('change', handleTransaksiCheckboxChange);
-        cb.addEventListener('change', handleTransaksiCheckboxChange);
+    // Event listener untuk checkbox
+    freshContainer.addEventListener('change', function(e) {
+        if (e.target.classList.contains('transaksi-checkbox')) {
+            const id = e.target.dataset.id;
+            if (e.target.checked) {
+                selectedTransaksiIds.set(id, true);
+            } else {
+                selectedTransaksiIds.delete(id);
+            }
+            updateSelectAllTransaksiButton();
+            updateTransaksiSelectionCount();
+        }
     });
+    
+    // Update ID referensi
+    document.getElementById('dbTransaksiList') === freshContainer;
     
     updateSelectAllTransaksiButton();
     updateTransaksiSelectionCount();
@@ -5406,7 +5459,14 @@ function toggleSelectAllTransaksi() {
 }
 
 // ========== DELETE SELECTED TRANSAKSI ==========
+let isDeletingSelectedTransaksi = false;
+
 async function deleteSelectedTransaksi() {
+    if (isDeletingSelectedTransaksi) {
+        showNotifTop('⏳ Proses hapus sedang berjalan...', true);
+        return;
+    }
+    
     if (currentUserRole !== 'owner') {
         showNotifTop('⚠️ Hanya Owner yang dapat menghapus massal!', true);
         return;
@@ -5418,105 +5478,176 @@ async function deleteSelectedTransaksi() {
         return;
     }
     
-    if (!confirm(`Hapus ${selectedIds.length} data transaksi?`)) return;
+    // Hanya 1 kali konfirmasi
+    if (!confirm(`Hapus ${selectedIds.length} data transaksi yang dipilih?`)) {
+        return;
+    }
     
+    isDeletingSelectedTransaksi = true;
     const progress = showFloatingProgress('🗑️ Menghapus Transaksi', selectedIds.length);
     let deleted = 0;
     
-    for (const id of selectedIds) {
-        try {
-            await window.db.from('db_transaksi').delete().eq('id', id);
-            selectedTransaksiIds.delete(id);
-            deleted++;
-            progress.update(Math.floor((deleted / selectedIds.length) * 100), 'Menghapus', `Memproses...`, deleted, selectedIds.length);
-            await delay(30);
-        } catch (e) {
-            console.error(`Gagal hapus ${id}:`, e);
+    try {
+        for (const id of selectedIds) {
+            try {
+                await window.db.from('db_transaksi').delete().eq('id', id);
+                selectedTransaksiIds.delete(id);
+                
+                // Hapus dari data lokal
+                const index = transaksiData.findIndex(t => t.id === id);
+                if (index !== -1) {
+                    transaksiData.splice(index, 1);
+                }
+                
+                deleted++;
+                progress.update(Math.floor((deleted / selectedIds.length) * 100), 'Menghapus', `Memproses...`, deleted, selectedIds.length);
+                await delay(30);
+            } catch (e) {
+                console.error(`Gagal hapus ${id}:`, e);
+            }
         }
+        
+        progress.update(100, 'Selesai', `Berhasil menghapus ${deleted} data`, deleted, selectedIds.length);
+        showNotifTop(`✅ ${deleted} data berhasil dihapus`);
+        
+        renderTransaksiList();
+        updateTransaksiStats();
+        
+    } catch (err) {
+        console.error('Error delete selected:', err);
+        showNotifTop('❌ Gagal: ' + err.message, true);
+    } finally {
+        isDeletingSelectedTransaksi = false;
+        setTimeout(() => progress.hide(), 2000);
     }
-    
-    progress.update(100, 'Selesai', `Berhasil menghapus ${deleted} data`, deleted, selectedIds.length);
-    showNotifTop(`✅ ${deleted} data berhasil dihapus`);
-    setTimeout(() => progress.hide(), 2000);
-    
-    await loadDbTransaksi();
 }
 
 // ========== DELETE ALL TRANSAKSI ==========
+let isDeletingAllTransaksi = false;
+
 async function deleteAllTransaksi() {
+    if (isDeletingAllTransaksi) {
+        showNotifTop('⏳ Proses hapus sedang berjalan...', true);
+        return;
+    }
+    
     if (currentUserRole !== 'owner') {
         showNotifTop('⚠️ Hanya Owner yang dapat menghapus semua data!', true);
         return;
     }
     
-    if (!confirm('⚠️ PERINGATAN! Anda akan menghapus SEMUA data Transaksi. Tidak bisa dibatalkan!')) return;
+    // Hanya 1 kali konfirmasi
+    if (!confirm('⚠️ PERINGATAN! Anda akan menghapus SEMUA data Transaksi. Tidak bisa dibatalkan!\n\nYakin ingin melanjutkan?')) {
+        return;
+    }
     
+    isDeletingAllTransaksi = true;
     const progress = showFloatingProgress('🗑️ Menghapus Semua Transaksi', 0);
     progress.update(0, 'Menghapus', 'Mengambil data...');
     
-    let query = window.db.from('db_transaksi').select('id');
-    if (currentUserRole !== 'owner') query = query.eq('user_id', currentUser.id);
-    
-    const { data, error } = await query;
-    if (error) {
-        showNotifTop('❌ Gagal: ' + error.message, true);
-        progress.hide();
-        return;
-    }
-    
-    const totalData = data.length;
-    progress.setTotal(totalData);
-    
-    if (totalData === 0) {
-        showNotifTop('📭 Tidak ada data untuk dihapus', true);
-        progress.hide();
-        return;
-    }
-    
-    let deleted = 0;
-    for (const item of data) {
-        try {
-            await window.db.from('db_transaksi').delete().eq('id', item.id);
-            deleted++;
-            progress.update(Math.floor((deleted / totalData) * 100), 'Menghapus', `Memproses...`, deleted, totalData);
-            await delay(20);
-        } catch (e) {
-            console.error('Gagal hapus:', e);
+    try {
+        let query = window.db.from('db_transaksi').select('id');
+        if (currentUserRole !== 'owner') query = query.eq('user_id', currentUser.id);
+        
+        const { data, error } = await query;
+        if (error) {
+            showNotifTop('❌ Gagal: ' + error.message, true);
+            progress.hide();
+            isDeletingAllTransaksi = false;
+            return;
         }
+        
+        const totalData = data.length;
+        progress.setTotal(totalData);
+        
+        if (totalData === 0) {
+            showNotifTop('📭 Tidak ada data untuk dihapus', true);
+            progress.hide();
+            isDeletingAllTransaksi = false;
+            return;
+        }
+        
+        let deleted = 0;
+        for (const item of data) {
+            try {
+                await window.db.from('db_transaksi').delete().eq('id', item.id);
+                deleted++;
+                progress.update(Math.floor((deleted / totalData) * 100), 'Menghapus', `Memproses...`, deleted, totalData);
+                await delay(20);
+            } catch (e) {
+                console.error('Gagal hapus:', e);
+            }
+        }
+        
+        selectedTransaksiIds.clear();
+        transaksiData = [];
+        
+        progress.update(100, 'Selesai', `Berhasil menghapus ${deleted} data`, deleted, totalData);
+        showNotifTop(`✅ ${deleted} data Transaksi berhasil dihapus`);
+        
+        renderTransaksiList();
+        updateTransaksiStats();
+        
+    } catch (err) {
+        console.error('Error delete all:', err);
+        showNotifTop('❌ Gagal: ' + err.message, true);
+    } finally {
+        isDeletingAllTransaksi = false;
+        setTimeout(() => progress.hide(), 2000);
     }
-    
-    selectedTransaksiIds.clear();
-    progress.update(100, 'Selesai', `Berhasil menghapus ${deleted} data`, deleted, totalData);
-    showNotifTop(`✅ ${deleted} data Transaksi berhasil dihapus`);
-    setTimeout(() => progress.hide(), 2000);
-    
-    await loadDbTransaksi();
 }
 
 // ========== DELETE TRANSAKSI ITEM ==========
+let isDeletingTransaksi = false;
+
 async function deleteTransaksiItem(id) {
+    // Cegah multiple delete
+    if (isDeletingTransaksi) {
+        console.log('Delete already in progress, ignoring...');
+        return;
+    }
+    
     const item = transaksiData.find(t => t.id === id);
     if (!item) {
         showNotifTop('❌ Data tidak ditemukan!', true);
         return;
     }
     
-    if (!confirm(`Hapus data transaksi "${escapeHtml(item.nama || item.agent_id)}"?`)) return;
+    // Hanya tampilkan 1 kali konfirmasi
+    if (!confirm(`Hapus data transaksi "${escapeHtml(item.nama || item.agent_id)}"?`)) {
+        return;
+    }
+    
+    isDeletingTransaksi = true;
     
     try {
         const { error } = await window.db.from('db_transaksi').delete().eq('id', id);
         if (error) {
             showNotifTop('❌ Gagal hapus: ' + error.message, true);
+            isDeletingTransaksi = false;
             return;
         }
         
+        // Hapus dari selected
         selectedTransaksiIds.delete(id);
+        
+        // Hapus dari data lokal
+        const index = transaksiData.findIndex(t => t.id === id);
+        if (index !== -1) {
+            transaksiData.splice(index, 1);
+        }
+        
         showNotifTop('🗑️ Data transaksi berhasil dihapus');
-        await loadDbTransaksi();
+        
+        // Render ulang list
+        renderTransaksiList();
+        updateTransaksiStats();
         
     } catch (err) {
         console.error('Error delete transaksi:', err);
         showNotifTop('❌ Gagal: ' + err.message, true);
+    } finally {
+        isDeletingTransaksi = false;
     }
 }
 
