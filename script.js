@@ -7143,7 +7143,7 @@ function navigateTo(page) {
     if (activeMenu) activeMenu.classList.add('active');
 }
 
-// ========== IMPORT FUNCTIONS ==========
+// ========== SETUP IMPORT EXCEL ==========
 function setupImportExcel() {
     const dropZone = document.getElementById('dropZone');
     const excelFileInput = document.getElementById('excelFile');
@@ -7206,6 +7206,7 @@ function setupImportExcel() {
                     }
                     
                     let success = 0, failed = 0;
+                    const errors = [];
                     
                     progress.update(10, '📥 Import Data', `Memproses ${json.length} baris...`);
                     
@@ -7213,6 +7214,7 @@ function setupImportExcel() {
                         const row = json[i];
                         try {
                             if (importType === 'customer') {
+                                // ===== IMPORT CUSTOMER =====
                                 const agentId = row.agent_id || row.Agent_ID || '';
                                 const nama = row.nama || row.Nama || '';
                                 let hp = row.hp || row.HP || '';
@@ -7221,6 +7223,7 @@ function setupImportExcel() {
                                 
                                 if (!agentId || !nama) {
                                     failed++;
+                                    errors.push(`Baris ${i+1}: agent_id atau nama kosong`);
                                     continue;
                                 }
                                 
@@ -7240,12 +7243,15 @@ function setupImportExcel() {
                                     created_at: new Date().toISOString()
                                 });
                                 success++;
+                                
                             } else if (importType === 'prospek') {
+                                // ===== IMPORT PROSPEK =====
                                 const nama = row.nama || row.Nama || '';
                                 let hp = row.hp || row.HP || '';
                                 
                                 if (!nama) {
                                     failed++;
+                                    errors.push(`Baris ${i+1}: nama kosong`);
                                     continue;
                                 }
                                 
@@ -7262,25 +7268,81 @@ function setupImportExcel() {
                                     created_at: new Date().toISOString()
                                 });
                                 success++;
-                            } else if (importType === 'transaksi') {
-                                const agentId = row.agent_id || row.Agent_ID || '';
-                                const progresJenis = row.progres_jenis || row.jenis_progres || '';
-                                const progresJumlah = parseInt(row.progres_jumlah || row.jumlah || 0);
                                 
-                                if (!agentId || !progresJenis) {
+                            } else if (importType === 'transaksi') {
+                                // ===== PERBAIKAN: IMPORT DB TRANSAKSI =====
+                                // Kolom wajib: agent_id, progres_jumlah
+                                // Kolom opsional: apk, nama, hp, upline, hp_upline
+                                // progres_jenis: naik (>=100), turun (<=-100), normal (99 s/d -99)
+                                
+                                const agentId = row.agent_id || row.Agent_ID || '';
+                                let progresJumlah = parseFloat(row.progres_jumlah || row.jumlah || 0);
+                                
+                                // Validasi agent_id wajib
+                                if (!agentId) {
                                     failed++;
+                                    errors.push(`Baris ${i+1}: agent_id kosong`);
                                     continue;
                                 }
                                 
+                                // Validasi progres_jumlah harus angka
+                                if (isNaN(progresJumlah)) {
+                                    failed++;
+                                    errors.push(`Baris ${i+1}: progres_jumlah bukan angka (${row.progres_jumlah})`);
+                                    continue;
+                                }
+                                
+                                // ===== PERBAIKAN: Tentukan progres_jenis berdasarkan nilai =====
+                                let progresJenis = '';
+                                
+                                if (progresJumlah >= 100) {
+                                    progresJenis = 'naik';
+                                } else if (progresJumlah <= -100) {
+                                    progresJenis = 'turun';
+                                } else if (progresJumlah > -100 && progresJumlah < 100) {
+                                    progresJenis = 'normal';
+                                } else {
+                                    // Jika tidak masuk kategori, gunakan dari kolom jika ada
+                                    const manualJenis = row.progres_jenis || row.jenis_progres || '';
+                                    if (manualJenis && ['naik', 'turun', 'normal'].includes(manualJenis.toLowerCase())) {
+                                        progresJenis = manualJenis.toLowerCase();
+                                    } else {
+                                        failed++;
+                                        errors.push(`Baris ${i+1}: progres_jumlah (${progresJumlah}) tidak valid, harus >=100 (naik), <=-100 (turun), atau antara -99 s/d 99 (normal)`);
+                                        continue;
+                                    }
+                                }
+                                
+                                // Ambil data opsional
+                                const apk = row.apk || row.APK || '';
+                                const nama = row.nama || row.Nama || `Agent ${agentId}`;
+                                let hp = row.hp || row.HP || '';
+                                const uplineName = row.upline || row.upline_name || '';
+                                let uplinePhone = row.hp_upline || row.upline_phone || '';
+                                
+                                // Format HP
+                                if (hp) {
+                                    hp = String(hp).replace(/[^\d]/g, '');
+                                    if (hp.startsWith('0')) hp = hp.substring(1);
+                                    if (hp && !hp.startsWith('62')) hp = '62' + hp;
+                                }
+                                
+                                if (uplinePhone) {
+                                    uplinePhone = String(uplinePhone).replace(/[^\d]/g, '');
+                                    if (uplinePhone.startsWith('0')) uplinePhone = uplinePhone.substring(1);
+                                    if (uplinePhone && !uplinePhone.startsWith('62')) uplinePhone = '62' + uplinePhone;
+                                }
+                                
+                                // Insert ke DB Transaksi
                                 await window.db.from('db_transaksi').insert({
                                     agent_id: agentId.toUpperCase(),
-                                    nama: row.nama || `Agent ${agentId}`,
-                                    hp: String(row.hp || '').replace(/[^\d]/g, ''),
-                                    apk: row.apk || '',
-                                    upline_name: row.upline_name || '',
-                                    upline_phone: row.upline_phone || '',
+                                    nama: nama,
+                                    hp: hp || '',
+                                    apk: apk || '',
+                                    upline_name: uplineName || '',
+                                    upline_phone: uplinePhone || '',
                                     progres_jenis: progresJenis,
-                                    progres_jumlah: progresJumlah,
+                                    progres_jumlah: Math.abs(progresJumlah), // Simpan nilai absolut
                                     tanggal_transaksi: getTodayDate(),
                                     status: 'pending_import',
                                     user_id: currentUser.id,
@@ -7289,7 +7351,9 @@ function setupImportExcel() {
                                 success++;
                             }
                         } catch (err) {
+                            console.error(`Error baris ${i+1}:`, err);
                             failed++;
+                            errors.push(`Baris ${i+1}: ${err.message}`);
                         }
                         
                         if ((i + 1) % 50 === 0) {
@@ -7300,7 +7364,19 @@ function setupImportExcel() {
                     }
                     
                     progress.update(100, '✅ Selesai', `Berhasil: ${success}, Gagal: ${failed}`, success, json.length);
-                    showNotifTop(`✅ Import selesai! Berhasil: ${success}, Gagal: ${failed}`);
+                    
+                    let message = `✅ Import selesai! Berhasil: ${success}`;
+                    if (failed > 0) {
+                        message += `, Gagal: ${failed}`;
+                        console.log('❌ Error details:', errors);
+                    }
+                    showNotifTop(message);
+                    
+                    if (failed > 0 && errors.length > 0) {
+                        // Tampilkan 5 error pertama di notif
+                        const errorSample = errors.slice(0, 5).join('\n');
+                        showNotifTop(`⚠️ ${failed} data gagal. Detail: ${errorSample}`, true);
+                    }
                     
                     setTimeout(() => progress.hide(), 3000);
                     
@@ -7332,6 +7408,7 @@ function setupImportExcel() {
         });
     }
     
+    // ===== DOWNLOAD CONTOH FILE =====
     document.getElementById('downloadCustomerExample')?.addEventListener('click', () => {
         const data = [{ agent_id: 'AG-001', nama: 'Budi Santoso', hp: '6281234567890', apk: 'GNP' }];
         const ws = XLSX.utils.json_to_sheet(data);
@@ -7350,8 +7427,40 @@ function setupImportExcel() {
         showNotifTop('📋 Contoh file Prospek berhasil diunduh');
     });
     
+    // ===== PERBAIKAN: Download Contoh DB Transaksi =====
     document.getElementById('downloadTransaksiExample')?.addEventListener('click', () => {
-        const data = [{ agent_id: 'AG-001', progres_jenis: 'naik', progres_jumlah: 100, nama: 'Budi Santoso', hp: '6281234567890' }];
+        const data = [
+            {
+                apk: 'GNP',
+                agent_id: 'AG-001',
+                nama: 'Budi Santoso',
+                hp: '6281234567890',
+                upline: 'Pak Upline',
+                hp_upline: '6281234567891',
+                progres_jumlah: 100,  // NAik (>=100)
+                progres_jenis: 'naik'
+            },
+            {
+                apk: 'BSB',
+                agent_id: 'AG-002',
+                nama: 'Ani Lestari',
+                hp: '6281234567892',
+                upline: 'Bu Upline',
+                hp_upline: '6281234567893',
+                progres_jumlah: -150,  // Turun (<=-100)
+                progres_jenis: 'turun'
+            },
+            {
+                apk: 'BTN',
+                agent_id: 'AG-003',
+                nama: 'Cahya Wijaya',
+                hp: '6281234567894',
+                upline: '',
+                hp_upline: '',
+                progres_jumlah: 50,  // Normal (antara -99 s/d 99)
+                progres_jenis: 'normal'
+            }
+        ];
         const ws = XLSX.utils.json_to_sheet(data);
         const wb = XLSX.utils.book_new();
         XLSX.utils.book_append_sheet(wb, ws, 'DB Transaksi');
