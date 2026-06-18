@@ -3986,6 +3986,7 @@ async function loadProduk() {
     renderProdukList();
 }
 
+// ========== LOAD DB TRANSAKSI ==========
 async function loadDbTransaksi() {
     if (!currentUser) return;
     
@@ -3994,7 +3995,7 @@ async function loadDbTransaksi() {
         query = query.eq('user_id', currentUser.id);
     }
     
-    const { data, error } = await query.order('tanggal_transaksi', { ascending: false });
+    const { data, error } = await query.order('created_at', { ascending: false });
     if (error) {
         console.error('Error loading transaksi:', error);
         return;
@@ -4003,6 +4004,7 @@ async function loadDbTransaksi() {
     transaksiData = data || [];
     renderTransaksiList();
     updateTargetDisplay();
+    updateTransaksiStats();
 }
 
 async function loadDBClosing() {
@@ -4913,64 +4915,599 @@ function editProduk(id) {
     modal.onclick = (e) => { if (e.target === modal) modal.remove(); };
 }
 
-// ========== TRANSAKSI FUNCTIONS ==========
+// ========== RENDER TRANSAKSI LIST - PREMIUM ==========
 function renderTransaksiList() {
     const container = document.getElementById('dbTransaksiList');
     if (!container) return;
     
-    if (transaksiData.length === 0) {
-        container.innerHTML = '<p style="text-align:center;padding:40px;color:#9ca3af;">📭 Tidak ada data transaksi</p>';
+    // Filter data
+    const searchTerm = document.getElementById('searchTransaksiInput')?.value.toLowerCase() || '';
+    const filterJenis = document.getElementById('filterTransaksiJenis')?.value || '';
+    const filterStatus = document.getElementById('filterTransaksiStatus')?.value || '';
+    const filterDateStart = document.getElementById('filterTransaksiDateStart')?.value || '';
+    const filterDateEnd = document.getElementById('filterTransaksiDateEnd')?.value || '';
+    
+    let filtered = [...transaksiData];
+    
+    if (searchTerm) {
+        filtered = filtered.filter(item =>
+            (item.nama && String(item.nama).toLowerCase().includes(searchTerm)) ||
+            (item.agent_id && String(item.agent_id).toLowerCase().includes(searchTerm)) ||
+            (item.hp && String(item.hp).includes(searchTerm)) ||
+            (item.upline_name && String(item.upline_name).toLowerCase().includes(searchTerm))
+        );
+    }
+    
+    if (filterJenis) {
+        filtered = filtered.filter(item => item.progres_jenis === filterJenis);
+    }
+    
+    if (filterStatus) {
+        filtered = filtered.filter(item => item.status === filterStatus);
+    }
+    
+    if (filterDateStart) {
+        filtered = filtered.filter(item => item.tanggal_transaksi >= filterDateStart);
+    }
+    
+    if (filterDateEnd) {
+        filtered = filtered.filter(item => item.tanggal_transaksi <= filterDateEnd);
+    }
+    
+    // Update total count
+    const totalCountSpan = document.getElementById('transaksiTotalCount');
+    if (totalCountSpan) {
+        totalCountSpan.innerText = filtered.length;
+    }
+    
+    const totalAllSpan = document.getElementById('transaksiTotalAll');
+    if (totalAllSpan) {
+        totalAllSpan.innerText = transaksiData.length;
+    }
+    
+    if (filtered.length === 0) {
+        container.innerHTML = `
+            <div style="text-align: center; padding: 60px 20px; color: #9ca3af;">
+                <div style="font-size: 48px; margin-bottom: 16px;">📭</div>
+                <p>Tidak ada data transaksi</p>
+            </div>
+        `;
         return;
     }
     
-    container.innerHTML = transaksiData.map(item => {
+    container.innerHTML = filtered.map((item, index) => {
         const isChecked = selectedTransaksiIds.get(item.id) === true;
-        const progresIcon = item.progres_jenis === 'naik' ? '📈' : (item.progres_jenis === 'turun' ? '📉' : '⚖️');
-        const statusBadge = item.status === 'imported' ? 
-            '<span style="background:#10b981; color:white; padding:2px 8px; border-radius:12px; font-size:10px;">✅ Sudah Dipindah</span>' :
-            '<span style="background:#f59e0b; color:white; padding:2px 8px; border-radius:12px; font-size:10px;">⏳ Pending</span>';
+        
+        // Status badge
+        let statusBadge = '';
+        if (item.status === 'imported') {
+            statusBadge = '<span style="background: #10b981; color: white; padding: 2px 10px; border-radius: 12px; font-size: 10px; font-weight: 600;">✅ Sudah Dipindah</span>';
+        } else if (item.status === 'pending_import') {
+            statusBadge = '<span style="background: #f59e0b; color: white; padding: 2px 10px; border-radius: 12px; font-size: 10px; font-weight: 600;">⏳ Pending</span>';
+        } else {
+            statusBadge = '<span style="background: #6b7280; color: white; padding: 2px 10px; border-radius: 12px; font-size: 10px; font-weight: 600;">📋 Baru</span>';
+        }
+        
+        // Progres jenis badge
+        let jenisBadge = '';
+        if (item.progres_jenis === 'naik') {
+            jenisBadge = '<span style="background: #d1fae5; color: #065f46; padding: 2px 10px; border-radius: 12px; font-size: 10px; font-weight: 600;">📈 Naik</span>';
+        } else if (item.progres_jenis === 'turun') {
+            jenisBadge = '<span style="background: #fee2e2; color: #991b1b; padding: 2px 10px; border-radius: 12px; font-size: 10px; font-weight: 600;">📉 Turun</span>';
+        } else {
+            jenisBadge = '<span style="background: #fef3c7; color: #92400e; padding: 2px 10px; border-radius: 12px; font-size: 10px; font-weight: 600;">⚖️ Normal</span>';
+        }
+        
+        // Progress bar untuk nilai
+        const maxValue = Math.max(...transaksiData.map(t => Math.abs(t.progres_jumlah || 0)), 1);
+        const absValue = Math.abs(item.progres_jumlah || 0);
+        const barPercent = Math.min((absValue / maxValue) * 100, 100);
+        const barColor = item.progres_jenis === 'naik' ? '#10b981' : (item.progres_jenis === 'turun' ? '#ef4444' : '#f59e0b');
         
         return `
-            <div class="db-item-agent" data-id="${item.id}">
-                <input type="checkbox" class="db-item-checkbox-transaksi" data-id="${item.id}" ${isChecked ? 'checked' : ''}>
-                <div class="db-item-agent-info">
-                    <h4>${escapeHtml(item.nama || item.agent_id)}</h4>
-                    <p>📱 ${escapeHtml(item.hp || '-')} | 🆔 ${escapeHtml(item.agent_id || '-')}</p>
-                    <p>${progresIcon} ${item.progres_jenis?.toUpperCase() || 'NORMAL'} | Jumlah: ${Math.abs(item.progres_jumlah || 0).toLocaleString()}</p>
-                    <p>👤 Upline: ${escapeHtml(item.upline_name || '-')}</p>
-                    <small>📅 ${item.tanggal_transaksi ? new Date(item.tanggal_transaksi).toLocaleDateString('id-ID') : '-'} | Status: ${statusBadge}</small>
+            <div class="transaksi-item-premium" data-id="${item.id}" style="
+                display: flex;
+                align-items: stretch;
+                gap: 12px;
+                padding: 14px 16px;
+                margin-bottom: 8px;
+                background: #ffffff;
+                border-radius: 14px;
+                border: 1px solid #e5e7eb;
+                cursor: pointer;
+                transition: all 0.2s ease;
+                position: relative;
+                box-shadow: 0 1px 3px rgba(0,0,0,0.04);
+            ">
+                <!-- Nomor Urut -->
+                <div style="
+                    display: flex;
+                    align-items: center;
+                    justify-content: center;
+                    min-width: 32px;
+                    font-weight: 700;
+                    font-size: 13px;
+                    color: #9ca3af;
+                    background: #f9fafb;
+                    border-radius: 8px;
+                    padding: 0 8px;
+                ">
+                    ${index + 1}
                 </div>
-                <div class="db-item-agent-actions">
-                    <button class="db-item-wa" onclick="event.stopPropagation(); openWA('${escapeHtml(item.hp || '')}')">💬 WA</button>
-                    ${item.status !== 'imported' ? `<button class="db-item-move-followup" onclick="event.stopPropagation(); moveSingleToFollowup('${item.id}')">📋 Pindah ke Followup</button>` : ''}
-                    <button class="db-item-delete" onclick="event.stopPropagation(); deleteTransaksiItem('${item.id}')">🗑️ Hapus</button>
+                
+                <!-- Checkbox -->
+                <div style="display: flex; align-items: center;">
+                    <input type="checkbox" class="transaksi-checkbox" data-id="${item.id}" ${isChecked ? 'checked' : ''} style="
+                        width: 18px;
+                        height: 18px;
+                        cursor: pointer;
+                        accent-color: #4f46e5;
+                    ">
+                </div>
+                
+                <!-- Info Utama -->
+                <div style="flex: 1; min-width: 0;">
+                    <div style="display: flex; align-items: center; gap: 10px; flex-wrap: wrap;">
+                        <span style="font-weight: 600; font-size: 14px; color: #1f2937;">${escapeHtml(item.nama || item.agent_id)}</span>
+                        <span style="font-size: 11px; color: #6b7280; background: #f3f4f6; padding: 2px 8px; border-radius: 6px;">🆔 ${escapeHtml(item.agent_id || '-')}</span>
+                        ${jenisBadge}
+                        ${statusBadge}
+                    </div>
+                    <div style="display: flex; align-items: center; gap: 12px; margin-top: 4px; flex-wrap: wrap;">
+                        <span style="font-size: 12px; color: #6b7280;">📱 ${escapeHtml(item.hp || '-')}</span>
+                        <span style="font-size: 12px; color: #6b7280;">👤 ${escapeHtml(item.upline_name || '-')}</span>
+                        <span style="font-size: 12px; color: #6b7280;">📅 ${item.tanggal_transaksi ? new Date(item.tanggal_transaksi).toLocaleDateString('id-ID') : '-'}</span>
+                    </div>
+                </div>
+                
+                <!-- Nilai dengan Progress Bar -->
+                <div style="min-width: 120px; display: flex; flex-direction: column; align-items: flex-end; gap: 4px;">
+                    <div style="font-weight: 700; font-size: 18px; color: ${barColor};">
+                        ${item.progres_jumlah > 0 ? '+' : ''}${(item.progres_jumlah || 0).toLocaleString()}
+                    </div>
+                    <div style="width: 100%; height: 4px; background: #f3f4f6; border-radius: 4px; overflow: hidden;">
+                        <div style="width: ${barPercent}%; height: 100%; background: ${barColor}; border-radius: 4px; transition: width 0.3s;"></div>
+                    </div>
+                    <span style="font-size: 9px; color: #9ca3af;">${Math.round(absValue).toLocaleString()}</span>
+                </div>
+                
+                <!-- Tombol Aksi -->
+                <div style="display: flex; align-items: center; gap: 6px; flex-shrink: 0;">
+                    <button class="transaksi-wa-btn" onclick="event.stopPropagation(); openWA('${escapeHtml(item.hp || '')}')" style="
+                        background: #25D366;
+                        color: white;
+                        border: none;
+                        border-radius: 8px;
+                        padding: 6px 10px;
+                        font-size: 12px;
+                        cursor: pointer;
+                        transition: all 0.2s;
+                    ">💬</button>
+                    ${item.status !== 'imported' ? `
+                        <button class="transaksi-move-btn" onclick="event.stopPropagation(); moveSingleToFollowup('${item.id}')" style="
+                            background: #4f46e5;
+                            color: white;
+                            border: none;
+                            border-radius: 8px;
+                            padding: 6px 10px;
+                            font-size: 11px;
+                            cursor: pointer;
+                            transition: all 0.2s;
+                            white-space: nowrap;
+                        ">📋 Pindah</button>
+                    ` : ''}
+                    <button class="transaksi-delete-btn" onclick="event.stopPropagation(); deleteTransaksiItem('${item.id}')" style="
+                        background: #fef2f2;
+                        color: #ef4444;
+                        border: none;
+                        border-radius: 8px;
+                        padding: 6px 10px;
+                        font-size: 12px;
+                        cursor: pointer;
+                        transition: all 0.2s;
+                    ">🗑️</button>
                 </div>
             </div>
         `;
     }).join('');
+
+    // ===== EVENT LISTENER UNTUK KLIK ITEM =====
+    document.querySelectorAll('.transaksi-item-premium').forEach(el => {
+        el.addEventListener('click', function(e) {
+            if (e.target.closest('input[type="checkbox"]') || 
+                e.target.closest('.transaksi-wa-btn') || 
+                e.target.closest('.transaksi-move-btn') || 
+                e.target.closest('.transaksi-delete-btn')) {
+                return;
+            }
+            const id = this.dataset.id;
+            openDetailTransaksi(id);
+        });
+        
+        // Hover effect
+        el.addEventListener('mouseenter', function() {
+            this.style.transform = 'translateY(-2px)';
+            this.style.boxShadow = '0 4px 12px rgba(0,0,0,0.08)';
+            this.style.borderColor = '#4f46e5';
+        });
+        el.addEventListener('mouseleave', function() {
+            this.style.transform = 'translateY(0)';
+            this.style.boxShadow = '0 1px 3px rgba(0,0,0,0.04)';
+            this.style.borderColor = '#e5e7eb';
+        });
+    });
     
-    document.querySelectorAll('#dbTransaksiList .db-item-checkbox-transaksi').forEach(cb => {
-        cb.addEventListener('change', (e) => {
-            const id = e.target.dataset.id;
-            if (e.target.checked) selectedTransaksiIds.set(id, true);
-            else selectedTransaksiIds.delete(id);
+    // ===== EVENT LISTENER UNTUK CHECKBOX =====
+    document.querySelectorAll('.transaksi-checkbox').forEach(cb => {
+        cb.addEventListener('change', function(e) {
+            e.stopPropagation();
+            const id = this.dataset.id;
+            if (this.checked) {
+                selectedTransaksiIds.set(id, true);
+            } else {
+                selectedTransaksiIds.delete(id);
+            }
             updateSelectAllTransaksiButton();
+            updateTransaksiSelectionCount();
         });
     });
     
     updateSelectAllTransaksiButton();
+    updateTransaksiSelectionCount();
 }
 
+// ========== UPDATE TRANSAKSI SELECTION COUNT ==========
+function updateTransaksiSelectionCount() {
+    const countSpan = document.getElementById('transaksiSelectedCount');
+    if (countSpan) {
+        countSpan.innerText = selectedTransaksiIds.size;
+    }
+}
+
+// ========== UPDATE TRANSAKSI STATS ==========
+function updateTransaksiStats() {
+    const total = transaksiData.length;
+    const imported = transaksiData.filter(t => t.status === 'imported').length;
+    const pending = transaksiData.filter(t => t.status !== 'imported').length;
+    
+    // Hitung total naik dan turun
+    let totalNaik = 0;
+    let totalTurun = 0;
+    let totalNormal = 0;
+    
+    transaksiData.forEach(t => {
+        const val = t.progres_jumlah || 0;
+        if (t.progres_jenis === 'naik') totalNaik += val;
+        else if (t.progres_jenis === 'turun') totalTurun += Math.abs(val);
+        else totalNormal += Math.abs(val);
+    });
+    
+    const statsHtml = `
+        <div style="display: flex; gap: 12px; flex-wrap: wrap; margin-bottom: 16px;">
+            <div style="background: #eef2ff; padding: 8px 16px; border-radius: 10px; display: flex; align-items: center; gap: 8px;">
+                <span style="font-weight: 600; color: #4f46e5;">📊 Total</span>
+                <span style="font-weight: 700; color: #1f2937;">${total}</span>
+            </div>
+            <div style="background: #d1fae5; padding: 8px 16px; border-radius: 10px; display: flex; align-items: center; gap: 8px;">
+                <span style="font-weight: 600; color: #065f46;">✅ Imported</span>
+                <span style="font-weight: 700; color: #1f2937;">${imported}</span>
+            </div>
+            <div style="background: #fef3c7; padding: 8px 16px; border-radius: 10px; display: flex; align-items: center; gap: 8px;">
+                <span style="font-weight: 600; color: #92400e;">⏳ Pending</span>
+                <span style="font-weight: 700; color: #1f2937;">${pending}</span>
+            </div>
+            <div style="background: #d1fae5; padding: 8px 16px; border-radius: 10px; display: flex; align-items: center; gap: 8px;">
+                <span style="font-weight: 600; color: #065f46;">📈 Naik</span>
+                <span style="font-weight: 700; color: #1f2937;">+${totalNaik.toLocaleString()}</span>
+            </div>
+            <div style="background: #fee2e2; padding: 8px 16px; border-radius: 10px; display: flex; align-items: center; gap: 8px;">
+                <span style="font-weight: 600; color: #991b1b;">📉 Turun</span>
+                <span style="font-weight: 700; color: #1f2937;">-${totalTurun.toLocaleString()}</span>
+            </div>
+            <div style="background: #fef3c7; padding: 8px 16px; border-radius: 10px; display: flex; align-items: center; gap: 8px;">
+                <span style="font-weight: 600; color: #92400e;">⚖️ Normal</span>
+                <span style="font-weight: 700; color: #1f2937;">${totalNormal.toLocaleString()}</span>
+            </div>
+        </div>
+    `;
+    
+    const statsContainer = document.getElementById('transaksiStats');
+    if (statsContainer) {
+        statsContainer.innerHTML = statsHtml;
+    }
+}
+
+// ========== OPEN DETAIL TRANSAKSI ==========
+function openDetailTransaksi(id) {
+    const item = transaksiData.find(t => t.id === id);
+    if (!item) return;
+    
+    let ownerInfo = '';
+    if (currentUserRole === 'owner' && item.user_id !== currentUser.id) {
+        window.db.from('users').select('nama').eq('id', item.user_id).single().then(({ data }) => {
+            const ownerName = data?.nama || 'CS Agent';
+            // Update owner info
+        });
+    }
+    
+    const modalHtml = `
+        <div class="modal-content" style="max-width: 500px; max-height: 85vh; overflow-y: auto;">
+            <div style="padding: 20px 24px 0;">
+                <h3 style="font-size: 20px; margin-bottom: 4px;">📊 Detail Transaksi</h3>
+                <div class="modal-subtitle" style="font-size: 13px; color: #6b7280; padding: 0 0 12px 0;">
+                    Informasi lengkap data transaksi
+                </div>
+            </div>
+            
+            <div style="padding: 0 24px 20px;">
+                <div style="background: #f9fafb; border-radius: 14px; padding: 16px;">
+                    <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 12px;">
+                        <div>
+                            <div style="font-size: 11px; color: #6b7280;">ID Agent</div>
+                            <div style="font-weight: 600; font-size: 14px; color: #1f2937;">${escapeHtml(item.agent_id || '-')}</div>
+                        </div>
+                        <div>
+                            <div style="font-size: 11px; color: #6b7280;">Nama</div>
+                            <div style="font-weight: 600; font-size: 14px; color: #1f2937;">${escapeHtml(item.nama || '-')}</div>
+                        </div>
+                        <div>
+                            <div style="font-size: 11px; color: #6b7280;">Nomor HP</div>
+                            <div style="font-weight: 600; font-size: 14px; color: #1f2937;">${escapeHtml(item.hp || '-')}</div>
+                        </div>
+                        <div>
+                            <div style="font-size: 11px; color: #6b7280;">Aplikasi</div>
+                            <div style="font-weight: 600; font-size: 14px; color: #1f2937;">${escapeHtml(item.apk || '-')}</div>
+                        </div>
+                        <div>
+                            <div style="font-size: 11px; color: #6b7280;">Upline</div>
+                            <div style="font-weight: 600; font-size: 14px; color: #1f2937;">${escapeHtml(item.upline_name || '-')}</div>
+                        </div>
+                        <div>
+                            <div style="font-size: 11px; color: #6b7280;">HP Upline</div>
+                            <div style="font-weight: 600; font-size: 14px; color: #1f2937;">${escapeHtml(item.upline_phone || '-')}</div>
+                        </div>
+                    </div>
+                </div>
+                
+                <div style="margin-top: 16px; background: #f9fafb; border-radius: 14px; padding: 16px;">
+                    <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 12px;">
+                        <div>
+                            <div style="font-size: 11px; color: #6b7280;">Jenis Progres</div>
+                            <div style="font-weight: 600; font-size: 14px; color: ${item.progres_jenis === 'naik' ? '#10b981' : (item.progres_jenis === 'turun' ? '#ef4444' : '#f59e0b')};">
+                                ${item.progres_jenis === 'naik' ? '📈 Naik' : (item.progres_jenis === 'turun' ? '📉 Turun' : '⚖️ Normal')}
+                            </div>
+                        </div>
+                        <div>
+                            <div style="font-size: 11px; color: #6b7280;">Jumlah</div>
+                            <div style="font-weight: 700; font-size: 18px; color: ${item.progres_jenis === 'naik' ? '#10b981' : (item.progres_jenis === 'turun' ? '#ef4444' : '#f59e0b')};">
+                                ${item.progres_jumlah > 0 ? '+' : ''}${(item.progres_jumlah || 0).toLocaleString()}
+                            </div>
+                        </div>
+                        <div>
+                            <div style="font-size: 11px; color: #6b7280;">Tanggal Transaksi</div>
+                            <div style="font-weight: 600; font-size: 14px; color: #1f2937;">${item.tanggal_transaksi ? new Date(item.tanggal_transaksi).toLocaleDateString('id-ID') : '-'}</div>
+                        </div>
+                        <div>
+                            <div style="font-size: 11px; color: #6b7280;">Status</div>
+                            <div style="font-weight: 600; font-size: 14px; color: #1f2937;">${item.status === 'imported' ? '✅ Sudah Dipindah' : (item.status === 'pending_import' ? '⏳ Pending' : '📋 Baru')}</div>
+                        </div>
+                    </div>
+                </div>
+                
+                ${item.user_id && currentUserRole === 'owner' ? `
+                    <div style="margin-top: 12px; font-size: 12px; color: #6b7280;">
+                        👤 Pemilik: ${item.user_id === currentUser.id ? 'Anda' : 'CS Lain'}
+                    </div>
+                ` : ''}
+            </div>
+            
+            <div class="modal-buttons" style="display: flex; gap: 12px; padding: 16px 24px 24px; border-top: 1px solid #e5e7eb;">
+                <button onclick="closeModal('detailModal')" class="btn-primary" style="flex: 1;">Tutup</button>
+                <button onclick="closeModal('detailModal'); openWA('${escapeHtml(item.hp || '')}')" class="btn-success" style="flex: 1; background: #25D366;">💬 WhatsApp</button>
+                ${item.status !== 'imported' ? `
+                    <button onclick="closeModal('detailModal'); moveSingleToFollowup('${item.id}')" class="btn-primary" style="flex: 1;">📋 Pindah ke Followup</button>
+                ` : ''}
+                <button onclick="closeModal('detailModal'); deleteTransaksiItem('${item.id}')" class="btn-danger" style="flex: 1;">🗑️ Hapus</button>
+            </div>
+        </div>
+    `;
+    
+    // Buat modal
+    const modal = document.createElement('div');
+    modal.className = 'modal';
+    modal.style.cssText = `
+        position: fixed !important;
+        top: 0 !important;
+        left: 0 !important;
+        width: 100% !important;
+        height: 100% !important;
+        background: rgba(0, 0, 0, 0.7) !important;
+        display: flex !important;
+        justify-content: center !important;
+        align-items: center !important;
+        z-index: 999999999 !important;
+        backdrop-filter: blur(5px) !important;
+        pointer-events: auto !important;
+    `;
+    modal.innerHTML = modalHtml;
+    
+    document.body.appendChild(modal);
+    document.body.classList.add('modal-open');
+    document.body.style.overflow = 'hidden';
+    
+    modal.addEventListener('click', function(e) {
+        if (e.target === this) {
+            modal.remove();
+            document.body.classList.remove('modal-open');
+            document.body.style.overflow = '';
+        }
+    });
+    
+    applyDarkModeToModal(modal);
+}
+
+// ========== SETUP TRANSAKSI FILTERS ==========
+function setupTransaksiFilters() {
+    const searchInput = document.getElementById('searchTransaksiInput');
+    const filterJenis = document.getElementById('filterTransaksiJenis');
+    const filterStatus = document.getElementById('filterTransaksiStatus');
+    const filterDateStart = document.getElementById('filterTransaksiDateStart');
+    const filterDateEnd = document.getElementById('filterTransaksiDateEnd');
+    const resetBtn = document.getElementById('resetTransaksiFilterBtn');
+    
+    const applyFilters = () => renderTransaksiList();
+    
+    if (searchInput) searchInput.addEventListener('input', applyFilters);
+    if (filterJenis) filterJenis.addEventListener('change', applyFilters);
+    if (filterStatus) filterStatus.addEventListener('change', applyFilters);
+    if (filterDateStart) filterDateStart.addEventListener('change', applyFilters);
+    if (filterDateEnd) filterDateEnd.addEventListener('change', applyFilters);
+    
+    if (resetBtn) {
+        resetBtn.addEventListener('click', function() {
+            if (searchInput) searchInput.value = '';
+            if (filterJenis) filterJenis.value = '';
+            if (filterStatus) filterStatus.value = '';
+            if (filterDateStart) filterDateStart.value = '';
+            if (filterDateEnd) filterDateEnd.value = '';
+            applyFilters();
+        });
+    }
+}
+
+// ========== UPDATE SELECT ALL TRANSAKSI ==========
 function updateSelectAllTransaksiButton() {
     const btn = document.getElementById('selectAllTransaksi');
     if (!btn) return;
-    const checkboxes = document.querySelectorAll('#dbTransaksiList .db-item-checkbox-transaksi');
+    
+    // Hanya untuk owner
+    if (currentUserRole !== 'owner') {
+        btn.style.display = 'none';
+        return;
+    }
+    btn.style.display = 'inline-block';
+    
+    const checkboxes = document.querySelectorAll('#dbTransaksiList .transaksi-checkbox');
     if (checkboxes.length === 0) {
         btn.textContent = '✅ Pilih Semua';
         return;
     }
+    
     const allChecked = Array.from(checkboxes).every(cb => cb.checked);
     btn.textContent = allChecked ? '⬜ Batal Semua' : '✅ Pilih Semua';
+}
+
+// ========== SELECT ALL TRANSAKSI ==========
+function toggleSelectAllTransaksi() {
+    if (currentUserRole !== 'owner') {
+        showNotifTop('⚠️ Hanya Owner yang dapat menggunakan fitur ini!', true);
+        return;
+    }
+    
+    const checkboxes = document.querySelectorAll('#dbTransaksiList .transaksi-checkbox');
+    if (checkboxes.length === 0) return;
+    
+    const allChecked = Array.from(checkboxes).every(cb => cb.checked);
+    checkboxes.forEach(cb => {
+        cb.checked = !allChecked;
+        const id = cb.dataset.id;
+        if (!allChecked) {
+            selectedTransaksiIds.set(id, true);
+        } else {
+            selectedTransaksiIds.delete(id);
+        }
+    });
+    
+    updateSelectAllTransaksiButton();
+    updateTransaksiSelectionCount();
+}
+
+// ========== DELETE SELECTED TRANSAKSI ==========
+async function deleteSelectedTransaksi() {
+    if (currentUserRole !== 'owner') {
+        showNotifTop('⚠️ Hanya Owner yang dapat menghapus massal!', true);
+        return;
+    }
+    
+    const selectedIds = Array.from(selectedTransaksiIds.keys());
+    if (selectedIds.length === 0) {
+        showNotifTop('⚠️ Tidak ada data yang dipilih', true);
+        return;
+    }
+    
+    if (!confirm(`Hapus ${selectedIds.length} data transaksi?`)) return;
+    
+    const progress = showFloatingProgress('🗑️ Menghapus Transaksi', selectedIds.length);
+    let deleted = 0;
+    
+    for (const id of selectedIds) {
+        try {
+            await window.db.from('db_transaksi').delete().eq('id', id);
+            selectedTransaksiIds.delete(id);
+            deleted++;
+            progress.update(Math.floor((deleted / selectedIds.length) * 100), 'Menghapus', `Memproses...`, deleted, selectedIds.length);
+            await delay(30);
+        } catch (e) {
+            console.error(`Gagal hapus ${id}:`, e);
+        }
+    }
+    
+    progress.update(100, 'Selesai', `Berhasil menghapus ${deleted} data`, deleted, selectedIds.length);
+    showNotifTop(`✅ ${deleted} data berhasil dihapus`);
+    setTimeout(() => progress.hide(), 2000);
+    
+    await loadDbTransaksi();
+}
+
+// ========== DELETE ALL TRANSAKSI ==========
+async function deleteAllTransaksi() {
+    if (currentUserRole !== 'owner') {
+        showNotifTop('⚠️ Hanya Owner yang dapat menghapus semua data!', true);
+        return;
+    }
+    
+    if (!confirm('⚠️ PERINGATAN! Anda akan menghapus SEMUA data Transaksi. Tidak bisa dibatalkan!')) return;
+    
+    const progress = showFloatingProgress('🗑️ Menghapus Semua Transaksi', 0);
+    progress.update(0, 'Menghapus', 'Mengambil data...');
+    
+    let query = window.db.from('db_transaksi').select('id');
+    if (currentUserRole !== 'owner') query = query.eq('user_id', currentUser.id);
+    
+    const { data, error } = await query;
+    if (error) {
+        showNotifTop('❌ Gagal: ' + error.message, true);
+        progress.hide();
+        return;
+    }
+    
+    const totalData = data.length;
+    progress.setTotal(totalData);
+    
+    if (totalData === 0) {
+        showNotifTop('📭 Tidak ada data untuk dihapus', true);
+        progress.hide();
+        return;
+    }
+    
+    let deleted = 0;
+    for (const item of data) {
+        try {
+            await window.db.from('db_transaksi').delete().eq('id', item.id);
+            deleted++;
+            progress.update(Math.floor((deleted / totalData) * 100), 'Menghapus', `Memproses...`, deleted, totalData);
+            await delay(20);
+        } catch (e) {
+            console.error('Gagal hapus:', e);
+        }
+    }
+    
+    selectedTransaksiIds.clear();
+    progress.update(100, 'Selesai', `Berhasil menghapus ${deleted} data`, deleted, totalData);
+    showNotifTop(`✅ ${deleted} data Transaksi berhasil dihapus`);
+    setTimeout(() => progress.hide(), 2000);
+    
+    await loadDbTransaksi();
 }
 
 async function deleteTransaksiItem(id) {
@@ -8127,6 +8664,14 @@ function initEventListeners() {
     
     // Save profile
     document.getElementById('saveProfileBtn')?.addEventListener('click', saveUserProfile);
+
+    // Transaksi filters
+    setupTransaksiFilters();
+
+    // Select All Transaksi
+    document.getElementById('selectAllTransaksi')?.addEventListener('click', toggleSelectAllTransaksi);
+    document.getElementById('deleteSelectedTransaksi')?.addEventListener('click', deleteSelectedTransaksi);
+    document.getElementById('deleteAllTransaksiBtn')?.addEventListener('click', deleteAllTransaksi);
     
     let isSubmittingCustomer = false;
     let isSubmittingProspek = false;
