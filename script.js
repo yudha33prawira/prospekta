@@ -738,9 +738,11 @@ function updateChartsForDarkMode() {
 function initSidebarHover() {
     const hoverZone = document.getElementById('hoverZone');
     const sidebar = document.getElementById('sidebar');
+    const toggleBtn = document.getElementById('toggleSidebarBtn');
     
     if (!hoverZone || !sidebar) return;
     
+    // Hover zone untuk desktop
     hoverZone.addEventListener('mouseenter', function() {
         if (window.innerWidth > 768) {
             clearTimeout(sidebarTimeout);
@@ -762,15 +764,66 @@ function initSidebarHover() {
         clearTimeout(sidebarTimeout);
     });
     
-    const toggleBtn = document.getElementById('toggleSidebarBtn');
+    // ===== PERBAIKAN: Tombol toggle dengan event listener yang benar =====
     if (toggleBtn) {
-        toggleBtn.addEventListener('click', function(e) {
-            e.stopPropagation();
-            sidebar.classList.toggle('active');
-            updateSidebarBodyClass();
-        });
+        // Hapus semua event listener lama dengan clone
+        const newToggleBtn = toggleBtn.cloneNode(true);
+        toggleBtn.parentNode.replaceChild(newToggleBtn, toggleBtn);
+        
+        // Gunakan referensi baru
+        const freshToggleBtn = document.getElementById('toggleSidebarBtn');
+        if (freshToggleBtn) {
+            freshToggleBtn.addEventListener('click', function(e) {
+                e.preventDefault();
+                e.stopPropagation();
+                
+                // Toggle sidebar
+                sidebar.classList.toggle('active');
+                updateSidebarBodyClass();
+                
+                // Log untuk debugging
+                console.log('Sidebar toggled, active:', sidebar.classList.contains('active'));
+            });
+        }
     }
+
+        // Buat overlay untuk mobile
+    const overlay = document.createElement('div');
+    overlay.id = 'sidebarOverlay';
+    overlay.style.cssText = `
+        position: fixed;
+        top: 0;
+        left: 0;
+        width: 100%;
+        height: 100%;
+        background: rgba(0, 0, 0, 0.5);
+        z-index: 999;
+        display: none;
+        pointer-events: auto;
+    `;
+    document.body.appendChild(overlay);
     
+    overlay.addEventListener('click', function() {
+        sidebar.classList.remove('active');
+        updateSidebarBodyClass();
+        overlay.style.display = 'none';
+    });
+    
+    // Update overlay saat sidebar berubah
+    const originalToggle = sidebar.classList.toggle.bind(sidebar.classList);
+    sidebar.classList.toggle = function(className, force) {
+        const result = originalToggle(className, force);
+        if (className === 'active') {
+            if (sidebar.classList.contains('active')) {
+                overlay.style.display = 'block';
+            } else {
+                overlay.style.display = 'none';
+            }
+        }
+        return result;
+    };
+    
+    // Tutup sidebar saat klik di luar (untuk mobile)
     document.addEventListener('click', function(e) {
         if (window.innerWidth <= 768 && sidebar && toggleBtn && 
             !sidebar.contains(e.target) && e.target !== toggleBtn && !toggleBtn.contains(e.target)) {
