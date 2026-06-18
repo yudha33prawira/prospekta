@@ -821,46 +821,71 @@ function initProfilePhoto() {
     const previewFoto = document.getElementById('previewFoto');
     const cameraIconBtn = document.getElementById('cameraIconBtn');
     const profileFotoInput = document.getElementById('profileFoto');
+    const previewPhotoModal = document.getElementById('previewPhotoModal');
+    const previewPhotoLarge = document.getElementById('previewPhotoLarge');
     
     if (!profileImg) return;
     
-    profileImg.addEventListener('click', () => {
+    // ===== PERBAIKAN: Foto profile di topbar =====
+    profileImg.addEventListener('click', function(e) {
+        e.preventDefault();
+        e.stopPropagation();
+        console.log('Profile image clicked'); // Debug
         loadProfileData();
         showModal('profileModal');
     });
     
+    // ===== PERBAIKAN: Foto di modal profile =====
+    if (previewFoto) {
+        // Hapus event listener lama dengan clone
+        const newPreview = previewFoto.cloneNode(true);
+        previewFoto.parentNode.replaceChild(newPreview, previewFoto);
+        
+        const freshPreview = document.getElementById('previewFoto');
+        if (freshPreview) {
+            freshPreview.addEventListener('click', function(e) {
+                e.preventDefault();
+                e.stopPropagation();
+                console.log('Preview photo clicked, src:', this.src); // Debug
+                
+                const src = this.src;
+                if (src && src !== 'https://i.pravatar.cc/100') {
+                    showPhotoPreview(src);
+                } else {
+                    showNotifTop('📸 Belum ada foto profile', true);
+                }
+            });
+            
+            // Pastikan cursor pointer
+            freshPreview.style.cursor = 'pointer';
+            freshPreview.style.pointerEvents = 'auto';
+        }
+    }
+    
+    // ===== PERBAIKAN: Tombol kamera =====
     if (cameraIconBtn) {
-        cameraIconBtn.addEventListener('click', (e) => {
+        cameraIconBtn.addEventListener('click', function(e) {
             e.preventDefault();
             e.stopPropagation();
             if (profileFotoInput) profileFotoInput.click();
         });
     }
     
-    if (previewFoto) {
-        previewFoto.addEventListener('click', (e) => {
-            e.stopPropagation();
-            showPhotoPreview(previewFoto.src);
-        });
-    }
-    
-    // ===== PERBAIKAN: Kompres gambar sebelum upload =====
+    // ===== PERBAIKAN: Input foto =====
     if (profileFotoInput) {
         profileFotoInput.addEventListener('change', function(e) {
             const file = e.target.files[0];
             if (file && file.type.startsWith('image/')) {
-                // Perbesar batas ukuran menjadi 5MB
                 if (file.size > 5 * 1024 * 1024) {
                     showNotifTop('⚠️ Ukuran foto maksimal 5MB!', true);
                     return;
                 }
                 
-                // ===== PERBAIKAN: Kompres gambar =====
                 const reader = new FileReader();
                 reader.onload = function(e) {
                     const img = new Image();
                     img.onload = function() {
-                        // Kompres ke ukuran yang lebih kecil (300x300)
+                        // Kompres gambar
                         const canvas = document.createElement('canvas');
                         const MAX_SIZE = 300;
                         let width = img.width;
@@ -885,12 +910,15 @@ function initProfilePhoto() {
                         ctx.imageSmoothingQuality = 'high';
                         ctx.drawImage(img, 0, 0, width, height);
                         
-                        // Kompres ke JPEG dengan kualitas 80%
                         const compressedDataUrl = canvas.toDataURL('image/jpeg', 0.8);
                         
-                        if (previewFoto) previewFoto.src = compressedDataUrl;
-                        if (profileImg) profileImg.src = compressedDataUrl;
-                        showNotifTop('📷 Foto berhasil dipilih (terkompresi). Klik Simpan untuk menyimpan.');
+                        const preview = document.getElementById('previewFoto');
+                        const profileImgEl = document.getElementById('profileImg');
+                        
+                        if (preview) preview.src = compressedDataUrl;
+                        if (profileImgEl) profileImgEl.src = compressedDataUrl;
+                        
+                        showNotifTop('📷 Foto berhasil dipilih. Klik Simpan untuk menyimpan.');
                     };
                     img.src = e.target.result;
                 };
@@ -900,130 +928,60 @@ function initProfilePhoto() {
             }
         });
     }
-}
-
-// ===== PERBAIKAN: Save profile dengan progress =====
-async function saveUserProfile() {
-    const nama = document.getElementById('profileName')?.value;
-    let hp = document.getElementById('profilePhone')?.value;
-    const foto = document.getElementById('previewFoto')?.src;
-    const profileImg = document.getElementById('profileImg');
-    const saveBtn = document.getElementById('saveProfileBtn');
     
-    if (!nama) {
-        showNotifTop('⚠️ Nama wajib diisi!', true);
-        return false;
-    }
-    
-    // ===== PERBAIKAN: Tampilkan loading =====
-    if (saveBtn) {
-        saveBtn.disabled = true;
-        saveBtn.textContent = '⏳ Menyimpan...';
-        saveBtn.style.opacity = '0.6';
-    }
-    
-    // Tampilkan progress di notif
-    showNotifTop('⏳ Menyimpan profile...', false);
-    
-    try {
-        // Format HP
-        if (hp) {
-            hp = hp.replace(/[^\d]/g, '');
-            if (hp.startsWith('0')) hp = hp.substring(1);
-            if (hp && !hp.startsWith('62')) hp = '62' + hp;
-            hp = '+' + hp;
+    // ===== PERBAIKAN: Modal preview foto =====
+    if (previewPhotoModal) {
+        // Hapus event listener lama
+        const closeBtn = previewPhotoModal.querySelector('.modal-buttons .btn-primary');
+        if (closeBtn) {
+            closeBtn.addEventListener('click', function() {
+                closeModal('previewPhotoModal');
+            });
         }
         
-        // ===== PERBAIKAN: Cek perubahan data =====
-        const { data: existingUser, error: fetchError } = await window.db
-            .from('users')
-            .select('*')
-            .eq('id', currentUser.id)
-            .single();
-        
-        if (fetchError && fetchError.code !== 'PGRST116') {
-            throw fetchError;
-        }
-        
-        // ===== PERBAIKAN: Upload foto ke Supabase Storage =====
-        let fotoUrl = existingUser?.foto || 'https://i.pravatar.cc/40';
-        
-        // Cek apakah foto berubah (bukan URL default)
-        if (foto && !foto.startsWith('https://i.pravatar.cc') && !foto.startsWith('http')) {
-            try {
-                // Convert base64 ke blob
-                const response = await fetch(foto);
-                const blob = await response.blob();
-                
-                // Upload ke Supabase Storage
-                const fileName = `profile_${currentUser.id}_${Date.now()}.jpg`;
-                const { data: uploadData, error: uploadError } = await window.db.storage
-                    .from('profiles')
-                    .upload(fileName, blob, {
-                        contentType: 'image/jpeg',
-                        upsert: true
-                    });
-                
-                if (uploadError) {
-                    console.warn('Upload to storage failed, using base64:', uploadError);
-                    // Jika upload gagal, gunakan base64 langsung
-                    fotoUrl = foto;
-                } else {
-                    // Dapatkan public URL
-                    const { data: publicUrlData } = window.db.storage
-                        .from('profiles')
-                        .getPublicUrl(fileName);
-                    fotoUrl = publicUrlData.publicUrl;
-                }
-            } catch (err) {
-                console.warn('Error uploading photo:', err);
-                // Fallback ke base64
-                fotoUrl = foto;
+        // Klik di luar modal
+        previewPhotoModal.addEventListener('click', function(e) {
+            if (e.target === this) {
+                closeModal('previewPhotoModal');
             }
-        }
-        
-        // ===== PERBAIKAN: Update database =====
-        const updateData = {
-            id: currentUser.id,
-            nama: nama,
-            hp: hp || null,
-            foto: fotoUrl,
-            email: currentUser.email,
-            role: existingUser?.role || 'cs',
-            updated_at: new Date().toISOString()
-        };
-        
-        const { error } = await window.db
-            .from('users')
-            .upsert(updateData);
-        
-        if (error) throw error;
-        
-        // Update UI
-        currentUserName = nama;
-        document.getElementById('topUserName').innerText = nama;
-        if (profileImg) profileImg.src = fotoUrl;
-        
-        showNotifTop('✅ Profile berhasil disimpan!');
-        closeModal('profileModal');
-        return true;
-        
-    } catch (error) {
-        console.error('Save profile error:', error);
-        showNotifTop('❌ Gagal menyimpan profile: ' + error.message, true);
-        return false;
-        
-    } finally {
-        // ===== PERBAIKAN: Reset button =====
-        if (saveBtn) {
-            saveBtn.disabled = false;
-            saveBtn.textContent = '💾 Simpan';
-            saveBtn.style.opacity = '1';
-        }
+        });
     }
 }
 
-// ===== PERBAIKAN: Load profile data dengan cepat =====
+// ===== PERBAIKAN: Fungsi showPhotoPreview =====
+function showPhotoPreview(imageUrl) {
+    console.log('showPhotoPreview called with:', imageUrl); // Debug
+    
+    if (!imageUrl || imageUrl === 'https://i.pravatar.cc/100' || imageUrl === 'https://i.pravatar.cc/40') {
+        showNotifTop('📸 Belum ada foto profile', true);
+        return;
+    }
+    
+    const previewModal = document.getElementById('previewPhotoModal');
+    const previewImage = document.getElementById('previewPhotoLarge');
+    
+    if (!previewModal) {
+        console.error('Preview modal not found');
+        showNotifTop('❌ Modal preview tidak ditemukan', true);
+        return;
+    }
+    
+    if (previewImage) {
+        previewImage.src = imageUrl;
+        previewImage.alt = 'Foto Profile';
+        previewImage.style.display = 'block';
+        previewImage.style.maxWidth = '100%';
+        previewImage.style.maxHeight = '70vh';
+        previewImage.style.objectFit = 'contain';
+        previewImage.style.borderRadius = '12px';
+        
+        console.log('Preview image set to:', imageUrl);
+    }
+    
+    showModal('previewPhotoModal');
+}
+
+// ===== PERBAIKAN: Fungsi loadProfileData =====
 function loadProfileData() {
     const profileName = document.getElementById('profileName');
     const profileEmail = document.getElementById('profileEmail');
@@ -1033,14 +991,25 @@ function loadProfileData() {
     
     if (profileName) profileName.value = currentUserName || '';
     if (profileEmail && currentUser) profileEmail.value = currentUser.email || '';
-    if (previewFoto && profileImg) previewFoto.src = profileImg.src;
     
-    // ===== PERBAIKAN: Load HP secara async tanpa blocking =====
+    // ===== PERBAIKAN: Set foto preview =====
+    if (previewFoto && profileImg) {
+        const src = profileImg.src;
+        if (src && src !== '') {
+            previewFoto.src = src;
+            previewFoto.style.display = 'block';
+            previewFoto.style.cursor = 'pointer';
+            previewFoto.style.borderRadius = '50%';
+            previewFoto.style.objectFit = 'cover';
+            previewFoto.style.width = '80px';
+            previewFoto.style.height = '80px';
+            previewFoto.style.border = '3px solid #4f46e5';
+        }
+    }
+    
+    // Load HP secara async
     if (profilePhone && currentUser) {
-        // Set default dulu
         profilePhone.value = '';
-        
-        // Load async
         window.db.from('users')
             .select('hp')
             .eq('id', currentUser.id)
