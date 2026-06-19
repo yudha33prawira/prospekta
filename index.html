@@ -215,48 +215,59 @@
                 <!-- DATABASE PAGES -->
                 <div id="dbAgentPage" class="page-content" style="display:none"><div class="db-section"><div class="db-header"><h3>👥 Database Agent</h3><div class="db-actions"><button class="db-select-all" id="selectAllAgent">✅ Pilih Semua</button><button class="db-delete-selected" id="deleteSelectedAgent">🗑️ Hapus Terpilih</button><button class="db-delete-all" id="deleteAllAgent">🗑️ Hapus Semua</button><button class="db-import-excel" id="importAgentExcelBtn">📥 Import Excel</button><button class="db-export-excel" id="exportAgentExcelBtn">📤 Export Excel</button></div></div><div id="dbAgentList" class="db-list"></div></div></div>
 
-<div id="dbTransaksiPage" class="page-content" style="display:none">
-    <div class="db-section">
-        <div class="db-header">
-            <h3>📊 Database Transaksi</h3>
-            <div class="db-actions">
-                <button class="db-select-all" id="selectAllTransaksi">✅ Pilih Semua</button>
-                <button class="db-delete-selected" id="deleteSelectedTransaksi">🗑️ Hapus Terpilih</button>
-                <button class="db-move-followup" id="moveSelectedToFollowupBtn">📋 Pindah ke Followup</button>
-                <button class="db-delete-all" id="deleteAllTransaksiBtn">🗑️ Hapus Semua</button>
-                <button class="add-btn" id="viewTransaksiHistoryBtn">📋 Riwayat Transaksi</button>
-            </div>
-        </div>
-        
-        <!-- ===== STATS ===== -->
-        <div id="transaksiStats"></div>
-        
-        <!-- ===== FILTERS ===== -->
-        <div class="filter-container" style="display: flex; gap: 10px; flex-wrap: wrap; margin-bottom: 16px; padding: 14px 18px; background: #f8fafc; border-radius: 14px; align-items: center; border: 1px solid #e5e7eb;">
-            <div style="display: flex; align-items: center; gap: 6px;">
-                <span style="font-size: 13px; color: #6b7280;">🔍</span>
-                <input type="text" id="searchTransaksiInput" placeholder="Cari nama/agent..." style="padding: 8px 14px; border: 1.5px solid #e5e7eb; border-radius: 10px; font-size: 13px; width: 180px; background: #fff; transition: all 0.3s;">
-            </div>
-            <select id="filterTransaksiJenis" style="padding: 8px 14px; border: 1.5px solid #e5e7eb; border-radius: 10px; font-size: 13px; background: #fff;">
-                <option value="">📊 Semua Jenis</option>
-                <option value="naik">📈 Naik</option>
-                <option value="turun">📉 Turun</option>
-                <option value="normal">⚖️ Normal</option>
-                <option value="tidak_transaksi">🚫 Tidak Transaksi</option>
-            </select>
-            <select id="filterTransaksiStatus" style="padding: 8px 14px; border: 1.5px solid #e5e7eb; border-radius: 10px; font-size: 13px; background: #fff;">
-                <option value="">📋 Semua Status</option>
-                <option value="imported">✅ Sudah Dipindah</option>
-                <option value="pending_import">⏳ Pending</option>
-            </select>
-            <input type="text" id="filterTransaksiUpline" placeholder="👤 Cari Upline..." style="padding: 8px 14px; border: 1.5px solid #e5e7eb; border-radius: 10px; font-size: 13px; width: 150px; background: #fff;">
-            <button id="resetTransaksiFilterBtn" style="padding: 8px 16px; background: #f1f5f9; border: 1.5px solid #e5e7eb; border-radius: 10px; cursor: pointer; font-size: 13px; font-weight: 500; color: #475569; transition: all 0.3s;">🔄 Reset</button>
-        </div>
-        
-        <!-- ===== LIST ===== -->
-        <div id="dbTransaksiList" class="db-list" style="max-height: 550px; overflow-y: auto;"></div>
-    </div>
-</div>
+                <!-- Database Transaksi Page -->
+                <div id="dbTransaksiPage" class="page-content" style="display:none">
+                    <div class="db-section">
+                        <div class="db-header">
+                            <h3>📊 Database Transaksi</h3>
+                            <div class="db-actions">
+                                <button class="db-select-all" id="selectAllTransaksi">✅ Pilih Semua</button>
+                                <button class="db-delete-selected" id="deleteSelectedTransaksi">🗑️ Hapus Terpilih</button>
+                                <button class="db-move-followup" id="moveSelectedToFollowupBtn">📋 Pindah ke Followup</button>
+                                <button class="db-delete-all" id="deleteAllTransaksiBtn">🗑️ Hapus Semua</button>
+                                <button class="add-btn" id="viewTransaksiHistoryBtn">📋 Riwayat Transaksi</button>
+                            </div>
+                        </div>
+                        
+                        <!-- ===== STATS ===== -->
+                        <div id="transaksiStats"></div>
+                        
+                        <!-- ===== FILTERS ===== -->
+                        <div class="filter-container" style="display: flex; gap: 10px; flex-wrap: wrap; margin-bottom: 16px; padding: 14px 18px; background: #f8fafc; border-radius: 14px; align-items: center; border: 1px solid #e5e7eb;">
+                            <div style="display: flex; align-items: center; gap: 6px;">
+                                <span style="font-size: 13px; color: #6b7280;">🔍</span>
+                                <input type="text" id="searchTransaksiInput" placeholder="Cari nama/agent..." style="padding: 8px 14px; border: 1.5px solid #e5e7eb; border-radius: 10px; font-size: 13px; width: 180px; background: #fff; transition: all 0.3s;">
+                            </div>
+                            <select id="filterTransaksiJenis" style="padding: 8px 14px; border: 1.5px solid #e5e7eb; border-radius: 10px; font-size: 13px; background: #fff;">
+                                <option value="">📊 Semua Jenis</option>
+                                <option value="naik">📈 Naik</option>
+                                <option value="turun">📉 Turun</option>
+                                <option value="normal">⚖️ Normal</option>
+                                <option value="tidak_transaksi">🚫 Tidak Transaksi</option>
+                            </select>
+                            <select id="filterTransaksiStatus" style="padding: 8px 14px; border: 1.5px solid #e5e7eb; border-radius: 10px; font-size: 13px; background: #fff;">
+                                <option value="">📋 Semua Status</option>
+                                <option value="imported">✅ Sudah Dipindah</option>
+                                <option value="pending_import">⏳ Pending</option>
+                            </select>
+                            <input type="text" id="filterTransaksiUpline" placeholder="👤 Cari Upline..." style="padding: 8px 14px; border: 1.5px solid #e5e7eb; border-radius: 10px; font-size: 13px; width: 150px; background: #fff;">
+                            <button id="resetTransaksiFilterBtn" style="padding: 8px 16px; background: #f1f5f9; border: 1.5px solid #e5e7eb; border-radius: 10px; cursor: pointer; font-size: 13px; font-weight: 500; color: #475569; transition: all 0.3s;">🔄 Reset</button>
+                        </div>
+                        
+                        <!-- ===== TOTAL INFO (YANG HILANG) ===== -->
+                        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 14px; padding: 0 4px; flex-wrap: wrap; gap: 8px;">
+                            <div style="font-size: 14px; color: #64748b;">
+                                📊 Menampilkan <strong id="transaksiTotalCount" style="color: #1e293b; font-weight: 700;">0</strong> dari <strong id="transaksiTotalAll" style="color: #1e293b; font-weight: 700;">0</strong> data
+                            </div>
+                            <div style="display: flex; gap: 16px; font-size: 14px; color: #64748b; flex-wrap: wrap;">
+                                <span>✅ Terpilih: <strong id="transaksiSelectedCount" style="color: #4f46e5; font-weight: 700;">0</strong></span>
+                            </div>
+                        </div>
+                        
+                        <!-- ===== LIST ===== -->
+                        <div id="dbTransaksiList" class="db-list" style="max-height: 550px; overflow-y: auto;"></div>
+                    </div>
+                </div>
                 
                 <div id="dbClosingPage" class="page-content" style="display:none"><div class="db-section"><div class="db-header"><h3>📁 Database Closing</h3><div class="db-actions"><button class="db-select-all" id="selectAllClosing">✅ Pilih Semua</button><button class="db-delete-selected" id="deleteSelectedClosing">🗑️ Hapus Terpilih</button><button class="db-delete-all" id="deleteAllClosing">🗑️ Hapus Semua</button></div></div><div id="dbClosingList" class="db-list"></div></div></div>
 
