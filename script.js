@@ -9880,63 +9880,54 @@ function initEventListeners() {
     document.getElementById('saveProfileBtn')?.addEventListener('click', saveUserProfile);
 
     // ===== PERBAIKAN: HANYA 1 EVENT LISTENER UNTUK SELECT ALL =====
-    const selectAllBtn = document.getElementById('selectAllTransaksi');
-    if (selectAllBtn) {
-        // Hapus semua listener dengan clone
-        const newSelectAll = selectAllBtn.cloneNode(true);
-        selectAllBtn.parentNode.replaceChild(newSelectAll, selectAllBtn);
-        document.getElementById('selectAllTransaksi')?.addEventListener('click', toggleSelectAllTransaksi);
+    // Gunakan blok scope { } untuk menghindari duplikasi variabel
+    {
+        const selectAllBtn = document.getElementById('selectAllTransaksi');
+        if (selectAllBtn) {
+            // Hapus semua listener dengan clone
+            const newSelectAll = selectAllBtn.cloneNode(true);
+            selectAllBtn.parentNode.replaceChild(newSelectAll, selectAllBtn);
+            document.getElementById('selectAllTransaksi')?.addEventListener('click', toggleSelectAllTransaksi);
+        }
     }
     
     // ===== PERBAIKAN: HANYA 1 EVENT LISTENER UNTUK DELETE SELECTED =====
-    const deleteSelectedBtn = document.getElementById('deleteSelectedTransaksi'); // ← ID yang benar!
-    if (deleteSelectedBtn) {
-        const newDeleteSelected = deleteSelectedBtn.cloneNode(true);
-        deleteSelectedBtn.parentNode.replaceChild(newDeleteSelected, deleteSelectedBtn);
-        document.getElementById('deleteSelectedTransaksi')?.addEventListener('click', function(e) {
-            e.preventDefault();
-            e.stopPropagation();
-            deleteSelectedTransaksi();
-        });
-    }
-
-    // ===== PERBAIKAN: HANYA 1 EVENT LISTENER UNTUK SELECT ALL =====
-    const selectAllBtn = document.getElementById('selectAllTransaksi');
-    if (selectAllBtn) {
-        const newSelectAll = selectAllBtn.cloneNode(true);
-        selectAllBtn.parentNode.replaceChild(newSelectAll, selectAllBtn);
-        document.getElementById('selectAllTransaksi')?.addEventListener('click', function(e) {
-            e.preventDefault();
-            e.stopPropagation();
-            toggleSelectAllTransaksi();
-        });
-    }
-    
-    // ===== PERBAIKAN: HAPUS/HIDE TOMBOL "Hapus Semua" =====
-    const deleteAllBtn = document.getElementById('deleteAllTransaksiBtn');
-    if (deleteAllBtn) {
-        deleteAllBtn.style.display = 'none';
+    {
+        const deleteSelectedBtn = document.getElementById('deleteSelectedTransaksi'); // ← ID yang benar!
+        if (deleteSelectedBtn) {
+            const newDeleteSelected = deleteSelectedBtn.cloneNode(true);
+            deleteSelectedBtn.parentNode.replaceChild(newDeleteSelected, deleteSelectedBtn);
+            document.getElementById('deleteSelectedTransaksi')?.addEventListener('click', function(e) {
+                e.preventDefault();
+                e.stopPropagation();
+                deleteSelectedTransaksi();
+            });
+        }
     }
     
     // ===== PERBAIKAN: HANYA 1 EVENT LISTENER UNTUK MOVE SELECTED =====
-    const moveSelectedBtn = document.getElementById('moveSelectedToFollowupBtn');
-    if (moveSelectedBtn) {
-        const newMoveSelected = moveSelectedBtn.cloneNode(true);
-        moveSelectedBtn.parentNode.replaceChild(newMoveSelected, moveSelectedBtn);
-        document.getElementById('moveSelectedToFollowupBtn')?.addEventListener('click', moveSelectedToFollowup);
+    {
+        const moveSelectedBtn = document.getElementById('moveSelectedToFollowupBtn');
+        if (moveSelectedBtn) {
+            const newMoveSelected = moveSelectedBtn.cloneNode(true);
+            moveSelectedBtn.parentNode.replaceChild(newMoveSelected, moveSelectedBtn);
+            document.getElementById('moveSelectedToFollowupBtn')?.addEventListener('click', moveSelectedToFollowup);
+        }
     }
     
     // ===== PERBAIKAN: HANYA 1 EVENT LISTENER UNTUK RIWAYAT =====
-    const historyBtn = document.getElementById('viewTransaksiHistoryBtn');
-    if (historyBtn) {
-        const newHistoryBtn = historyBtn.cloneNode(true);
-        historyBtn.parentNode.replaceChild(newHistoryBtn, historyBtn);
-        document.getElementById('viewTransaksiHistoryBtn')?.addEventListener('click', function(e) {
-            e.preventDefault();
-            e.stopPropagation();
-            loadRiwayatTransaksi();
-            showModal('riwayatTransaksiModal');
-        });
+    {
+        const historyBtn = document.getElementById('viewTransaksiHistoryBtn');
+        if (historyBtn) {
+            const newHistoryBtn = historyBtn.cloneNode(true);
+            historyBtn.parentNode.replaceChild(newHistoryBtn, historyBtn);
+            document.getElementById('viewTransaksiHistoryBtn')?.addEventListener('click', function(e) {
+                e.preventDefault();
+                e.stopPropagation();
+                loadRiwayatTransaksi();
+                showModal('riwayatTransaksiModal');
+            });
+        }
     }
     
     // Transaksi filters - setup sekali
@@ -10140,41 +10131,45 @@ function initEventListeners() {
     });
     document.getElementById('cancelTransaksiBtn')?.addEventListener('click', () => closeModal('inputTransaksiModal'));
     document.getElementById('viewTransaksiHistoryBtn')?.addEventListener('click', function() {
-    loadRiwayatTransaksi();
-    showModal('riwayatTransaksiModal');
-});
+        loadRiwayatTransaksi();
+        showModal('riwayatTransaksiModal');
+    });
     
     // Info modal
     document.getElementById('infoBtn')?.addEventListener('click', () => showModal('infoModal'));
     document.getElementById('infoModalClose')?.addEventListener('click', () => closeModal('infoModal'));
     
     // Deadline notification
-    const deadlineBtn = document.getElementById('deadlineNotifBtn');
-    if (deadlineBtn) {
-        const newDeadlineBtn = deadlineBtn.cloneNode(true);
-        deadlineBtn.parentNode.replaceChild(newDeadlineBtn, deadlineBtn);
-        const freshDeadlineBtn = document.getElementById('deadlineNotifBtn');
-        if (freshDeadlineBtn) {
-            freshDeadlineBtn.addEventListener('click', function(e) {
-                e.preventDefault();
-                e.stopPropagation();
-                showDeadlinePopup();
-            });
+    {
+        const deadlineBtn = document.getElementById('deadlineNotifBtn');
+        if (deadlineBtn) {
+            const newDeadlineBtn = deadlineBtn.cloneNode(true);
+            deadlineBtn.parentNode.replaceChild(newDeadlineBtn, deadlineBtn);
+            const freshDeadlineBtn = document.getElementById('deadlineNotifBtn');
+            if (freshDeadlineBtn) {
+                freshDeadlineBtn.addEventListener('click', function(e) {
+                    e.preventDefault();
+                    e.stopPropagation();
+                    showDeadlinePopup();
+                });
+            }
         }
     }
     
     // ===== Pesan Notification =====
-    const pesanBtn = document.getElementById('pesanNotifBtn');
-    if (pesanBtn) {
-        const newPesanBtn = pesanBtn.cloneNode(true);
-        pesanBtn.parentNode.replaceChild(newPesanBtn, pesanBtn);
-        const freshPesanBtn = document.getElementById('pesanNotifBtn');
-        if (freshPesanBtn) {
-            freshPesanBtn.addEventListener('click', function(e) {
-                e.preventDefault();
-                e.stopPropagation();
-                navigateTo('pesan');
-            });
+    {
+        const pesanBtn = document.getElementById('pesanNotifBtn');
+        if (pesanBtn) {
+            const newPesanBtn = pesanBtn.cloneNode(true);
+            pesanBtn.parentNode.replaceChild(newPesanBtn, pesanBtn);
+            const freshPesanBtn = document.getElementById('pesanNotifBtn');
+            if (freshPesanBtn) {
+                freshPesanBtn.addEventListener('click', function(e) {
+                    e.preventDefault();
+                    e.stopPropagation();
+                    navigateTo('pesan');
+                });
+            }
         }
     }
     
@@ -10269,6 +10264,7 @@ function initEventListeners() {
     document.getElementById('deleteAllProduk')?.addEventListener('click', deleteAllProduk);
     document.getElementById('deleteSelectedAgent')?.addEventListener('click', () => deleteSelectedDBItems('db_agent', selectedAgentIds, loadDatabaseAgent));
     document.getElementById('deleteAllAgent')?.addEventListener('click', () => deleteAllDBItems('db_agent', loadDatabaseAgent));
+    document.getElementById('deleteSelectedTransaksi')?.addEventListener('click', () => deleteSelectedDBItems('db_transaksi', selectedTransaksiIds, loadDbTransaksi));
     document.getElementById('deleteAllTransaksiBtn')?.addEventListener('click', () => deleteAllDBItems('db_transaksi', loadDbTransaksi));
     document.getElementById('moveSelectedToFollowupBtn')?.addEventListener('click', async () => {
         const selectedIds = Array.from(selectedTransaksiIds.keys());
