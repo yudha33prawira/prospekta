@@ -4996,13 +4996,14 @@ function renderTransaksiList() {
     if (!container) return;
     
     // Filter data
-    const searchTerm = document.getElementById('searchTransaksiInput')?.value.toLowerCase() || '';
+    const searchTerm = document.getElementById('searchTransaksiInput')?.value.toLowerCase().trim() || '';
     const filterJenis = document.getElementById('filterTransaksiJenis')?.value || '';
     const filterStatus = document.getElementById('filterTransaksiStatus')?.value || '';
-    const filterUpline = document.getElementById('filterTransaksiUpline')?.value.toLowerCase() || '';
+    const filterUpline = document.getElementById('filterTransaksiUpline')?.value.toLowerCase().trim() || '';
     
     let filtered = [...transaksiData];
     
+    // ===== FILTER SEARCH TERM =====
     if (searchTerm) {
         filtered = filtered.filter(item =>
             (item.nama && String(item.nama).toLowerCase().includes(searchTerm)) ||
@@ -5011,32 +5012,61 @@ function renderTransaksiList() {
         );
     }
     
+    // ===== FILTER JENIS =====
     if (filterJenis) {
         filtered = filtered.filter(item => item.progres_jenis === filterJenis);
     }
     
+    // ===== FILTER STATUS =====
     if (filterStatus) {
         filtered = filtered.filter(item => item.status === filterStatus);
     }
     
+    // ===== FILTER UPLINE (CASE INSENSITIVE + MULTI FIELD) =====
     if (filterUpline) {
-        filtered = filtered.filter(item => 
-            item.upline_name && String(item.upline_name).toLowerCase().includes(filterUpline)
-        );
+        filtered = filtered.filter(item => {
+            // Cek di upline_name (case insensitive)
+            if (item.upline_name && String(item.upline_name).toLowerCase().includes(filterUpline)) {
+                return true;
+            }
+            // Cek di upline_phone (case insensitive)
+            if (item.upline_phone && String(item.upline_phone).toLowerCase().includes(filterUpline)) {
+                return true;
+            }
+            // Cek di upline (field alternatif)
+            if (item.upline && String(item.upline).toLowerCase().includes(filterUpline)) {
+                return true;
+            }
+            // Cek di upline_phone (tanpa +62)
+            if (item.upline_phone) {
+                const cleanPhone = String(item.upline_phone).replace(/[^0-9]/g, '');
+                const searchClean = filterUpline.replace(/[^0-9]/g, '');
+                if (searchClean && cleanPhone.includes(searchClean)) {
+                    return true;
+                }
+            }
+            return false;
+        });
     }
     
-    // ===== UPDATE STATISTIK DARI SEMUA DATA (TIDAK TERPENGARUH FILTER) =====
+    // ===== UPDATE STATISTIK DARI SEMUA DATA =====
     updateTransaksiStats(transaksiData);
     
-    // ===== UPDATE "Menampilkan X dari Y data" SESUAI FILTER =====
+    // ===== UPDATE "Menampilkan X dari Y data" =====
     const totalCountSpan = document.getElementById('transaksiTotalCount');
     if (totalCountSpan) {
-        totalCountSpan.innerText = filtered.length; // <- JUMLAH DATA SETELAH FILTER
+        totalCountSpan.innerText = filtered.length;
     }
     
     const totalAllSpan = document.getElementById('transaksiTotalAll');
     if (totalAllSpan) {
-        totalAllSpan.innerText = transaksiData.length; // <- TOTAL SEMUA DATA
+        totalAllSpan.innerText = transaksiData.length;
+    }
+    
+    // ===== UPDATE "✅ Terpilih: X" =====
+    const selectedCountSpan = document.getElementById('transaksiSelectedCount');
+    if (selectedCountSpan) {
+        selectedCountSpan.innerText = selectedTransaksiIds.size;
     }
     
     // ===== UPDATE JUMLAH TERPILIH =====
@@ -5191,22 +5221,19 @@ function renderTransaksiList() {
         }
     });
     
-    freshContainer.addEventListener('change', function(e) {
-        if (e.target.classList.contains('transaksi-checkbox')) {
-            const id = e.target.dataset.id;
-            if (e.target.checked) {
-                selectedTransaksiIds.set(id, true);
-            } else {
-                selectedTransaksiIds.delete(id);
-            }
-            updateSelectAllTransaksiButton();
-            updateTransaksiSelectionCount();
+// Di dalam event listener checkbox
+freshContainer.addEventListener('change', function(e) {
+    if (e.target.classList.contains('transaksi-checkbox')) {
+        const id = e.target.dataset.id;
+        if (e.target.checked) {
+            selectedTransaksiIds.set(id, true);
+        } else {
+            selectedTransaksiIds.delete(id);
         }
-    });
-    
-    updateSelectAllTransaksiButton();
-    updateTransaksiSelectionCount();
-}
+        updateSelectAllTransaksiButton();
+        updateTransaksiSelectionCount();
+    }
+});
 
 // ===== HANDLE TRANSAKSI CHECKBOX CHANGE =====
 function handleTransaksiCheckboxChange(e) {
@@ -5522,30 +5549,48 @@ function setupTransaksiFilters() {
     const searchInput = document.getElementById('searchTransaksiInput');
     const filterJenis = document.getElementById('filterTransaksiJenis');
     const filterStatus = document.getElementById('filterTransaksiStatus');
-    const filterDateStart = document.getElementById('filterTransaksiDateStart');
-    const filterDateEnd = document.getElementById('filterTransaksiDateEnd');
+    const filterUpline = document.getElementById('filterTransaksiUpline'); // <-- PASTIKAN INI
     const resetBtn = document.getElementById('resetTransaksiFilterBtn');
     
     const applyFilters = () => renderTransaksiList();
     
-    if (searchInput) searchInput.addEventListener('input', applyFilters);
-    if (filterJenis) filterJenis.addEventListener('change', applyFilters);
-    if (filterStatus) filterStatus.addEventListener('change', applyFilters);
-    if (filterDateStart) filterDateStart.addEventListener('change', applyFilters);
-    if (filterDateEnd) filterDateEnd.addEventListener('change', applyFilters);
+    if (searchInput) {
+        searchInput.removeEventListener('input', applyFilters);
+        searchInput.addEventListener('input', applyFilters);
+    }
+    if (filterJenis) {
+        filterJenis.removeEventListener('change', applyFilters);
+        filterJenis.addEventListener('change', applyFilters);
+    }
+    if (filterStatus) {
+        filterStatus.removeEventListener('change', applyFilters);
+        filterStatus.addEventListener('change', applyFilters);
+    }
+    if (filterUpline) {
+        filterUpline.removeEventListener('input', applyFilters); // <-- INPUT, BUKAN CHANGE
+        filterUpline.addEventListener('input', applyFilters);
+    }
     
     if (resetBtn) {
-        resetBtn.addEventListener('click', function() {
-            if (searchInput) searchInput.value = '';
-            if (filterJenis) filterJenis.value = '';
-            if (filterStatus) filterStatus.value = '';
-            if (filterDateStart) filterDateStart.value = '';
-            if (filterDateEnd) filterDateEnd.value = '';
-            applyFilters();
-        });
+        resetBtn.removeEventListener('click', resetFilters);
+        resetBtn.addEventListener('click', resetFilters);
     }
 }
 
+function resetFilters() {
+    const searchInput = document.getElementById('searchTransaksiInput');
+    const filterJenis = document.getElementById('filterTransaksiJenis');
+    const filterStatus = document.getElementById('filterTransaksiStatus');
+    const filterUpline = document.getElementById('filterTransaksiUpline');
+    
+    if (searchInput) searchInput.value = '';
+    if (filterJenis) filterJenis.value = '';
+    if (filterStatus) filterStatus.value = '';
+    if (filterUpline) filterUpline.value = '';
+    
+    renderTransaksiList();
+}
+    
 // ========== UPDATE SELECT ALL TRANSAKSI ==========
 function updateSelectAllTransaksiButton() {
     const btn = document.getElementById('selectAllTransaksi');
