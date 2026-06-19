@@ -5971,7 +5971,7 @@ async function moveSelectedToFollowup() {
     }
 }
 
-// ========== DELETE SELECTED TRANSAKSI ==========
+// ========== DELETE SELECTED TRANSAKSI (REALTIME) ==========
 let isDeletingSelectedTransaksi = false;
 
 async function deleteSelectedTransaksi() {
@@ -5991,7 +5991,6 @@ async function deleteSelectedTransaksi() {
         return;
     }
     
-    // Hanya 1 kali konfirmasi
     if (!confirm(`Hapus ${selectedIds.length} data transaksi yang dipilih?`)) {
         return;
     }
@@ -5999,32 +5998,56 @@ async function deleteSelectedTransaksi() {
     isDeletingSelectedTransaksi = true;
     const progress = showFloatingProgress('🗑️ Menghapus Transaksi', selectedIds.length);
     let deleted = 0;
+    let failed = 0;
     
     try {
         for (const id of selectedIds) {
             try {
-                await window.db.from('db_transaksi').delete().eq('id', id);
-                selectedTransaksiIds.delete(id);
+                // Hapus dari database
+                const { error } = await window.db.from('db_transaksi').delete().eq('id', id);
+                if (error) {
+                    console.error(`Gagal hapus ${id}:`, error);
+                    failed++;
+                    continue;
+                }
                 
-                // Hapus dari data lokal
+                // ===== PERBAIKAN: Hapus dari data lokal SECARA LANGSUNG =====
                 const index = transaksiData.findIndex(t => t.id === id);
                 if (index !== -1) {
                     transaksiData.splice(index, 1);
                 }
                 
+                // Hapus dari selected
+                selectedTransaksiIds.delete(id);
                 deleted++;
-                progress.update(Math.floor((deleted / selectedIds.length) * 100), 'Menghapus', `Memproses...`, deleted, selectedIds.length);
-                await delay(30);
+                
+                // ===== UPDATE UI SECARA REALTIME =====
+                const percent = Math.floor((deleted / selectedIds.length) * 100);
+                progress.update(percent, '🗑️ Menghapus', `Menghapus data... (${deleted}/${selectedIds.length})`, deleted, selectedIds.length);
+                
+                // ===== RE-RENDER SETIAP 5 DATA UNTUK REALTIME =====
+                if (deleted % 5 === 0 || deleted === selectedIds.length) {
+                    renderTransaksiList();
+                    updateTransaksiStats(transaksiData);
+                }
+                
+                // Delay kecil agar UI terasa smooth
+                await delay(50);
+                
             } catch (e) {
                 console.error(`Gagal hapus ${id}:`, e);
+                failed++;
             }
         }
         
-        progress.update(100, 'Selesai', `Berhasil menghapus ${deleted} data`, deleted, selectedIds.length);
-        showNotifTop(`✅ ${deleted} data berhasil dihapus`);
-        
+        // ===== FINAL REFRESH =====
         renderTransaksiList();
-        updateTransaksiStats();
+        updateTransaksiStats(transaksiData);
+        updateSelectAllTransaksiButton();
+        updateTransaksiSelectionCount();
+        
+        progress.update(100, '✅ Selesai', `Berhasil: ${deleted}, Gagal: ${failed}`, deleted, selectedIds.length);
+        showNotifTop(`✅ ${deleted} data berhasil dihapus${failed > 0 ? `, ${failed} gagal` : ''}`);
         
     } catch (err) {
         console.error('Error delete selected:', err);
@@ -6035,7 +6058,7 @@ async function deleteSelectedTransaksi() {
     }
 }
 
-// ========== DELETE ALL TRANSAKSI ==========
+// ========== DELETE ALL TRANSAKSI (REALTIME) ==========
 let isDeletingAllTransaksi = false;
 
 async function deleteAllTransaksi() {
@@ -6049,57 +6072,71 @@ async function deleteAllTransaksi() {
         return;
     }
     
-    // Hanya 1 kali konfirmasi
     if (!confirm('⚠️ PERINGATAN! Anda akan menghapus SEMUA data Transaksi. Tidak bisa dibatalkan!\n\nYakin ingin melanjutkan?')) {
         return;
     }
     
     isDeletingAllTransaksi = true;
-    const progress = showFloatingProgress('🗑️ Menghapus Semua Transaksi', 0);
-    progress.update(0, 'Menghapus', 'Mengambil data...');
+    
+    // Ambil semua ID yang akan dihapus
+    const idsToDelete = transaksiData.map(t => t.id);
+    const totalData = idsToDelete.length;
+    
+    if (totalData === 0) {
+        showNotifTop('📭 Tidak ada data untuk dihapus', true);
+        isDeletingAllTransaksi = false;
+        return;
+    }
+    
+    const progress = showFloatingProgress('🗑️ Menghapus Semua Transaksi', totalData);
+    let deleted = 0;
+    let failed = 0;
     
     try {
-        let query = window.db.from('db_transaksi').select('id');
-        if (currentUserRole !== 'owner') query = query.eq('user_id', currentUser.id);
-        
-        const { data, error } = await query;
-        if (error) {
-            showNotifTop('❌ Gagal: ' + error.message, true);
-            progress.hide();
-            isDeletingAllTransaksi = false;
-            return;
-        }
-        
-        const totalData = data.length;
-        progress.setTotal(totalData);
-        
-        if (totalData === 0) {
-            showNotifTop('📭 Tidak ada data untuk dihapus', true);
-            progress.hide();
-            isDeletingAllTransaksi = false;
-            return;
-        }
-        
-        let deleted = 0;
-        for (const item of data) {
+        for (const id of idsToDelete) {
             try {
-                await window.db.from('db_transaksi').delete().eq('id', item.id);
+                // Hapus dari database
+                const { error } = await window.db.from('db_transaksi').delete().eq('id', id);
+                if (error) {
+                    console.error(`Gagal hapus ${id}:`, error);
+                    failed++;
+                    continue;
+                }
+                
+                // ===== PERBAIKAN: Hapus dari data lokal =====
+                const index = transaksiData.findIndex(t => t.id === id);
+                if (index !== -1) {
+                    transaksiData.splice(index, 1);
+                }
+                
+                selectedTransaksiIds.delete(id);
                 deleted++;
-                progress.update(Math.floor((deleted / totalData) * 100), 'Menghapus', `Memproses...`, deleted, totalData);
-                await delay(20);
+                
+                // ===== UPDATE UI REALTIME =====
+                const percent = Math.floor((deleted / totalData) * 100);
+                progress.update(percent, '🗑️ Menghapus', `Menghapus data... (${deleted}/${totalData})`, deleted, totalData);
+                
+                if (deleted % 10 === 0 || deleted === totalData) {
+                    renderTransaksiList();
+                    updateTransaksiStats(transaksiData);
+                }
+                
+                await delay(30);
+                
             } catch (e) {
-                console.error('Gagal hapus:', e);
+                console.error(`Gagal hapus ${id}:`, e);
+                failed++;
             }
         }
         
-        selectedTransaksiIds.clear();
-        transaksiData = [];
-        
-        progress.update(100, 'Selesai', `Berhasil menghapus ${deleted} data`, deleted, totalData);
-        showNotifTop(`✅ ${deleted} data Transaksi berhasil dihapus`);
-        
+        // ===== FINAL REFRESH =====
         renderTransaksiList();
-        updateTransaksiStats();
+        updateTransaksiStats(transaksiData);
+        updateSelectAllTransaksiButton();
+        updateTransaksiSelectionCount();
+        
+        progress.update(100, '✅ Selesai', `Berhasil: ${deleted}, Gagal: ${failed}`, deleted, totalData);
+        showNotifTop(`✅ ${deleted} data Transaksi berhasil dihapus${failed > 0 ? `, ${failed} gagal` : ''}`);
         
     } catch (err) {
         console.error('Error delete all:', err);
@@ -9536,6 +9573,34 @@ function initBadges() {
             pesanBadge.classList.add('badge-active');
         }
     }
+}
+
+// ========== SYNC TRANSAKSI DATA ==========
+async function syncTransaksiData() {
+    if (!currentUser) return;
+    
+    let query = window.db.from('db_transaksi').select('*');
+    if (currentUserRole !== 'owner') {
+        query = query.eq('user_id', currentUser.id);
+    }
+    
+    const { data, error } = await query.limit(5000).order('created_at', { ascending: false });
+    if (error) {
+        console.error('Error syncing transaksi:', error);
+        return;
+    }
+    
+    transaksiData = data || [];
+    renderTransaksiList();
+    updateTransaksiStats(transaksiData);
+    updateSelectAllTransaksiButton();
+    updateTransaksiSelectionCount();
+}
+
+// Panggil setelah hapus atau import
+async function loadDbTransaksi() {
+    await syncTransaksiData();
+    updateTargetDisplay();
 }
 
 // ======================================================================
