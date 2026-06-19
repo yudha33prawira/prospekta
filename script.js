@@ -5223,24 +5223,38 @@ function handleTransaksiCheckboxChange(e) {
 // ========== UPDATE TRANSAKSI TOTALS ==========
 function updateTransaksiTotals(filteredData) {
     const data = filteredData || transaksiData;
-    let totalNaik = 0;
-    let totalTurun = 0;
-    let totalNormal = 0;
-    let totalTidak = 0;
+    
+    // ===== HITUNG JUMLAH AGENT PER KATEGORI =====
+    let totalNaik = 0;      // JUMLAH AGENT yang naik
+    let totalTurun = 0;     // JUMLAH AGENT yang turun
+    let totalNormal = 0;    // JUMLAH AGENT yang normal
+    let totalTidakTransaksi = 0; // JUMLAH AGENT yang tidak transaksi
+    let totalImported = 0;
+    let totalPending = 0;
     
     data.forEach(t => {
-        const val = t.progres_jumlah || 0;
-        if (t.progres_jenis === 'naik') {
-            totalNaik += val;
-        } else if (t.progres_jenis === 'turun') {
-            totalTurun += Math.abs(val);
-        } else if (t.progres_jenis === 'tidak_transaksi') {
-            totalTidak++;
+        const jenis = t.progres_jenis || 'normal';
+        
+        // Hitung JUMLAH AGENT berdasarkan jenis
+        if (jenis === 'naik') {
+            totalNaik++;
+        } else if (jenis === 'turun') {
+            totalTurun++;
+        } else if (jenis === 'tidak_transaksi') {
+            totalTidakTransaksi++;
         } else {
-            totalNormal += Math.abs(val);
+            totalNormal++;
+        }
+        
+        // Hitung status
+        if (t.status === 'imported') {
+            totalImported++;
+        } else {
+            totalPending++;
         }
     });
     
+    // ===== UPDATE SEMUA ELEMEN STATISTIK =====
     const naikSpan = document.getElementById('transaksiTotalNaik');
     const turunSpan = document.getElementById('transaksiTotalTurun');
     const normalSpan = document.getElementById('transaksiTotalNormal');
@@ -5249,7 +5263,7 @@ function updateTransaksiTotals(filteredData) {
     if (naikSpan) naikSpan.innerText = totalNaik.toLocaleString();
     if (turunSpan) turunSpan.innerText = totalTurun.toLocaleString();
     if (normalSpan) normalSpan.innerText = totalNormal.toLocaleString();
-    if (tidakSpan) tidakSpan.innerText = totalTidak.toLocaleString();
+    if (tidakSpan) tidakSpan.innerText = totalTidakTransaksi.toLocaleString();
 }
 
 // ========== UPDATE TRANSAKSI SELECTION COUNT ==========
@@ -5278,38 +5292,40 @@ function updateTransaksiStats() {
         else totalNormal += Math.abs(val);
     });
     
-    const statsHtml = `
-        <div style="display: flex; gap: 12px; flex-wrap: wrap; margin-bottom: 16px;">
-            <div style="background: #eef2ff; padding: 8px 16px; border-radius: 10px; display: flex; align-items: center; gap: 8px;">
-                <span style="font-weight: 600; color: #4f46e5;">📊 Total</span>
-                <span style="font-weight: 700; color: #1f2937;">${total}</span>
-            </div>
-            <div style="background: #d1fae5; padding: 8px 16px; border-radius: 10px; display: flex; align-items: center; gap: 8px;">
-                <span style="font-weight: 600; color: #065f46;">✅ Imported</span>
-                <span style="font-weight: 700; color: #1f2937;">${imported}</span>
-            </div>
-            <div style="background: #fef3c7; padding: 8px 16px; border-radius: 10px; display: flex; align-items: center; gap: 8px;">
-                <span style="font-weight: 600; color: #92400e;">⏳ Pending</span>
-                <span style="font-weight: 700; color: #1f2937;">${pending}</span>
-            </div>
-            <div style="background: #d1fae5; padding: 8px 16px; border-radius: 10px; display: flex; align-items: center; gap: 8px;">
-                <span style="font-weight: 600; color: #065f46;">📈 Naik</span>
-                <span style="font-weight: 700; color: #1f2937;">+${totalNaik.toLocaleString()}</span>
-            </div>
-            <div style="background: #fee2e2; padding: 8px 16px; border-radius: 10px; display: flex; align-items: center; gap: 8px;">
-                <span style="font-weight: 600; color: #991b1b;">📉 Turun</span>
-                <span style="font-weight: 700; color: #1f2937;">-${totalTurun.toLocaleString()}</span>
-            </div>
-            <div style="background: #fef3c7; padding: 8px 16px; border-radius: 10px; display: flex; align-items: center; gap: 8px;">
-                <span style="font-weight: 600; color: #92400e;">⚖️ Normal</span>
-                <span style="font-weight: 700; color: #1f2937;">${totalNormal.toLocaleString()}</span>
-            </div>
-        </div>
-    `;
-    
     const statsContainer = document.getElementById('transaksiStats');
     if (statsContainer) {
-        statsContainer.innerHTML = statsHtml;
+        statsContainer.innerHTML = `
+            <div style="display: flex; gap: 12px; flex-wrap: wrap; margin-bottom: 16px;">
+                <div style="background: #eef2ff; padding: 8px 16px; border-radius: 10px; display: flex; align-items: center; gap: 8px;">
+                    <span style="font-weight: 600; color: #4f46e5;">📊 Total</span>
+                    <span style="font-weight: 700; color: #1f2937;">${data.length}</span>
+                </div>
+                <div style="background: #d1fae5; padding: 8px 16px; border-radius: 10px; display: flex; align-items: center; gap: 8px;">
+                    <span style="font-weight: 600; color: #065f46;">✅ Imported</span>
+                    <span style="font-weight: 700; color: #1f2937;">${totalImported}</span>
+                </div>
+                <div style="background: #fef3c7; padding: 8px 16px; border-radius: 10px; display: flex; align-items: center; gap: 8px;">
+                    <span style="font-weight: 600; color: #92400e;">⏳ Pending</span>
+                    <span style="font-weight: 700; color: #1f2937;">${totalPending}</span>
+                </div>
+                <div style="background: #d1fae5; padding: 8px 16px; border-radius: 10px; display: flex; align-items: center; gap: 8px;">
+                    <span style="font-weight: 600; color: #065f46;">📈 Naik</span>
+                    <span style="font-weight: 700; color: #1f2937;">${totalNaik} Agent</span>
+                </div>
+                <div style="background: #fee2e2; padding: 8px 16px; border-radius: 10px; display: flex; align-items: center; gap: 8px;">
+                    <span style="font-weight: 600; color: #991b1b;">📉 Turun</span>
+                    <span style="font-weight: 700; color: #1f2937;">${totalTurun} Agent</span>
+                </div>
+                <div style="background: #fef3c7; padding: 8px 16px; border-radius: 10px; display: flex; align-items: center; gap: 8px;">
+                    <span style="font-weight: 600; color: #92400e;">⚖️ Normal</span>
+                    <span style="font-weight: 700; color: #1f2937;">${totalNormal} Agent</span>
+                </div>
+                <div style="background: #e5e7eb; padding: 8px 16px; border-radius: 10px; display: flex; align-items: center; gap: 8px;">
+                    <span style="font-weight: 600; color: #4b5563;">🚫 Tidak Transaksi</span>
+                    <span style="font-weight: 700; color: #1f2937;">${totalTidakTransaksi} Agent</span>
+                </div>
+            </div>
+        `;
     }
 }
 
