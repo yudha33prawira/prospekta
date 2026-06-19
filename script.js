@@ -4067,8 +4067,7 @@ async function loadDbTransaksi() {
         query = query.eq('user_id', currentUser.id);
     }
     
-    // ✅ Ubah dari 2000 menjadi 5000 atau 10000
-    query = query.limit(5000);  // ← Cukup untuk 3000 data
+    query = query.limit(5000);
     
     const { data, error } = await query.order('created_at', { ascending: false });
     if (error) {
@@ -4077,9 +4076,8 @@ async function loadDbTransaksi() {
     }
     
     transaksiData = data || [];
-    renderTransaksiList();
+    renderTransaksiList(); // ✅ Ini akan memanggil updateTransaksiTotals()
     updateTargetDisplay();
-    updateTransaksiStats();
 }
 
 async function loadDBClosing() {
@@ -5280,16 +5278,18 @@ function updateTransaksiStats() {
     const imported = transaksiData.filter(t => t.status === 'imported').length;
     const pending = transaksiData.filter(t => t.status !== 'imported').length;
     
-    // Hitung total naik dan turun
+    // ===== HITUNG JUMLAH AGENT PER KATEGORI =====
     let totalNaik = 0;
     let totalTurun = 0;
     let totalNormal = 0;
+    let totalTidakTransaksi = 0;
     
     transaksiData.forEach(t => {
-        const val = t.progres_jumlah || 0;
-        if (t.progres_jenis === 'naik') totalNaik += val;
-        else if (t.progres_jenis === 'turun') totalTurun += Math.abs(val);
-        else totalNormal += Math.abs(val);
+        const jenis = t.progres_jenis || 'normal';
+        if (jenis === 'naik') totalNaik++;
+        else if (jenis === 'turun') totalTurun++;
+        else if (jenis === 'tidak_transaksi') totalTidakTransaksi++;
+        else totalNormal++;
     });
     
     const statsContainer = document.getElementById('transaksiStats');
@@ -5298,15 +5298,15 @@ function updateTransaksiStats() {
             <div style="display: flex; gap: 12px; flex-wrap: wrap; margin-bottom: 16px;">
                 <div style="background: #eef2ff; padding: 8px 16px; border-radius: 10px; display: flex; align-items: center; gap: 8px;">
                     <span style="font-weight: 600; color: #4f46e5;">📊 Total</span>
-                    <span style="font-weight: 700; color: #1f2937;">${data.length}</span>
+                    <span style="font-weight: 700; color: #1f2937;">${total}</span>
                 </div>
                 <div style="background: #d1fae5; padding: 8px 16px; border-radius: 10px; display: flex; align-items: center; gap: 8px;">
                     <span style="font-weight: 600; color: #065f46;">✅ Imported</span>
-                    <span style="font-weight: 700; color: #1f2937;">${totalImported}</span>
+                    <span style="font-weight: 700; color: #1f2937;">${imported}</span>
                 </div>
                 <div style="background: #fef3c7; padding: 8px 16px; border-radius: 10px; display: flex; align-items: center; gap: 8px;">
                     <span style="font-weight: 600; color: #92400e;">⏳ Pending</span>
-                    <span style="font-weight: 700; color: #1f2937;">${totalPending}</span>
+                    <span style="font-weight: 700; color: #1f2937;">${pending}</span>
                 </div>
                 <div style="background: #d1fae5; padding: 8px 16px; border-radius: 10px; display: flex; align-items: center; gap: 8px;">
                     <span style="font-weight: 600; color: #065f46;">📈 Naik</span>
