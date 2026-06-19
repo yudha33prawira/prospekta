@@ -4081,7 +4081,7 @@ async function loadDbTransaksi() {
         
         let allData = [];
         let page = 0;
-        const pageSize = 3000; // Ambil 3000 per batch
+        const pageSize = 1000; // ← HARUS 1000 (batas default Supabase)
         let hasMore = true;
         let totalCount = 0;
         
@@ -4137,8 +4137,10 @@ async function loadDbTransaksi() {
             
             console.log(`📥 Page ${page + 1}: loaded ${data.length} data (total: ${allData.length})`);
             
+            // ===== PERBAIKAN: Cek apakah masih ada data =====
             // Jika data yang diambil kurang dari pageSize, berarti sudah sampai akhir
-            if (data.length < pageSize) {
+            // ATAU jika total data yang sudah diambil >= totalCount, berarti selesai
+            if (data.length < pageSize || allData.length >= totalCount) {
                 hasMore = false;
             }
             
