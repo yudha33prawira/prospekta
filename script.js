@@ -4995,9 +4995,7 @@ function renderTransaksiList() {
     const container = document.getElementById('dbTransaksiList');
     if (!container) return;
     
-    // ===== PERBAIKAN: Gunakan transaksiData LOKAL =====
-    // JANGAN reload dari database di sini!
-    
+    // ===== GUNAKAN transaksiData LOKAL =====
     // Filter data
     const searchTerm = document.getElementById('searchTransaksiInput')?.value.toLowerCase().trim() || '';
     const filterJenis = document.getElementById('filterTransaksiJenis')?.value || '';
@@ -5015,65 +5013,35 @@ function renderTransaksiList() {
         );
     }
     
-    // ===== FILTER JENIS =====
     if (filterJenis) {
         filtered = filtered.filter(item => item.progres_jenis === filterJenis);
     }
     
-    // ===== FILTER STATUS =====
     if (filterStatus) {
         filtered = filtered.filter(item => item.status === filterStatus);
     }
     
-    // ===== FILTER UPLINE (CASE INSENSITIVE + MULTI FIELD) =====
     if (filterUpline) {
         filtered = filtered.filter(item => {
-            // Cek di upline_name (case insensitive)
-            if (item.upline_name && String(item.upline_name).toLowerCase().includes(filterUpline)) {
-                return true;
-            }
-            // Cek di upline_phone (case insensitive)
-            if (item.upline_phone && String(item.upline_phone).toLowerCase().includes(filterUpline)) {
-                return true;
-            }
-            // Cek di upline (field alternatif)
-            if (item.upline && String(item.upline).toLowerCase().includes(filterUpline)) {
-                return true;
-            }
-            // Cek di upline_phone (tanpa +62)
-            if (item.upline_phone) {
-                const cleanPhone = String(item.upline_phone).replace(/[^0-9]/g, '');
-                const searchClean = filterUpline.replace(/[^0-9]/g, '');
-                if (searchClean && cleanPhone.includes(searchClean)) {
-                    return true;
-                }
-            }
+            if (item.upline_name && String(item.upline_name).toLowerCase().includes(filterUpline)) return true;
+            if (item.upline_phone && String(item.upline_phone).toLowerCase().includes(filterUpline)) return true;
+            if (item.upline && String(item.upline).toLowerCase().includes(filterUpline)) return true;
             return false;
         });
     }
     
-    // ===== UPDATE STATISTIK DARI SEMUA DATA =====
+    // ===== UPDATE STATISTIK =====
     updateTransaksiStats(transaksiData);
     
-    // ===== UPDATE "Menampilkan X dari Y data" =====
+    // ===== UPDATE TOTAL =====
     const totalCountSpan = document.getElementById('transaksiTotalCount');
-    if (totalCountSpan) {
-        totalCountSpan.innerText = filtered.length;
-    }
+    if (totalCountSpan) totalCountSpan.innerText = filtered.length;
     
     const totalAllSpan = document.getElementById('transaksiTotalAll');
-    if (totalAllSpan) {
-        totalAllSpan.innerText = transaksiData.length;
-    }
+    if (totalAllSpan) totalAllSpan.innerText = transaksiData.length;
     
-    // ===== UPDATE "✅ Terpilih: X" =====
     const selectedCountSpan = document.getElementById('transaksiSelectedCount');
-    if (selectedCountSpan) {
-        selectedCountSpan.innerText = selectedTransaksiIds.size;
-    }
-    
-    // ===== UPDATE JUMLAH TERPILIH =====
-    updateTransaksiSelectionCount();
+    if (selectedCountSpan) selectedCountSpan.innerText = selectedTransaksiIds.size;
     
     if (filtered.length === 0) {
         container.innerHTML = `
@@ -5086,6 +5054,7 @@ function renderTransaksiList() {
         return;
     }
     
+    // ===== BUILD HTML =====
     let html = '';
     filtered.forEach((item, index) => {
         const isChecked = selectedTransaksiIds.get(item.id) === true;
@@ -5125,13 +5094,6 @@ function renderTransaksiList() {
         const maxValue = Math.max(...transaksiData.map(t => Math.abs(t.progres_jumlah || 0)), 1);
         const barPercent = Math.min((absValue / maxValue) * 100, 100);
         
-        const bulanLalu = item.transaksi_bulan_lalu || 0;
-        const bulanIni = item.transaksi_bulan_ini || 0;
-        
-        // ===== PERBAIKAN: Format Bulan-Tahun =====
-        const periodeLalu = item.tanggal_bulan_lalu ? formatMonthYearShort(item.tanggal_bulan_lalu) : '-';
-        const periodeIni = item.tanggal_bulan_ini ? formatMonthYearShort(item.tanggal_bulan_ini) : '-';
-        
         html += `
             <div class="transaksi-item-premium" data-id="${item.id}">
                 <div class="nomor-urut">${index + 1}</div>
@@ -5148,12 +5110,8 @@ function renderTransaksiList() {
                     <div class="detail-row">
                         <span>📱 ${escapeHtml(item.hp || '-')}</span>
                         <span>👤 ${escapeHtml(item.upline_name || '-')}</span>
-                        <span>📊 ${bulanLalu.toLocaleString()} → ${bulanIni.toLocaleString()}</span>
+                        <span>📊 ${(item.transaksi_bulan_lalu || 0).toLocaleString()} → ${(item.transaksi_bulan_ini || 0).toLocaleString()}</span>
                         ${item.apk ? `<span>📱 ${escapeHtml(item.apk)}</span>` : ''}
-                    </div>
-                    <div class="detail-row" style="font-size: 10px; color: #94a3b8; margin-top: 2px;">
-                        <span>📅 Periode Lalu: ${periodeLalu}</span>
-                        <span>📅 Periode Ini: ${periodeIni}</span>
                     </div>
                 </div>
                 <div class="nilai-container">
@@ -5178,7 +5136,8 @@ function renderTransaksiList() {
     
     container.innerHTML = html;
     
-    // Event delegation
+    // ===== EVENT DELEGATION =====
+    // Hapus semua event listener lama dengan clone
     const newContainer = container.cloneNode(false);
     container.parentNode.replaceChild(newContainer, container);
     const freshContainer = document.getElementById('dbTransaksiList');
@@ -5186,9 +5145,11 @@ function renderTransaksiList() {
     
     freshContainer.innerHTML = html;
     
+    // ===== EVENT DELEGATION UNTUK SEMUA INTERAKSI =====
     freshContainer.addEventListener('click', function(e) {
         const target = e.target;
         
+        // Tombol Delete
         if (target.classList.contains('btn-delete')) {
             e.stopPropagation();
             e.preventDefault();
@@ -5197,6 +5158,7 @@ function renderTransaksiList() {
             return;
         }
         
+        // Tombol WA
         if (target.classList.contains('btn-wa')) {
             e.stopPropagation();
             e.preventDefault();
@@ -5205,6 +5167,7 @@ function renderTransaksiList() {
             return;
         }
         
+        // Tombol Move
         if (target.classList.contains('btn-move')) {
             e.stopPropagation();
             e.preventDefault();
@@ -5213,34 +5176,33 @@ function renderTransaksiList() {
             return;
         }
         
-        if (target.classList.contains('transaksi-checkbox')) {
-            return;
-        }
-        
-        const itemElement = target.closest('.transaksi-item-premium');
-        if (itemElement && !target.closest('.aksi-container') && !target.closest('.checkbox-wrapper')) {
-            const id = itemElement.dataset.id;
-            if (id) openDetailTransaksi(id);
+        // Klik pada item (bukan tombol)
+        if (target.classList.contains('transaksi-item-premium') || target.closest('.transaksi-item-premium')) {
+            const itemElement = target.closest('.transaksi-item-premium');
+            if (itemElement && !target.closest('.aksi-container') && !target.closest('.checkbox-wrapper')) {
+                const id = itemElement.dataset.id;
+                if (id) openDetailTransaksi(id);
+            }
         }
     });
     
-// Di dalam event listener checkbox
-freshContainer.addEventListener('change', function(e) {
-    if (e.target.classList.contains('transaksi-checkbox')) {
-        const id = e.target.dataset.id;
-        if (e.target.checked) {
-            selectedTransaksiIds.set(id, true);
-        } else {
-            selectedTransaksiIds.delete(id);
+    // ===== EVENT CHECKBOX =====
+    freshContainer.addEventListener('change', function(e) {
+        if (e.target.classList.contains('transaksi-checkbox')) {
+            const id = e.target.dataset.id;
+            if (e.target.checked) {
+                selectedTransaksiIds.set(id, true);
+            } else {
+                selectedTransaksiIds.delete(id);
+            }
+            updateSelectAllTransaksiButton();
+            updateTransaksiSelectionCount();
         }
-        updateSelectAllTransaksiButton();
-        updateTransaksiSelectionCount();
-    }
-});
+    });
+    
     updateSelectAllTransaksiButton();
     updateTransaksiSelectionCount();
-    
-} 
+}
     
 // ===== HANDLE TRANSAKSI CHECKBOX CHANGE =====
 function handleTransaksiCheckboxChange(e) {
@@ -5850,16 +5812,23 @@ function toggleSelectAllTransaksi() {
     }
     
     const checkboxes = document.querySelectorAll('#dbTransaksiList .transaksi-checkbox');
-    if (checkboxes.length === 0) return;
+    if (checkboxes.length === 0) {
+        showNotifTop('⚠️ Tidak ada data untuk dipilih', true);
+        return;
+    }
     
+    // Cek apakah semua checkbox sudah tercentang
     const allChecked = Array.from(checkboxes).every(cb => cb.checked);
+    
     checkboxes.forEach(cb => {
         cb.checked = !allChecked;
         const id = cb.dataset.id;
-        if (!allChecked) {
-            selectedTransaksiIds.set(id, true);
-        } else {
-            selectedTransaksiIds.delete(id);
+        if (id) {
+            if (!allChecked) {
+                selectedTransaksiIds.set(id, true);
+            } else {
+                selectedTransaksiIds.delete(id);
+            }
         }
     });
     
@@ -5980,13 +5949,14 @@ async function deleteSelectedTransaksi() {
         return;
     }
     
+    // Ambil ID yang dipilih dari state
     const selectedIds = Array.from(selectedTransaksiIds.keys());
     if (selectedIds.length === 0) {
         showNotifTop('⚠️ Tidak ada data yang dipilih', true);
         return;
     }
     
-    // ===== PERBAIKAN: Hanya 1 KONFIRMASI =====
+    // Hanya 1 KONFIRMASI
     if (!confirm(`⚠️ Hapus ${selectedIds.length} data transaksi yang dipilih?\n\nData akan dihapus permanen!`)) {
         return;
     }
@@ -6011,7 +5981,7 @@ async function deleteSelectedTransaksi() {
             const batch = batches[batchIndex];
             
             try {
-                // ===== PERBAIKAN: Hapus batch SEKALIGUS dengan IN query =====
+                // ===== HAPUS BATCH SEKALIGUS dengan IN query =====
                 const { error } = await window.db
                     .from('db_transaksi')
                     .delete()
@@ -6023,7 +5993,7 @@ async function deleteSelectedTransaksi() {
                     continue;
                 }
                 
-                // ===== Hapus dari data lokal =====
+                // ===== HAPUS DARI DATA LOKAL =====
                 batch.forEach(id => {
                     const index = transaksiData.findIndex(t => t.id === id);
                     if (index !== -1) {
@@ -6044,7 +6014,7 @@ async function deleteSelectedTransaksi() {
                 updateSelectAllTransaksiButton();
                 updateTransaksiSelectionCount();
                 
-                // Delay kecil antar batch (50ms)
+                // Delay kecil antar batch
                 if (batchIndex < batches.length - 1) {
                     await delay(50);
                 }
@@ -6157,10 +6127,12 @@ async function deleteAllTransaksi() {
 }
 
 // ========== DELETE TRANSAKSI ITEM (SINGLE) ==========
+let isDeletingTransaksi = false;
+
 async function deleteTransaksiItem(id) {
     // Cegah multiple click
     if (isDeletingTransaksi) {
-        console.log('Delete already in progress, ignoring...');
+        showNotifTop('⏳ Proses hapus sedang berjalan...', true);
         return;
     }
     
@@ -6170,7 +6142,7 @@ async function deleteTransaksiItem(id) {
         return;
     }
     
-    // ===== PERBAIKAN: Hanya 1 KONFIRMASI =====
+    // Hanya 1 KONFIRMASI
     if (!confirm(`⚠️ Hapus data transaksi "${escapeHtml(item.nama || item.agent_id)}"?\n\nData akan dihapus permanen!`)) {
         return;
     }
@@ -6186,7 +6158,7 @@ async function deleteTransaksiItem(id) {
             return;
         }
         
-        // ===== PERBAIKAN: Hapus dari data lokal =====
+        // ===== HAPUS DARI DATA LOKAL =====
         const index = transaksiData.findIndex(t => t.id === id);
         if (index !== -1) {
             transaksiData.splice(index, 1);
@@ -9712,10 +9684,10 @@ async function syncTransaksiData() {
             return;
         }
         
-        // ===== PERBAIKAN: Replace data lokal dengan data dari database =====
+        // ===== REPLACE DATA LOKAL =====
         transaksiData = data || [];
         
-        // Render ulang
+        // ===== UPDATE UI =====
         renderTransaksiList();
         updateTransaksiStats(transaksiData);
         updateSelectAllTransaksiButton();
@@ -9785,7 +9757,7 @@ let darkModeObserver = null;
 
 // ======================================================================
 
-// ========== EVENT LISTENERS ==========
+// ========== INIT EVENT LISTENERS ==========
 function initEventListeners() {
     initSidebarHover();
     initProfilePhoto();
@@ -9793,22 +9765,20 @@ function initEventListeners() {
     // Save profile
     document.getElementById('saveProfileBtn')?.addEventListener('click', saveUserProfile);
 
-    // ===== PERBAIKAN: Hanya 1 event listener untuk SELECT ALL =====
+    // ===== PERBAIKAN: HANYA 1 EVENT LISTENER UNTUK SELECT ALL =====
     const selectAllBtn = document.getElementById('selectAllTransaksi');
     if (selectAllBtn) {
+        // Hapus semua listener dengan clone
         const newSelectAll = selectAllBtn.cloneNode(true);
         selectAllBtn.parentNode.replaceChild(newSelectAll, selectAllBtn);
         document.getElementById('selectAllTransaksi')?.addEventListener('click', toggleSelectAllTransaksi);
     }
     
-    // ===== PERBAIKAN: Hanya 1 event listener untuk DELETE SELECTED =====
+    // ===== PERBAIKAN: HANYA 1 EVENT LISTENER UNTUK DELETE SELECTED =====
     const deleteSelectedBtn = document.getElementById('deleteSelectedTransaksiBtn');
     if (deleteSelectedBtn) {
-        // Hapus semua listener lama dengan clone
         const newDeleteSelected = deleteSelectedBtn.cloneNode(true);
         deleteSelectedBtn.parentNode.replaceChild(newDeleteSelected, deleteSelectedBtn);
-        
-        // Tambahkan 1 listener saja
         document.getElementById('deleteSelectedTransaksiBtn')?.addEventListener('click', function(e) {
             e.preventDefault();
             e.stopPropagation();
@@ -9816,16 +9786,13 @@ function initEventListeners() {
         });
     }
     
-    // ===== PERBAIKAN: HAPUS/HIDE tombol "Hapus Semua" =====
+    // ===== PERBAIKAN: HAPUS/HIDE TOMBOL "Hapus Semua" =====
     const deleteAllBtn = document.getElementById('deleteAllTransaksiBtn');
     if (deleteAllBtn) {
         deleteAllBtn.style.display = 'none';
-        // Hapus semua event listener
-        const newDeleteAll = deleteAllBtn.cloneNode(true);
-        deleteAllBtn.parentNode.replaceChild(newDeleteAll, deleteAllBtn);
     }
     
-    // ===== PERBAIKAN: Hanya 1 event listener untuk MOVE SELECTED =====
+    // ===== PERBAIKAN: HANYA 1 EVENT LISTENER UNTUK MOVE SELECTED =====
     const moveSelectedBtn = document.getElementById('moveSelectedToFollowupBtn');
     if (moveSelectedBtn) {
         const newMoveSelected = moveSelectedBtn.cloneNode(true);
@@ -9833,7 +9800,7 @@ function initEventListeners() {
         document.getElementById('moveSelectedToFollowupBtn')?.addEventListener('click', moveSelectedToFollowup);
     }
     
-    // ===== PERBAIKAN: Hanya 1 event listener untuk RIWAYAT =====
+    // ===== PERBAIKAN: HANYA 1 EVENT LISTENER UNTUK RIWAYAT =====
     const historyBtn = document.getElementById('viewTransaksiHistoryBtn');
     if (historyBtn) {
         const newHistoryBtn = historyBtn.cloneNode(true);
