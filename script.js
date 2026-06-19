@@ -4990,10 +4990,13 @@ function editProduk(id) {
     modal.onclick = (e) => { if (e.target === modal) modal.remove(); };
 }
 
-// ========== RENDER TRANSAKSI LIST - PREMIUM ==========
+// ========== RENDER TRANSAKSI LIST ==========
 function renderTransaksiList() {
     const container = document.getElementById('dbTransaksiList');
     if (!container) return;
+    
+    // ===== PERBAIKAN: Gunakan transaksiData LOKAL =====
+    // JANGAN reload dari database di sini!
     
     // Filter data
     const searchTerm = document.getElementById('searchTransaksiInput')?.value.toLowerCase().trim() || '';
@@ -5306,11 +5309,10 @@ function updateTransaksiSelectionCount() {
     }
 }
 
-// ========== UPDATE TRANSAKSI STATS (DI ATAS, DARI SEMUA DATA) ==========
-function updateTransaksiStats(allData) {
-    const data = allData || transaksiData;
+// ========== UPDATE TRANSAKSI STATS ==========
+function updateTransaksiStats(data) {
+    const allData = data || transaksiData;
     
-    // ===== HITUNG JUMLAH AGENT PER KATEGORI =====
     let totalNaik = 0;
     let totalTurun = 0;
     let totalNormal = 0;
@@ -5318,34 +5320,26 @@ function updateTransaksiStats(allData) {
     let totalImported = 0;
     let totalPending = 0;
     
-    data.forEach(t => {
+    allData.forEach(t => {
         const jenis = t.progres_jenis || 'normal';
         
-        if (jenis === 'naik') {
-            totalNaik++;
-        } else if (jenis === 'turun') {
-            totalTurun++;
-        } else if (jenis === 'tidak_transaksi') {
-            totalTidakTransaksi++;
-        } else {
-            totalNormal++;
-        }
+        if (jenis === 'naik') totalNaik++;
+        else if (jenis === 'turun') totalTurun++;
+        else if (jenis === 'tidak_transaksi') totalTidakTransaksi++;
+        else totalNormal++;
         
-        if (t.status === 'imported') {
-            totalImported++;
-        } else {
-            totalPending++;
-        }
+        if (t.status === 'imported') totalImported++;
+        else totalPending++;
     });
     
-    // ===== TAMPILKAN STATISTIK DI ATAS =====
+    // Update stats container
     const statsContainer = document.getElementById('transaksiStats');
     if (statsContainer) {
         statsContainer.innerHTML = `
             <div style="display: flex; gap: 12px; flex-wrap: wrap; margin-bottom: 16px; padding: 12px 16px; background: #f8fafc; border-radius: 14px; border: 1px solid #e5e7eb;">
                 <div style="display: flex; align-items: center; gap: 6px; background: #eef2ff; padding: 6px 14px; border-radius: 10px;">
                     <span style="font-weight: 600; color: #4f46e5;">📊 Total</span>
-                    <span style="font-weight: 700; color: #1f2937;">${data.length}</span>
+                    <span style="font-weight: 700; color: #1f2937;">${allData.length}</span>
                 </div>
                 <div style="display: flex; align-items: center; gap: 6px; background: #d1fae5; padding: 6px 14px; border-radius: 10px;">
                     <span style="font-weight: 600; color: #065f46;">✅ Imported</span>
@@ -5971,10 +5965,11 @@ async function moveSelectedToFollowup() {
     }
 }
 
-// ========== DELETE SELECTED TRANSAKSI (REALTIME) ==========
+// ========== DELETE SELECTED TRANSAKSI (CEPAT & REALTIME) ==========
 let isDeletingSelectedTransaksi = false;
 
 async function deleteSelectedTransaksi() {
+    // Cegah multiple click
     if (isDeletingSelectedTransaksi) {
         showNotifTop('⏳ Proses hapus sedang berjalan...', true);
         return;
@@ -5991,62 +5986,79 @@ async function deleteSelectedTransaksi() {
         return;
     }
     
-    if (!confirm(`Hapus ${selectedIds.length} data transaksi yang dipilih?`)) {
+    // ===== PERBAIKAN: Hanya 1 KONFIRMASI =====
+    if (!confirm(`⚠️ Hapus ${selectedIds.length} data transaksi yang dipilih?\n\nData akan dihapus permanen!`)) {
         return;
     }
     
     isDeletingSelectedTransaksi = true;
     const progress = showFloatingProgress('🗑️ Menghapus Transaksi', selectedIds.length);
-    let deleted = 0;
-    let failed = 0;
     
+    // ===== PERBAIKAN: Hapus dari database SEKALIGUS (BATCH) =====
     try {
-        for (const id of selectedIds) {
+        // Ambil semua ID yang dipilih
+        const idsToDelete = selectedIds;
+        const totalData = idsToDelete.length;
+        let deleted = 0;
+        let failed = 0;
+        
+        // ===== BATCH DELETE: Hapus 50 data sekaligus =====
+        const BATCH_SIZE = 50;
+        const batches = [];
+        
+        for (let i = 0; i < idsToDelete.length; i += BATCH_SIZE) {
+            batches.push(idsToDelete.slice(i, i + BATCH_SIZE));
+        }
+        
+        for (let batchIndex = 0; batchIndex < batches.length; batchIndex++) {
+            const batch = batches[batchIndex];
+            
+            // Hapus batch dari database
             try {
-                // Hapus dari database
-                const { error } = await window.db.from('db_transaksi').delete().eq('id', id);
+                const { error } = await window.db
+                    .from('db_transaksi')
+                    .delete()
+                    .in('id', batch);
+                
                 if (error) {
-                    console.error(`Gagal hapus ${id}:`, error);
-                    failed++;
+                    console.error('Batch delete error:', error);
+                    failed += batch.length;
                     continue;
                 }
                 
-                // ===== PERBAIKAN: Hapus dari data lokal SECARA LANGSUNG =====
-                const index = transaksiData.findIndex(t => t.id === id);
-                if (index !== -1) {
-                    transaksiData.splice(index, 1);
+                // ===== PERBAIKAN: Hapus dari data lokal =====
+                batch.forEach(id => {
+                    const index = transaksiData.findIndex(t => t.id === id);
+                    if (index !== -1) {
+                        transaksiData.splice(index, 1);
+                    }
+                    selectedTransaksiIds.delete(id);
+                });
+                
+                deleted += batch.length;
+                
+                // Update progress
+                const percent = Math.floor((deleted / totalData) * 100);
+                progress.update(percent, '🗑️ Menghapus', `Menghapus data... (${deleted}/${totalData})`, deleted, totalData);
+                
+                // ===== PERBAIKAN: Update UI SETIAP BATCH =====
+                renderTransaksiList();
+                updateTransaksiStats(transaksiData);
+                updateSelectAllTransaksiButton();
+                updateTransaksiSelectionCount();
+                
+                // Delay kecil antar batch (50ms)
+                if (batchIndex < batches.length - 1) {
+                    await delay(50);
                 }
                 
-                // Hapus dari selected
-                selectedTransaksiIds.delete(id);
-                deleted++;
-                
-                // ===== UPDATE UI SECARA REALTIME =====
-                const percent = Math.floor((deleted / selectedIds.length) * 100);
-                progress.update(percent, '🗑️ Menghapus', `Menghapus data... (${deleted}/${selectedIds.length})`, deleted, selectedIds.length);
-                
-                // ===== RE-RENDER SETIAP 5 DATA UNTUK REALTIME =====
-                if (deleted % 5 === 0 || deleted === selectedIds.length) {
-                    renderTransaksiList();
-                    updateTransaksiStats(transaksiData);
-                }
-                
-                // Delay kecil agar UI terasa smooth
-                await delay(50);
-                
-            } catch (e) {
-                console.error(`Gagal hapus ${id}:`, e);
-                failed++;
+            } catch (batchError) {
+                console.error('Batch error:', batchError);
+                failed += batch.length;
             }
         }
         
-        // ===== FINAL REFRESH =====
-        renderTransaksiList();
-        updateTransaksiStats(transaksiData);
-        updateSelectAllTransaksiButton();
-        updateTransaksiSelectionCount();
-        
-        progress.update(100, '✅ Selesai', `Berhasil: ${deleted}, Gagal: ${failed}`, deleted, selectedIds.length);
+        progress.update(100, '✅ Selesai', `Berhasil: ${deleted}, Gagal: ${failed}`, deleted, totalData);
         showNotifTop(`✅ ${deleted} data berhasil dihapus${failed > 0 ? `, ${failed} gagal` : ''}`);
         
     } catch (err) {
@@ -6147,11 +6159,9 @@ async function deleteAllTransaksi() {
     }
 }
 
-// ========== DELETE TRANSAKSI ITEM ==========
-let isDeletingTransaksi = false;
-
+// ========== DELETE TRANSAKSI ITEM (SINGLE) ==========
 async function deleteTransaksiItem(id) {
-    // Cegah multiple delete
+    // Cegah multiple click
     if (isDeletingTransaksi) {
         console.log('Delete already in progress, ignoring...');
         return;
@@ -6163,14 +6173,15 @@ async function deleteTransaksiItem(id) {
         return;
     }
     
-    // Hanya tampilkan 1 kali konfirmasi
-    if (!confirm(`Hapus data transaksi "${escapeHtml(item.nama || item.agent_id)}"?`)) {
+    // ===== PERBAIKAN: Hanya 1 KONFIRMASI =====
+    if (!confirm(`⚠️ Hapus data transaksi "${escapeHtml(item.nama || item.agent_id)}"?\n\nData akan dihapus permanen!`)) {
         return;
     }
     
     isDeletingTransaksi = true;
     
     try {
+        // Hapus dari database
         const { error } = await window.db.from('db_transaksi').delete().eq('id', id);
         if (error) {
             showNotifTop('❌ Gagal hapus: ' + error.message, true);
@@ -6178,20 +6189,21 @@ async function deleteTransaksiItem(id) {
             return;
         }
         
-        // Hapus dari selected
-        selectedTransaksiIds.delete(id);
-        
-        // Hapus dari data lokal
+        // ===== PERBAIKAN: Hapus dari data lokal =====
         const index = transaksiData.findIndex(t => t.id === id);
         if (index !== -1) {
             transaksiData.splice(index, 1);
         }
         
-        showNotifTop('🗑️ Data transaksi berhasil dihapus');
+        selectedTransaksiIds.delete(id);
         
-        // Render ulang list
+        // ===== UPDATE UI LANGSUNG =====
         renderTransaksiList();
-        updateTransaksiStats();
+        updateTransaksiStats(transaksiData);
+        updateSelectAllTransaksiButton();
+        updateTransaksiSelectionCount();
+        
+        showNotifTop('🗑️ Data transaksi berhasil dihapus');
         
     } catch (err) {
         console.error('Error delete transaksi:', err);
@@ -9579,25 +9591,33 @@ function initBadges() {
 async function syncTransaksiData() {
     if (!currentUser) return;
     
-    let query = window.db.from('db_transaksi').select('*');
-    if (currentUserRole !== 'owner') {
-        query = query.eq('user_id', currentUser.id);
+    try {
+        let query = window.db.from('db_transaksi').select('*');
+        if (currentUserRole !== 'owner') {
+            query = query.eq('user_id', currentUser.id);
+        }
+        
+        const { data, error } = await query.limit(5000).order('created_at', { ascending: false });
+        if (error) {
+            console.error('Error syncing transaksi:', error);
+            return;
+        }
+        
+        // ===== PERBAIKAN: Replace data lokal dengan data dari database =====
+        transaksiData = data || [];
+        
+        // Render ulang
+        renderTransaksiList();
+        updateTransaksiStats(transaksiData);
+        updateSelectAllTransaksiButton();
+        updateTransaksiSelectionCount();
+        
+    } catch (err) {
+        console.error('Error sync:', err);
     }
-    
-    const { data, error } = await query.limit(5000).order('created_at', { ascending: false });
-    if (error) {
-        console.error('Error syncing transaksi:', error);
-        return;
-    }
-    
-    transaksiData = data || [];
-    renderTransaksiList();
-    updateTransaksiStats(transaksiData);
-    updateSelectAllTransaksiButton();
-    updateTransaksiSelectionCount();
 }
 
-// Panggil setelah hapus atau import
+// ===== PERBAIKAN: loadDbTransaksi sekarang menggunakan sync =====
 async function loadDbTransaksi() {
     await syncTransaksiData();
     updateTargetDisplay();
@@ -9672,18 +9692,28 @@ function initEventListeners() {
         document.getElementById('selectAllTransaksi')?.addEventListener('click', toggleSelectAllTransaksi);
     }
     
-    const deleteSelectedBtn = document.getElementById('deleteSelectedTransaksi');
+    const deleteSelectedBtn = document.getElementById('deleteSelectedTransaksiBtn');
     if (deleteSelectedBtn) {
+        // Clone untuk menghapus semua listener lama
         const newDeleteSelected = deleteSelectedBtn.cloneNode(true);
         deleteSelectedBtn.parentNode.replaceChild(newDeleteSelected, deleteSelectedBtn);
-        document.getElementById('deleteSelectedTransaksi')?.addEventListener('click', deleteSelectedTransaksi);
+        
+        // Tambahkan listener baru
+        document.getElementById('deleteSelectedTransaksiBtn')?.addEventListener('click', function(e) {
+            e.preventDefault();
+            e.stopPropagation();
+            deleteSelectedTransaksi();
+        });
     }
     
+    // ===== PERBAIKAN: Hapus event listener "Hapus Semua" =====
     const deleteAllBtn = document.getElementById('deleteAllTransaksiBtn');
     if (deleteAllBtn) {
+        // Sembunyikan tombol atau nonaktifkan
+        deleteAllBtn.style.display = 'none';
+        // Atau hapus listener
         const newDeleteAll = deleteAllBtn.cloneNode(true);
         deleteAllBtn.parentNode.replaceChild(newDeleteAll, deleteAllBtn);
-        document.getElementById('deleteAllTransaksiBtn')?.addEventListener('click', deleteAllTransaksi);
     }
     
     const moveSelectedBtn = document.getElementById('moveSelectedToFollowupBtn');
