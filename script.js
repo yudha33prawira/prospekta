@@ -5669,29 +5669,29 @@ function renderRiwayatTransaksi(data) {
             border-radius: 12px;
             border: 1px solid #e5e7eb;
             transition: all 0.2s;
+            flex-wrap: wrap;
+            gap: 12px;
         ">
-            <div style="display: flex; align-items: center; gap: 16px; flex-wrap: wrap;">
-                <div style="font-weight: 700; font-size: 16px; color: #1f2937; min-width: 140px;">
-                    📅 ${escapeHtml(item.bulan)}
-                </div>
-                <div style="display: flex; gap: 12px; flex-wrap: wrap;">
-                    <span style="background: #d1fae5; padding: 4px 12px; border-radius: 20px; font-size: 12px; font-weight: 600; color: #065f46;">
-                        📈 ${item.total_naik} Agent
-                    </span>
-                    <span style="background: #fee2e2; padding: 4px 12px; border-radius: 20px; font-size: 12px; font-weight: 600; color: #991b1b;">
-                        📉 ${item.total_turun} Agent
-                    </span>
-                    <span style="background: #fef3c7; padding: 4px 12px; border-radius: 20px; font-size: 12px; font-weight: 600; color: #92400e;">
-                        ⚖️ ${item.total_normal} Agent
-                    </span>
-                    <span style="background: #e5e7eb; padding: 4px 12px; border-radius: 20px; font-size: 12px; font-weight: 600; color: #4b5563;">
-                        🚫 ${item.total_tidak_transaksi} Agent
-                    </span>
-                </div>
+            <div style="font-weight: 700; font-size: 16px; color: #1f2937; min-width: 140px;">
+                📅 ${escapeHtml(item.bulan)}
+            </div>
+            <div style="display: grid; grid-template-columns: repeat(4, auto); gap: 8px; flex: 1;">
+                <span style="background: #d1fae5; padding: 4px 12px; border-radius: 20px; font-size: 12px; font-weight: 600; color: #065f46; text-align: center; white-space: nowrap;">
+                    📈 Naik: ${item.total_naik}
+                </span>
+                <span style="background: #fee2e2; padding: 4px 12px; border-radius: 20px; font-size: 12px; font-weight: 600; color: #991b1b; text-align: center; white-space: nowrap;">
+                    📉 Turun: ${item.total_turun}
+                </span>
+                <span style="background: #fef3c7; padding: 4px 12px; border-radius: 20px; font-size: 12px; font-weight: 600; color: #92400e; text-align: center; white-space: nowrap;">
+                    ⚖️ Normal: ${item.total_normal}
+                </span>
+                <span style="background: #e5e7eb; padding: 4px 12px; border-radius: 20px; font-size: 12px; font-weight: 600; color: #4b5563; text-align: center; white-space: nowrap;">
+                    🚫 Tidak: ${item.total_tidak_transaksi}
+                </span>
             </div>
             <div style="display: flex; gap: 8px; align-items: center;">
                 <span style="font-size: 12px; color: #6b7280;">
-                    Total: ${item.total_data} data
+                    Total: ${item.total_data}
                 </span>
                 <button onclick="deleteRiwayat('${item.id}')" style="
                     background: #fef2f2;
