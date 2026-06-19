@@ -5248,13 +5248,15 @@ function renderTransaksiList() {
         } else if (item.progres_jenis === 'naik') {
             displayValue = '+' + jumlah.toLocaleString();
         } else if (item.progres_jenis === 'turun') {
-            displayValue = '-' + absValue.toLocaleString();
+            // Untuk turun, selalu gunakan nilai absolut dengan tanda -
+            displayValue = '-' + Math.abs(jumlah).toLocaleString();
         } else {
             // NORMAL: tampilkan sesuai nilai (positif/negatif)
             if (jumlah > 0) {
                 displayValue = '+' + jumlah.toLocaleString();
             } else if (jumlah < 0) {
-                displayValue = '-' + absValue.toLocaleString();
+                // Gunakan nilai absolut dengan tanda -
+                displayValue = '-' + Math.abs(jumlah).toLocaleString();
             } else {
                 displayValue = '0';
             }
@@ -5738,27 +5740,63 @@ async function deleteRiwayat(id) {
 }
 
 // ========== OPEN DETAIL TRANSAKSI ==========
-let isDetailModalOpen = false;
-
 function openDetailTransaksi(id) {
-    // Cegah multiple popup
-    if (isDetailModalOpen) {
-        console.log('⚠️ Detail modal sudah terbuka');
-        return;
-    }
-    
     const item = transaksiData.find(t => t.id === id);
-    if (!item) {
-        showNotifTop('❌ Data tidak ditemukan!', true);
-        return;
-    }
-    
-    isDetailModalOpen = true;
+    if (!item) return;
     
     // ===== PERBAIKAN: Format Bulan-Tahun =====
     const periodeLalu = item.tanggal_bulan_lalu ? formatMonthYear(item.tanggal_bulan_lalu) : 'Tidak tersedia';
     const periodeIni = item.tanggal_bulan_ini ? formatMonthYear(item.tanggal_bulan_ini) : 'Tidak tersedia';
     const tanggalImport = item.tanggal_transaksi ? formatDateDDMMYYYY(item.tanggal_transaksi) : '-';
+    
+    // ===== LOGIKA TANDA UNTUK NILAI =====
+    let displayValue = '';
+    const jumlah = item.progres_jumlah || 0;
+    
+    if (item.progres_jenis === 'tidak_transaksi') {
+        displayValue = '0';
+    } else if (item.progres_jenis === 'naik') {
+        displayValue = '+' + jumlah.toLocaleString();
+    } else if (item.progres_jenis === 'turun') {
+        displayValue = '-' + Math.abs(jumlah).toLocaleString();
+    } else {
+        // NORMAL
+        if (jumlah > 0) {
+            displayValue = '+' + jumlah.toLocaleString();
+        } else if (jumlah < 0) {
+            displayValue = '-' + Math.abs(jumlah).toLocaleString();
+        } else {
+            displayValue = '0';
+        }
+    }
+    
+    // ===== WARNA UNTUK NILAI =====
+    let nilaiColor = '#f59e0b'; // default normal
+    let jenisText = '⚖️ Normal';
+    
+    if (item.progres_jenis === 'naik') {
+        nilaiColor = '#10b981';
+        jenisText = '📈 Naik';
+    } else if (item.progres_jenis === 'turun') {
+        nilaiColor = '#ef4444';
+        jenisText = '📉 Turun';
+    } else if (item.progres_jenis === 'tidak_transaksi') {
+        nilaiColor = '#6b7280';
+        jenisText = '🚫 Tidak Transaksi';
+    } else {
+        // NORMAL - cek nilai
+        if (jumlah > 0) {
+            nilaiColor = '#10b981';
+        } else if (jumlah < 0) {
+            nilaiColor = '#ef4444';
+        }
+    }
+    
+    // ===== Warna untuk jenis progres di header =====
+    let jenisColor = '#f59e0b';
+    if (item.progres_jenis === 'naik') jenisColor = '#10b981';
+    else if (item.progres_jenis === 'turun') jenisColor = '#ef4444';
+    else if (item.progres_jenis === 'tidak_transaksi') jenisColor = '#6b7280';
     
     const modalHtml = `
         <div class="modal-content" style="max-width: 500px; max-height: 85vh; overflow-y: auto; background: #fff; border-radius: 24px; position: relative;">
@@ -5813,14 +5851,14 @@ function openDetailTransaksi(id) {
                     <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 12px;">
                         <div>
                             <div style="font-size: 11px; color: #6b7280;">Jenis Progres</div>
-                            <div style="font-weight: 600; font-size: 14px; color: ${item.progres_jenis === 'naik' ? '#10b981' : (item.progres_jenis === 'turun' ? '#ef4444' : (item.progres_jenis === 'tidak_transaksi' ? '#6b7280' : '#f59e0b'))};">
-                                ${item.progres_jenis === 'naik' ? '📈 Naik' : (item.progres_jenis === 'turun' ? '📉 Turun' : (item.progres_jenis === 'tidak_transaksi' ? '🚫 Tidak Transaksi' : '⚖️ Normal'))}
+                            <div style="font-weight: 600; font-size: 14px; color: ${jenisColor};">
+                                ${jenisText}
                             </div>
                         </div>
                         <div>
                             <div style="font-size: 11px; color: #6b7280;">Selisih</div>
-                            <div style="font-weight: 700; font-size: 18px; color: ${item.progres_jenis === 'naik' ? '#10b981' : (item.progres_jenis === 'turun' ? '#ef4444' : (item.progres_jenis === 'tidak_transaksi' ? '#6b7280' : '#f59e0b'))};">
-                                ${item.progres_jenis === 'tidak_transaksi' ? '0' : (item.progres_jumlah > 0 ? '+' : '')}${(item.progres_jumlah || 0).toLocaleString()}
+                            <div style="font-weight: 700; font-size: 18px; color: ${nilaiColor};">
+                                ${displayValue}
                             </div>
                         </div>
                     </div>
@@ -5842,8 +5880,8 @@ function openDetailTransaksi(id) {
                         </div>
                     </div>
                     <div style="margin-top: 12px; text-align: center; font-size: 13px; color: #6b7280;">
-                        Selisih: <strong style="color: ${item.progres_jenis === 'naik' ? '#10b981' : (item.progres_jenis === 'turun' ? '#ef4444' : '#f59e0b')}">
-                            ${item.progres_jenis === 'tidak_transaksi' ? '0' : (item.progres_jumlah > 0 ? '+' : '')}${(item.progres_jumlah || 0).toLocaleString()}
+                        Selisih: <strong style="color: ${nilaiColor};">
+                            ${displayValue}
                         </strong>
                     </div>
                 </div>
