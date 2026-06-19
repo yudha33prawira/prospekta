@@ -5121,3 +5121,61 @@ body.dark-mode .db-move-followup:hover {
 body.dark-mode .db-move-followup:disabled {
     opacity: 0.4;
 }
+
+/* ================================================================ */
+/* ========== DARK MODE - RIWAYAT TRANSAKSI ========== */
+/* ================================================================ */
+
+body.dark-mode .riwayat-item {
+    background: #1e293b !important;
+    border-color: #334155 !important;
+}
+
+body.dark-mode .riwayat-item > div:first-child > div:first-child {
+    color: #f1f5f9 !important;
+}
+
+body.dark-mode .riwayat-item span[style*="background: #d1fae5"] {
+    background: #064e3b !important;
+    color: #34d399 !important;
+}
+
+body.dark-mode .riwayat-item span[style*="background: #fee2e2"] {
+    background: #7f1d1d !important;
+    color: #fca5a5 !important;
+}
+
+body.dark-mode .riwayat-item span[style*="background: #fef3c7"] {
+    background: #451a03 !important;
+    color: #fbbf24 !important;
+}
+
+body.dark-mode .riwayat-item span[style*="background: #e5e7eb"] {
+    background: #1e293b !important;
+    color: #94a3b8 !important;
+}
+
+body.dark-mode .riwayat-item [style*="color: #6b7280;"] {
+    color: #94a3b8 !important;
+}
+
+body.dark-mode .riwayat-item button {
+    background: #1a0a0a !important;
+    color: #fca5a5 !important;
+}
+
+body.dark-mode .riwayat-item button:hover {
+    background: #2a0a0a !important;
+}
+
+body.dark-mode #riwayatTransaksiModal .modal-content {
+    background: #1e293b !important;
+}
+
+body.dark-mode #riwayatTransaksiModal .modal-content h3 {
+    color: #f1f5f9 !important;
+}
+
+body.dark-mode #riwayatTransaksiModal .modal-subtitle {
+    color: #94a3b8 !important;
+}
