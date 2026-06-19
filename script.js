@@ -4151,11 +4151,11 @@ async function loadDbTransaksi() {
         progress.update(100, '✅ Selesai', `Berhasil memuat ${allData.length.toLocaleString()} data`);
         
         // ===== SIMPAN DATA KE GLOBAL =====
-        window.transaksiData = allData;  // ← PASTIKAN INI!
-        transaksiData = allData;         // ← PASTIKAN INI!
+        window.transaksiData = allData;
+        transaksiData = allData;
         
         console.log(`✅ Loaded ${transaksiData.length} transaksi dari ${totalCount} total`);
-        console.log('📊 Data transaksi:', transaksiData.slice(0, 5)); // Debug: tampilkan 5 data pertama
+        console.log('📊 Sample data (5 pertama):', transaksiData.slice(0, 5));
         
         // ===== UPDATE UI =====
         renderTransaksiList();
@@ -5396,7 +5396,10 @@ function updateTransaksiSelectionCount() {
 
 // ========== UPDATE TRANSAKSI STATS ==========
 function updateTransaksiStats(data) {
-    const allData = data || transaksiData;
+    // ===== GUNAKAN DATA YANG DITERIMA =====
+    const allData = data || transaksiData || [];
+    
+    console.log('📊 updateTransaksiStats - data length:', allData.length);
     
     let totalNaik = 0;
     let totalTurun = 0;
@@ -5404,6 +5407,7 @@ function updateTransaksiStats(data) {
     let totalTidakTransaksi = 0;
     let totalImported = 0;
     let totalPending = 0;
+    let totalData = allData.length;
     
     allData.forEach(t => {
         const jenis = t.progres_jenis || 'normal';
@@ -5417,38 +5421,48 @@ function updateTransaksiStats(data) {
         else totalPending++;
     });
     
-    // Update stats container
+    console.log('📊 Statistik:', {
+        total: totalData,
+        naik: totalNaik,
+        turun: totalTurun,
+        normal: totalNormal,
+        tidak: totalTidakTransaksi,
+        imported: totalImported,
+        pending: totalPending
+    });
+    
+    // ===== UPDATE STATS CONTAINER =====
     const statsContainer = document.getElementById('transaksiStats');
     if (statsContainer) {
         statsContainer.innerHTML = `
             <div style="display: flex; gap: 12px; flex-wrap: wrap; margin-bottom: 16px; padding: 12px 16px; background: #f8fafc; border-radius: 14px; border: 1px solid #e5e7eb;">
                 <div style="display: flex; align-items: center; gap: 6px; background: #eef2ff; padding: 6px 14px; border-radius: 10px;">
                     <span style="font-weight: 600; color: #4f46e5;">📊 Total</span>
-                    <span style="font-weight: 700; color: #1f2937;">${allData.length}</span>
+                    <span style="font-weight: 700; color: #1f2937;">${totalData.toLocaleString()}</span>
                 </div>
                 <div style="display: flex; align-items: center; gap: 6px; background: #d1fae5; padding: 6px 14px; border-radius: 10px;">
                     <span style="font-weight: 600; color: #065f46;">✅ Imported</span>
-                    <span style="font-weight: 700; color: #1f2937;">${totalImported}</span>
+                    <span style="font-weight: 700; color: #1f2937;">${totalImported.toLocaleString()}</span>
                 </div>
                 <div style="display: flex; align-items: center; gap: 6px; background: #fef3c7; padding: 6px 14px; border-radius: 10px;">
                     <span style="font-weight: 600; color: #92400e;">⏳ Pending</span>
-                    <span style="font-weight: 700; color: #1f2937;">${totalPending}</span>
+                    <span style="font-weight: 700; color: #1f2937;">${totalPending.toLocaleString()}</span>
                 </div>
                 <div style="display: flex; align-items: center; gap: 6px; background: #d1fae5; padding: 6px 14px; border-radius: 10px;">
                     <span style="font-weight: 600; color: #065f46;">📈 Naik</span>
-                    <span style="font-weight: 700; color: #1f2937;">${totalNaik}</span>
+                    <span style="font-weight: 700; color: #1f2937;">${totalNaik.toLocaleString()}</span>
                 </div>
                 <div style="display: flex; align-items: center; gap: 6px; background: #fee2e2; padding: 6px 14px; border-radius: 10px;">
                     <span style="font-weight: 600; color: #991b1b;">📉 Turun</span>
-                    <span style="font-weight: 700; color: #1f2937;">${totalTurun}</span>
+                    <span style="font-weight: 700; color: #1f2937;">${totalTurun.toLocaleString()}</span>
                 </div>
                 <div style="display: flex; align-items: center; gap: 6px; background: #fef3c7; padding: 6px 14px; border-radius: 10px;">
                     <span style="font-weight: 600; color: #92400e;">⚖️ Normal</span>
-                    <span style="font-weight: 700; color: #1f2937;">${totalNormal}</span>
+                    <span style="font-weight: 700; color: #1f2937;">${totalNormal.toLocaleString()}</span>
                 </div>
                 <div style="display: flex; align-items: center; gap: 6px; background: #e5e7eb; padding: 6px 14px; border-radius: 10px;">
                     <span style="font-weight: 600; color: #4b5563;">🚫 Tidak Transaksi</span>
-                    <span style="font-weight: 700; color: #1f2937;">${totalTidakTransaksi}</span>
+                    <span style="font-weight: 700; color: #1f2937;">${totalTidakTransaksi.toLocaleString()}</span>
                 </div>
             </div>
         `;
@@ -10417,7 +10431,7 @@ async function checkAuth() {
         updateLoadingStep(10);
         
         await withLoading(loadDbTransaksi(), 10);
-        updateLoadingStep(12);
+        updateLoadingStep(11);
         
         await withLoading(loadDBClosing(), 13);
         updateLoadingStep(14);
