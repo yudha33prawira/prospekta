@@ -5188,136 +5188,118 @@ function renderTransaksiList() {
         return;
     }
     
-    // ===== BUILD HTML =====
-    let html = '';
-    filtered.forEach((item, index) => {
-        const isChecked = selectedTransaksiIds.get(item.id) === true;
-        const absValue = Math.abs(item.progres_jumlah || 0);
-        const jumlah = item.progres_jumlah || 0;
-        
-        let statusClass = 'baru';
-        let statusText = '📋 Baru';
-        if (item.status === 'imported') {
-            statusClass = 'imported';
-            statusText = '✅ Sudah Dipindah';
-        } else if (item.status === 'pending_import') {
-            statusClass = 'pending';
-            statusText = '⏳ Pending';
-        }
-        
-        let jenisClass = 'normal';
-        let jenisText = '⚖️ Normal';
-        let nilaiClass = 'normal';
-        let progressClass = 'normal';
-        
-        // ===== PERBAIKAN: Tentukan jenis dan warna =====
-        if (item.progres_jenis === 'naik') {
-            jenisClass = 'naik';
-            jenisText = '📈 Naik';
-            nilaiClass = 'naik';
-            progressClass = 'naik';
-        } else if (item.progres_jenis === 'turun') {
-            jenisClass = 'turun';
-            jenisText = '📉 Turun';
-            nilaiClass = 'turun';
-            progressClass = 'turun';
-        } else if (item.progres_jenis === 'tidak_transaksi') {
-            jenisClass = 'tidak';
-            jenisText = '🚫 Tidak Transaksi';
-            nilaiClass = 'tidak';
-            progressClass = 'tidak';
+// ===== BUILD HTML =====
+let html = '';
+filtered.forEach((item, index) => {
+    const isChecked = selectedTransaksiIds.get(item.id) === true;
+    const absValue = Math.abs(item.progres_jumlah || 0);
+    const jumlah = item.progres_jumlah || 0;  // ← DEKLARASI 1 KALI SAJA
+    
+    let statusClass = 'baru';
+    let statusText = '📋 Baru';
+    if (item.status === 'imported') {
+        statusClass = 'imported';
+        statusText = '✅ Sudah Dipindah';
+    } else if (item.status === 'pending_import') {
+        statusClass = 'pending';
+        statusText = '⏳ Pending';
+    }
+    
+    let jenisClass = 'normal';
+    let jenisText = '⚖️ Normal';
+    let nilaiClass = 'normal';
+    let progressClass = 'normal';
+    
+    // ===== PERBAIKAN: Tentukan jenis dan warna =====
+    if (item.progres_jenis === 'naik') {
+        jenisClass = 'naik';
+        jenisText = '📈 Naik';
+        nilaiClass = 'naik';
+        progressClass = 'naik';
+    } else if (item.progres_jenis === 'turun') {
+        jenisClass = 'turun';
+        jenisText = '📉 Turun';
+        nilaiClass = 'turun';
+        progressClass = 'turun';
+    } else if (item.progres_jenis === 'tidak_transaksi') {
+        jenisClass = 'tidak';
+        jenisText = '🚫 Tidak Transaksi';
+        nilaiClass = 'tidak';
+        progressClass = 'tidak';
+    } else {
+        // NORMAL - cek apakah selisih positif atau negatif
+        if (jumlah > 0) {
+            nilaiClass = 'naik'; // warna hijau untuk positif
+        } else if (jumlah < 0) {
+            nilaiClass = 'turun'; // warna merah untuk negatif
         } else {
-            // NORMAL - cek apakah selisih positif atau negatif
-            if (item.progres_jumlah > 0) {
-                nilaiClass = 'naik'; // warna hijau untuk positif
-            } else if (item.progres_jumlah < 0) {
-                nilaiClass = 'turun'; // warna merah untuk negatif
-            } else {
-                nilaiClass = 'normal'; // warna kuning untuk 0
-            }
+            nilaiClass = 'normal'; // warna kuning untuk 0
         }
-        
-        const maxValue = Math.max(...data.map(t => Math.abs(t.progres_jumlah || 0)), 1);
-        const barPercent = Math.min((absValue / maxValue) * 100, 100);
-        
-        // ===== PERBAIKAN: Logika Tanda + / - =====
-        let displayValue = '';
-        const jumlah = item.progres_jumlah || 0;
-        
-        let displayValue = '';
-        
-        if (item.progres_jenis === 'tidak_transaksi') {
-            displayValue = '0';
-        } else if (item.progres_jenis === 'naik') {
+    }
+    
+    const maxValue = Math.max(...data.map(t => Math.abs(t.progres_jumlah || 0)), 1);
+    const barPercent = Math.min((absValue / maxValue) * 100, 100);
+    
+    // ===== PERBAIKAN: Logika Tanda + / - (HANYA 1 KALI) =====
+    let displayValue = '';  // ← DEKLARASI 1 KALI SAJA
+    
+    if (item.progres_jenis === 'tidak_transaksi') {
+        displayValue = '0';
+    } else if (item.progres_jenis === 'naik') {
+        displayValue = '+' + jumlah.toLocaleString();
+    } else if (item.progres_jenis === 'turun') {
+        displayValue = '-' + Math.abs(jumlah).toLocaleString();
+    } else {
+        // NORMAL
+        if (jumlah > 0) {
             displayValue = '+' + jumlah.toLocaleString();
-        } else if (item.progres_jenis === 'turun') {
+        } else if (jumlah < 0) {
             displayValue = '-' + Math.abs(jumlah).toLocaleString();
         } else {
-            // NORMAL
-            if (jumlah > 0) {
-                displayValue = '+' + jumlah.toLocaleString();
-            } else if (jumlah < 0) {
-                displayValue = '-' + Math.abs(jumlah).toLocaleString();
-            } else {
-                displayValue = '0';
-            }
+            displayValue = '0';
         }
-
-        // ===== WARNA UNTUK NILAI =====
-        let nilaiClass = 'normal';
-        if (item.progres_jenis === 'naik' || jumlah > 0) {
-            nilaiClass = 'naik';
-        } else if (item.progres_jenis === 'turun' || jumlah < 0) {
-            nilaiClass = 'turun';
-        } else if (item.progres_jenis === 'tidak_transaksi') {
-            nilaiClass = 'tidak';
-        }
-        
-        // ===== PROGRESS CLASS =====
-        let progressClass = 'normal';
-        if (item.progres_jenis === 'naik') progressClass = 'naik';
-        else if (item.progres_jenis === 'turun') progressClass = 'turun';
-        else if (item.progres_jenis === 'tidak_transaksi') progressClass = 'tidak';
-        
-        html += `
-            <div class="transaksi-item-premium" data-id="${item.id}">
-                <div class="nomor-urut">${index + 1}</div>
-                <div class="checkbox-wrapper">
-                    <input type="checkbox" class="transaksi-checkbox" data-id="${item.id}" ${isChecked ? 'checked' : ''}>
+    }
+    
+    // ===== HTML =====
+    html += `
+        <div class="transaksi-item-premium" data-id="${item.id}">
+            <div class="nomor-urut">${index + 1}</div>
+            <div class="checkbox-wrapper">
+                <input type="checkbox" class="transaksi-checkbox" data-id="${item.id}" ${isChecked ? 'checked' : ''}>
+            </div>
+            <div class="info-utama">
+                <div class="header-row">
+                    <span class="nama">${escapeHtml(item.nama || item.agent_id)}</span>
+                    <span class="agent-id">🆔 ${escapeHtml(item.agent_id || '-')}</span>
+                    <span class="badge-jenis ${jenisClass}">${jenisText}</span>
+                    <span class="badge-status ${statusClass}">${statusText}</span>
                 </div>
-                <div class="info-utama">
-                    <div class="header-row">
-                        <span class="nama">${escapeHtml(item.nama || item.agent_id)}</span>
-                        <span class="agent-id">🆔 ${escapeHtml(item.agent_id || '-')}</span>
-                        <span class="badge-jenis ${jenisClass}">${jenisText}</span>
-                        <span class="badge-status ${statusClass}">${statusText}</span>
-                    </div>
-                    <div class="detail-row">
-                        <span>📱 ${escapeHtml(item.hp || '-')}</span>
-                        <span>👤 ${escapeHtml(item.upline_name || '-')}</span>
-                        <span>📊 ${(item.transaksi_bulan_lalu || 0).toLocaleString()} → ${(item.transaksi_bulan_ini || 0).toLocaleString()}</span>
-                        ${item.apk ? `<span>📱 ${escapeHtml(item.apk)}</span>` : ''}
-                    </div>
-                </div>
-                <div class="nilai-container">
-                    <div class="nilai ${nilaiClass}">
-                        ${displayValue}
-                    </div>
-                    <div class="progress-track">
-                        <div class="progress-fill ${progressClass}" style="width: ${barPercent}%;"></div>
-                    </div>
-                    <span class="nilai-label">${absValue.toLocaleString()}</span>
-                </div>
-                <div class="aksi-container">
-                    <button class="btn-wa" data-hp="${escapeHtml(item.hp || '')}">💬</button>
-                    ${item.status !== 'imported' ? `
-                        <button class="btn-move" data-id="${item.id}">📋 Pindah</button>
-                    ` : ''}
-                    <button class="btn-delete" data-id="${item.id}">🗑️</button>
+                <div class="detail-row">
+                    <span>📱 ${escapeHtml(item.hp || '-')}</span>
+                    <span>👤 ${escapeHtml(item.upline_name || '-')}</span>
+                    <span>📊 ${(item.transaksi_bulan_lalu || 0).toLocaleString()} → ${(item.transaksi_bulan_ini || 0).toLocaleString()}</span>
+                    ${item.apk ? `<span>📱 ${escapeHtml(item.apk)}</span>` : ''}
                 </div>
             </div>
-        `;
-    });
+            <div class="nilai-container">
+                <div class="nilai ${nilaiClass}">
+                    ${displayValue}
+                </div>
+                <div class="progress-track">
+                    <div class="progress-fill ${progressClass}" style="width: ${barPercent}%;"></div>
+                </div>
+                <span class="nilai-label">${absValue.toLocaleString()}</span>
+            </div>
+            <div class="aksi-container">
+                <button class="btn-wa" data-hp="${escapeHtml(item.hp || '')}">💬</button>
+                ${item.status !== 'imported' ? `
+                    <button class="btn-move" data-id="${item.id}">📋 Pindah</button>
+                ` : ''}
+                <button class="btn-delete" data-id="${item.id}">🗑️</button>
+            </div>
+        </div>
+    `;
+});
     
     container.innerHTML = html;
     
