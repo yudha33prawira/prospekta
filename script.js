@@ -5270,8 +5270,16 @@ function renderTransaksiList() {
     
     container.innerHTML = html;
     
-    // ===== EVENT DELEGATION =====
-    container.addEventListener('click', function(e) {
+    // ===== HAPUS EVENT LISTENER LAMA =====
+    // Clone container untuk menghapus semua event listener
+    const newContainer = container.cloneNode(true);
+    container.parentNode.replaceChild(newContainer, container);
+    const freshContainer = document.getElementById('dbTransaksiList');
+    if (!freshContainer) return;
+    
+    // ===== PASANG EVENT DELEGATION =====
+    // HANYA 1 event listener untuk semua interaksi
+    freshContainer.addEventListener('click', function(e) {
         const target = e.target;
         
         // Tombol Delete
@@ -5302,17 +5310,19 @@ function renderTransaksiList() {
         }
         
         // Klik pada item (bukan tombol)
-        if (target.classList.contains('transaksi-item-premium') || target.closest('.transaksi-item-premium')) {
-            const itemElement = target.closest('.transaksi-item-premium');
-            if (itemElement && !target.closest('.aksi-container') && !target.closest('.checkbox-wrapper')) {
-                const id = itemElement.dataset.id;
-                if (id) openDetailTransaksi(id);
+        const itemElement = target.closest('.transaksi-item-premium');
+        if (itemElement && !target.closest('.aksi-container') && !target.closest('.checkbox-wrapper')) {
+            const id = itemElement.dataset.id;
+            if (id) {
+                e.stopPropagation();
+                e.preventDefault();
+                openDetailTransaksi(id);
             }
         }
     });
     
     // ===== EVENT CHECKBOX =====
-    container.addEventListener('change', function(e) {
+    freshContainer.addEventListener('change', function(e) {
         if (e.target.classList.contains('transaksi-checkbox')) {
             const id = e.target.dataset.id;
             if (e.target.checked) {
@@ -5703,9 +5713,22 @@ async function deleteRiwayat(id) {
 }
 
 // ========== OPEN DETAIL TRANSAKSI ==========
+let isDetailModalOpen = false;
+
 function openDetailTransaksi(id) {
+    // Cegah multiple popup
+    if (isDetailModalOpen) {
+        console.log('⚠️ Detail modal sudah terbuka');
+        return;
+    }
+    
     const item = transaksiData.find(t => t.id === id);
-    if (!item) return;
+    if (!item) {
+        showNotifTop('❌ Data tidak ditemukan!', true);
+        return;
+    }
+    
+    isDetailModalOpen = true;
     
     // ===== PERBAIKAN: Format Bulan-Tahun =====
     const periodeLalu = item.tanggal_bulan_lalu ? formatMonthYear(item.tanggal_bulan_lalu) : 'Tidak tersedia';
@@ -5872,6 +5895,9 @@ function closeDetailModal() {
     document.body.classList.remove('modal-open');
     document.body.style.overflow = '';
     document.body.style.pointerEvents = '';
+    
+    // ===== RESET FLAG =====
+    isDetailModalOpen = false;
 }
 
 // ========== SETUP TRANSAKSI FILTERS ==========
