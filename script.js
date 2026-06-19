@@ -5488,7 +5488,10 @@ function getNamaBulan(index) {
 
 // ========== LOAD RIWAYAT TRANSAKSI ==========
 async function loadRiwayatTransaksi() {
-    if (!currentUser) return;
+    if (!currentUser) {
+        console.warn('loadRiwayatTransaksi: No user');
+        return;
+    }
     
     try {
         const { data, error } = await window.db
@@ -5500,6 +5503,7 @@ async function loadRiwayatTransaksi() {
         
         if (error) {
             console.error('❌ Gagal load riwayat:', error);
+            showNotifTop('❌ Gagal memuat riwayat: ' + error.message, true);
             return;
         }
         
@@ -5507,6 +5511,7 @@ async function loadRiwayatTransaksi() {
         
     } catch (err) {
         console.error('❌ Error load riwayat:', err);
+        showNotifTop('❌ Error: ' + err.message, true);
     }
 }
 
@@ -9836,7 +9841,10 @@ function initEventListeners() {
         currentTransaksiId = null;
     });
     document.getElementById('cancelTransaksiBtn')?.addEventListener('click', () => closeModal('inputTransaksiModal'));
-    document.getElementById('viewTransaksiHistoryBtn')?.addEventListener('click', showTransaksiListModal);
+    document.getElementById('viewTransaksiHistoryBtn')?.addEventListener('click', function() {
+    loadRiwayatTransaksi();
+    showModal('riwayatTransaksiModal');
+});
     
     // Info modal
     document.getElementById('infoBtn')?.addEventListener('click', () => showModal('infoModal'));
