@@ -5376,6 +5376,232 @@ function updateTransaksiStats(allData) {
     }
 }
 
+// ================================================================
+// ========== RIWAYAT TRANSAKSI BULANAN ==========
+// ================================================================
+
+/**
+ * Menyimpan riwayat transaksi bulanan ke Supabase
+ * @param {string} periode - Format: "Januari 2024"
+ * @param {Array} data - Array data transaksi
+ * @param {string} userId - ID user
+ */
+async function saveRiwayatTransaksiBulanan(periode, data, userId) {
+    if (!periode || !data || data.length === 0) {
+        console.warn('⚠️ Tidak ada data untuk disimpan');
+        return;
+    }
+    
+    try {
+        // Parse periode
+        const [namaBulan, tahunStr] = periode.split(' ');
+        const tahun = parseInt(tahunStr);
+        const bulanIndex = getBulanIndex(namaBulan);
+        
+        if (!bulanIndex || isNaN(tahun)) {
+            console.error('❌ Format periode salah:', periode);
+            return;
+        }
+        
+        // Hitung statistik dari data
+        let totalNaik = 0;
+        let totalTurun = 0;
+        let totalNormal = 0;
+        let totalTidakTransaksi = 0;
+        
+        data.forEach(item => {
+            const jenis = item.progres_jenis || 'normal';
+            if (jenis === 'naik') totalNaik++;
+            else if (jenis === 'turun') totalTurun++;
+            else if (jenis === 'tidak_transaksi') totalTidakTransaksi++;
+            else totalNormal++;
+        });
+        
+        const totalData = data.length;
+        
+        // Data untuk di-insert
+        const riwayatData = {
+            bulan: periode,
+            tahun: tahun,
+            bulan_index: bulanIndex,
+            total_naik: totalNaik,
+            total_turun: totalTurun,
+            total_normal: totalNormal,
+            total_tidak_transaksi: totalTidakTransaksi,
+            total_data: totalData,
+            user_id: userId || currentUser.id,
+            updated_at: new Date().toISOString()
+        };
+        
+        console.log('📊 Menyimpan riwayat:', riwayatData);
+        
+        // Upsert (insert atau update jika sudah ada)
+        const { data: result, error } = await window.db
+            .from('riwayat_transaksi_bulanan')
+            .upsert(riwayatData, {
+                onConflict: 'bulan,tahun,user_id',
+                ignoreDuplicates: false
+            })
+            .select();
+        
+        if (error) {
+            console.error('❌ Gagal menyimpan riwayat:', error);
+            showNotifTop('❌ Gagal menyimpan riwayat: ' + error.message, true);
+            return;
+        }
+        
+        console.log('✅ Riwayat berhasil disimpan:', result);
+        showNotifTop(`📊 Riwayat ${periode} berhasil disimpan!`);
+        
+        // Refresh tampilan riwayat
+        await loadRiwayatTransaksi();
+        
+    } catch (err) {
+        console.error('❌ Error save riwayat:', err);
+        showNotifTop('❌ Error: ' + err.message, true);
+    }
+}
+
+/**
+ * Mendapatkan index bulan dari nama bulan
+ */
+function getBulanIndex(namaBulan) {
+    const bulanMap = {
+        'Januari': 1, 'Februari': 2, 'Maret': 3, 'April': 4,
+        'Mei': 5, 'Juni': 6, 'Juli': 7, 'Agustus': 8,
+        'September': 9, 'Oktober': 10, 'November': 11, 'Desember': 12
+    };
+    return bulanMap[namaBulan] || null;
+}
+
+/**
+ * Mendapatkan nama bulan dari index
+ */
+function getNamaBulan(index) {
+    const bulanMap = {
+        1: 'Januari', 2: 'Februari', 3: 'Maret', 4: 'April',
+        5: 'Mei', 6: 'Juni', 7: 'Juli', 8: 'Agustus',
+        9: 'September', 10: 'Oktober', 11: 'November', 12: 'Desember'
+    };
+    return bulanMap[index] || null;
+}
+
+// ========== LOAD RIWAYAT TRANSAKSI ==========
+async function loadRiwayatTransaksi() {
+    if (!currentUser) return;
+    
+    try {
+        const { data, error } = await window.db
+            .from('riwayat_transaksi_bulanan')
+            .select('*')
+            .eq('user_id', currentUser.id)
+            .order('tahun', { ascending: false })
+            .order('bulan_index', { ascending: false });
+        
+        if (error) {
+            console.error('❌ Gagal load riwayat:', error);
+            return;
+        }
+        
+        renderRiwayatTransaksi(data || []);
+        
+    } catch (err) {
+        console.error('❌ Error load riwayat:', err);
+    }
+}
+
+// ========== RENDER RIWAYAT TRANSAKSI ==========
+function renderRiwayatTransaksi(data) {
+    const container = document.getElementById('riwayatTransaksiList');
+    if (!container) return;
+    
+    if (data.length === 0) {
+        container.innerHTML = `
+            <div style="text-align: center; padding: 40px; color: #9ca3af;">
+                <div style="font-size: 48px; margin-bottom: 16px;">📊</div>
+                <p style="font-size: 14px;">Belum ada riwayat transaksi</p>
+                <p style="font-size: 12px; margin-top: 4px;">Import data transaksi untuk mulai mencatat riwayat</p>
+            </div>
+        `;
+        return;
+    }
+    
+    container.innerHTML = data.map(item => `
+        <div class="riwayat-item" style="
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            padding: 14px 18px;
+            margin-bottom: 8px;
+            background: #f8fafc;
+            border-radius: 12px;
+            border: 1px solid #e5e7eb;
+            transition: all 0.2s;
+        ">
+            <div style="display: flex; align-items: center; gap: 16px; flex-wrap: wrap;">
+                <div style="font-weight: 700; font-size: 16px; color: #1f2937; min-width: 140px;">
+                    📅 ${escapeHtml(item.bulan)}
+                </div>
+                <div style="display: flex; gap: 12px; flex-wrap: wrap;">
+                    <span style="background: #d1fae5; padding: 4px 12px; border-radius: 20px; font-size: 12px; font-weight: 600; color: #065f46;">
+                        📈 ${item.total_naik} Agent
+                    </span>
+                    <span style="background: #fee2e2; padding: 4px 12px; border-radius: 20px; font-size: 12px; font-weight: 600; color: #991b1b;">
+                        📉 ${item.total_turun} Agent
+                    </span>
+                    <span style="background: #fef3c7; padding: 4px 12px; border-radius: 20px; font-size: 12px; font-weight: 600; color: #92400e;">
+                        ⚖️ ${item.total_normal} Agent
+                    </span>
+                    <span style="background: #e5e7eb; padding: 4px 12px; border-radius: 20px; font-size: 12px; font-weight: 600; color: #4b5563;">
+                        🚫 ${item.total_tidak_transaksi} Agent
+                    </span>
+                </div>
+            </div>
+            <div style="display: flex; gap: 8px; align-items: center;">
+                <span style="font-size: 12px; color: #6b7280;">
+                    Total: ${item.total_data} data
+                </span>
+                <button onclick="deleteRiwayat('${item.id}')" style="
+                    background: #fef2f2;
+                    border: none;
+                    border-radius: 8px;
+                    padding: 4px 10px;
+                    cursor: pointer;
+                    color: #ef4444;
+                    font-size: 12px;
+                    transition: all 0.2s;
+                " onmouseover="this.style.background='#fee2e2'" onmouseout="this.style.background='#fef2f2'">
+                    🗑️
+                </button>
+            </div>
+        </div>
+    `).join('');
+}
+
+// ========== DELETE RIWAYAT ==========
+async function deleteRiwayat(id) {
+    if (!confirm('Hapus riwayat ini?')) return;
+    
+    try {
+        const { error } = await window.db
+            .from('riwayat_transaksi_bulanan')
+            .delete()
+            .eq('id', id);
+        
+        if (error) {
+            showNotifTop('❌ Gagal hapus: ' + error.message, true);
+            return;
+        }
+        
+        showNotifTop('🗑️ Riwayat berhasil dihapus');
+        await loadRiwayatTransaksi();
+        
+    } catch (err) {
+        console.error('Error delete riwayat:', err);
+        showNotifTop('❌ Error: ' + err.message, true);
+    }
+}
+
 // ========== OPEN DETAIL TRANSAKSI ==========
 function openDetailTransaksi(id) {
     const item = transaksiData.find(t => t.id === id);
@@ -8327,12 +8553,59 @@ function setupImportExcel() {
                         if (batchPromises.length > 0) {
                             await Promise.allSettled(batchPromises);
                         }
+                    }
+
+                    // ===== KELOMPOKKAN DATA BERDASARKAN PERIODE UNTUK RIWAYAT =====
+                    const groupedByPeriode = {};
+                    const periodData = json.map(row => {
+                        const periode = row.periode_bulan_ini || row.periode_ini || '';
+                        const agentId = row.agent_id || row.Agent_ID || '';
+                        const nama = row.nama || row.Nama || '';
+                        let hp = row.hp || row.HP || '';
+                        const transaksiBulanLalu = parseFloat(row.transaksi_bulan_lalu || row.bulan_lalu || 0);
+                        const transaksiBulanIni = parseFloat(row.transaksi_bulan_ini || row.bulan_ini || 0);
                         
-                        processedCount += batch.length;
-                        const percent = 10 + Math.floor((processedCount / json.length) * 80);
-                        progress.update(percent, '📥 Import Data', `Memproses... (${processedCount}/${json.length})`, processedCount, json.length);
+                        if (!agentId || !nama || isNaN(transaksiBulanLalu) || isNaN(transaksiBulanIni)) {
+                            return null;
+                        }
+                        
+                        const selisih = transaksiBulanIni - transaksiBulanLalu;
+                        let progresJenis = 'normal';
+                        
+                        if (transaksiBulanLalu === 0 && transaksiBulanIni === 0) {
+                            progresJenis = 'tidak_transaksi';
+                        } else if (selisih >= 100) {
+                            progresJenis = 'naik';
+                        } else if (selisih <= -100) {
+                            progresJenis = 'turun';
+                        }
+                        
+                        return {
+                            agent_id: agentId,
+                            nama: nama,
+                            hp: hp,
+                            progres_jenis: progresJenis,
+                            periode: periode
+                        };
+                    }).filter(item => item !== null);
+                    
+                    // Kelompokkan berdasarkan periode
+                    periodData.forEach(item => {
+                        const periode = item.periode || 'Unknown';
+                        if (!groupedByPeriode[periode]) {
+                            groupedByPeriode[periode] = [];
+                        }
+                        groupedByPeriode[periode].push(item);
+                    });
+                    
+                    // Simpan riwayat untuk setiap periode
+                    for (const [periode, items] of Object.entries(groupedByPeriode)) {
+                        if (periode && periode !== 'Unknown') {
+                            await saveRiwayatTransaksiBulanan(periode, items, currentUser.id);
+                        }
                     }
                     
+                    // ===== TAMPILKAN HASIL IMPORT =====
                     progress.update(100, '✅ Selesai', `Berhasil: ${success}, Gagal: ${failed}`, success, json.length);
                     
                     // ===== TAMPILKAN POPUP DETAIL HASIL IMPORT =====
@@ -9396,6 +9669,36 @@ function initEventListeners() {
             this.textContent = originalText;
         }
     });
+
+    // Di initEventListeners() atau setup
+document.getElementById('viewTransaksiHistoryBtn')?.addEventListener('click', function() {
+    loadRiwayatTransaksi();
+    showModal('riwayatTransaksiModal');
+});
+
+// Fungsi hapus semua riwayat
+async function clearAllRiwayat() {
+    if (!confirm('⚠️ Hapus SEMUA riwayat transaksi? Tidak bisa dibatalkan!')) return;
+    
+    try {
+        const { error } = await window.db
+            .from('riwayat_transaksi_bulanan')
+            .delete()
+            .eq('user_id', currentUser.id);
+        
+        if (error) {
+            showNotifTop('❌ Gagal hapus: ' + error.message, true);
+            return;
+        }
+        
+        showNotifTop('🗑️ Semua riwayat berhasil dihapus');
+        await loadRiwayatTransaksi();
+        
+    } catch (err) {
+        console.error('Error clear riwayat:', err);
+        showNotifTop('❌ Error: ' + err.message, true);
+    }
+}
     
     // Add prospek
     document.getElementById('addProspekBtn')?.addEventListener('click', () => {
