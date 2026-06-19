@@ -9429,6 +9429,33 @@ async function deleteAllFullProspek() {
     renderFullProspekKanban();
 }
 
+// ========== CLEAR ALL RIWAYAT (GLOBAL) ==========
+async function clearAllRiwayat() {
+    if (!confirm('⚠️ Hapus SEMUA riwayat transaksi? Tidak bisa dibatalkan!')) return;
+    
+    try {
+        const { error } = await window.db
+            .from('riwayat_transaksi_bulanan')
+            .delete()
+            .eq('user_id', currentUser.id);
+        
+        if (error) {
+            showNotifTop('❌ Gagal hapus: ' + error.message, true);
+            return;
+        }
+        
+        showNotifTop('🗑️ Semua riwayat berhasil dihapus');
+        await loadRiwayatTransaksi();
+        
+    } catch (err) {
+        console.error('Error clear riwayat:', err);
+        showNotifTop('❌ Error: ' + err.message, true);
+    }
+}
+
+// Pastikan fungsi ini global
+window.clearAllRiwayat = clearAllRiwayat;
+
 // ========== FULL MODE SELECTION ==========
 function initFullModeSelection() {
     if (currentUserRole !== 'owner') {
@@ -9568,7 +9595,6 @@ function initEventListeners() {
     document.getElementById('saveProfileBtn')?.addEventListener('click', saveUserProfile);
 
     // ===== PERBAIKAN: Hanya 1 event listener untuk transaksi =====
-    // Hapus semua event listener yang ada dengan clone
     const selectAllBtn = document.getElementById('selectAllTransaksi');
     if (selectAllBtn) {
         const newSelectAll = selectAllBtn.cloneNode(true);
@@ -9595,6 +9621,19 @@ function initEventListeners() {
         const newMoveSelected = moveSelectedBtn.cloneNode(true);
         moveSelectedBtn.parentNode.replaceChild(newMoveSelected, moveSelectedBtn);
         document.getElementById('moveSelectedToFollowupBtn')?.addEventListener('click', moveSelectedToFollowup);
+    }
+    
+    // ===== PERBAIKAN: Hanya SATU event listener untuk Riwayat Transaksi =====
+    const historyBtn = document.getElementById('viewTransaksiHistoryBtn');
+    if (historyBtn) {
+        const newHistoryBtn = historyBtn.cloneNode(true);
+        historyBtn.parentNode.replaceChild(newHistoryBtn, historyBtn);
+        document.getElementById('viewTransaksiHistoryBtn')?.addEventListener('click', function(e) {
+            e.preventDefault();
+            e.stopPropagation();
+            loadRiwayatTransaksi();
+            showModal('riwayatTransaksiModal');
+        });
     }
     
     // Transaksi filters - setup sekali
@@ -9669,36 +9708,6 @@ function initEventListeners() {
             this.textContent = originalText;
         }
     });
-
-    // Di initEventListeners() atau setup
-document.getElementById('viewTransaksiHistoryBtn')?.addEventListener('click', function() {
-    loadRiwayatTransaksi();
-    showModal('riwayatTransaksiModal');
-});
-
-// Fungsi hapus semua riwayat
-async function clearAllRiwayat() {
-    if (!confirm('⚠️ Hapus SEMUA riwayat transaksi? Tidak bisa dibatalkan!')) return;
-    
-    try {
-        const { error } = await window.db
-            .from('riwayat_transaksi_bulanan')
-            .delete()
-            .eq('user_id', currentUser.id);
-        
-        if (error) {
-            showNotifTop('❌ Gagal hapus: ' + error.message, true);
-            return;
-        }
-        
-        showNotifTop('🗑️ Semua riwayat berhasil dihapus');
-        await loadRiwayatTransaksi();
-        
-    } catch (err) {
-        console.error('Error clear riwayat:', err);
-        showNotifTop('❌ Error: ' + err.message, true);
-    }
-}
     
     // Add prospek
     document.getElementById('addProspekBtn')?.addEventListener('click', () => {
