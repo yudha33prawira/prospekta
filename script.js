@@ -8100,20 +8100,33 @@ function setupImportExcel() {
                                     // ================================================================
                                     const selisih = transaksiBulanIni - transaksiBulanLalu;
                                     
-                                    // Tentukan progres_jenis berdasarkan selisih
                                     let progresJenis = 'normal';
+                                    let progresJumlah = Math.abs(selisih);
+                                    
+                                    // ===== KONDISI DENGAN THRESHOLD 100 =====
                                     if (transaksiBulanLalu === 0 && transaksiBulanIni === 0) {
+                                        // Tidak ada transaksi di kedua periode
                                         progresJenis = 'tidak_transaksi';
+                                        progresJumlah = 0;
+                                        
                                     } else if (selisih >= 100) {
+                                        // ✅ NAIK jika selisih >= 100
                                         progresJenis = 'naik';
+                                        progresJumlah = selisih;
+                                        
                                     } else if (selisih <= -100) {
+                                        // ✅ TURUN jika selisih <= -100
                                         progresJenis = 'turun';
+                                        progresJumlah = Math.abs(selisih);
+                                        
                                     } else {
+                                        // NORMAL untuk selisih -99 sampai 99
                                         progresJenis = 'normal';
+                                        progresJumlah = Math.abs(selisih);
                                     }
                                     
-                                    // progres_jumlah = nilai absolut dari selisih (selalu positif)
-                                    const progresJumlah = Math.abs(selisih);
+                                    // ===== LOGGING =====
+                                    console.log(`📊 ${agentId}: ${transaksiBulanLalu} → ${transaksiBulanIni} = ${progresJenis} (${progresJumlah})`);
                                     
                                     // ================================================================
                                     // 5. FORMAT NOMOR HP
