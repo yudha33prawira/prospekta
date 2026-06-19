@@ -7320,7 +7320,7 @@ async function loadUplineNumbers() {
     if (currentUserRole !== 'owner') {
         query = query.eq('user_id', currentUser.id);
     }
-    const { data, error, count } = await query
+    const { data: uplineData, error: uplineError, count: uplineCount } = await query
         .order('created_at', { ascending: false })
         .range(0, 9999);
     
