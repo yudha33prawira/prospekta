@@ -5240,25 +5240,36 @@ filtered.forEach((item, index) => {
     const maxValue = Math.max(...data.map(t => Math.abs(t.progres_jumlah || 0)), 1);
     const barPercent = Math.min((absValue / maxValue) * 100, 100);
     
-    // ===== PERBAIKAN: Logika Tanda + / - (HANYA 1 KALI) =====
-    let displayValue = '';  // ← DEKLARASI 1 KALI SAJA
-    
-    if (item.progres_jenis === 'tidak_transaksi') {
-        displayValue = '0';
-    } else if (item.progres_jenis === 'naik') {
+// ===== LOGIKA TANDA + / - =====
+let displayValue = '';
+const jumlah = item.progres_jumlah || 0;
+
+if (item.progres_jenis === 'tidak_transaksi') {
+    displayValue = '0';
+} else if (item.progres_jenis === 'naik') {
+    displayValue = '+' + jumlah.toLocaleString();
+} else if (item.progres_jenis === 'turun') {
+    displayValue = '-' + Math.abs(jumlah).toLocaleString();
+} else {
+    // NORMAL - gunakan nilai asli (bisa positif atau negatif)
+    if (jumlah > 0) {
         displayValue = '+' + jumlah.toLocaleString();
-    } else if (item.progres_jenis === 'turun') {
+    } else if (jumlah < 0) {
         displayValue = '-' + Math.abs(jumlah).toLocaleString();
     } else {
-        // NORMAL
-        if (jumlah > 0) {
-            displayValue = '+' + jumlah.toLocaleString();
-        } else if (jumlah < 0) {
-            displayValue = '-' + Math.abs(jumlah).toLocaleString();
-        } else {
-            displayValue = '0';
-        }
+        displayValue = '0';
     }
+}
+
+// ===== WARNA UNTUK NILAI =====
+let nilaiClass = 'normal';
+if (item.progres_jenis === 'naik' || (item.progres_jenis === 'normal' && jumlah > 0)) {
+    nilaiClass = 'naik';  // hijau
+} else if (item.progres_jenis === 'turun' || (item.progres_jenis === 'normal' && jumlah < 0)) {
+    nilaiClass = 'turun';  // merah
+} else if (item.progres_jenis === 'tidak_transaksi') {
+    nilaiClass = 'tidak';
+}
     
     // ===== HTML =====
     html += `
@@ -8880,17 +8891,20 @@ function setupImportExcel() {
                                         const selisih = transaksiBulanIni - transaksiBulanLalu;
                                         
                                         let progresJenis = 'normal';
-                                        let progresJumlah = Math.abs(selisih);
+                                        let progresJumlah = 0;
                                         
                                         if (transaksiBulanLalu === 0 && transaksiBulanIni === 0) {
                                             progresJenis = 'tidak_transaksi';
                                             progresJumlah = 0;
                                         } else if (selisih >= 100) {
                                             progresJenis = 'naik';
-                                            progresJumlah = selisih;
+                                            progresJumlah = selisih;  // ← POSITIF
                                         } else if (selisih <= -100) {
                                             progresJenis = 'turun';
-                                            progresJumlah = Math.abs(selisih);
+                                            progresJumlah = selisih;  // ← NEGATIF
+                                        } else {
+                                            progresJenis = 'normal';
+                                            progresJumlah = selisih;  // ← BISA POSITIF ATAU NEGATIF (-99 sampai 99)
                                         }
                                         
                                         // ===== FORMAT HP =====
