@@ -4067,6 +4067,9 @@ async function loadDbTransaksi() {
         query = query.eq('user_id', currentUser.id);
     }
     
+    // ✅ Ubah dari 2000 menjadi 5000 atau 10000
+    query = query.limit(5000);  // ← Cukup untuk 3000 data
+    
     const { data, error } = await query.order('created_at', { ascending: false });
     if (error) {
         console.error('Error loading transaksi:', error);
@@ -6975,7 +6978,7 @@ async function loadUplineNumbers() {
     if (currentUserRole !== 'owner') {
         query = query.eq('user_id', currentUser.id);
     }
-    query = query.limit(2000);
+    query = query.limit(5000);
     
     if (statusValues.length > 0 && sourceType !== 'transaksi') {
         query = query.in('status', statusValues);
@@ -7958,7 +7961,7 @@ function setupImportExcel() {
                     progress.update(10, '📥 Import Data', `Memproses ${json.length} baris...`);
                     
                     // ===== PERBAIKAN: Batch processing untuk kecepatan =====
-                    const BATCH_SIZE = 50;
+                    const BATCH_SIZE = 200;
                     const batches = [];
                     
                     for (let i = 0; i < json.length; i += BATCH_SIZE) {
