@@ -5208,6 +5208,8 @@ function renderTransaksiList() {
         let jenisText = '⚖️ Normal';
         let nilaiClass = 'normal';
         let progressClass = 'normal';
+        
+        // ===== PERBAIKAN: Tentukan jenis dan warna =====
         if (item.progres_jenis === 'naik') {
             jenisClass = 'naik';
             jenisText = '📈 Naik';
@@ -5223,10 +5225,40 @@ function renderTransaksiList() {
             jenisText = '🚫 Tidak Transaksi';
             nilaiClass = 'tidak';
             progressClass = 'tidak';
+        } else {
+            // NORMAL - cek apakah selisih positif atau negatif
+            if (item.progres_jumlah > 0) {
+                nilaiClass = 'naik'; // warna hijau untuk positif
+            } else if (item.progres_jumlah < 0) {
+                nilaiClass = 'turun'; // warna merah untuk negatif
+            } else {
+                nilaiClass = 'normal'; // warna kuning untuk 0
+            }
         }
         
         const maxValue = Math.max(...data.map(t => Math.abs(t.progres_jumlah || 0)), 1);
         const barPercent = Math.min((absValue / maxValue) * 100, 100);
+        
+        // ===== PERBAIKAN: Logika Tanda + / - =====
+        let displayValue = '';
+        const jumlah = item.progres_jumlah || 0;
+        
+        if (item.progres_jenis === 'tidak_transaksi') {
+            displayValue = '0';
+        } else if (item.progres_jenis === 'naik') {
+            displayValue = '+' + jumlah.toLocaleString();
+        } else if (item.progres_jenis === 'turun') {
+            displayValue = '-' + absValue.toLocaleString();
+        } else {
+            // NORMAL: tampilkan sesuai nilai (positif/negatif)
+            if (jumlah > 0) {
+                displayValue = '+' + jumlah.toLocaleString();
+            } else if (jumlah < 0) {
+                displayValue = '-' + absValue.toLocaleString();
+            } else {
+                displayValue = '0';
+            }
+        }
         
         html += `
             <div class="transaksi-item-premium" data-id="${item.id}">
@@ -5250,7 +5282,7 @@ function renderTransaksiList() {
                 </div>
                 <div class="nilai-container">
                     <div class="nilai ${nilaiClass}">
-                        ${item.progres_jenis === 'tidak_transaksi' ? '0' : (item.progres_jumlah > 0 ? '+' : '')}${(item.progres_jumlah || 0).toLocaleString()}
+                        ${displayValue}
                     </div>
                     <div class="progress-track">
                         <div class="progress-fill ${progressClass}" style="width: ${barPercent}%;"></div>
@@ -5271,18 +5303,15 @@ function renderTransaksiList() {
     container.innerHTML = html;
     
     // ===== HAPUS EVENT LISTENER LAMA =====
-    // Clone container untuk menghapus semua event listener
     const newContainer = container.cloneNode(true);
     container.parentNode.replaceChild(newContainer, container);
     const freshContainer = document.getElementById('dbTransaksiList');
     if (!freshContainer) return;
     
     // ===== PASANG EVENT DELEGATION =====
-    // HANYA 1 event listener untuk semua interaksi
     freshContainer.addEventListener('click', function(e) {
         const target = e.target;
         
-        // Tombol Delete
         if (target.classList.contains('btn-delete')) {
             e.stopPropagation();
             e.preventDefault();
@@ -5291,7 +5320,6 @@ function renderTransaksiList() {
             return;
         }
         
-        // Tombol WA
         if (target.classList.contains('btn-wa')) {
             e.stopPropagation();
             e.preventDefault();
@@ -5300,7 +5328,6 @@ function renderTransaksiList() {
             return;
         }
         
-        // Tombol Move
         if (target.classList.contains('btn-move')) {
             e.stopPropagation();
             e.preventDefault();
@@ -5309,7 +5336,6 @@ function renderTransaksiList() {
             return;
         }
         
-        // Klik pada item (bukan tombol)
         const itemElement = target.closest('.transaksi-item-premium');
         if (itemElement && !target.closest('.aksi-container') && !target.closest('.checkbox-wrapper')) {
             const id = itemElement.dataset.id;
@@ -5321,7 +5347,6 @@ function renderTransaksiList() {
         }
     });
     
-    // ===== EVENT CHECKBOX =====
     freshContainer.addEventListener('change', function(e) {
         if (e.target.classList.contains('transaksi-checkbox')) {
             const id = e.target.dataset.id;
