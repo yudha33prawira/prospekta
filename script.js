@@ -4058,9 +4058,12 @@ async function loadProduk() {
     renderProdukList();
 }
 
-// ========== LOAD DB TRANSAKSI ==========
+// ========== LOAD DB TRANSAKSI (TANPA BATAS) ==========
 async function loadDbTransaksi() {
-    if (!currentUser) return;
+    if (!currentUser) {
+        console.warn('loadDbTransaksi: No user');
+        return;
+    }
     
     try {
         // Cegah multiple loading
@@ -4072,21 +4075,23 @@ async function loadDbTransaksi() {
         
         console.log('📊 Memuat semua data transaksi...');
         
+        // ===== TAMPILKAN PROGRESS =====
+        const progress = showFloatingProgress('📊 Memuat Data Transaksi', 0);
+        progress.update(0, '📊 Memuat', 'Mengambil data...');
+        
         let allData = [];
         let page = 0;
         const pageSize = 3000; // Ambil 3000 per batch
         let hasMore = true;
         let totalCount = 0;
         
-        // Tampilkan progress (opsional, tapi bagus untuk UX)
-        const progress = showFloatingProgress('📊 Memuat Data Transaksi', 0);
-        progress.update(0, '📊 Memuat', 'Mengambil data...');
-        
         while (hasMore) {
             const start = page * pageSize;
             const end = start + pageSize - 1;
             
             let query = window.db.from('db_transaksi').select('*', { count: 'exact' });
+            
+            // Filter berdasarkan role
             if (currentUserRole !== 'owner') {
                 query = query.eq('user_id', currentUser.id);
             }
@@ -4096,27 +4101,31 @@ async function loadDbTransaksi() {
                 .range(start, end);
             
             if (error) {
-                console.error('❌ Error loading transaksi:', error);
+                console.error('❌ Error loading transaksi page:', error);
                 progress.hide();
                 showNotifTop('❌ Gagal memuat data: ' + error.message, true);
                 window._isLoadingTransaksi = false;
                 return;
             }
             
+            // Total data di database (hanya di page 0)
             if (page === 0) {
                 totalCount = count || 0;
                 progress.setTotal(totalCount);
                 progress.update(5, '📊 Memuat', `Total ${totalCount.toLocaleString()} data ditemukan`);
-                console.log(`📊 Total data: ${totalCount.toLocaleString()}`);
+                console.log(`📊 Total data di database: ${totalCount.toLocaleString()}`);
             }
             
+            // Jika tidak ada data, stop
             if (!data || data.length === 0) {
                 hasMore = false;
                 break;
             }
             
+            // Tambahkan data ke array
             allData = allData.concat(data);
             
+            // Update progress
             const percent = Math.min(Math.floor((allData.length / totalCount) * 100), 100);
             progress.update(
                 percent,
@@ -4126,12 +4135,16 @@ async function loadDbTransaksi() {
                 totalCount
             );
             
+            console.log(`📥 Page ${page + 1}: loaded ${data.length} data (total: ${allData.length})`);
+            
             // Jika data yang diambil kurang dari pageSize, berarti sudah sampai akhir
             if (data.length < pageSize) {
                 hasMore = false;
             }
             
             page++;
+            
+            // Delay kecil agar tidak overload server
             await delay(50);
         }
         
@@ -4140,7 +4153,7 @@ async function loadDbTransaksi() {
         // ===== SIMPAN DATA =====
         transaksiData = allData;
         
-        console.log(`✅ Loaded ${transaksiData.length} transaksi`);
+        console.log(`✅ Loaded ${transaksiData.length} transaksi dari ${totalCount} total`);
         
         // ===== UPDATE UI =====
         renderTransaksiList();
@@ -4163,7 +4176,7 @@ async function loadDbTransaksi() {
         const totalInfoSpan = document.getElementById('transaksiTotalInfo');
         if (totalInfoSpan) {
             if (allData.length < totalCount) {
-                totalInfoSpan.innerText = `⚠️ Menampilkan ${allData.length.toLocaleString()} dari ${totalCount.toLocaleString()} data`;
+                totalInfoSpan.innerText = `⚠️ Menampilkan ${allData.length.toLocaleString()} dari ${totalCount.toLocaleString()} data (gunakan filter)`;
             } else {
                 totalInfoSpan.innerText = `✅ Semua ${totalCount.toLocaleString()} data ditampilkan`;
             }
@@ -4174,7 +4187,7 @@ async function loadDbTransaksi() {
         setTimeout(() => progress.hide(), 2000);
         
     } catch (err) {
-        console.error('❌ Error:', err);
+        console.error('❌ Error loadDbTransaksi:', err);
         showNotifTop('❌ Gagal memuat data: ' + err.message, true);
     } finally {
         window._isLoadingTransaksi = false;
