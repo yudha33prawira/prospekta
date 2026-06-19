@@ -8378,7 +8378,14 @@ function setupSelectAll(btnId, containerSelector, selectedMap) {
     const btn = document.getElementById(btnId);
     if (!btn) return;
     
-    btn.addEventListener('click', () => {
+    // Hapus semua event listener lama
+    const newBtn = btn.cloneNode(true);
+    btn.parentNode.replaceChild(newBtn, btn);
+    
+    document.getElementById(btnId)?.addEventListener('click', function(e) {
+        e.preventDefault();
+        e.stopPropagation();
+        
         const checkboxes = document.querySelectorAll(`${containerSelector} .db-item-checkbox`);
         if (checkboxes.length === 0) return;
         
@@ -8389,7 +8396,12 @@ function setupSelectAll(btnId, containerSelector, selectedMap) {
             if (!allChecked) selectedMap.set(id, true);
             else selectedMap.delete(id);
         });
-        btn.textContent = !allChecked ? '⬜ Batal Semua' : '✅ Pilih Semua';
+        
+        // Update tombol text
+        const btn = document.getElementById(btnId);
+        if (btn) {
+            btn.textContent = !allChecked ? '⬜ Batal Semua' : '✅ Pilih Semua';
+        }
     });
 }
 
@@ -9877,14 +9889,26 @@ function initEventListeners() {
     }
     
     // ===== PERBAIKAN: HANYA 1 EVENT LISTENER UNTUK DELETE SELECTED =====
-    const deleteSelectedBtn = document.getElementById('deleteSelectedTransaksiBtn');
+    const deleteSelectedBtn = document.getElementById('deleteSelectedTransaksi'); // ← ID yang benar!
     if (deleteSelectedBtn) {
         const newDeleteSelected = deleteSelectedBtn.cloneNode(true);
         deleteSelectedBtn.parentNode.replaceChild(newDeleteSelected, deleteSelectedBtn);
-        document.getElementById('deleteSelectedTransaksiBtn')?.addEventListener('click', function(e) {
+        document.getElementById('deleteSelectedTransaksi')?.addEventListener('click', function(e) {
             e.preventDefault();
             e.stopPropagation();
             deleteSelectedTransaksi();
+        });
+    }
+
+    // ===== PERBAIKAN: HANYA 1 EVENT LISTENER UNTUK SELECT ALL =====
+    const selectAllBtn = document.getElementById('selectAllTransaksi');
+    if (selectAllBtn) {
+        const newSelectAll = selectAllBtn.cloneNode(true);
+        selectAllBtn.parentNode.replaceChild(newSelectAll, selectAllBtn);
+        document.getElementById('selectAllTransaksi')?.addEventListener('click', function(e) {
+            e.preventDefault();
+            e.stopPropagation();
+            toggleSelectAllTransaksi();
         });
     }
     
