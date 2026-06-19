@@ -5025,19 +5025,22 @@ function renderTransaksiList() {
         );
     }
     
-    // Update total count
+    // ===== UPDATE STATISTIK DARI SEMUA DATA (TIDAK TERPENGARUH FILTER) =====
+    updateTransaksiStats(transaksiData);
+    
+    // ===== UPDATE "Menampilkan X dari Y data" SESUAI FILTER =====
     const totalCountSpan = document.getElementById('transaksiTotalCount');
     if (totalCountSpan) {
-        totalCountSpan.innerText = filtered.length;
+        totalCountSpan.innerText = filtered.length; // <- JUMLAH DATA SETELAH FILTER
     }
     
     const totalAllSpan = document.getElementById('transaksiTotalAll');
     if (totalAllSpan) {
-        totalAllSpan.innerText = transaksiData.length;
+        totalAllSpan.innerText = transaksiData.length; // <- TOTAL SEMUA DATA
     }
     
-    // Update totals
-    updateTransaksiTotals(filtered);
+    // ===== UPDATE JUMLAH TERPILIH =====
+    updateTransaksiSelectionCount();
     
     if (filtered.length === 0) {
         container.innerHTML = `
@@ -5272,57 +5275,70 @@ function updateTransaksiSelectionCount() {
     }
 }
 
-// ========== UPDATE TRANSAKSI STATS ==========
-function updateTransaksiStats() {
-    const total = transaksiData.length;
-    const imported = transaksiData.filter(t => t.status === 'imported').length;
-    const pending = transaksiData.filter(t => t.status !== 'imported').length;
+// ========== UPDATE TRANSAKSI STATS (DI ATAS, DARI SEMUA DATA) ==========
+function updateTransaksiStats(allData) {
+    const data = allData || transaksiData;
     
     // ===== HITUNG JUMLAH AGENT PER KATEGORI =====
     let totalNaik = 0;
     let totalTurun = 0;
     let totalNormal = 0;
     let totalTidakTransaksi = 0;
+    let totalImported = 0;
+    let totalPending = 0;
     
-    transaksiData.forEach(t => {
+    data.forEach(t => {
         const jenis = t.progres_jenis || 'normal';
-        if (jenis === 'naik') totalNaik++;
-        else if (jenis === 'turun') totalTurun++;
-        else if (jenis === 'tidak_transaksi') totalTidakTransaksi++;
-        else totalNormal++;
+        
+        if (jenis === 'naik') {
+            totalNaik++;
+        } else if (jenis === 'turun') {
+            totalTurun++;
+        } else if (jenis === 'tidak_transaksi') {
+            totalTidakTransaksi++;
+        } else {
+            totalNormal++;
+        }
+        
+        if (t.status === 'imported') {
+            totalImported++;
+        } else {
+            totalPending++;
+        }
     });
     
+    // ===== TAMPILKAN STATISTIK DI ATAS =====
     const statsContainer = document.getElementById('transaksiStats');
     if (statsContainer) {
         statsContainer.innerHTML = `
-            <div style="display: flex; gap: 12px; flex-wrap: wrap; margin-bottom: 16px;">
-                <div style="background: #eef2ff; padding: 8px 16px; border-radius: 10px; display: flex; align-items: center; gap: 8px;">
+            <div style="display: flex; gap: 12px; flex-wrap: wrap; margin-bottom: 16px; padding: 12px 16px; background: #f8fafc; border-radius: 14px; border: 1px solid #e5e7eb;">
+                <div style="display: flex; align-items: center; gap: 6px; background: #eef2ff; padding: 6px 14px; border-radius: 10px;">
                     <span style="font-weight: 600; color: #4f46e5;">📊 Total</span>
-                    <span style="font-weight: 700; color: #1f2937;">${total}</span>
+                    <span style="font-weight: 700; color: #1f2937;">${data.length}</span>
                 </div>
-                <div style="background: #d1fae5; padding: 8px 16px; border-radius: 10px; display: flex; align-items: center; gap: 8px;">
+                <div style="display: flex; align-items: center; gap: 6px; background: #d1fae5; padding: 6px 14px; border-radius: 10px;">
                     <span style="font-weight: 600; color: #065f46;">✅ Imported</span>
-                    <span style="font-weight: 700; color: #1f2937;">${imported}</span>
+                    <span style="font-weight: 700; color: #1f2937;">${totalImported}</span>
                 </div>
-                <div style="background: #fef3c7; padding: 8px 16px; border-radius: 10px; display: flex; align-items: center; gap: 8px;">
+                <div style="display: flex; align-items: center; gap: 6px; background: #fef3c7; padding: 6px 14px; border-radius: 10px;">
                     <span style="font-weight: 600; color: #92400e;">⏳ Pending</span>
-                    <span style="font-weight: 700; color: #1f2937;">${pending}</span>
+                    <span style="font-weight: 700; color: #1f2937;">${totalPending}</span>
                 </div>
-                <div style="background: #d1fae5; padding: 8px 16px; border-radius: 10px; display: flex; align-items: center; gap: 8px;">
+                <div style="display: flex; align-items: center; gap: 6px; background: #d1fae5; padding: 6px 14px; border-radius: 10px;">
                     <span style="font-weight: 600; color: #065f46;">📈 Naik</span>
-                    <span style="font-weight: 700; color: #1f2937;">${totalNaik} Agent</span>
+                    <span style="font-weight: 700; color: #1f2937;">${totalNaik}</span>
                 </div>
-                <div style="background: #fee2e2; padding: 8px 16px; border-radius: 10px; display: flex; align-items: center; gap: 8px;">
+                <div style="display: flex; align-items: center; gap: 6px; background: #fee2e2; padding: 6px 14px; border-radius: 10px;">
                     <span style="font-weight: 600; color: #991b1b;">📉 Turun</span>
-                    <span style="font-weight: 700; color: #1f2937;">${totalTurun} Agent</span>
+                    <span style="font-weight: 700; color: #1f2937;">${totalTurun}</span>
                 </div>
-                <div style="background: #fef3c7; padding: 8px 16px; border-radius: 10px; display: flex; align-items: center; gap: 8px;">
+                <div style="display: flex; align-items: center; gap: 6px; background: #fef3c7; padding: 6px 14px; border-radius: 10px;">
                     <span style="font-weight: 600; color: #92400e;">⚖️ Normal</span>
-                    <span style="font-weight: 700; color: #1f2937;">${totalNormal} Agent</span>
+                    <span style="font-weight: 700; color: #1f2937;">${totalNormal}</span>
                 </div>
-                <div style="background: #e5e7eb; padding: 8px 16px; border-radius: 10px; display: flex; align-items: center; gap: 8px;">
+                <div style="display: flex; align-items: center; gap: 6px; background: #e5e7eb; padding: 6px 14px; border-radius: 10px;">
                     <span style="font-weight: 600; color: #4b5563;">🚫 Tidak Transaksi</span>
-                    <span style="font-weight: 700; color: #1f2937;">${totalTidakTransaksi} Agent</span>
+                    <span style="font-weight: 700; color: #1f2937;">${totalTidakTransaksi}</span>
                 </div>
             </div>
         `;
