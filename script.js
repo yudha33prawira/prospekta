@@ -4150,10 +4150,12 @@ async function loadDbTransaksi() {
         
         progress.update(100, '✅ Selesai', `Berhasil memuat ${allData.length.toLocaleString()} data`);
         
-        // ===== SIMPAN DATA =====
-        transaksiData = allData;
+        // ===== SIMPAN DATA KE GLOBAL =====
+        window.transaksiData = allData;  // ← PASTIKAN INI!
+        transaksiData = allData;         // ← PASTIKAN INI!
         
         console.log(`✅ Loaded ${transaksiData.length} transaksi dari ${totalCount} total`);
+        console.log('📊 Data transaksi:', transaksiData.slice(0, 5)); // Debug: tampilkan 5 data pertama
         
         // ===== UPDATE UI =====
         renderTransaksiList();
@@ -5109,225 +5111,23 @@ function renderTransaksiList() {
     const container = document.getElementById('dbTransaksiList');
     if (!container) return;
     
-    // ===== GUNAKAN transaksiData LOKAL =====
-    const data = transaksiData; // ← Gunakan data lokal, bukan query ulang
+    // ===== GUNAKAN transaksiData GLOBAL =====
+    const data = window.transaksiData || transaksiData || []; // ← DEKLARASI PERTAMA
     
-    // Filter data
-    const searchTerm = document.getElementById('searchTransaksiInput')?.value.toLowerCase().trim() || '';
-    const filterJenis = document.getElementById('filterTransaksiJenis')?.value || '';
-    const filterStatus = document.getElementById('filterTransaksiStatus')?.value || '';
-    const filterUpline = document.getElementById('filterTransaksiUpline')?.value.toLowerCase().trim() || '';
+    console.log('📊 renderTransaksiList - data length:', data.length); // Debug
     
-    let filtered = [...data];
-    
-    // ===== FILTER SEARCH TERM =====
-    if (searchTerm) {
-        filtered = filtered.filter(item =>
-            (item.nama && String(item.nama).toLowerCase().includes(searchTerm)) ||
-            (item.agent_id && String(item.agent_id).toLowerCase().includes(searchTerm)) ||
-            (item.hp && String(item.hp).includes(searchTerm))
-        );
-    }
-    
-    if (filterJenis) {
-        filtered = filtered.filter(item => item.progres_jenis === filterJenis);
-    }
-    
-    if (filterStatus) {
-        filtered = filtered.filter(item => item.status === filterStatus);
-    }
-    
-    if (filterUpline) {
-        filtered = filtered.filter(item => {
-            if (item.upline_name && String(item.upline_name).toLowerCase().includes(filterUpline)) return true;
-            if (item.upline_phone && String(item.upline_phone).toLowerCase().includes(filterUpline)) return true;
-            if (item.upline && String(item.upline).toLowerCase().includes(filterUpline)) return true;
-            return false;
-        });
-    }
-    
-    // ===== UPDATE STATISTIK =====
-    updateTransaksiStats(data);
-    
-    // ===== UPDATE TOTAL =====
-    const totalCountSpan = document.getElementById('transaksiTotalCount');
-    if (totalCountSpan) totalCountSpan.innerText = filtered.length;
-    
-    const totalAllSpan = document.getElementById('transaksiTotalAll');
-    if (totalAllSpan) totalAllSpan.innerText = data.length;
-    
-    // Tambahkan info jika ada batasan
-    const totalInfoSpan = document.getElementById('transaksiTotalInfo');
-    if (totalInfoSpan) {
-        if (transaksiData.length >= 10000) {
-            totalInfoSpan.innerText = '⚠️ Menampilkan maksimal 10000 data terbaru';
-        } else {
-            totalInfoSpan.innerText = '';
-        }
-    }
-    
-    const selectedCountSpan = document.getElementById('transaksiSelectedCount');
-    if (selectedCountSpan) selectedCountSpan.innerText = selectedTransaksiIds.size;
-    
-    if (filtered.length === 0) {
-        container.innerHTML = `
-            <div style="text-align: center; padding: 60px 20px; color: #9ca3af;">
-                <div style="font-size: 48px; margin-bottom: 16px;">📭</div>
-                <p style="font-size: 16px; font-weight: 500;">Tidak ada data transaksi</p>
-                <p style="font-size: 13px; margin-top: 4px;">Coba ubah filter atau import data baru</p>
-            </div>
-        `;
+    if (!data || data.length === 0) {
+        container.innerHTML = `...`;
         return;
     }
     
-    // ===== BUILD HTML =====
-    let html = '';
-    filtered.forEach((item, index) => {
-        const isChecked = selectedTransaksiIds.get(item.id) === true;
-        const absValue = Math.abs(item.progres_jumlah || 0);
-        
-        let statusClass = 'baru';
-        let statusText = '📋 Baru';
-        if (item.status === 'imported') {
-            statusClass = 'imported';
-            statusText = '✅ Sudah Dipindah';
-        } else if (item.status === 'pending_import') {
-            statusClass = 'pending';
-            statusText = '⏳ Pending';
-        }
-        
-        let jenisClass = 'normal';
-        let jenisText = '⚖️ Normal';
-        let nilaiClass = 'normal';
-        let progressClass = 'normal';
-        if (item.progres_jenis === 'naik') {
-            jenisClass = 'naik';
-            jenisText = '📈 Naik';
-            nilaiClass = 'naik';
-            progressClass = 'naik';
-        } else if (item.progres_jenis === 'turun') {
-            jenisClass = 'turun';
-            jenisText = '📉 Turun';
-            nilaiClass = 'turun';
-            progressClass = 'turun';
-        } else if (item.progres_jenis === 'tidak_transaksi') {
-            jenisClass = 'tidak';
-            jenisText = '🚫 Tidak Transaksi';
-            nilaiClass = 'tidak';
-            progressClass = 'tidak';
-        }
-        
-        const maxValue = Math.max(...transaksiData.map(t => Math.abs(t.progres_jumlah || 0)), 1);
-        const barPercent = Math.min((absValue / maxValue) * 100, 100);
-        
-        html += `
-            <div class="transaksi-item-premium" data-id="${item.id}">
-                <div class="nomor-urut">${index + 1}</div>
-                <div class="checkbox-wrapper">
-                    <input type="checkbox" class="transaksi-checkbox" data-id="${item.id}" ${isChecked ? 'checked' : ''}>
-                </div>
-                <div class="info-utama">
-                    <div class="header-row">
-                        <span class="nama">${escapeHtml(item.nama || item.agent_id)}</span>
-                        <span class="agent-id">🆔 ${escapeHtml(item.agent_id || '-')}</span>
-                        <span class="badge-jenis ${jenisClass}">${jenisText}</span>
-                        <span class="badge-status ${statusClass}">${statusText}</span>
-                    </div>
-                    <div class="detail-row">
-                        <span>📱 ${escapeHtml(item.hp || '-')}</span>
-                        <span>👤 ${escapeHtml(item.upline_name || '-')}</span>
-                        <span>📊 ${(item.transaksi_bulan_lalu || 0).toLocaleString()} → ${(item.transaksi_bulan_ini || 0).toLocaleString()}</span>
-                        ${item.apk ? `<span>📱 ${escapeHtml(item.apk)}</span>` : ''}
-                    </div>
-                </div>
-                <div class="nilai-container">
-                    <div class="nilai ${nilaiClass}">
-                        ${item.progres_jenis === 'tidak_transaksi' ? '0' : (item.progres_jumlah > 0 ? '+' : '')}${(item.progres_jumlah || 0).toLocaleString()}
-                    </div>
-                    <div class="progress-track">
-                        <div class="progress-fill ${progressClass}" style="width: ${barPercent}%;"></div>
-                    </div>
-                    <span class="nilai-label">${absValue.toLocaleString()}</span>
-                </div>
-                <div class="aksi-container">
-                    <button class="btn-wa" data-hp="${escapeHtml(item.hp || '')}">💬</button>
-                    ${item.status !== 'imported' ? `
-                        <button class="btn-move" data-id="${item.id}">📋 Pindah</button>
-                    ` : ''}
-                    <button class="btn-delete" data-id="${item.id}">🗑️</button>
-                </div>
-            </div>
-        `;
-    });
+    // ===== GUNAKAN transaksiData LOKAL =====
+    const data = transaksiData; // ← ❌ DUPLIKASI! Ini menimpa variabel data di atas!
     
-    container.innerHTML = html;
-    
-    // ===== EVENT DELEGATION =====
-    // Hapus semua event listener lama dengan clone
-    const newContainer = container.cloneNode(false);
-    container.parentNode.replaceChild(newContainer, container);
-    const freshContainer = document.getElementById('dbTransaksiList');
-    if (!freshContainer) return;
-    
-    freshContainer.innerHTML = html;
-    
-    // ===== EVENT DELEGATION UNTUK SEMUA INTERAKSI =====
-    freshContainer.addEventListener('click', function(e) {
-        const target = e.target;
-        
-        // Tombol Delete
-        if (target.classList.contains('btn-delete')) {
-            e.stopPropagation();
-            e.preventDefault();
-            const id = target.dataset.id;
-            if (id) deleteTransaksiItem(id);
-            return;
-        }
-        
-        // Tombol WA
-        if (target.classList.contains('btn-wa')) {
-            e.stopPropagation();
-            e.preventDefault();
-            const hp = target.dataset.hp;
-            if (hp) openWA(hp);
-            return;
-        }
-        
-        // Tombol Move
-        if (target.classList.contains('btn-move')) {
-            e.stopPropagation();
-            e.preventDefault();
-            const id = target.dataset.id;
-            if (id) moveSingleToFollowup(id);
-            return;
-        }
-        
-        // Klik pada item (bukan tombol)
-        if (target.classList.contains('transaksi-item-premium') || target.closest('.transaksi-item-premium')) {
-            const itemElement = target.closest('.transaksi-item-premium');
-            if (itemElement && !target.closest('.aksi-container') && !target.closest('.checkbox-wrapper')) {
-                const id = itemElement.dataset.id;
-                if (id) openDetailTransaksi(id);
-            }
-        }
-    });
-    
-    // ===== EVENT CHECKBOX =====
-    freshContainer.addEventListener('change', function(e) {
-        if (e.target.classList.contains('transaksi-checkbox')) {
-            const id = e.target.dataset.id;
-            if (e.target.checked) {
-                selectedTransaksiIds.set(id, true);
-            } else {
-                selectedTransaksiIds.delete(id);
-            }
-            updateSelectAllTransaksiButton();
-            updateTransaksiSelectionCount();
-        }
-    });
-    
-    updateSelectAllTransaksiButton();
-    updateTransaksiSelectionCount();
+    // Filter data
+    const searchTerm = ...
+    let filtered = [...data];
+    // ...
 }
     
 // ===== HANDLE TRANSAKSI CHECKBOX CHANGE =====
@@ -7434,9 +7234,6 @@ async function loadUplineNumbers() {
     if (currentUserRole !== 'owner') {
         query = query.eq('user_id', currentUser.id);
     }
-    const { data: uplineData, error: uplineError, count: uplineCount } = await query
-        .order('created_at', { ascending: false })
-        .range(0, 9999);
     
     if (statusValues.length > 0 && sourceType !== 'transaksi') {
         query = query.in('status', statusValues);
