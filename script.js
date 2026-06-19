@@ -4067,7 +4067,9 @@ async function loadDbTransaksi() {
         query = query.eq('user_id', currentUser.id);
     }
     
-    query = query.limit(5000);
+    const { data, error, count } = await query
+            .order('created_at', { ascending: false })
+            .range(0, 9999);
     
     const { data, error } = await query.order('created_at', { ascending: false });
     if (error) {
@@ -5039,6 +5041,16 @@ function renderTransaksiList() {
     
     const totalAllSpan = document.getElementById('transaksiTotalAll');
     if (totalAllSpan) totalAllSpan.innerText = transaksiData.length;
+    
+    // Tambahkan info jika ada batasan
+    const totalInfoSpan = document.getElementById('transaksiTotalInfo');
+    if (totalInfoSpan) {
+        if (transaksiData.length >= 10000) {
+            totalInfoSpan.innerText = '⚠️ Menampilkan maksimal 10000 data terbaru';
+        } else {
+            totalInfoSpan.innerText = '';
+        }
+    }
     
     const selectedCountSpan = document.getElementById('transaksiSelectedCount');
     if (selectedCountSpan) selectedCountSpan.innerText = selectedTransaksiIds.size;
@@ -7308,7 +7320,9 @@ async function loadUplineNumbers() {
     if (currentUserRole !== 'owner') {
         query = query.eq('user_id', currentUser.id);
     }
-    query = query.limit(5000);
+    const { data, error, count } = await query
+        .order('created_at', { ascending: false })
+        .range(0, 9999);
     
     if (statusValues.length > 0 && sourceType !== 'transaksi') {
         query = query.in('status', statusValues);
@@ -9678,7 +9692,9 @@ async function syncTransaksiData() {
             query = query.eq('user_id', currentUser.id);
         }
         
-        const { data, error } = await query.limit(5000).order('created_at', { ascending: false });
+        const { data, error } = await query
+        .order('created_at', { ascending: false })
+        .range(0, 9999);
         if (error) {
             console.error('Error syncing transaksi:', error);
             return;
