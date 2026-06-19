@@ -439,6 +439,40 @@
 
                 <div class="modal" id="pilihCsTujuanModal"><div class="modal-content"><h3>📋 Pilih CS Tujuan</h3><div class="modal-subtitle">Pilih CS Agent yang akan menerima data followup</div><div class="form-group"><label>Metode Pembagian</label><select id="metodePembagian"><option value="satu">📨 Kirim ke satu CS tertentu</option><option value="rata">🔄 Bagikan secara rata ke semua CS terpilih</option></select></div><div class="form-group" id="satuCsGroup"><label>Pilih CS Tujuan</label><select id="csTujuanSelect"><option value="">Pilih CS Agent</option></select></div><div class="form-group" id="rataCsGroup" style="display:none;"><label>Pilih CS Agent (bisa pilih lebih dari satu)</label><div id="csMultiSelect" style="max-height: 200px; overflow-y: auto; border: 1.5px solid #e5e7eb; border-radius: 14px; padding: 8px;"></div></div><div class="form-group"><label>Preview Data yang akan dipindah</label><div id="previewDataCount"><span id="selectedDataCount">0</span> data akan dipindahkan</div></div><div class="modal-buttons"><button id="confirmPindahKeCsBtn" class="btn-primary">✅ Konfirmasi Pindah</button><button id="batalPindahKeCsBtn" class="btn-outline">Batal</button></div></div></div>
 
+                <!-- Modal Riwayat Transaksi -->
+                <div class="modal" id="riwayatTransaksiModal">
+                    <div class="modal-content" style="max-width: 800px; max-height: 85vh;">
+                        <div style="display: flex; justify-content: space-between; align-items: center; padding: 20px 24px 0;">
+                            <h3 style="font-size: 20px; margin: 0;">📊 Riwayat Transaksi Bulanan</h3>
+                            <button onclick="closeModal('riwayatTransaksiModal')" style="
+                                background: none;
+                                border: none;
+                                font-size: 28px;
+                                cursor: pointer;
+                                color: #6b7280;
+                                padding: 0 4px;
+                                transition: all 0.2s;
+                                line-height: 1;
+                            " onmouseover="this.style.color='#ef4444'" onmouseout="this.style.color='#6b7280'">✕</button>
+                        </div>
+                        <div class="modal-subtitle" style="font-size: 13px; color: #6b7280; padding: 0 24px 12px 24px; border-bottom: 1px solid #f0f0f0;">
+                            Riwayat transaksi per bulan berdasarkan data yang diimport
+                        </div>
+                        
+                        <div style="padding: 20px 24px;">
+                            <div style="margin-bottom: 16px; display: flex; gap: 12px; flex-wrap: wrap;">
+                                <button onclick="loadRiwayatTransaksi()" class="btn-primary" style="padding: 8px 16px; border-radius: 10px; border: none; cursor: pointer; font-weight: 600;">🔄 Refresh</button>
+                                <button onclick="clearAllRiwayat()" class="btn-danger" style="padding: 8px 16px; border-radius: 10px; border: none; cursor: pointer; font-weight: 600;">🗑️ Hapus Semua</button>
+                            </div>
+                            <div id="riwayatTransaksiList" style="max-height: 400px; overflow-y: auto;"></div>
+                        </div>
+                        
+                        <div class="modal-buttons" style="display: flex; gap: 12px; padding: 16px 24px 24px; border-top: 1px solid #e5e7eb;">
+                            <button onclick="closeModal('riwayatTransaksiModal')" class="btn-primary" style="flex: 1; padding: 12px; border: none; border-radius: 14px; font-weight: 600; cursor: pointer; background: linear-gradient(135deg, #4f46e5, #6366f1); color: white;">Tutup</button>
+                        </div>
+                    </div>
+                </div>
+                
                 <div class="modal" id="tarifAdminModal"><div class="modal-content" style="max-width: 800px;"><h3>🏷️ Kelola Admin per CID</h3><div class="modal-subtitle">Atur potongan admin untuk setiap CID</div><div style="padding: 0 20px;"><input type="text" id="searchTarifInput" placeholder="🔍 Cari berdasarkan CID..." style="width:100%; padding: 10px; border-radius: 10px; border: 1px solid #e5e7eb; margin-bottom: 16px;"></div><div style="padding: 0 20px; background: #f9fafb; margin-bottom: 20px; border-radius: 12px; padding: 16px;"><div style="display: flex; gap: 12px; flex-wrap: wrap;"><div style="flex: 1;"><label>CID <span class="required">*</span></label><input type="text" id="tarifCid" placeholder="Contoh: 5213247"></div><div style="flex: 1;"><label>PLN Pospaid</label><input type="number" id="tarifPospaid" placeholder="Admin PLN Pospaid"></div><div style="flex: 1;"><label>PLN Prepaid</label><input type="number" id="tarifPrepaid" placeholder="Admin PLN Prepaid"></div><div style="flex: 1;"><label>PLN Nontaglis</label><input type="number" id="tarifNontaglis" placeholder="Admin PLN Nontaglis"></div><div><button id="saveTarifAdminBtn" class="btn-primary">💾 Simpan</button><button id="clearTarifFormBtn" class="btn-outline">✖ Bersihkan</button></div></div></div><div style="padding: 0 20px; margin-bottom: 16px;"><button id="importTarifExcelBtn" class="db-import-excel">📥 Import Excel</button><button id="exportTarifExcelBtn" class="db-export-excel">📤 Export Excel</button><button id="downloadTarifExampleBtn" style="background: #f59e0b; color: white; padding: 6px 12px; border-radius: 8px; border: none; cursor: pointer;">📋 Download Contoh</button></div><div id="tarifAdminList" class="db-list"></div><div class="modal-buttons"><button id="closeTarifAdminModal" class="btn-outline">Tutup</button></div></div></div>
 
                 <div class="modal" id="produkMasterModal"><div class="modal-content"><h3 id="produkMasterTitle">🏷️ Tambah Produk</h3><div class="modal-subtitle">Isi data produk master</div><div class="form-group"><label>Nama Produk <span class="required">*</span></label><input type="text" id="produkMasterNama" placeholder="Nama produk"></div><div class="form-group"><label>Jenis Produk <span class="required">*</span></label><select id="produkMasterJenis"><option value="tanpa_admin">📦 Tanpa Admin (HPP + Harga Jual)</option><option value="beradmin">🏷️ Beradmin (Admin/Potongan)</option></select></div><div id="tanpaAdminFields" style="display: block;"><div class="form-group"><label>Harga Jual Referensi</label><input type="number" id="produkMasterHargaJual" placeholder="Harga jual referensi"></div></div><div id="beradminFields" style="display: none;"><div class="form-group"><label>Admin Default <span class="required">*</span></label><input type="number" id="produkMasterAdminDefault" placeholder="Admin default (potongan)"></div><div class="form-group"><label>Apakah admin berdasarkan CID?</label><select id="produkMasterCidBased"><option value="no">❌ Tidak (admin tetap)</option><option value="yes">✅ Ya (admin berbeda per CID)</option></select></div></div><div class="form-group"><label>Harga HPP (Modal) <span class="required">*</span></label><input type="number" id="produkMasterHpp" placeholder="Harga modal/HPP"></div><div class="form-group"><label>Keterangan</label><textarea id="produkMasterKeterangan" rows="2" placeholder="Deskripsi produk"></textarea></div><div class="modal-buttons"><button id="saveProdukMasterBtn" class="btn-primary">💾 Simpan</button><button id="cancelProdukMasterBtn" class="btn-outline">Batal</button></div></div></div>
