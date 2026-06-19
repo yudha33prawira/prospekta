@@ -5945,12 +5945,16 @@ function updateSelectAllTransaksiButton() {
 
 // ========== SELECT ALL TRANSAKSI ==========
 function toggleSelectAllTransaksi() {
+    console.log('🔄 toggleSelectAllTransaksi dipanggil!'); // Debug
+    
     if (currentUserRole !== 'owner') {
         showNotifTop('⚠️ Hanya Owner yang dapat menggunakan fitur ini!', true);
         return;
     }
     
     const checkboxes = document.querySelectorAll('#dbTransaksiList .transaksi-checkbox');
+    console.log('📋 Jumlah checkbox:', checkboxes.length); // Debug
+    
     if (checkboxes.length === 0) {
         showNotifTop('⚠️ Tidak ada data untuk dipilih', true);
         return;
@@ -5971,8 +5975,15 @@ function toggleSelectAllTransaksi() {
         }
     });
     
+    // ===== UPDATE UI =====
     updateSelectAllTransaksiButton();
     updateTransaksiSelectionCount();
+    
+    // ===== UPDATE TOMBOL =====
+    const btn = document.getElementById('selectAllTransaksi');
+    if (btn) {
+        btn.textContent = !allChecked ? '⬜ Batal Semua' : '✅ Pilih Semua';
+    }
 }
 
 // ========== MOVE SELECTED TO FOLLOWUP ==========
@@ -9880,14 +9891,20 @@ function initEventListeners() {
     document.getElementById('saveProfileBtn')?.addEventListener('click', saveUserProfile);
 
     // ===== PERBAIKAN: HANYA 1 EVENT LISTENER UNTUK SELECT ALL =====
-    // Gunakan blok scope { } untuk menghindari duplikasi variabel
     {
         const selectAllBtn = document.getElementById('selectAllTransaksi');
         if (selectAllBtn) {
-            // Hapus semua listener dengan clone
+            // Hapus semua listener lama dengan clone
             const newSelectAll = selectAllBtn.cloneNode(true);
             selectAllBtn.parentNode.replaceChild(newSelectAll, selectAllBtn);
-            document.getElementById('selectAllTransaksi')?.addEventListener('click', toggleSelectAllTransaksi);
+            
+            // Pasang event listener baru
+            document.getElementById('selectAllTransaksi')?.addEventListener('click', function(e) {
+                e.preventDefault();
+                e.stopPropagation();
+                console.log('Select All clicked!'); // Debug
+                toggleSelectAllTransaksi();
+            });
         }
     }
     
@@ -10250,7 +10267,6 @@ function initEventListeners() {
     setupSelectAll('selectAllCommitment', '#dbCommitmentList', selectedCommitmentIds);
     setupSelectAll('selectAllAgent', '#dbAgentList', selectedAgentIds);
     setupSelectAll('selectAllProduk', '#produkList', selectedProdukIds);
-    setupSelectAll('selectAllTransaksi', '#dbTransaksiList', selectedTransaksiIds);
     
     document.getElementById('deleteSelectedClosing')?.addEventListener('click', () => deleteSelectedDBItems('db_closing', selectedClosingIds, loadDBClosing));
     document.getElementById('deleteAllClosing')?.addEventListener('click', () => deleteAllDBItems('db_closing', loadDBClosing));
