@@ -5193,6 +5193,7 @@ function renderTransaksiList() {
     filtered.forEach((item, index) => {
         const isChecked = selectedTransaksiIds.get(item.id) === true;
         const absValue = Math.abs(item.progres_jumlah || 0);
+        const jumlah = item.progres_jumlah || 0;
         
         let statusClass = 'baru';
         let statusText = '📋 Baru';
@@ -5243,24 +5244,40 @@ function renderTransaksiList() {
         let displayValue = '';
         const jumlah = item.progres_jumlah || 0;
         
+        let displayValue = '';
+        
         if (item.progres_jenis === 'tidak_transaksi') {
             displayValue = '0';
         } else if (item.progres_jenis === 'naik') {
             displayValue = '+' + jumlah.toLocaleString();
         } else if (item.progres_jenis === 'turun') {
-            // Untuk turun, selalu gunakan nilai absolut dengan tanda -
             displayValue = '-' + Math.abs(jumlah).toLocaleString();
         } else {
-            // NORMAL: tampilkan sesuai nilai (positif/negatif)
+            // NORMAL
             if (jumlah > 0) {
                 displayValue = '+' + jumlah.toLocaleString();
             } else if (jumlah < 0) {
-                // Gunakan nilai absolut dengan tanda -
                 displayValue = '-' + Math.abs(jumlah).toLocaleString();
             } else {
                 displayValue = '0';
             }
         }
+
+        // ===== WARNA UNTUK NILAI =====
+        let nilaiClass = 'normal';
+        if (item.progres_jenis === 'naik' || jumlah > 0) {
+            nilaiClass = 'naik';
+        } else if (item.progres_jenis === 'turun' || jumlah < 0) {
+            nilaiClass = 'turun';
+        } else if (item.progres_jenis === 'tidak_transaksi') {
+            nilaiClass = 'tidak';
+        }
+        
+        // ===== PROGRESS CLASS =====
+        let progressClass = 'normal';
+        if (item.progres_jenis === 'naik') progressClass = 'naik';
+        else if (item.progres_jenis === 'turun') progressClass = 'turun';
+        else if (item.progres_jenis === 'tidak_transaksi') progressClass = 'tidak';
         
         html += `
             <div class="transaksi-item-premium" data-id="${item.id}">
@@ -5744,51 +5761,40 @@ function openDetailTransaksi(id) {
     const item = transaksiData.find(t => t.id === id);
     if (!item) return;
     
-    // ===== PERBAIKAN: Format Bulan-Tahun =====
     const periodeLalu = item.tanggal_bulan_lalu ? formatMonthYear(item.tanggal_bulan_lalu) : 'Tidak tersedia';
     const periodeIni = item.tanggal_bulan_ini ? formatMonthYear(item.tanggal_bulan_ini) : 'Tidak tersedia';
     const tanggalImport = item.tanggal_transaksi ? formatDateDDMMYYYY(item.tanggal_transaksi) : '-';
     
     // ===== LOGIKA TANDA UNTUK NILAI =====
-    let displayValue = '';
     const jumlah = item.progres_jumlah || 0;
+    
+    let displayValue = '';
+    let nilaiColor = '#f59e0b';
+    let jenisText = '⚖️ Normal';
     
     if (item.progres_jenis === 'tidak_transaksi') {
         displayValue = '0';
+        nilaiColor = '#6b7280';
+        jenisText = '🚫 Tidak Transaksi';
     } else if (item.progres_jenis === 'naik') {
         displayValue = '+' + jumlah.toLocaleString();
+        nilaiColor = '#10b981';
+        jenisText = '📈 Naik';
     } else if (item.progres_jenis === 'turun') {
         displayValue = '-' + Math.abs(jumlah).toLocaleString();
+        nilaiColor = '#ef4444';
+        jenisText = '📉 Turun';
     } else {
         // NORMAL
         if (jumlah > 0) {
             displayValue = '+' + jumlah.toLocaleString();
-        } else if (jumlah < 0) {
-            displayValue = '-' + Math.abs(jumlah).toLocaleString();
-        } else {
-            displayValue = '0';
-        }
-    }
-    
-    // ===== WARNA UNTUK NILAI =====
-    let nilaiColor = '#f59e0b'; // default normal
-    let jenisText = '⚖️ Normal';
-    
-    if (item.progres_jenis === 'naik') {
-        nilaiColor = '#10b981';
-        jenisText = '📈 Naik';
-    } else if (item.progres_jenis === 'turun') {
-        nilaiColor = '#ef4444';
-        jenisText = '📉 Turun';
-    } else if (item.progres_jenis === 'tidak_transaksi') {
-        nilaiColor = '#6b7280';
-        jenisText = '🚫 Tidak Transaksi';
-    } else {
-        // NORMAL - cek nilai
-        if (jumlah > 0) {
             nilaiColor = '#10b981';
         } else if (jumlah < 0) {
+            displayValue = '-' + Math.abs(jumlah).toLocaleString();
             nilaiColor = '#ef4444';
+        } else {
+            displayValue = '0';
+            nilaiColor = '#f59e0b';
         }
     }
     
