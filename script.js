@@ -6073,7 +6073,7 @@ async function moveSelectedToFollowup() {
     }
 }
 
-// ========== DELETE SELECTED TRANSAKSI (CEPAT & REALTIME) ==========
+// ========== DELETE SELECTED TRANSAKSI (BATCH + REALTIME) ==========
 let isDeletingSelectedTransaksi = false;
 
 async function deleteSelectedTransaksi() {
@@ -6095,7 +6095,7 @@ async function deleteSelectedTransaksi() {
         return;
     }
     
-    // Hanya 1 KONFIRMASI
+    // ===== HANYA 1 KONFIRMASI =====
     if (!confirm(`⚠️ Hapus ${selectedIds.length} data transaksi yang dipilih?\n\nData akan dihapus permanen!`)) {
         return;
     }
@@ -6108,8 +6108,8 @@ async function deleteSelectedTransaksi() {
     try {
         const totalData = selectedIds.length;
         
-        // ===== BATCH DELETE: Hapus 50 data sekaligus =====
-        const BATCH_SIZE = 50;
+        // ===== BATCH DELETE: Hapus 100 data sekaligus =====
+        const BATCH_SIZE = 100;
         const batches = [];
         
         for (let i = 0; i < selectedIds.length; i += BATCH_SIZE) {
@@ -6147,7 +6147,7 @@ async function deleteSelectedTransaksi() {
                 const percent = Math.min(Math.floor((deleted / totalData) * 100), 100);
                 progress.update(percent, '🗑️ Menghapus', `Menghapus data... (${deleted}/${totalData})`, deleted, totalData);
                 
-                // ===== UPDATE UI SETIAP BATCH =====
+                // ===== UPDATE UI SETIAP BATCH (REALTIME) =====
                 renderTransaksiList();
                 updateTransaksiStats(transaksiData);
                 updateSelectAllTransaksiButton();
@@ -6155,7 +6155,7 @@ async function deleteSelectedTransaksi() {
                 
                 // Delay kecil antar batch
                 if (batchIndex < batches.length - 1) {
-                    await delay(50);
+                    await delay(100);
                 }
                 
             } catch (batchError) {
@@ -6305,7 +6305,7 @@ async function deleteTransaksiItem(id) {
         
         selectedTransaksiIds.delete(id);
         
-        // ===== UPDATE UI LANGSUNG =====
+        // ===== UPDATE UI LANGSUNG (REALTIME) =====
         renderTransaksiList();
         updateTransaksiStats(transaksiData);
         updateSelectAllTransaksiButton();
@@ -10245,7 +10245,6 @@ function initEventListeners() {
     document.getElementById('deleteAllProduk')?.addEventListener('click', deleteAllProduk);
     document.getElementById('deleteSelectedAgent')?.addEventListener('click', () => deleteSelectedDBItems('db_agent', selectedAgentIds, loadDatabaseAgent));
     document.getElementById('deleteAllAgent')?.addEventListener('click', () => deleteAllDBItems('db_agent', loadDatabaseAgent));
-    document.getElementById('deleteSelectedTransaksi')?.addEventListener('click', () => deleteSelectedDBItems('db_transaksi', selectedTransaksiIds, loadDbTransaksi));
     document.getElementById('deleteAllTransaksiBtn')?.addEventListener('click', () => deleteAllDBItems('db_transaksi', loadDbTransaksi));
     document.getElementById('moveSelectedToFollowupBtn')?.addEventListener('click', async () => {
         const selectedIds = Array.from(selectedTransaksiIds.keys());
