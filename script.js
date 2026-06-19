@@ -5234,7 +5234,11 @@ freshContainer.addEventListener('change', function(e) {
         updateTransaksiSelectionCount();
     }
 });
-
+    updateSelectAllTransaksiButton();
+    updateTransaksiSelectionCount();
+    
+} 
+    
 // ===== HANDLE TRANSAKSI CHECKBOX CHANGE =====
 function handleTransaksiCheckboxChange(e) {
     e.stopPropagation();
