@@ -4062,24 +4062,123 @@ async function loadProduk() {
 async function loadDbTransaksi() {
     if (!currentUser) return;
     
-    let query = window.db.from('db_transaksi').select('*');
-    if (currentUserRole !== 'owner') {
-        query = query.eq('user_id', currentUser.id);
+    try {
+        // Cegah multiple loading
+        if (window._isLoadingTransaksi) {
+            console.log('⏳ Data sedang dimuat...');
+            return;
+        }
+        window._isLoadingTransaksi = true;
+        
+        console.log('📊 Memuat semua data transaksi...');
+        
+        let allData = [];
+        let page = 0;
+        const pageSize = 3000; // Ambil 3000 per batch
+        let hasMore = true;
+        let totalCount = 0;
+        
+        // Tampilkan progress (opsional, tapi bagus untuk UX)
+        const progress = showFloatingProgress('📊 Memuat Data Transaksi', 0);
+        progress.update(0, '📊 Memuat', 'Mengambil data...');
+        
+        while (hasMore) {
+            const start = page * pageSize;
+            const end = start + pageSize - 1;
+            
+            let query = window.db.from('db_transaksi').select('*', { count: 'exact' });
+            if (currentUserRole !== 'owner') {
+                query = query.eq('user_id', currentUser.id);
+            }
+            
+            const { data, error, count } = await query
+                .order('created_at', { ascending: false })
+                .range(start, end);
+            
+            if (error) {
+                console.error('❌ Error loading transaksi:', error);
+                progress.hide();
+                showNotifTop('❌ Gagal memuat data: ' + error.message, true);
+                window._isLoadingTransaksi = false;
+                return;
+            }
+            
+            if (page === 0) {
+                totalCount = count || 0;
+                progress.setTotal(totalCount);
+                progress.update(5, '📊 Memuat', `Total ${totalCount.toLocaleString()} data ditemukan`);
+                console.log(`📊 Total data: ${totalCount.toLocaleString()}`);
+            }
+            
+            if (!data || data.length === 0) {
+                hasMore = false;
+                break;
+            }
+            
+            allData = allData.concat(data);
+            
+            const percent = Math.min(Math.floor((allData.length / totalCount) * 100), 100);
+            progress.update(
+                percent,
+                '📊 Memuat',
+                `Memuat data... (${allData.length.toLocaleString()}/${totalCount.toLocaleString()})`,
+                allData.length,
+                totalCount
+            );
+            
+            // Jika data yang diambil kurang dari pageSize, berarti sudah sampai akhir
+            if (data.length < pageSize) {
+                hasMore = false;
+            }
+            
+            page++;
+            await delay(50);
+        }
+        
+        progress.update(100, '✅ Selesai', `Berhasil memuat ${allData.length.toLocaleString()} data`);
+        
+        // ===== SIMPAN DATA =====
+        transaksiData = allData;
+        
+        console.log(`✅ Loaded ${transaksiData.length} transaksi`);
+        
+        // ===== UPDATE UI =====
+        renderTransaksiList();
+        updateTransaksiStats(transaksiData);
+        updateSelectAllTransaksiButton();
+        updateTransaksiSelectionCount();
+        updateTargetDisplay();
+        
+        // ===== UPDATE TOTAL INFO =====
+        const totalAllSpan = document.getElementById('transaksiTotalAll');
+        if (totalAllSpan) {
+            totalAllSpan.innerText = totalCount.toLocaleString();
+        }
+        
+        const totalCountSpan = document.getElementById('transaksiTotalCount');
+        if (totalCountSpan) {
+            totalCountSpan.innerText = allData.length.toLocaleString();
+        }
+        
+        const totalInfoSpan = document.getElementById('transaksiTotalInfo');
+        if (totalInfoSpan) {
+            if (allData.length < totalCount) {
+                totalInfoSpan.innerText = `⚠️ Menampilkan ${allData.length.toLocaleString()} dari ${totalCount.toLocaleString()} data`;
+            } else {
+                totalInfoSpan.innerText = `✅ Semua ${totalCount.toLocaleString()} data ditampilkan`;
+            }
+        }
+        
+        showNotifTop(`✅ ${allData.length.toLocaleString()} data transaksi berhasil dimuat`);
+        
+        setTimeout(() => progress.hide(), 2000);
+        
+    } catch (err) {
+        console.error('❌ Error:', err);
+        showNotifTop('❌ Gagal memuat data: ' + err.message, true);
+    } finally {
+        window._isLoadingTransaksi = false;
     }
-    
-    const { data: uplineData, error: uplineError, count: uplineCount } = await query
-            .order('created_at', { ascending: false })
-            .range(0, 9999);
-    
-    const { data, error } = await query.order('created_at', { ascending: false });
-    if (error) {
-        console.error('Error loading transaksi:', error);
-        return;
-    }
-    
-    transaksiData = data || [];
-    renderTransaksiList(); // ✅ Ini akan memanggil updateTransaksiTotals()
-    updateTargetDisplay();
 }
 
 async function loadDBClosing() {
@@ -4998,13 +5097,15 @@ function renderTransaksiList() {
     if (!container) return;
     
     // ===== GUNAKAN transaksiData LOKAL =====
+    const data = transaksiData; // ← Gunakan data lokal, bukan query ulang
+    
     // Filter data
     const searchTerm = document.getElementById('searchTransaksiInput')?.value.toLowerCase().trim() || '';
     const filterJenis = document.getElementById('filterTransaksiJenis')?.value || '';
     const filterStatus = document.getElementById('filterTransaksiStatus')?.value || '';
     const filterUpline = document.getElementById('filterTransaksiUpline')?.value.toLowerCase().trim() || '';
     
-    let filtered = [...transaksiData];
+    let filtered = [...data];
     
     // ===== FILTER SEARCH TERM =====
     if (searchTerm) {
@@ -5033,14 +5134,14 @@ function renderTransaksiList() {
     }
     
     // ===== UPDATE STATISTIK =====
-    updateTransaksiStats(transaksiData);
+    updateTransaksiStats(data);
     
     // ===== UPDATE TOTAL =====
     const totalCountSpan = document.getElementById('transaksiTotalCount');
     if (totalCountSpan) totalCountSpan.innerText = filtered.length;
     
     const totalAllSpan = document.getElementById('transaksiTotalAll');
-    if (totalAllSpan) totalAllSpan.innerText = transaksiData.length;
+    if (totalAllSpan) totalAllSpan.innerText = data.length;
     
     // Tambahkan info jika ada batasan
     const totalInfoSpan = document.getElementById('transaksiTotalInfo');
@@ -9682,44 +9783,6 @@ function initBadges() {
     }
 }
 
-// ========== SYNC TRANSAKSI DATA ==========
-async function syncTransaksiData() {
-    if (!currentUser) return;
-    
-    try {
-        let query = window.db.from('db_transaksi').select('*');
-        if (currentUserRole !== 'owner') {
-            query = query.eq('user_id', currentUser.id);
-        }
-        
-        const { data, error } = await query
-        .order('created_at', { ascending: false })
-        .range(0, 9999);
-        if (error) {
-            console.error('Error syncing transaksi:', error);
-            return;
-        }
-        
-        // ===== REPLACE DATA LOKAL =====
-        transaksiData = data || [];
-        
-        // ===== UPDATE UI =====
-        renderTransaksiList();
-        updateTransaksiStats(transaksiData);
-        updateSelectAllTransaksiButton();
-        updateTransaksiSelectionCount();
-        
-    } catch (err) {
-        console.error('Error sync:', err);
-    }
-}
-
-// ===== PERBAIKAN: loadDbTransaksi sekarang menggunakan sync =====
-async function loadDbTransaksi() {
-    await syncTransaksiData();
-    updateTargetDisplay();
-}
-
 // ======================================================================
 // ========== DARK MODE OBSERVER ==========
 // ======================================================================
@@ -10346,7 +10409,7 @@ async function checkAuth() {
         await withLoading(loadProduk(), 9);
         updateLoadingStep(10);
         
-        await withLoading(loadDbTransaksi(), 11);
+        await withLoading(loadDbTransaksi(), 10);
         updateLoadingStep(12);
         
         await withLoading(loadDBClosing(), 13);
