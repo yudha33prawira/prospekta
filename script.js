@@ -7674,94 +7674,206 @@ function openDBDetailModal(id, type) {
         
         let ownerInfo = '';
         if (currentUserRole === 'owner' && d.user_id !== currentUser.id) {
-            const { data: userDoc } = await window.db.from('users').select('nama').eq('id', d.user_id).single();
-            const ownerName = userDoc?.nama || 'CS Agent';
-            ownerInfo = `<div class="detail-info-item"><strong>👤 Pemilik Data:</strong> ${escapeHtml(ownerName)}</div>`;
+            try {
+                const { data: userDoc } = await window.db.from('users').select('nama').eq('id', d.user_id).single();
+                const ownerName = userDoc?.nama || 'CS Agent';
+                ownerInfo = `<div class="detail-info-item"><strong>👤 Pemilik Data:</strong> ${escapeHtml(ownerName)}</div>`;
+            } catch(e) { console.error(e); }
         }
         
+        // ===== PERBAIKAN: Inisialisasi variabel =====
+        let followupInfo = '';
+        let pendingInfo = '';
+        let dihubungiInfo = '';
+        let negosiasiInfo = '';
         let detailHtml = '';
         
-function openDBDetailModal(id, type) {
-    // ... kode sebelumnya ...
-    
-    if (type === 'closing') {
-        const dateStr = d.closing_date ? formatDateDDMMYYYY(d.closing_date) : '-';
-        detailHtml = `
-            ${ownerInfo}
-            <div class="detail-info-item"><strong>👤 Nama:</strong> ${escapeHtml(d.nama)}</div>
-            <div class="detail-info-item"><strong>📱 Nomor WA:</strong> ${escapeHtml(d.hp)}</div>
-            <div class="detail-info-item"><strong>📅 Tanggal Closing:</strong> ${dateStr}</div>
-            <div class="detail-info-item"><strong>📝 Catatan Closing:</strong> ${escapeHtml(d.closing_note || '-')}</div>
-            ${followupInfo}
-            ${pendingInfo}
-        `;
-    }
-    else if (type === 'commitment') {
-        const dateStr = d.committed_at ? formatDateDDMMYYYY(d.committed_at) : '-';
-        const followupDate = d.followup_date ? formatDateDDMMYYYY(d.followup_date) : '-';
-        detailHtml = `
-            ${ownerInfo}
-            <div class="detail-info-item"><strong>👤 Nama:</strong> ${escapeHtml(d.nama)}</div>
-            <div class="detail-info-item"><strong>📱 Nomor WA:</strong> ${escapeHtml(d.hp)}</div>
-            <div class="detail-info-item"><strong>🆔 ID Agent:</strong> ${escapeHtml(d.agent_id || '-')}</div>
-            <div class="detail-info-item"><strong>📱 Aplikasi:</strong> ${escapeHtml(d.aplikasi || '-')}</div>
-            <div class="detail-info-item"><strong>👤 Upline:</strong> ${escapeHtml(d.upline_name || '-')}</div>
-            <div class="detail-info-item"><strong>📞 No. Upline:</strong> ${escapeHtml(d.upline_phone || '-')}</div>
-            <div class="detail-info-item"><strong>📅 Tanggal Komitmen:</strong> ${dateStr}</div>
-            <div class="detail-info-item"><strong>📅 Followup Date:</strong> ${followupDate}</div>
-            <div class="detail-info-item"><strong>📝 Catatan:</strong> ${escapeHtml(d.commitment_note || '-')}</div>
-            ${dihubungiInfo}
-            ${negosiasiInfo}
-        `;
-    }
-    else if (type === 'tidak') {
-        const dateStr = d.tanggal ? formatDateDDMMYYYY(d.tanggal) : '-';
-        detailHtml = `
-            ${ownerInfo}
-            <div class="detail-info-item"><strong>👤 Nama:</strong> ${escapeHtml(d.nama)}</div>
-            <div class="detail-info-item"><strong>📱 Nomor WA:</strong> ${escapeHtml(d.hp)}</div>
-            <div class="detail-info-item"><strong>📅 Tanggal Pindah:</strong> ${dateStr}</div>
-            <div class="detail-info-item"><strong>📌 Status Sebelumnya:</strong> ${escapeHtml(d.status_sebelumnya || 'Negosiasi')}</div>
-            ${d.upline_name ? `<div class="detail-info-item"><strong>👤 Upline:</strong> ${escapeHtml(d.upline_name)}</div>` : ''}
-            ${d.upline_phone ? `<div class="detail-info-item"><strong>📞 No. Upline:</strong> ${escapeHtml(d.upline_phone)}</div>` : ''}
-            ${dihubungiInfo}
-            ${negosiasiInfo}
-            <div class="detail-info-item" style="border-top: 2px solid #ef4444; padding-top: 12px; margin-top: 4px;">
-                <strong>❌ Alasan Tidak Tertarik:</strong>
-                <div class="alasan-container">
-                    ${escapeHtml(d.alasan || 'Tidak tertarik')}
+        // ===== BUILD DETAIL HTML BERDASARKAN TYPE =====
+        if (type === 'closing') {
+            // Followup Info untuk Closing
+            if (d.followup_data) {
+                followupInfo = `<div class="detail-info-item"><strong>✅ Follow Up:</strong><br>
+                    <div style="margin-top: 5px; padding-left: 15px;">
+                        Terkirim: ${d.followup_data.terkirim ? 'Ya' : 'Tidak'}<br>
+                        Dibalas: ${d.followup_data.dibalas ? 'Ya' : 'Tidak'}<br>
+                        <strong>Pesan Terkirim:</strong> ${escapeHtml(d.followup_data.pesan || '-')}<br>
+                        <strong>Balasan:</strong> ${escapeHtml(d.followup_data.balasan || '-')}
+                    </div>
+                </div>`;
+            }
+            
+            // Pending Info untuk Closing
+            if (d.pending_data && d.pending_data.length > 0) {
+                const completedCount = d.pending_data.filter(item => item.checked === true && item.text?.trim() !== '').length;
+                const totalCount = d.pending_data.length;
+                pendingInfo = `<div class="detail-info-item"><strong>📝 Pending Responses (${completedCount}/${totalCount}):</strong><br>
+                    <div style="margin-top: 5px; padding-left: 15px;">${d.pending_data.slice(0, 5).map(item => `${item.checked ? '✅' : '⭕'} ${escapeHtml(item.text || '(kosong)')}`).join('<br>')}</div>
+                    ${d.pending_data.length > 5 ? `<small>... dan ${d.pending_data.length - 5} balasan lainnya</small>` : ''}
+                </div>`;
+            }
+            
+            const dateStr = d.closing_date ? formatDateDDMMYYYY(d.closing_date) : '-';
+            detailHtml = `
+                ${ownerInfo}
+                <div class="detail-info-item"><strong>👤 Nama:</strong> ${escapeHtml(d.nama)}</div>
+                <div class="detail-info-item"><strong>📱 Nomor WA:</strong> ${escapeHtml(d.hp)}</div>
+                <div class="detail-info-item"><strong>📅 Tanggal Closing:</strong> ${dateStr}</div>
+                <div class="detail-info-item"><strong>📝 Catatan Closing:</strong> ${escapeHtml(d.closing_note || '-')}</div>
+                ${followupInfo}
+                ${pendingInfo}
+            `;
+        }
+        else if (type === 'commitment') {
+            // Dihubungi Info untuk Commitment
+            if (d.dihubungi_data) {
+                dihubungiInfo = `<div class="detail-info-item"><strong>✅ Dihubungi:</strong><br>
+                    <div style="margin-top: 5px; padding-left: 15px;">
+                        Terkirim: ${d.dihubungi_data.terkirim ? 'Ya' : 'Tidak'}<br>
+                        Dibalas: ${d.dihubungi_data.dibalas ? 'Ya' : 'Tidak'}<br>
+                        <strong>Pesan Terkirim:</strong> ${escapeHtml(d.dihubungi_data.pesan || '-')}<br>
+                        <strong>Balasan:</strong> ${escapeHtml(d.dihubungi_data.balasan || '-')}
+                    </div>
+                </div>`;
+            }
+            
+            // Negosiasi Info untuk Commitment
+            if (d.negosiasi_data) {
+                const nd = d.negosiasi_data;
+                negosiasiInfo = `<div class="detail-info-item"><strong>📋 Data Negosiasi:</strong><br>
+                    <div style="margin-top: 5px; padding-left: 15px;">
+                        Aplikasi: ${escapeHtml(nd.aplikasi || '-')}<br>
+                        Domisili: ${escapeHtml(nd.domisili || '-')}<br>
+                        Transaksi: ${escapeHtml(nd.transaksi || '-')}<br>
+                        Deposit: ${escapeHtml(nd.deposit || '-')}<br>
+                        Tertarik: ${escapeHtml(nd.tertarik || '-')}<br>
+                        Penawaran: ${escapeHtml(nd.penawaran || '-')}
+                    </div>
+                </div>`;
+            }
+            
+            const dateStr = d.committed_at ? formatDateDDMMYYYY(d.committed_at) : '-';
+            const followupDate = d.followup_date ? formatDateDDMMYYYY(d.followup_date) : '-';
+            detailHtml = `
+                ${ownerInfo}
+                <div class="detail-info-item"><strong>👤 Nama:</strong> ${escapeHtml(d.nama)}</div>
+                <div class="detail-info-item"><strong>📱 Nomor WA:</strong> ${escapeHtml(d.hp)}</div>
+                <div class="detail-info-item"><strong>🆔 ID Agent:</strong> ${escapeHtml(d.agent_id || '-')}</div>
+                <div class="detail-info-item"><strong>📱 Aplikasi:</strong> ${escapeHtml(d.aplikasi || '-')}</div>
+                <div class="detail-info-item"><strong>👤 Upline:</strong> ${escapeHtml(d.upline_name || '-')}</div>
+                <div class="detail-info-item"><strong>📞 No. Upline:</strong> ${escapeHtml(d.upline_phone || '-')}</div>
+                <div class="detail-info-item"><strong>📅 Tanggal Komitmen:</strong> ${dateStr}</div>
+                <div class="detail-info-item"><strong>📅 Followup Date:</strong> ${followupDate}</div>
+                <div class="detail-info-item"><strong>📝 Catatan:</strong> ${escapeHtml(d.commitment_note || '-')}</div>
+                ${dihubungiInfo}
+                ${negosiasiInfo}
+            `;
+        }
+        else if (type === 'tidak') {
+            // Dihubungi Info untuk Tidak Tertarik
+            if (d.dihubungi_data) {
+                dihubungiInfo = `<div class="detail-info-item"><strong>✅ Dihubungi:</strong><br>
+                    <div style="margin-top: 5px; padding-left: 15px;">
+                        Terkirim: ${d.dihubungi_data.terkirim ? 'Ya' : 'Tidak'}<br>
+                        Dibalas: ${d.dihubungi_data.dibalas ? 'Ya' : 'Tidak'}<br>
+                        <strong>Pesan Terkirim:</strong> ${escapeHtml(d.dihubungi_data.pesan || '-')}<br>
+                        <strong>Balasan:</strong> ${escapeHtml(d.dihubungi_data.balasan || '-')}
+                    </div>
+                </div>`;
+            } else if (d.pesan_terkirim) {
+                dihubungiInfo = `<div class="detail-info-item"><strong>✅ Pesan Terkirim:</strong><br>
+                    <div style="margin-top: 5px; padding-left: 15px;">
+                        <strong>Pesan:</strong> ${escapeHtml(d.pesan_terkirim || '-')}<br>
+                        <strong>Balasan:</strong> ${escapeHtml(d.balasan_diterima || '-')}
+                    </div>
+                </div>`;
+            }
+            
+            // Negosiasi Info untuk Tidak Tertarik
+            if (d.negosiasi_data) {
+                const nd = d.negosiasi_data;
+                negosiasiInfo = `<div class="detail-info-item"><strong>📋 Data Negosiasi:</strong><br>
+                    <div style="margin-top: 5px; padding-left: 15px;">
+                        Aplikasi: ${escapeHtml(nd.aplikasi || '-')}<br>
+                        Domisili: ${escapeHtml(nd.domisili || '-')}<br>
+                        Transaksi: ${escapeHtml(nd.transaksi || '-')}<br>
+                        Deposit: ${escapeHtml(nd.deposit || '-')}<br>
+                        Tertarik: ${escapeHtml(nd.tertarik || '-')}<br>
+                        Penawaran: ${escapeHtml(nd.penawaran || '-')}
+                    </div>
+                </div>`;
+            }
+            
+            const dateStr = d.tanggal ? formatDateDDMMYYYY(d.tanggal) : '-';
+            detailHtml = `
+                ${ownerInfo}
+                <div class="detail-info-item"><strong>👤 Nama:</strong> ${escapeHtml(d.nama)}</div>
+                <div class="detail-info-item"><strong>📱 Nomor WA:</strong> ${escapeHtml(d.hp)}</div>
+                <div class="detail-info-item"><strong>📅 Tanggal Pindah:</strong> ${dateStr}</div>
+                <div class="detail-info-item"><strong>📌 Status Sebelumnya:</strong> ${escapeHtml(d.status_sebelumnya || 'Negosiasi')}</div>
+                ${d.upline_name ? `<div class="detail-info-item"><strong>👤 Upline:</strong> ${escapeHtml(d.upline_name)}</div>` : ''}
+                ${d.upline_phone ? `<div class="detail-info-item"><strong>📞 No. Upline:</strong> ${escapeHtml(d.upline_phone)}</div>` : ''}
+                ${dihubungiInfo}
+                ${negosiasiInfo}
+                <div class="detail-info-item" style="border-top: 2px solid #ef4444; padding-top: 12px; margin-top: 4px;">
+                    <strong>❌ Alasan Tidak Tertarik:</strong>
+                    <div class="alasan-container">
+                        ${escapeHtml(d.alasan || 'Tidak tertarik')}
+                    </div>
                 </div>
-            </div>
-        `;
-    }
-    else if (type === 'nomor_salah') {
-        const dateStr = d.deleted_at ? formatDateDDMMYYYY(d.deleted_at) : '-';
-        detailHtml = `
-            ${ownerInfo}
-            <div class="detail-info-item"><strong>👤 Nama:</strong> ${escapeHtml(d.nama)}</div>
-            <div class="detail-info-item"><strong>📱 Nomor WA:</strong> ${escapeHtml(d.hp)}</div>
-            <div class="detail-info-item"><strong>📅 Tanggal Dihapus:</strong> ${dateStr}</div>
-            <div class="detail-info-item"><strong>📵 Alasan:</strong> ${escapeHtml(d.alasan || 'Nomor tidak bisa dihubungi')}</div>
-            ${followupInfo}
-        `;
-    }
-    else if (type === 'db_agent') {
-        const dateStr = d.created_at ? formatDateDDMMYYYY(d.created_at) : '-';
-        detailHtml = `
-            ${ownerInfo}
-            <div class="detail-info-item"><strong>🆔 ID Agent:</strong> ${escapeHtml(d.agent_id || '-')}</div>
-            <div class="detail-info-item"><strong>👤 Nama:</strong> ${escapeHtml(d.nama)}</div>
-            <div class="detail-info-item"><strong>📱 Nomor WA:</strong> ${escapeHtml(d.hp)}</div>
-            <div class="detail-info-item"><strong>🏷️ Type/Class:</strong> ${escapeHtml(d.agent_type || '-')}</div>
-            <div class="detail-info-item"><strong>📱 Aplikasi:</strong> ${escapeHtml(d.apk || '-')}</div>
-            <div class="detail-info-item"><strong>👤 Upline:</strong> ${escapeHtml(d.upline || '-')}</div>
-            <div class="detail-info-item"><strong>🆔 CID:</strong> ${escapeHtml(d.cid || '-')}</div>
-            <div class="detail-info-item"><strong>🏦 Jenis Bank:</strong> ${escapeHtml(d.jenis_bank || '-')}</div>
-            <div class="detail-info-item"><strong>📅 Tanggal Dibuat:</strong> ${dateStr}</div>
-        `;
-    }
-}        
-        // Tampilkan modal detail
+            `;
+        }
+        else if (type === 'nomor_salah') {
+            // Followup Info untuk Nomor Salah
+            if (d.followup_data) {
+                followupInfo = `<div class="detail-info-item"><strong>✅ Follow Up:</strong><br>
+                    <div style="margin-top: 5px; padding-left: 15px;">
+                        Terkirim: ${d.followup_data.terkirim ? 'Ya' : 'Tidak'}<br>
+                        Dibalas: ${d.followup_data.dibalas ? 'Ya' : 'Tidak'}<br>
+                        <strong>Pesan Terkirim:</strong> ${escapeHtml(d.followup_data.pesan || '-')}<br>
+                        <strong>Balasan:</strong> ${escapeHtml(d.followup_data.balasan || '-')}
+                    </div>
+                </div>`;
+            }
+            
+            if (d.dihubungi_data) {
+                dihubungiInfo = `<div class="detail-info-item"><strong>✅ Dihubungi:</strong><br>
+                    <div style="margin-top: 5px; padding-left: 15px;">
+                        Terkirim: ${d.dihubungi_data.terkirim ? 'Ya' : 'Tidak'}<br>
+                        Dibalas: ${d.dihubungi_data.dibalas ? 'Ya' : 'Tidak'}<br>
+                        <strong>Pesan Terkirim:</strong> ${escapeHtml(d.dihubungi_data.pesan || '-')}<br>
+                        <strong>Balasan:</strong> ${escapeHtml(d.dihubungi_data.balasan || '-')}
+                    </div>
+                </div>`;
+            }
+            
+            const dateStr = d.deleted_at ? formatDateDDMMYYYY(d.deleted_at) : '-';
+            detailHtml = `
+                ${ownerInfo}
+                <div class="detail-info-item"><strong>👤 Nama:</strong> ${escapeHtml(d.nama)}</div>
+                <div class="detail-info-item"><strong>📱 Nomor WA:</strong> ${escapeHtml(d.hp)}</div>
+                <div class="detail-info-item"><strong>📅 Tanggal Dihapus:</strong> ${dateStr}</div>
+                <div class="detail-info-item"><strong>📵 Alasan:</strong> ${escapeHtml(d.alasan || 'Nomor tidak bisa dihubungi')}</div>
+                ${followupInfo}
+                ${dihubungiInfo}
+            `;
+        }
+        else if (type === 'db_agent') {
+            const dateStr = d.created_at ? formatDateDDMMYYYY(d.created_at) : '-';
+            detailHtml = `
+                ${ownerInfo}
+                <div class="detail-info-item"><strong>🆔 ID Agent:</strong> ${escapeHtml(d.agent_id || '-')}</div>
+                <div class="detail-info-item"><strong>👤 Nama:</strong> ${escapeHtml(d.nama)}</div>
+                <div class="detail-info-item"><strong>📱 Nomor WA:</strong> ${escapeHtml(d.hp)}</div>
+                <div class="detail-info-item"><strong>🏷️ Type/Class:</strong> ${escapeHtml(d.agent_type || '-')}</div>
+                <div class="detail-info-item"><strong>📱 Aplikasi:</strong> ${escapeHtml(d.apk || '-')}</div>
+                <div class="detail-info-item"><strong>👤 Upline:</strong> ${escapeHtml(d.upline || '-')}</div>
+                <div class="detail-info-item"><strong>🆔 CID:</strong> ${escapeHtml(d.cid || '-')}</div>
+                <div class="detail-info-item"><strong>🏦 Jenis Bank:</strong> ${escapeHtml(d.jenis_bank || '-')}</div>
+                <div class="detail-info-item"><strong>📅 Tanggal Dibuat:</strong> ${dateStr}</div>
+            `;
+        }
+        
+        // ===== TAMPILKAN MODAL DETAIL =====
         document.getElementById('detailContent').innerHTML = `
             <div class="detail-header">
                 <h3>${title}</h3>
