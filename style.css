@@ -6087,74 +6087,98 @@ body.dark-mode .broadcast-card .selected-numbers:hover::-webkit-scrollbar-thumb 
 }
 
 /* ================================================================ */
-/* ========== FIREFOX SCROLLBAR ========== */
+/* ========== FIX SCROLLBAR DI MODAL ========== */
 /* ================================================================ */
 
-.content-area,
-.modal-content,
-.db-list,
-.kanban-cards,
-.sidebar,
-.search-results,
-#pendingItemsContainer,
-.broadcast-card .selected-numbers {
+/* Pastikan scrollbar di modal mentok ke kanan */
+.modal-content {
+    padding-right: 0 !important;
+    margin-right: 0 !important;
+    overflow-y: auto !important;
     scrollbar-width: thin;
     scrollbar-color: transparent transparent;
 }
 
-.content-area:hover,
-.modal-content:hover,
-.db-list:hover,
-.kanban-cards:hover,
-.sidebar:hover,
-.search-results:hover,
-#pendingItemsContainer:hover,
-.broadcast-card .selected-numbers:hover {
-    scrollbar-color: rgba(79, 70, 229, 0.25) transparent;
-}
-
-body.dark-mode .content-area:hover,
-body.dark-mode .modal-content:hover,
-body.dark-mode .db-list:hover,
-body.dark-mode .kanban-cards:hover,
-body.dark-mode .sidebar:hover,
-body.dark-mode .search-results:hover,
-body.dark-mode #pendingItemsContainer:hover,
-body.dark-mode .broadcast-card .selected-numbers:hover {
-    scrollbar-color: rgba(99, 102, 241, 0.3) transparent;
-}
-
-/* ===== MODAL CONTENT TANPA PADDING ===== */
-.modal-content {
-    background: #fff;
-    border-radius: 32px;
-    width: 90%;
-    max-width: 550px;
-    max-height: 85vh;
-    overflow-y: auto;
-    animation: modalPopup 0.3s cubic-bezier(0.34, 1.2, 0.64, 1);
-    box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.5);
-    padding: 0 !important;
-    margin: 0 !important;
-}
-
-/* Scrollbar di modal */
+/* Scrollbar di modal - mentok ke kanan */
 .modal-content::-webkit-scrollbar {
     width: 4px;
+    height: 4px;
 }
 
 .modal-content::-webkit-scrollbar-track {
     background: transparent !important;
+    margin: 0 !important;
+    padding: 0 !important;
 }
 
 .modal-content::-webkit-scrollbar-thumb {
     background: transparent !important;
+    border-radius: 0 !important;
+    transition: background 0.3s ease;
 }
 
 .modal-content:hover::-webkit-scrollbar-thumb {
-    background: rgba(79, 70, 229, 0.2) !important;
+    background: rgba(79, 70, 229, 0.25) !important;
 }
 
 .modal-content::-webkit-scrollbar-thumb:hover {
     background: rgba(79, 70, 229, 0.5) !important;
+}
+
+/* ===== UNTUK POPUP FOLLOWUP & PROSPEK ===== */
+/* Pastikan tidak ada padding kanan berlebih */
+.modal-content .popup-content,
+.modal-content .detail-content,
+.modal-content > div:not(.modal-buttons):not(.popup-header) {
+    padding-right: 0 !important;
+    margin-right: 0 !important;
+}
+
+/* Container scroll di dalam modal */
+.modal-content .scroll-container,
+.modal-content .detail-body,
+.modal-content .info-grid,
+.modal-content .comparison-box,
+.modal-content .detail-section {
+    padding-right: 0 !important;
+    margin-right: 0 !important;
+}
+
+/* Fix untuk detail-popup */
+.modal-content.detail-popup {
+    padding-right: 0 !important;
+    margin-right: 0 !important;
+}
+
+.modal-content.detail-popup > div {
+    padding-right: 0 !important;
+    margin-right: 0 !important;
+}
+
+/* Hapus padding kanan berlebih di dalam modal */
+.modal-content .popup-header,
+.modal-content .popup-footer {
+    padding-right: 24px !important;
+    margin-right: 0 !important;
+}
+
+/* Konten utama di modal - scrollbar mentok ke kanan */
+.modal-content .detail-popup-content,
+.modal-content .modal-body-scroll {
+    padding-right: 0 !important;
+    margin-right: 0 !important;
+    overflow-y: auto !important;
+}
+
+/* ===== DARK MODE ===== */
+body.dark-mode .modal-content::-webkit-scrollbar-thumb {
+    background: transparent !important;
+}
+
+body.dark-mode .modal-content:hover::-webkit-scrollbar-thumb {
+    background: rgba(99, 102, 241, 0.3) !important;
+}
+
+body.dark-mode .modal-content::-webkit-scrollbar-thumb:hover {
+    background: rgba(99, 102, 241, 0.6) !important;
 }
