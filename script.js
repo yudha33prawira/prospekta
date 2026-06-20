@@ -176,6 +176,7 @@ function hideLoading() {
     }
     
     if (overlay) {
+        // Jangan langsung hide, beri waktu untuk animasi
         setTimeout(() => {
             overlay.classList.add('hide');
             setTimeout(() => {
@@ -687,42 +688,47 @@ function formatMonthYearShort(dateStr) {
 // ========== DARK MODE FUNCTIONS ==========
 function initDarkMode() {
     const darkModeToggle = document.getElementById('darkModeToggle');
-    if (!darkModeToggle) return;
+    if (!darkModeToggle) {
+        console.warn('Dark mode toggle not found');
+        return;
+    }
     
-    // ===== PERBAIKAN: Cek status yang disimpan =====
+    // ===== CEK STATUS YANG DISIMPAN =====
     const savedMode = localStorage.getItem('darkMode');
     const isDarkMode = savedMode === 'enabled';
     
     if (isDarkMode) {
         document.body.classList.add('dark-mode');
         darkModeToggle.classList.add('active');
-        // Update charts setelah dark mode aktif
         setTimeout(() => {
             updateChartsForDarkMode();
-            // Re-render charts dengan background gelap
-            if (chartCustomer) {
-                chartCustomer.options.backgroundColor = '#0f172a';
-                chartCustomer.update();
-            }
-            if (chartProspek) {
-                chartProspek.options.backgroundColor = '#0f172a';
-                chartProspek.update();
-            }
         }, 300);
     }
     
-    // ===== PERBAIKAN: Hapus event listener lama jika ada =====
+    // ===== HAPUS EVENT LISTENER LAMA =====
     // Clone untuk menghapus semua event listener yang terpasang
     const newToggle = darkModeToggle.cloneNode(true);
     darkModeToggle.parentNode.replaceChild(newToggle, darkModeToggle);
     
     // Gunakan referensi baru
     const freshToggle = document.getElementById('darkModeToggle');
-    if (!freshToggle) return;
+    if (!freshToggle) {
+        console.warn('Fresh toggle not found');
+        return;
+    }
     
+    // ===== PASTIKAN ELEMEN BISA DIKLIK =====
+    freshToggle.style.cursor = 'pointer';
+    freshToggle.style.pointerEvents = 'auto';
+    freshToggle.style.position = 'relative';
+    freshToggle.style.zIndex = '10';
+    
+    // ===== PASANG EVENT LISTENER BARU =====
     freshToggle.addEventListener('click', function(e) {
         e.preventDefault();
         e.stopPropagation();
+        
+        console.log('Dark mode toggle clicked'); // Debug
         
         // Toggle class
         document.body.classList.toggle('dark-mode');
@@ -743,24 +749,38 @@ function initDarkMode() {
             updateChartsForDarkMode();
             
             // Force update chart background
+            const isDarkMode = document.body.classList.contains('dark-mode');
             if (chartCustomer) {
-                chartCustomer.options.backgroundColor = isDark ? '#0f172a' : '#ffffff';
+                chartCustomer.options.backgroundColor = isDarkMode ? '#0f172a' : '#ffffff';
                 chartCustomer.update();
             }
             if (chartProspek) {
-                chartProspek.options.backgroundColor = isDark ? '#0f172a' : '#ffffff';
+                chartProspek.options.backgroundColor = isDarkMode ? '#0f172a' : '#ffffff';
                 chartProspek.update();
             }
             if (targetChart) {
-                targetChart.options.backgroundColor = isDark ? '#0f172a' : '#ffffff';
+                targetChart.options.backgroundColor = isDarkMode ? '#0f172a' : '#ffffff';
                 targetChart.update();
             }
             if (trendChart) {
-                trendChart.options.backgroundColor = isDark ? '#0f172a' : '#ffffff';
+                trendChart.options.backgroundColor = isDarkMode ? '#0f172a' : '#ffffff';
                 trendChart.update();
             }
         }, 200);
     });
+    
+    // ===== TAMBAHKAN HOVER EFFECT =====
+    freshToggle.addEventListener('mouseenter', function() {
+        this.style.transform = 'translateY(-2px)';
+        this.style.boxShadow = '0 4px 12px rgba(79, 70, 229, 0.2)';
+    });
+    
+    freshToggle.addEventListener('mouseleave', function() {
+        this.style.transform = 'none';
+        this.style.boxShadow = 'none';
+    });
+    
+    console.log('✅ Dark mode initialized');
 }
 
 // ========== UPDATE CHARTS ==========
@@ -8609,117 +8629,115 @@ async function updatePesanBadge() {
 
 // ========== CHECK AUTH & START ==========
 async function checkAuth() {
+    // Tampilkan loading
     showLoading('Memeriksa autentikasi...', true);
+    updateLoadingStep(0);
     
     const { data: { session } } = await window.db.auth.getSession();
     
     if (session) {
         currentUser = session.user;
-        updateLoadingStep(0);
+        updateLoadingStep(1);
         
-        await withLoading(loadUserProfile(), 1);
-        updateLoadingStep(2);
-        
-        await withLoading(loadCustomers(), 3);
-        updateLoadingStep(4);
-        
-        await withLoading(loadProspek(), 5);
-        updateLoadingStep(6);
-        
-        await withLoading(loadDatabaseAgent(), 7);
-        updateLoadingStep(8);
-        
-        await withLoading(loadProduk(), 9);
-        updateLoadingStep(10);
-        
-        await withLoading(loadDbTransaksi(), 10);
-        updateLoadingStep(11);
-        
-        await withLoading(loadDBClosing(), 13);
-        updateLoadingStep(14);
-        
-        await withLoading(loadDBTidak(), 15);
-        updateLoadingStep(16);
-        
-        await withLoading(loadDBNomorSalah(), 17);
-        updateLoadingStep(18);
-        
-        await withLoading(loadDBCommitment(), 19);
-        updateLoadingStep(20);
-        
-        await withLoading(loadReminders(), 21);
-        updateLoadingStep(22);
-        
-        await withLoading(loadMessages(), 23);
-        updateLoadingStep(24);
-        
-        await withLoading(loadUsersList(), 25);
-        updateLoadingStep(26);
-        
-        await withLoading(loadTarifAdmin(), 27);
-        updateLoadingStep(28);
-        
-        await withLoading(loadTargetData(), 29);
-        updateLoadingStep(30);
-        
-        await withLoading(loadTransaksiGlobal(), 31);
-        
-        // Set owner menu visibility
-        if (currentUserRole === 'owner') {
-            document.getElementById('ownerMenu').style.display = 'block';
-            document.getElementById('menuDbAgent').style.display = 'flex';
-            document.getElementById('menuDbTransaksi').style.display = 'flex';
-            document.getElementById('menuImport').style.display = 'flex';
-        } else {
-            document.getElementById('ownerMenu').style.display = 'none';
-            document.getElementById('menuDbAgent').style.display = 'none';
-            document.getElementById('menuDbTransaksi').style.display = 'none';
-            document.getElementById('menuImport').style.display = 'none';
-        }
-        
-        initFullModeSelection();
-        navigateTo('dashboard');
-        
-        // ===== PERBAIKAN: Inisialisasi notifikasi setelah data load =====
-        setTimeout(function() {
-            initBadges();
-            initDarkMode();
-            initDarkModeObserver();
+        try {
+            // Load user profile
+            await withLoading(loadUserProfile(), 2);
+            updateLoadingStep(3);
             
-            // Inisialisasi deadline notification
-            var deadlineBtn = document.getElementById('deadlineNotifBtn');
-            if (deadlineBtn) {
-                var newDeadlineBtn = deadlineBtn.cloneNode(true);
-                deadlineBtn.parentNode.replaceChild(newDeadlineBtn, deadlineBtn);
-                var freshBtn = document.getElementById('deadlineNotifBtn');
-                if (freshBtn) {
-                    freshBtn.addEventListener('click', function(e) {
-                        e.preventDefault();
-                        e.stopPropagation();
-                        showDeadlinePopup();
-                    });
-                }
+            // Load semua data
+            await withLoading(loadCustomers(), 4);
+            updateLoadingStep(5);
+            await withLoading(loadProspek(), 6);
+            updateLoadingStep(7);
+            await withLoading(loadDatabaseAgent(), 8);
+            updateLoadingStep(9);
+            await withLoading(loadProduk(), 10);
+            updateLoadingStep(11);
+            await withLoading(loadDbTransaksi(), 12);
+            updateLoadingStep(13);
+            await withLoading(loadDBClosing(), 14);
+            updateLoadingStep(15);
+            await withLoading(loadDBTidak(), 16);
+            updateLoadingStep(17);
+            await withLoading(loadDBNomorSalah(), 18);
+            updateLoadingStep(19);
+            await withLoading(loadDBCommitment(), 20);
+            updateLoadingStep(21);
+            await withLoading(loadReminders(), 22);
+            updateLoadingStep(23);
+            await withLoading(loadMessages(), 24);
+            updateLoadingStep(25);
+            await withLoading(loadUsersList(), 26);
+            updateLoadingStep(27);
+            await withLoading(loadTarifAdmin(), 28);
+            updateLoadingStep(29);
+            await withLoading(loadTargetData(), 30);
+            updateLoadingStep(31);
+            await withLoading(loadTransaksiGlobal(), 32);
+            
+            // Set owner menu
+            if (currentUserRole === 'owner') {
+                document.getElementById('ownerMenu').style.display = 'block';
+                document.getElementById('menuDbAgent').style.display = 'flex';
+                document.getElementById('menuDbTransaksi').style.display = 'flex';
+                document.getElementById('menuImport').style.display = 'flex';
+            } else {
+                document.getElementById('ownerMenu').style.display = 'none';
+                document.getElementById('menuDbAgent').style.display = 'none';
+                document.getElementById('menuDbTransaksi').style.display = 'none';
+                document.getElementById('menuImport').style.display = 'none';
             }
             
-            // Inisialisasi pesan notification
-            var pesanBtn = document.getElementById('pesanNotifBtn');
-            if (pesanBtn) {
-                var newPesanBtn = pesanBtn.cloneNode(true);
-                pesanBtn.parentNode.replaceChild(newPesanBtn, pesanBtn);
-                var freshPesanBtn = document.getElementById('pesanNotifBtn');
-                if (freshPesanBtn) {
-                    freshPesanBtn.addEventListener('click', function(e) {
-                        e.preventDefault();
-                        e.stopPropagation();
-                        navigateTo('pesan');
-                    });
+            initFullModeSelection();
+            navigateTo('dashboard');
+            
+            // Inisialisasi notifikasi
+            setTimeout(function() {
+                initBadges();
+                initDarkMode();
+                initDarkModeObserver();
+                
+                // Deadline notification
+                var deadlineBtn = document.getElementById('deadlineNotifBtn');
+                if (deadlineBtn) {
+                    var newDeadlineBtn = deadlineBtn.cloneNode(true);
+                    deadlineBtn.parentNode.replaceChild(newDeadlineBtn, deadlineBtn);
+                    var freshBtn = document.getElementById('deadlineNotifBtn');
+                    if (freshBtn) {
+                        freshBtn.addEventListener('click', function(e) {
+                            e.preventDefault();
+                            e.stopPropagation();
+                            showDeadlinePopup();
+                        });
+                    }
                 }
-            }
-        }, 100);
-        
-        setTimeout(function() {
+                
+                // Pesan notification
+                var pesanBtn = document.getElementById('pesanNotifBtn');
+                if (pesanBtn) {
+                    var newPesanBtn = pesanBtn.cloneNode(true);
+                    pesanBtn.parentNode.replaceChild(newPesanBtn, pesanBtn);
+                    var freshPesanBtn = document.getElementById('pesanNotifBtn');
+                    if (freshPesanBtn) {
+                        freshPesanBtn.addEventListener('click', function(e) {
+                            e.preventDefault();
+                            e.stopPropagation();
+                            navigateTo('pesan');
+                        });
+                    }
+                }
+            }, 100);
+            
+            // ===== SEMBUNYIKAN LOADING SETELAH SEMUA DATA LOAD =====
+            setTimeout(function() {
+                hideLoading();
+            }, 500);
+            
+        } catch (err) {
+            console.error('Error loading data:', err);
             hideLoading();
-        }, 500);
+            showNotifTop('❌ Gagal memuat data: ' + err.message, true);
+        }
         
     } else {
         hideLoading();
@@ -11165,6 +11183,10 @@ document.getElementById('loginBtn')?.addEventListener('click', async function(e)
         return;
     }
     
+    // ===== TAMPILKAN LOADING =====
+    showLoading('⏳ Memproses login...', true);
+    updateLoadingStep(0);
+    
     this.disabled = true;
     this.textContent = '⏳ Memproses...';
     errorEl.textContent = '';
@@ -11177,15 +11199,22 @@ document.getElementById('loginBtn')?.addEventListener('click', async function(e)
         
         if (error) {
             errorEl.textContent = '❌ ' + error.message;
+            hideLoading();
+            this.disabled = false;
+            this.textContent = 'Masuk';
             return;
         }
         
         if (data.user) {
             currentUser = data.user;
+            updateLoadingStep(1);
+            
+            // Sembunyikan login, tampilkan app
             document.getElementById('loginPage').style.display = 'none';
             document.getElementById('app').style.display = 'block';
             
             // Load user profile
+            updateLoadingStep(2);
             const { data: userData } = await window.db
                 .from('users')
                 .select('*')
@@ -11199,29 +11228,72 @@ document.getElementById('loginBtn')?.addEventListener('click', async function(e)
                 document.getElementById('profileImg').src = userData.foto || 'https://i.pravatar.cc/40';
             }
             
-            // Load semua data
+            // Load semua data dengan progress
+            updateLoadingStep(3);
             await loadCustomers();
+            updateLoadingStep(4);
             await loadProspek();
+            updateLoadingStep(5);
             await loadDatabaseAgent();
+            updateLoadingStep(6);
             await loadProduk();
+            updateLoadingStep(7);
             await loadDbTransaksi();
+            updateLoadingStep(8);
             await loadDBClosing();
+            updateLoadingStep(9);
             await loadDBTidak();
+            updateLoadingStep(10);
             await loadDBNomorSalah();
+            updateLoadingStep(11);
             await loadDBCommitment();
+            updateLoadingStep(12);
             await loadReminders();
+            updateLoadingStep(13);
             await loadMessages();
+            updateLoadingStep(14);
             await loadUsersList();
+            updateLoadingStep(15);
             await loadTarifAdmin();
+            updateLoadingStep(16);
             await loadTargetData();
+            updateLoadingStep(17);
             await loadTransaksiGlobal();
             
+            // Set owner menu
+            if (currentUserRole === 'owner') {
+                document.getElementById('ownerMenu').style.display = 'block';
+                document.getElementById('menuDbAgent').style.display = 'flex';
+                document.getElementById('menuDbTransaksi').style.display = 'flex';
+                document.getElementById('menuImport').style.display = 'flex';
+            } else {
+                document.getElementById('ownerMenu').style.display = 'none';
+                document.getElementById('menuDbAgent').style.display = 'none';
+                document.getElementById('menuDbTransaksi').style.display = 'none';
+                document.getElementById('menuImport').style.display = 'none';
+            }
+            
+            updateLoadingStep(18);
             navigateTo('dashboard');
+            
+            // Inisialisasi badges
+            setTimeout(function() {
+                initBadges();
+                initDarkMode();
+                initDarkModeObserver();
+            }, 100);
+            
+            // ===== SEMBUNYIKAN LOADING =====
+            setTimeout(function() {
+                hideLoading();
+            }, 500);
+            
             showNotifTop('✅ Selamat datang, ' + currentUserName + '!');
         }
     } catch (err) {
         errorEl.textContent = '❌ ' + err.message;
         console.error('Login error:', err);
+        hideLoading();
     } finally {
         this.disabled = false;
         this.textContent = 'Masuk';
