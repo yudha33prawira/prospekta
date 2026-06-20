@@ -5223,254 +5223,179 @@ body.dark-mode .detail-info-item span {
 }
 
 /* ================================================================ */
-/* ========== POPUP DETAIL DUA KOLOM ========== */
+/* ========== DETAIL POPUP STYLE ========== */
 /* ================================================================ */
 
-/* Container utama popup detail */
-.detail-popup-content {
-    display: grid;
-    grid-template-columns: 1fr 1fr;
-    gap: 16px;
-    padding: 0 24px 20px;
-}
-
-.detail-popup-content .left-column {
+/* Info Row */
+.info-row {
     display: flex;
-    flex-direction: column;
-    gap: 12px;
-}
-
-.detail-popup-content .right-column {
-    display: flex;
-    flex-direction: column;
-    gap: 12px;
-}
-
-/* Card style */
-.detail-card {
-    background: #f9fafb;
-    border-radius: 14px;
-    padding: 16px;
-    border: 1px solid #e5e7eb;
-    transition: all 0.3s ease;
-}
-
-.detail-card:hover {
-    border-color: #4f46e5;
-    box-shadow: 0 2px 8px rgba(79, 70, 229, 0.08);
-}
-
-.detail-card-title {
-    font-weight: 600;
-    font-size: 13px;
-    color: #1f2937;
-    margin-bottom: 12px;
-    display: flex;
+    justify-content: space-between;
     align-items: center;
-    gap: 8px;
-}
-
-/* Info item di detail */
-.detail-info-item {
-    display: flex;
-    flex-direction: column;
-    gap: 2px;
     padding: 6px 0;
     border-bottom: 1px solid #f0f0f0;
 }
 
-.detail-info-item:last-child {
-    border-bottom: none;
-}
-
-.detail-info-item strong {
-    font-size: 11px;
+.info-row .label {
+    font-size: 12px;
     color: #6b7280;
-    font-weight: 600;
-    text-transform: uppercase;
-    letter-spacing: 0.3px;
+    font-weight: 500;
 }
 
-.detail-info-item span {
+.info-row .value {
     font-size: 14px;
     color: #1f2937;
     font-weight: 500;
+    text-align: right;
     word-break: break-word;
+    max-width: 60%;
 }
 
-.detail-info-item .value-naik {
-    color: #10b981 !important;
-}
-
-.detail-info-item .value-turun {
-    color: #ef4444 !important;
-}
-
-.detail-info-item .value-normal {
-    color: #f59e0b !important;
-}
-
-/* Data Transaksi di popup */
-.transaksi-comparison {
+/* Detail Section */
+.detail-section {
+    margin-bottom: 12px;
     background: #f9fafb;
-    border-radius: 14px;
-    padding: 16px;
+    border-radius: 12px;
+    padding: 12px 14px;
     border: 1px solid #e5e7eb;
 }
 
-.transaksi-comparison .comparison-grid {
-    display: grid;
-    grid-template-columns: 1fr 1fr;
-    gap: 12px;
-}
-
-.transaksi-comparison .comparison-item {
-    background: #f1f5f9;
-    border-radius: 10px;
-    padding: 12px;
-    border-left: 3px solid #f59e0b;
-}
-
-.transaksi-comparison .comparison-item.ini {
-    border-left-color: #4f46e5;
-}
-
-.transaksi-comparison .comparison-label {
-    font-size: 10px;
-    color: #6b7280;
-    text-transform: uppercase;
-    letter-spacing: 0.5px;
-}
-
-.transaksi-comparison .comparison-value {
-    font-weight: 700;
-    font-size: 20px;
-    color: #1f2937;
-    margin-top: 4px;
-}
-
-.transaksi-comparison .comparison-period {
-    font-size: 11px;
-    color: #6b7280;
-    margin-top: 2px;
-}
-
-.transaksi-comparison .selisih-section {
-    margin-top: 12px;
-    text-align: center;
+.detail-section .section-title {
+    font-weight: 600;
     font-size: 13px;
-    color: #6b7280;
-    padding-top: 12px;
-    border-top: 1px solid #e5e7eb;
+    color: #1f2937;
+    margin-bottom: 8px;
+    padding-bottom: 6px;
+    border-bottom: 1px solid #e5e7eb;
 }
 
-.transaksi-comparison .selisih-section .selisih-value {
-    font-weight: 700;
-    font-size: 16px;
+.detail-section .info-row:last-child {
+    border-bottom: none;
 }
 
-.transaksi-comparison .selisih-section .selisih-badge {
-    font-size: 11px;
-    margin-left: 8px;
-    padding: 2px 10px;
-    border-radius: 20px;
-}
-
-/* Action Buttons */
-.detail-actions-grid {
-    display: grid;
-    grid-template-columns: 1fr 1fr;
+/* History Item */
+.history-item {
+    display: flex;
+    align-items: center;
     gap: 8px;
-    margin-top: 16px;
+    padding: 4px 0;
+    border-bottom: 1px solid #f0f0f0;
+    font-size: 12px;
 }
 
-.detail-actions-grid .btn-full {
-    grid-column: 1 / -1;
+.history-item:last-child {
+    border-bottom: none;
+}
+
+.history-item .history-number {
+    font-weight: 600;
+    color: #4f46e5;
+    min-width: 30px;
+}
+
+.history-item .history-pesan {
+    flex: 1;
+    color: #1f2937;
+}
+
+.history-item .history-time {
+    color: #9ca3af;
+    font-size: 10px;
+}
+
+/* Pending Item */
+.pending-item {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 4px 0;
+    border-bottom: 1px solid #f0f0f0;
+    font-size: 12px;
+}
+
+.pending-item:last-child {
+    border-bottom: none;
+}
+
+.pending-item span:last-child {
+    color: #1f2937;
 }
 
 /* ================================================================ */
-/* ========== DARK MODE POPUP DETAIL ========== */
+/* ========== DARK MODE DETAIL POPUP ========== */
 /* ================================================================ */
 
-body.dark-mode .detail-card {
-    background: #0f172a !important;
-    border-color: #334155 !important;
+body.dark-mode .popup-header {
+    background: #1e293b !important;
+    border-bottom-color: #334155 !important;
 }
 
-body.dark-mode .detail-card:hover {
-    border-color: #4f46e5 !important;
-}
-
-body.dark-mode .detail-card-title {
+body.dark-mode .popup-header h3 {
     color: #f1f5f9 !important;
 }
 
-body.dark-mode .detail-info-item {
+body.dark-mode .popup-header div[style*="color: #6b7280"] {
+    color: #94a3b8 !important;
+}
+
+body.dark-mode .info-row {
     border-bottom-color: #1e293b !important;
 }
 
-body.dark-mode .detail-info-item strong {
+body.dark-mode .info-row .label {
     color: #94a3b8 !important;
 }
 
-body.dark-mode .detail-info-item span {
+body.dark-mode .info-row .value {
     color: #f1f5f9 !important;
 }
 
-body.dark-mode .detail-info-item .value-naik {
-    color: #34d399 !important;
-}
-
-body.dark-mode .detail-info-item .value-turun {
-    color: #f87171 !important;
-}
-
-body.dark-mode .detail-info-item .value-normal {
-    color: #fbbf24 !important;
-}
-
-body.dark-mode .transaksi-comparison {
+body.dark-mode .detail-section {
     background: #0f172a !important;
     border-color: #334155 !important;
 }
 
-body.dark-mode .transaksi-comparison .comparison-item {
-    background: #1e293b !important;
+body.dark-mode .detail-section .section-title {
+    color: #f1f5f9 !important;
+    border-bottom-color: #334155 !important;
 }
 
-body.dark-mode .transaksi-comparison .comparison-value {
+body.dark-mode .history-item {
+    border-bottom-color: #1e293b !important;
+}
+
+body.dark-mode .history-item .history-pesan {
     color: #f1f5f9 !important;
 }
 
-body.dark-mode .transaksi-comparison .comparison-period {
-    color: #94a3b8 !important;
+body.dark-mode .pending-item {
+    border-bottom-color: #1e293b !important;
 }
 
-body.dark-mode .transaksi-comparison .selisih-section {
-    border-top-color: #334155 !important;
+body.dark-mode .pending-item span:last-child {
+    color: #f1f5f9 !important;
+}
+
+body.dark-mode .transaksi-section .info-row:last-child {
+    border-bottom: none !important;
 }
 
 /* ================================================================ */
 /* ========== RESPONSIVE ========== */
 /* ================================================================ */
 
-@media (max-width: 768px) {
-    .detail-popup-content {
-        grid-template-columns: 1fr;
-        gap: 12px;
-    }
-    
-    .detail-actions-grid {
-        grid-template-columns: 1fr;
-    }
-    
-    .transaksi-comparison .comparison-grid {
-        grid-template-columns: 1fr 1fr;
-    }
-}
-
 @media (max-width: 480px) {
-    .transaksi-comparison .comparison-grid {
-        grid-template-columns: 1fr;
+    .info-row {
+        flex-direction: column;
+        align-items: flex-start;
+        gap: 2px;
+    }
+    
+    .info-row .value {
+        text-align: left;
+        max-width: 100%;
+    }
+    
+    .modal-content.detail-transaksi-popup {
+        max-width: 95% !important;
     }
 }
