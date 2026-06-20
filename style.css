@@ -5793,3 +5793,368 @@ body.dark-mode .kanban-cards:hover,
 body.dark-mode .sidebar:hover {
     scrollbar-color: rgba(99, 102, 241, 0.3) transparent;
 }
+
+/* ================================================================ */
+/* ========== SCROLLBAR MENTOK DI PINGGIR ========== */
+/* ================================================================ */
+
+/* ===== RESET PADDING UNTUK SEMUA ELEMEN YANG DISCROLL ===== */
+.content-area,
+.modal-content,
+.db-list,
+.kanban-cards,
+.sidebar,
+.search-results,
+.broadcast-card .selected-numbers,
+#pendingItemsContainer,
+.detail-content-scroll {
+    padding-right: 0 !important;
+    margin-right: 0 !important;
+    overflow-y: auto;
+    scrollbar-width: thin;
+    scrollbar-color: transparent transparent;
+}
+
+/* ===== GLOBAL SCROLLBAR ===== */
+* {
+    scrollbar-width: thin;
+    scrollbar-color: transparent transparent;
+}
+
+*::-webkit-scrollbar {
+    width: 4px;
+    height: 4px;
+}
+
+*::-webkit-scrollbar-track {
+    background: transparent !important;
+    border-radius: 0 !important;
+    margin: 0 !important;
+}
+
+*::-webkit-scrollbar-thumb {
+    background: transparent !important;
+    border-radius: 0 !important;
+    transition: background 0.3s ease;
+}
+
+*::-webkit-scrollbar-thumb:hover {
+    background: rgba(79, 70, 229, 0.5) !important;
+}
+
+*:hover::-webkit-scrollbar-thumb {
+    background: rgba(79, 70, 229, 0.25) !important;
+}
+
+/* ===== SCROLLBAR UNTUK CONTENT AREA ===== */
+.content-area {
+    padding-right: 0 !important;
+    margin-right: 0 !important;
+}
+
+.content-area::-webkit-scrollbar {
+    width: 4px;
+}
+
+.content-area::-webkit-scrollbar-track {
+    background: transparent !important;
+}
+
+.content-area::-webkit-scrollbar-thumb {
+    background: transparent !important;
+}
+
+.content-area:hover::-webkit-scrollbar-thumb {
+    background: rgba(79, 70, 229, 0.25) !important;
+}
+
+.content-area::-webkit-scrollbar-thumb:hover {
+    background: rgba(79, 70, 229, 0.5) !important;
+}
+
+/* ===== SCROLLBAR UNTUK MODAL ===== */
+.modal-content {
+    padding-right: 0 !important;
+    margin-right: 0 !important;
+}
+
+.modal-content::-webkit-scrollbar {
+    width: 4px;
+}
+
+.modal-content::-webkit-scrollbar-track {
+    background: transparent !important;
+}
+
+.modal-content::-webkit-scrollbar-thumb {
+    background: transparent !important;
+}
+
+.modal-content:hover::-webkit-scrollbar-thumb {
+    background: rgba(79, 70, 229, 0.25) !important;
+}
+
+.modal-content::-webkit-scrollbar-thumb:hover {
+    background: rgba(79, 70, 229, 0.5) !important;
+}
+
+/* ===== SCROLLBAR UNTUK DB LIST ===== */
+.db-list {
+    padding-right: 0 !important;
+    margin-right: 0 !important;
+}
+
+.db-list::-webkit-scrollbar {
+    width: 4px;
+}
+
+.db-list::-webkit-scrollbar-track {
+    background: transparent !important;
+}
+
+.db-list::-webkit-scrollbar-thumb {
+    background: transparent !important;
+}
+
+.db-list:hover::-webkit-scrollbar-thumb {
+    background: rgba(79, 70, 229, 0.25) !important;
+}
+
+.db-list::-webkit-scrollbar-thumb:hover {
+    background: rgba(79, 70, 229, 0.5) !important;
+}
+
+/* ===== SCROLLBAR UNTUK KANBAN ===== */
+.kanban-cards {
+    padding-right: 0 !important;
+    margin-right: 0 !important;
+}
+
+.kanban-cards::-webkit-scrollbar {
+    width: 3px;
+}
+
+.kanban-cards::-webkit-scrollbar-track {
+    background: transparent !important;
+}
+
+.kanban-cards::-webkit-scrollbar-thumb {
+    background: transparent !important;
+}
+
+.kanban-cards:hover::-webkit-scrollbar-thumb {
+    background: rgba(79, 70, 229, 0.2) !important;
+}
+
+.kanban-cards::-webkit-scrollbar-thumb:hover {
+    background: rgba(79, 70, 229, 0.4) !important;
+}
+
+/* ===== SCROLLBAR UNTUK SIDEBAR ===== */
+.sidebar {
+    padding-right: 0 !important;
+    margin-right: 0 !important;
+}
+
+.sidebar::-webkit-scrollbar {
+    width: 3px;
+}
+
+.sidebar::-webkit-scrollbar-track {
+    background: transparent !important;
+}
+
+.sidebar::-webkit-scrollbar-thumb {
+    background: transparent !important;
+}
+
+.sidebar:hover::-webkit-scrollbar-thumb {
+    background: rgba(79, 70, 229, 0.2) !important;
+}
+
+.sidebar::-webkit-scrollbar-thumb:hover {
+    background: rgba(79, 70, 229, 0.4) !important;
+}
+
+/* ===== SCROLLBAR UNTUK SEARCH RESULTS ===== */
+.search-results {
+    padding-right: 0 !important;
+    margin-right: 0 !important;
+}
+
+.search-results::-webkit-scrollbar {
+    width: 4px;
+}
+
+.search-results::-webkit-scrollbar-track {
+    background: transparent !important;
+}
+
+.search-results::-webkit-scrollbar-thumb {
+    background: transparent !important;
+}
+
+.search-results:hover::-webkit-scrollbar-thumb {
+    background: rgba(79, 70, 229, 0.25) !important;
+}
+
+/* ===== SCROLLBAR UNTUK PENDING ITEMS ===== */
+#pendingItemsContainer {
+    padding-right: 0 !important;
+    margin-right: 0 !important;
+}
+
+#pendingItemsContainer::-webkit-scrollbar {
+    width: 3px;
+}
+
+#pendingItemsContainer::-webkit-scrollbar-track {
+    background: transparent !important;
+}
+
+#pendingItemsContainer::-webkit-scrollbar-thumb {
+    background: transparent !important;
+}
+
+#pendingItemsContainer:hover::-webkit-scrollbar-thumb {
+    background: rgba(79, 70, 229, 0.2) !important;
+}
+
+/* ===== SCROLLBAR UNTUK SELECTED NUMBERS ===== */
+.broadcast-card .selected-numbers {
+    padding-right: 0 !important;
+    margin-right: 0 !important;
+}
+
+.broadcast-card .selected-numbers::-webkit-scrollbar {
+    width: 3px;
+}
+
+.broadcast-card .selected-numbers::-webkit-scrollbar-track {
+    background: transparent !important;
+}
+
+.broadcast-card .selected-numbers::-webkit-scrollbar-thumb {
+    background: transparent !important;
+}
+
+.broadcast-card .selected-numbers:hover::-webkit-scrollbar-thumb {
+    background: rgba(79, 70, 229, 0.2) !important;
+}
+
+/* ================================================================ */
+/* ========== DARK MODE SCROLLBAR ========== */
+/* ================================================================ */
+
+body.dark-mode *:hover::-webkit-scrollbar-thumb {
+    background: rgba(99, 102, 241, 0.3) !important;
+}
+
+body.dark-mode *::-webkit-scrollbar-thumb:hover {
+    background: rgba(99, 102, 241, 0.6) !important;
+}
+
+body.dark-mode .content-area:hover::-webkit-scrollbar-thumb {
+    background: rgba(99, 102, 241, 0.3) !important;
+}
+
+body.dark-mode .modal-content:hover::-webkit-scrollbar-thumb {
+    background: rgba(99, 102, 241, 0.3) !important;
+}
+
+body.dark-mode .db-list:hover::-webkit-scrollbar-thumb {
+    background: rgba(99, 102, 241, 0.3) !important;
+}
+
+body.dark-mode .kanban-cards:hover::-webkit-scrollbar-thumb {
+    background: rgba(99, 102, 241, 0.25) !important;
+}
+
+body.dark-mode .sidebar:hover::-webkit-scrollbar-thumb {
+    background: rgba(99, 102, 241, 0.25) !important;
+}
+
+body.dark-mode .search-results:hover::-webkit-scrollbar-thumb {
+    background: rgba(99, 102, 241, 0.3) !important;
+}
+
+body.dark-mode #pendingItemsContainer:hover::-webkit-scrollbar-thumb {
+    background: rgba(99, 102, 241, 0.25) !important;
+}
+
+body.dark-mode .broadcast-card .selected-numbers:hover::-webkit-scrollbar-thumb {
+    background: rgba(99, 102, 241, 0.25) !important;
+}
+
+/* ================================================================ */
+/* ========== FIREFOX SCROLLBAR ========== */
+/* ================================================================ */
+
+.content-area,
+.modal-content,
+.db-list,
+.kanban-cards,
+.sidebar,
+.search-results,
+#pendingItemsContainer,
+.broadcast-card .selected-numbers {
+    scrollbar-width: thin;
+    scrollbar-color: transparent transparent;
+}
+
+.content-area:hover,
+.modal-content:hover,
+.db-list:hover,
+.kanban-cards:hover,
+.sidebar:hover,
+.search-results:hover,
+#pendingItemsContainer:hover,
+.broadcast-card .selected-numbers:hover {
+    scrollbar-color: rgba(79, 70, 229, 0.25) transparent;
+}
+
+body.dark-mode .content-area:hover,
+body.dark-mode .modal-content:hover,
+body.dark-mode .db-list:hover,
+body.dark-mode .kanban-cards:hover,
+body.dark-mode .sidebar:hover,
+body.dark-mode .search-results:hover,
+body.dark-mode #pendingItemsContainer:hover,
+body.dark-mode .broadcast-card .selected-numbers:hover {
+    scrollbar-color: rgba(99, 102, 241, 0.3) transparent;
+}
+
+/* ===== MODAL CONTENT TANPA PADDING ===== */
+.modal-content {
+    background: #fff;
+    border-radius: 32px;
+    width: 90%;
+    max-width: 550px;
+    max-height: 85vh;
+    overflow-y: auto;
+    animation: modalPopup 0.3s cubic-bezier(0.34, 1.2, 0.64, 1);
+    box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.5);
+    padding: 0 !important;
+    margin: 0 !important;
+}
+
+/* Scrollbar di modal */
+.modal-content::-webkit-scrollbar {
+    width: 4px;
+}
+
+.modal-content::-webkit-scrollbar-track {
+    background: transparent !important;
+}
+
+.modal-content::-webkit-scrollbar-thumb {
+    background: transparent !important;
+}
+
+.modal-content:hover::-webkit-scrollbar-thumb {
+    background: rgba(79, 70, 229, 0.2) !important;
+}
+
+.modal-content::-webkit-scrollbar-thumb:hover {
+    background: rgba(79, 70, 229, 0.5) !important;
+}
