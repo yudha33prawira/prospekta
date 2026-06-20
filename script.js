@@ -913,41 +913,48 @@ function fixModalScrollbar(modalElement) {
     if (!content) return;
     
     // Pastikan padding kanan 0
-    content.style.paddingRight = '0';
-    content.style.marginRight = '0';
+    content.style.paddingRight = '0 !important';
+    content.style.marginRight = '0 !important';
+    content.style.overflowY = 'auto !important';
+    content.style.overflowX = 'hidden !important';
     
-    // Cari semua div di dalam modal yang memiliki padding kanan berlebih
+    // Reset semua child div
     const allDivs = content.querySelectorAll('div');
     allDivs.forEach(div => {
-        const computedStyle = window.getComputedStyle(div);
-        const paddingRight = parseInt(computedStyle.paddingRight) || 0;
-        const marginRight = parseInt(computedStyle.marginRight) || 0;
+        // Skip header dan footer
+        if (div.closest('.popup-header') || 
+            div.closest('.detail-header') || 
+            div.closest('.modal-header') ||
+            div.closest('.popup-footer') || 
+            div.closest('.detail-footer') || 
+            div.closest('.modal-buttons') ||
+            div.closest('.preview-photo-header')) {
+            return;
+        }
         
-        // Jika padding/margin kanan lebih dari 0, reset
-        if (paddingRight > 0 || marginRight > 0) {
-            // Kecuali untuk header dan footer yang butuh padding
-            if (!div.closest('.popup-header') && 
-                !div.closest('.popup-footer') && 
-                !div.closest('.modal-buttons') &&
-                !div.closest('.detail-header')) {
-                // Hapus padding kanan agar scrollbar mentok
-                div.style.paddingRight = '0';
-                div.style.marginRight = '0';
-            }
-        }
+        // Reset padding kanan
+        div.style.paddingRight = '0 !important';
+        div.style.marginRight = '0 !important';
     });
-}
     
-    // ===== PERBAIKAN: Klik di luar untuk mobile =====
-    document.addEventListener('click', function(e) {
-        if (window.innerWidth <= 768 && sidebar && toggleBtn && 
-            !sidebar.contains(e.target) && 
-            e.target !== toggleBtn && 
-            !toggleBtn.contains(e.target)) {
-            sidebar.classList.remove('active');
-            updateSidebarBodyClass();
+    // Tambahkan style untuk scrollbar
+    const style = document.createElement('style');
+    style.textContent = `
+        .modal-content::-webkit-scrollbar {
+            width: 4px !important;
         }
-    });
+        .modal-content::-webkit-scrollbar-track {
+            background: transparent !important;
+        }
+        .modal-content::-webkit-scrollbar-thumb {
+            background: rgba(79, 70, 229, 0.3) !important;
+            border-radius: 0 !important;
+        }
+        .modal-content::-webkit-scrollbar-thumb:hover {
+            background: rgba(79, 70, 229, 0.6) !important;
+        }
+    `;
+    content.appendChild(style);
 }
 
 // ===== PERBAIKAN: Fungsi update sidebar body class =====
