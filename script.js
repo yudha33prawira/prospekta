@@ -904,6 +904,7 @@ function initSidebarHover() {
             freshToggleBtn.style.zIndex = '1000';
         }
     }
+}
 
 // ===== PERBAIKAN: Fungsi update sidebar body class =====
 function updateSidebarBodyClass() {
