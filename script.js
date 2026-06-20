@@ -5774,9 +5774,9 @@ function openDetailTransaksi(id) {
     const item = transaksiData.find(t => t.id === id);
     if (!item) return;
     
-    const periodeLalu = item.tanggal_bulan_lalu ? formatMonthYear(item.tanggal_bulan_lalu) : 'Tidak tersedia';
-    const periodeIni = item.tanggal_bulan_ini ? formatMonthYear(item.tanggal_bulan_ini) : 'Tidak tersedia';
-    const tanggalImport = item.tanggal_transaksi ? formatDateDDMMYYYY(item.tanggal_transaksi) : '-';
+    const periodeLalu = item.periode_bulan_lalu || 'Tidak tersedia';
+    const periodeIni = item.periode_bulan_ini || 'Tidak tersedia';
+    const tanggalImport = item.created_at ? formatDateDDMMYYYY(item.created_at) : '-';
     
     // ===== LOGIKA TANDA UNTUK NILAI =====
     const jumlah = item.progres_jumlah || 0;
