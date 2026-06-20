@@ -6182,3 +6182,87 @@ body.dark-mode .modal-content:hover::-webkit-scrollbar-thumb {
 body.dark-mode .modal-content::-webkit-scrollbar-thumb:hover {
     background: rgba(99, 102, 241, 0.6) !important;
 }
+
+/* ================================================================ */
+/* ========== FIX: SCROLLBAR MENTOK KE KANAN - FINAL ========== */
+/* ================================================================ */
+
+/* Reset semua padding kanan di modal content */
+.modal-content,
+.modal-content * {
+    padding-right: 0 !important;
+    margin-right: 0 !important;
+}
+
+/* KECUALI header, footer, dan button container */
+.modal-content .popup-header,
+.modal-content .detail-header,
+.modal-content .modal-header,
+.modal-content .popup-footer,
+.modal-content .modal-buttons,
+.modal-content .detail-footer,
+.modal-content .preview-photo-header {
+    padding-right: 24px !important;
+}
+
+/* KECUALI elemen dengan padding inline yang diperlukan */
+.modal-content [style*="padding: 20px 24px"],
+.modal-content [style*="padding:20px 24px"],
+.modal-content [style*="padding: 16px 24px"],
+.modal-content [style*="padding:16px 24px"],
+.modal-content [style*="padding: 12px 24px"],
+.modal-content [style*="padding:12px 24px"] {
+    padding-right: 24px !important;
+}
+
+/* Untuk form-group di modal */
+.modal-content .form-group {
+    padding-right: 0 !important;
+    margin-right: 0 !important;
+}
+
+/* Untuk info-grid dan sejenisnya */
+.modal-content .info-grid,
+.modal-content .comparison-box,
+.modal-content .detail-section,
+.modal-content .info-row {
+    padding-right: 0 !important;
+    margin-right: 0 !important;
+}
+
+/* Untuk konten scroll di dalam modal */
+.modal-content .detail-popup-content,
+.modal-content .modal-body-scroll,
+.modal-content > div:not(.popup-header):not(.modal-buttons):not(.popup-footer):not(.detail-header) {
+    padding-right: 0 !important;
+    margin-right: 0 !important;
+}
+
+/* Scrollbar styling - lebih tipis */
+.modal-content::-webkit-scrollbar {
+    width: 3px !important;
+}
+
+.modal-content::-webkit-scrollbar-track {
+    background: transparent !important;
+    margin: 0 !important;
+    padding: 0 !important;
+}
+
+.modal-content::-webkit-scrollbar-thumb {
+    background: rgba(79, 70, 229, 0.2) !important;
+    border-radius: 0 !important;
+}
+
+.modal-content::-webkit-scrollbar-thumb:hover {
+    background: rgba(79, 70, 229, 0.5) !important;
+}
+
+/* Dark mode */
+body.dark-mode .modal-content::-webkit-scrollbar-thumb {
+    background: rgba(99, 102, 241, 0.2) !important;
+}
+
+body.dark-mode .modal-content::-webkit-scrollbar-thumb:hover {
+    background: rgba(99, 102, 241, 0.5) !important;
+}
