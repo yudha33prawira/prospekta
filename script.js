@@ -3956,29 +3956,64 @@ async function updateProspekStatus(id, newStatus) {
 async function deleteCustomer(id) {
     if (!confirm('Yakin hapus customer ini? Data akan dihapus permanen!')) return;
     
+    // ===== AMBIL DATA CUSTOMER SEBELUM DIHAPUS =====
+    const { data: customer, error: getError } = await window.db
+        .from('customers')
+        .select('*')
+        .eq('id', id)
+        .single();
+    
+    if (getError) {
+        showNotifTop('❌ Gagal mengambil data: ' + getError.message, true);
+        return;
+    }
+    
+    // ===== CEK APAKAH DATA INI DARI TRANSAKSI =====
+    const agentId = customer?.agent_id;
+    let transaksiId = null;
+    
+    if (agentId) {
+        // Cari di db_transaksi dengan agent_id yang sama dan status 'imported'
+        const { data: transaksiData } = await window.db
+            .from('db_transaksi')
+            .select('id')
+            .eq('agent_id', agentId)
+            .eq('status', 'imported')
+            .maybeSingle();
+        
+        if (transaksiData) {
+            transaksiId = transaksiData.id;
+        }
+    }
+    
+    // ===== HAPUS CUSTOMER =====
     const { error } = await window.db.from('customers').delete().eq('id', id);
     if (error) {
         showNotifTop('❌ Gagal hapus: ' + error.message, true);
         return;
     }
     
+    // ===== KEMBALIKAN STATUS DI DB_TRANSAKSI =====
+    if (transaksiId) {
+        const { error: updateError } = await window.db
+            .from('db_transaksi')
+            .update({ 
+                status: 'pending_import',
+                updated_at: new Date().toISOString()
+            })
+            .eq('id', transaksiId);
+        
+        if (updateError) {
+            console.warn('⚠️ Gagal mengembalikan status transaksi:', updateError);
+        } else {
+            showNotifTop('🔄 Status di DB Transaksi dikembalikan ke Pending');
+        }
+    }
+    
     showNotifTop('🗑️ Data customer berhasil dihapus');
     closeModal('detailModal');
     await loadCustomers();
-}
-
-async function deleteProspek(id) {
-    if (!confirm('Yakin hapus prospek ini? Data akan dihapus permanen!')) return;
-    
-    const { error } = await window.db.from('prospek').delete().eq('id', id);
-    if (error) {
-        showNotifTop('❌ Gagal hapus: ' + error.message, true);
-        return;
-    }
-    
-    showNotifTop('🗑️ Data prospek berhasil dihapus');
-    closeModal('detailModal');
-    await loadProspek();
+    await loadDbTransaksi(); // Refresh db_transaksi
 }
 
 // ========== LOAD DATA FUNCTIONS ==========
@@ -9850,10 +9885,25 @@ async function deleteSelectedFullFollowup() {
     
     const progress = showFloatingProgress('🗑️ Menghapus Data', selectedIds.length);
     let deleted = 0;
+    const deletedIds = [];
     
     for (const id of selectedIds) {
         try {
+            // ===== AMBIL DATA CUSTOMER SEBELUM DIHAPUS =====
+            const { data: customer } = await window.db
+                .from('customers')
+                .select('agent_id')
+                .eq('id', id)
+                .single();
+            
+            // ===== HAPUS CUSTOMER =====
             await window.db.from('customers').delete().eq('id', id);
+            
+            // ===== SIMPAN AGENT_ID UNTUK RESTORE =====
+            if (customer && customer.agent_id) {
+                deletedIds.push(customer.agent_id);
+            }
+            
             selectedFullFollowupIds.delete(id);
             deleted++;
             progress.update(Math.floor((deleted / selectedIds.length) * 100), 'Menghapus', `Memproses...`, deleted, selectedIds.length);
@@ -9863,12 +9913,68 @@ async function deleteSelectedFullFollowup() {
         }
     }
     
+    // ===== RESTORE STATUS TRANSAKSI =====
+    if (deletedIds.length > 0) {
+        try {
+            for (const agentId of deletedIds) {
+                await window.db
+                    .from('db_transaksi')
+                    .update({ 
+                        status: 'pending_import',
+                        updated_at: new Date().toISOString()
+                    })
+                    .eq('agent_id', agentId)
+                    .eq('status', 'imported');
+            }
+            showNotifTop(`🔄 ${deletedIds.length} data di DB Transaksi dikembalikan ke Pending`);
+        } catch (e) {
+            console.warn('Gagal restore transaksi:', e);
+        }
+    }
+    
     progress.update(100, 'Selesai', `Berhasil menghapus ${deleted} data`, deleted, selectedIds.length);
     showNotifTop(`✅ ${deleted} data berhasil dihapus`);
     setTimeout(() => progress.hide(), 2000);
     
     await loadCustomers();
+    await loadDbTransaksi(); // Refresh db_transaksi
     renderFullFollowupKanban();
+}
+
+// ========== RESTORE TRANSAKSI STATUS MASSAL ==========
+async function restoreTransaksiStatusForDeletedCustomers(deletedCustomerIds) {
+    if (!deletedCustomerIds || deletedCustomerIds.length === 0) return;
+    
+    try {
+        // Ambil semua customer yang dihapus
+        const { data: deletedCustomers } = await window.db
+            .from('customers')
+            .select('agent_id')
+            .in('id', deletedCustomerIds);
+        
+        if (!deletedCustomers || deletedCustomers.length === 0) return;
+        
+        const agentIds = deletedCustomers.map(c => c.agent_id).filter(id => id);
+        
+        if (agentIds.length === 0) return;
+        
+        // Update db_transaksi dengan agent_id yang sesuai
+        for (const agentId of agentIds) {
+            await window.db
+                .from('db_transaksi')
+                .update({ 
+                    status: 'pending_import',
+                    updated_at: new Date().toISOString()
+                })
+                .eq('agent_id', agentId)
+                .eq('status', 'imported');
+        }
+        
+        console.log(`✅ Restored ${agentIds.length} transaksi status to pending`);
+        
+    } catch (err) {
+        console.error('Error restoring transaksi status:', err);
+    }
 }
 
 async function deleteSelectedFullProspek() {
