@@ -10777,4 +10777,93 @@ function initEventListeners() {
             beradminFields.style.display = 'block';
         }
     });
+
+// ===== LOGIN =====
+document.getElementById('loginBtn')?.addEventListener('click', async function(e) {
+    e.preventDefault();
+    e.stopPropagation();
+    
+    const email = document.getElementById('loginEmail').value.trim();
+    const password = document.getElementById('loginPassword').value.trim();
+    const errorEl = document.getElementById('loginError');
+    
+    if (!email || !password) {
+        errorEl.textContent = '⚠️ Email dan password wajib diisi!';
+        return;
+    }
+    
+    this.disabled = true;
+    this.textContent = '⏳ Memproses...';
+    errorEl.textContent = '';
+    
+    try {
+        const { data, error } = await window.db.auth.signInWithPassword({
+            email: email,
+            password: password
+        });
+        
+        if (error) {
+            errorEl.textContent = '❌ ' + error.message;
+            return;
+        }
+        
+        if (data.user) {
+            currentUser = data.user;
+            document.getElementById('loginPage').style.display = 'none';
+            document.getElementById('app').style.display = 'block';
+            
+            // Load user profile
+            const { data: userData } = await window.db
+                .from('users')
+                .select('*')
+                .eq('id', currentUser.id)
+                .single();
+            
+            if (userData) {
+                currentUserName = userData.nama || currentUser.email;
+                currentUserRole = userData.role || 'cs';
+                document.getElementById('topUserName').innerText = currentUserName;
+                document.getElementById('profileImg').src = userData.foto || 'https://i.pravatar.cc/40';
+            }
+            
+            // Load semua data
+            await loadCustomers();
+            await loadProspek();
+            await loadDatabaseAgent();
+            await loadProduk();
+            await loadDbTransaksi();
+            await loadDBClosing();
+            await loadDBTidak();
+            await loadDBNomorSalah();
+            await loadDBCommitment();
+            await loadReminders();
+            await loadMessages();
+            await loadUsersList();
+            await loadTarifAdmin();
+            await loadTargetData();
+            await loadTransaksiGlobal();
+            
+            navigateTo('dashboard');
+            showNotifTop('✅ Selamat datang, ' + currentUserName + '!');
+        }
+    } catch (err) {
+        errorEl.textContent = '❌ ' + err.message;
+        console.error('Login error:', err);
+    } finally {
+        this.disabled = false;
+        this.textContent = 'Masuk';
+    }
+});
+
+// Enter key untuk login
+document.getElementById('loginPassword')?.addEventListener('keypress', function(e) {
+    if (e.key === 'Enter') {
+        document.getElementById('loginBtn').click();
+    }
+});
+document.getElementById('loginEmail')?.addEventListener('keypress', function(e) {
+    if (e.key === 'Enter') {
+        document.getElementById('loginPassword').focus();
+    }
+});
 }
