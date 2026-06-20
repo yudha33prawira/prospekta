@@ -904,6 +904,39 @@ function initSidebarHover() {
             freshToggleBtn.style.zIndex = '1000';
         }
     }
+
+// ========== FIX SCROLLBAR MODAL ==========
+function fixModalScrollbar(modalElement) {
+    if (!modalElement) return;
+    
+    const content = modalElement.querySelector('.modal-content');
+    if (!content) return;
+    
+    // Pastikan padding kanan 0
+    content.style.paddingRight = '0';
+    content.style.marginRight = '0';
+    
+    // Cari semua div di dalam modal yang memiliki padding kanan berlebih
+    const allDivs = content.querySelectorAll('div');
+    allDivs.forEach(div => {
+        const computedStyle = window.getComputedStyle(div);
+        const paddingRight = parseInt(computedStyle.paddingRight) || 0;
+        const marginRight = parseInt(computedStyle.marginRight) || 0;
+        
+        // Jika padding/margin kanan lebih dari 0, reset
+        if (paddingRight > 0 || marginRight > 0) {
+            // Kecuali untuk header dan footer yang butuh padding
+            if (!div.closest('.popup-header') && 
+                !div.closest('.popup-footer') && 
+                !div.closest('.modal-buttons') &&
+                !div.closest('.detail-header')) {
+                // Hapus padding kanan agar scrollbar mentok
+                div.style.paddingRight = '0';
+                div.style.marginRight = '0';
+            }
+        }
+    });
+}
     
     // ===== PERBAIKAN: Klik di luar untuk mobile =====
     document.addEventListener('click', function(e) {
@@ -1833,6 +1866,7 @@ async function openDetailCustomer(id) {
     document.getElementById('detailContent').innerHTML = modalHtml;
     showModal('detailModal');
     applyDarkModeToModal(document.getElementById('detailModal'));
+    fixModalScrollbar(document.getElementById('detailModal'));
 }
 
 // ========== FUNGSI OPEN DETAIL PROSPEK ==========
@@ -1959,6 +1993,7 @@ async function openDetailProspek(id) {
     document.getElementById('detailContent').innerHTML = modalHtml;
     showModal('detailModal');
     applyDarkModeToModal(document.getElementById('detailModal'));
+    fixModalScrollbar(document.getElementById('detailModal'));
 }
 
 // ========== FOLLOWUP CONFIRMATION FUNCTIONS ==========
