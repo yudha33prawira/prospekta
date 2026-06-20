@@ -9017,12 +9017,2141 @@ function navigateTo(page) {
     if (activeMenu) activeMenu.classList.add('active');
 }
 
-// ========== START APP (TANPA DUPLIKASI) ==========
+// ========== SETUP IMPORT EXCEL ==========
+function setupImportExcel() {
+    const dropZone = document.getElementById('dropZone');
+    const excelFileInput = document.getElementById('excelFile');
+    const importTypeRadios = document.querySelectorAll('.radio-option');
+    const importBtn = document.getElementById('importBtn');
+    let importType = "transaksi";
+    
+    // ===== DROP ZONE =====
+    if (dropZone) {
+        dropZone.addEventListener('click', () => excelFileInput?.click());
+    }
+    
+    // ===== FILE INPUT =====
+    if (excelFileInput) {
+        excelFileInput.addEventListener('change', function(e) {
+            if (e.target.files[0]) {
+                document.getElementById('fileInfo').innerHTML = '📄 ' + e.target.files[0].name;
+            }
+        });
+    }
+    
+    // ===== RADIO BUTTONS =====
+    if (importTypeRadios) {
+        importTypeRadios.forEach(opt => {
+            opt.addEventListener('click', function() {
+                importType = this.dataset.import;
+                importTypeRadios.forEach(o => o.classList.remove('active'));
+                this.classList.add('active');
+            });
+        });
+    }
+    
+    // ===== HANYA 1 EVENT LISTENER UNTUK IMPORT =====
+    if (importBtn) {
+        // Hapus semua listener lama dengan clone
+        const newImportBtn = importBtn.cloneNode(true);
+        importBtn.parentNode.replaceChild(newImportBtn, importBtn);
+        
+        const freshImportBtn = document.getElementById('importBtn');
+        if (freshImportBtn) {
+            freshImportBtn.addEventListener('click', async function(e) {
+                e.preventDefault();
+                e.stopPropagation();
+                
+                // Cegah double click
+                if (this.disabled) {
+                    showNotifTop('⏳ Proses import sedang berjalan...', true);
+                    return;
+                }
+                
+                const file = excelFileInput?.files[0];
+                if (!file) {
+                    showNotifTop('⚠️ Pilih file dulu!', true);
+                    return;
+                }
+                
+                const btn = this;
+                const originalText = btn.textContent;
+                btn.textContent = '⏳ Memproses...';
+                btn.disabled = true;
+                
+                const progress = showFloatingProgress('📥 Import Data', 0);
+                progress.update(0, '📥 Import Data', 'Membaca file Excel...');
+                
+                const reader = new FileReader();
+                
+                reader.onload = async function(e) {
+                    try {
+                        progress.update(5, '📥 Import Data', 'Memproses file Excel...');
+                        
+                        const data = new Uint8Array(e.target.result);
+                        const workbook = XLSX.read(data, { type: 'array' });
+                        const sheet = workbook.Sheets[workbook.SheetNames[0]];
+                        const json = XLSX.utils.sheet_to_json(sheet, { defval: "" });
+                        
+                        if (!json || json.length === 0) {
+                            showNotifTop('⚠️ File Excel kosong!', true);
+                            btn.textContent = originalText;
+                            btn.disabled = false;
+                            progress.hide();
+                            return;
+                        }
+                        
+                        let success = 0, failed = 0;
+                        const errors = [];
+                        const successData = [];
+                        
+                        progress.update(10, '📥 Import Data', `Memproses ${json.length} baris...`);
+                        
+                        // ===== CEGAH DUPLIKAT: Ambil data existing =====
+                        let existingIds = new Set();
+                        let existingNames = new Set();
+                        let existingHps = new Set();
+                        
+                        if (importType === 'transaksi') {
+                            const { data: existingData } = await window.db
+                                .from('db_transaksi')
+                                .select('agent_id');
+                            if (existingData) {
+                                existingData.forEach(item => {
+                                    if (item.agent_id) {
+                                        existingIds.add(item.agent_id.toUpperCase());
+                                    }
+                                });
+                            }
+                            console.log(`📊 Data existing di DB Transaksi: ${existingIds.size} agent_id`);
+                        } else if (importType === 'customer') {
+                            const { data: existingData } = await window.db
+                                .from('customers')
+                                .select('agent_id, hp, nama');
+                            if (existingData) {
+                                existingData.forEach(item => {
+                                    if (item.agent_id) existingIds.add(item.agent_id.toUpperCase());
+                                    if (item.hp) existingHps.add(item.hp);
+                                    if (item.nama) existingNames.add(item.nama.toLowerCase());
+                                });
+                            }
+                            console.log(`📊 Data existing di Customers: ${existingIds.size} agent_id`);
+                        } else if (importType === 'prospek') {
+                            const { data: existingData } = await window.db
+                                .from('prospek')
+                                .select('nama, hp');
+                            if (existingData) {
+                                existingData.forEach(item => {
+                                    if (item.hp) existingHps.add(item.hp);
+                                    if (item.nama) existingNames.add(item.nama.toLowerCase());
+                                });
+                            }
+                            console.log(`📊 Data existing di Prospek: ${existingNames.size} nama`);
+                        }
+                        
+                        // ===== BATCH PROCESSING =====
+                        const BATCH_SIZE = 200;
+                        const batches = [];
+                        
+                        for (let i = 0; i < json.length; i += BATCH_SIZE) {
+                            batches.push(json.slice(i, i + BATCH_SIZE));
+                        }
+                        
+                        for (let batchIndex = 0; batchIndex < batches.length; batchIndex++) {
+                            const batch = batches[batchIndex];
+                            const batchPromises = [];
+                            
+                            for (let j = 0; j < batch.length; j++) {
+                                const row = batch[j];
+                                const rowIndex = (batchIndex * BATCH_SIZE) + j;
+                                
+                                try {
+                                    // ===== IMPORT CUSTOMER =====
+                                    if (importType === 'customer') {
+                                        const agentId = (row.agent_id || row.Agent_ID || '').toString().trim();
+                                        const nama = (row.nama || row.Nama || '').toString().trim();
+                                        let hp = (row.hp || row.HP || '').toString().trim();
+                                        const apk = (row.apk || row.APK || '').toString().trim();
+                                        const upline = (row.upline_name || row.upline || '').toString().trim();
+                                        const deadline = row.deadline || getTodayDate();
+                                        
+                                        if (!agentId || !nama) {
+                                            failed++;
+                                            errors.push(`⚠️ Baris ${rowIndex+1}: agent_id atau nama kosong`);
+                                            continue;
+                                        }
+                                        
+                                        // ===== CEK DUPLIKAT =====
+                                        const agentIdUpper = agentId.toUpperCase();
+                                        if (existingIds.has(agentIdUpper)) {
+                                            failed++;
+                                            errors.push(`⚠️ Baris ${rowIndex+1}: agent_id "${agentId}" sudah terdaftar!`);
+                                            continue;
+                                        }
+                                        
+                                        hp = String(hp).replace(/[^\d]/g, '');
+                                        if (hp.startsWith('0')) hp = hp.substring(1);
+                                        if (hp && !hp.startsWith('62')) hp = '62' + hp;
+                                        
+                                        if (hp && existingHps.has(hp)) {
+                                            failed++;
+                                            errors.push(`⚠️ Baris ${rowIndex+1}: nomor HP "${hp}" sudah terdaftar!`);
+                                            continue;
+                                        }
+                                        
+                                        if (existingNames.has(nama.toLowerCase())) {
+                                            failed++;
+                                            errors.push(`⚠️ Baris ${rowIndex+1}: nama "${nama}" sudah terdaftar!`);
+                                            continue;
+                                        }
+                                        
+                                        batchPromises.push(
+                                            window.db.from('customers').insert({
+                                                agent_id: agentIdUpper,
+                                                nama: nama,
+                                                hp: hp || '',
+                                                apk: apk || '',
+                                                upline_name: upline || '',
+                                                tanggal: deadline || getTodayDate(),
+                                                status: 'baru',
+                                                user_id: currentUser.id,
+                                                created_at: new Date().toISOString()
+                                            }).then(() => {
+                                                existingIds.add(agentIdUpper);
+                                                existingHps.add(hp);
+                                                existingNames.add(nama.toLowerCase());
+                                                success++;
+                                                successData.push(`✅ Baris ${rowIndex+1}: ${nama} berhasil`);
+                                            }).catch((err) => {
+                                                failed++;
+                                                errors.push(`❌ Baris ${rowIndex+1}: ${err.message}`);
+                                            })
+                                        );
+                                        
+                                    // ===== IMPORT PROSPEK =====
+                                    } else if (importType === 'prospek') {
+                                        const nama = (row.nama || row.Nama || '').toString().trim();
+                                        let hp = (row.hp || row.HP || '').toString().trim();
+                                        const deadline = row.deadline || getTodayDate();
+                                        
+                                        if (!nama) {
+                                            failed++;
+                                            errors.push(`⚠️ Baris ${rowIndex+1}: nama kosong`);
+                                            continue;
+                                        }
+                                        
+                                        // ===== CEK DUPLIKAT =====
+                                        if (existingNames.has(nama.toLowerCase())) {
+                                            failed++;
+                                            errors.push(`⚠️ Baris ${rowIndex+1}: nama "${nama}" sudah terdaftar!`);
+                                            continue;
+                                        }
+                                        
+                                        hp = String(hp).replace(/[^\d]/g, '');
+                                        if (hp.startsWith('0')) hp = hp.substring(1);
+                                        if (hp && !hp.startsWith('62')) hp = '62' + hp;
+                                        
+                                        if (hp && existingHps.has(hp)) {
+                                            failed++;
+                                            errors.push(`⚠️ Baris ${rowIndex+1}: nomor HP "${hp}" sudah terdaftar!`);
+                                            continue;
+                                        }
+                                        
+                                        batchPromises.push(
+                                            window.db.from('prospek').insert({
+                                                nama: nama,
+                                                hp: hp || '',
+                                                deadline: deadline || getTodayDate(),
+                                                status: 'Baru',
+                                                user_id: currentUser.id,
+                                                created_at: new Date().toISOString()
+                                            }).then(() => {
+                                                existingNames.add(nama.toLowerCase());
+                                                existingHps.add(hp);
+                                                success++;
+                                                successData.push(`✅ Baris ${rowIndex+1}: ${nama} berhasil`);
+                                            }).catch((err) => {
+                                                failed++;
+                                                errors.push(`❌ Baris ${rowIndex+1}: ${err.message}`);
+                                            })
+                                        );
+                                        
+                                    // ===== IMPORT DB TRANSAKSI =====
+                                    } else if (importType === 'transaksi') {
+                                        const agentId = (row.agent_id || row.Agent_ID || '').toString().trim();
+                                        const nama = (row.nama || row.Nama || '').toString().trim();
+                                        let hp = (row.hp || row.HP || '').toString().trim();
+                                        const apk = (row.apk || row.APK || '').toString().trim();
+                                        const uplineName = (row.upline || row.upline_name || '').toString().trim();
+                                        let uplinePhone = (row.hp_upline || row.upline_phone || '').toString().trim();
+                                        
+                                        const transaksiBulanLalu = parseFloat(row.transaksi_bulan_lalu || row.bulan_lalu || 0);
+                                        const transaksiBulanIni = parseFloat(row.transaksi_bulan_ini || row.bulan_ini || 0);
+                                        
+                                        // ===== VALIDASI =====
+                                        if (!agentId) {
+                                            failed++;
+                                            errors.push(`⚠️ Baris ${rowIndex+1}: agent_id kosong`);
+                                            continue;
+                                        }
+                                        
+                                        if (!nama) {
+                                            failed++;
+                                            errors.push(`⚠️ Baris ${rowIndex+1}: nama kosong untuk agent ${agentId}`);
+                                            continue;
+                                        }
+                                        
+                                        // ===== CEK DUPLIKAT (CEGAH DOUBLE) =====
+                                        const agentIdUpper = agentId.toUpperCase();
+                                        if (existingIds.has(agentIdUpper)) {
+                                            failed++;
+                                            errors.push(`⚠️ Baris ${rowIndex+1}: agent_id "${agentId}" sudah ada di database! (double)`);
+                                            continue;
+                                        }
+                                        
+                                        if (isNaN(transaksiBulanLalu) || isNaN(transaksiBulanIni)) {
+                                            failed++;
+                                            errors.push(`⚠️ Baris ${rowIndex+1}: transaksi_bulan_lalu atau transaksi_bulan_ini bukan angka (agent: ${agentId})`);
+                                            continue;
+                                        }
+                                        
+                                        if (transaksiBulanLalu < 0 || transaksiBulanIni < 0) {
+                                            failed++;
+                                            errors.push(`⚠️ Baris ${rowIndex+1}: transaksi tidak boleh negatif (agent: ${agentId})`);
+                                            continue;
+                                        }
+                                        
+                                        // ===== PERHITUNGAN OTOMATIS =====
+                                        const selisih = transaksiBulanIni - transaksiBulanLalu;
+                                        
+                                        let progresJenis = 'normal';
+                                        let progresJumlah = 0;
+                                        
+                                        if (transaksiBulanLalu === 0 && transaksiBulanIni === 0) {
+                                            progresJenis = 'tidak_transaksi';
+                                            progresJumlah = 0;
+                                        } else if (selisih >= 100) {
+                                            progresJenis = 'naik';
+                                            progresJumlah = selisih;  // ← POSITIF
+                                        } else if (selisih <= -100) {
+                                            progresJenis = 'turun';
+                                            progresJumlah = selisih;  // ← NEGATIF
+                                        } else {
+                                            progresJenis = 'normal';
+                                            progresJumlah = selisih;  // ← BISA POSITIF ATAU NEGATIF (-99 sampai 99)
+                                        }
+                                        
+                                        // ===== FORMAT HP =====
+                                        if (hp) {
+                                            hp = String(hp).replace(/[^\d]/g, '');
+                                            if (hp.startsWith('0')) hp = hp.substring(1);
+                                            if (hp && !hp.startsWith('62')) hp = '62' + hp;
+                                        }
+                                        
+                                        if (uplinePhone) {
+                                            uplinePhone = String(uplinePhone).replace(/[^\d]/g, '');
+                                            if (uplinePhone.startsWith('0')) uplinePhone = uplinePhone.substring(1);
+                                            if (uplinePhone && !uplinePhone.startsWith('62')) uplinePhone = '62' + uplinePhone;
+                                        }
+                                        
+                                        // ===== AMBIL PERIODE =====
+                                        let periodeBulanLalu = (row.periode_bulan_lalu || row.periode_lalu || '').toString().trim();
+                                        let periodeBulanIni = (row.periode_bulan_ini || row.periode_ini || '').toString().trim();
+                                        
+                                        if (!periodeBulanLalu) {
+                                            const now = new Date();
+                                            const monthNames = ['Januari', 'Februari', 'Maret', 'April', 'Mei', 'Juni', 
+                                                               'Juli', 'Agustus', 'September', 'Oktober', 'November', 'Desember'];
+                                            const lastMonth = new Date(now.getFullYear(), now.getMonth() - 1, 1);
+                                            periodeBulanLalu = `${monthNames[lastMonth.getMonth()]} ${lastMonth.getFullYear()}`;
+                                        }
+                                        
+                                        if (!periodeBulanIni) {
+                                            const now = new Date();
+                                            const monthNames = ['Januari', 'Februari', 'Maret', 'April', 'Mei', 'Juni', 
+                                                               'Juli', 'Agustus', 'September', 'Oktober', 'November', 'Desember'];
+                                            periodeBulanIni = `${monthNames[now.getMonth()]} ${now.getFullYear()}`;
+                                        }
+                                        
+                                        // ===== DATA UNTUK INSERT =====
+                                        const insertData = {
+                                            agent_id: agentIdUpper,
+                                            nama: nama,
+                                            hp: hp || '',
+                                            apk: apk || '',
+                                            upline_name: uplineName || '',
+                                            upline_phone: uplinePhone || '',
+                                            progres_jenis: progresJenis,
+                                            progres_jumlah: progresJumlah,
+                                            transaksi_bulan_lalu: transaksiBulanLalu,
+                                            transaksi_bulan_ini: transaksiBulanIni,
+                                            periode_bulan_lalu: periodeBulanLalu,
+                                            periode_bulan_ini: periodeBulanIni,
+                                            status: 'pending_import',
+                                            user_id: currentUser.id,
+                                            created_at: new Date().toISOString()
+                                        };
+                                        
+                                        batchPromises.push(
+                                            window.db.from('db_transaksi').insert(insertData)
+                                                .then((result) => {
+                                                    if (result.error) {
+                                                        console.error(`❌ Insert error baris ${rowIndex+1}:`, result.error);
+                                                        failed++;
+                                                        errors.push(`❌ Baris ${rowIndex+1}: ${result.error.message}`);
+                                                    } else {
+                                                        // ===== TAMBAHKAN KE SET AGAR TIDAK DOUBLE =====
+                                                        existingIds.add(agentIdUpper);
+                                                        success++;
+                                                        successData.push(`✅ Baris ${rowIndex+1}: ${agentId} (${progresJenis})`);
+                                                    }
+                                                })
+                                                .catch((err) => {
+                                                    console.error(`❌ Insert catch error baris ${rowIndex+1}:`, err);
+                                                    failed++;
+                                                    errors.push(`❌ Baris ${rowIndex+1}: ${err.message || err}`);
+                                                })
+                                        );
+                                    }
+                                } catch (err) {
+                                    console.error(`Error baris ${rowIndex+1}:`, err);
+                                    failed++;
+                                    errors.push(`❌ Baris ${rowIndex+1}: ${err.message}`);
+                                }
+                            }
+                            
+                            // ===== EKSEKUSI BATCH =====
+                            if (batchPromises.length > 0) {
+                                await Promise.allSettled(batchPromises);
+                            }
+                            
+                            // ===== UPDATE PROGRESS =====
+                            const processed = Math.min((batchIndex + 1) * BATCH_SIZE, json.length);
+                            const percent = Math.min(Math.floor((processed / json.length) * 100), 100);
+                            progress.update(percent, '📥 Import Data', `Memproses ${processed}/${json.length} baris...`, success, json.length);
+                        }
+                        
+                        // ===== KELOMPOKKAN DATA UNTUK RIWAYAT (KHUSUS TRANSAKSI) =====
+                        if (importType === 'transaksi') {
+                            try {
+                                const groupedByPeriode = {};
+                                const periodData = json.map(row => {
+                                    const periode = row.periode_bulan_ini || row.periode_ini || '';
+                                    const agentId = row.agent_id || row.Agent_ID || '';
+                                    const nama = row.nama || row.Nama || '';
+                                    let hp = row.hp || row.HP || '';
+                                    const transaksiBulanLalu = parseFloat(row.transaksi_bulan_lalu || row.bulan_lalu || 0);
+                                    const transaksiBulanIni = parseFloat(row.transaksi_bulan_ini || row.bulan_ini || 0);
+                                    
+                                    if (!agentId || !nama || isNaN(transaksiBulanLalu) || isNaN(transaksiBulanIni)) {
+                                        return null;
+                                    }
+                                    
+                                    const selisih = transaksiBulanIni - transaksiBulanLalu;
+                                    let progresJenis = 'normal';
+                                    
+                                    if (transaksiBulanLalu === 0 && transaksiBulanIni === 0) {
+                                        progresJenis = 'tidak_transaksi';
+                                    } else if (selisih >= 100) {
+                                        progresJenis = 'naik';
+                                    } else if (selisih <= -100) {
+                                        progresJenis = 'turun';
+                                    }
+                                    
+                                    return {
+                                        agent_id: agentId,
+                                        nama: nama,
+                                        hp: hp,
+                                        progres_jenis: progresJenis,
+                                        periode: periode
+                                    };
+                                }).filter(item => item !== null);
+                                
+                                periodData.forEach(item => {
+                                    const periode = item.periode || 'Unknown';
+                                    if (!groupedByPeriode[periode]) {
+                                        groupedByPeriode[periode] = [];
+                                    }
+                                    groupedByPeriode[periode].push(item);
+                                });
+                                
+                                for (const [periode, items] of Object.entries(groupedByPeriode)) {
+                                    if (periode && periode !== 'Unknown') {
+                                        await saveRiwayatTransaksiBulanan(periode, items, currentUser.id);
+                                    }
+                                }
+                            } catch (err) {
+                                console.warn('Gagal menyimpan riwayat:', err);
+                            }
+                        }
+                        
+                        // ===== TAMPILKAN HASIL =====
+                        progress.update(100, '✅ Selesai', `Berhasil: ${success}, Gagal: ${failed}`, success, json.length);
+                        showImportResultPopup(success, failed, errors, successData, importType);
+                        
+                        setTimeout(() => progress.hide(), 3000);
+                        
+                        excelFileInput.value = '';
+                        document.getElementById('fileInfo').innerHTML = '';
+                        
+                        // ===== RELOAD DATA =====
+                        if (importType === 'customer') {
+                            await loadCustomers();
+                        } else if (importType === 'prospek') {
+                            await loadProspek();
+                        } else if (importType === 'transaksi') {
+                            await loadDbTransaksi();
+                        }
+                        
+                        showNotifTop(`✅ Import selesai! ${success} data berhasil, ${failed} gagal`);
+                        
+                    } catch (err) {
+                        console.error('Import error:', err);
+                        showNotifTop('❌ Gagal memproses file: ' + err.message, true);
+                        progress.hide();
+                    } finally {
+                        btn.textContent = originalText;
+                        btn.disabled = false;
+                    }
+                };
+                
+                reader.onerror = function() {
+                    showNotifTop('❌ Gagal membaca file', true);
+                    btn.textContent = originalText;
+                    btn.disabled = false;
+                    if (progress) progress.hide();
+                };
+                
+                reader.readAsArrayBuffer(file);
+            });
+        }
+    }
+    
+    // ===== DOWNLOAD CONTOH FILE =====
+    // Customer Example
+    const customerExampleBtn = document.getElementById('downloadCustomerExample');
+    if (customerExampleBtn) {
+        const newCustomerBtn = customerExampleBtn.cloneNode(true);
+        customerExampleBtn.parentNode.replaceChild(newCustomerBtn, customerExampleBtn);
+        document.getElementById('downloadCustomerExample')?.addEventListener('click', function(e) {
+            e.preventDefault();
+            e.stopPropagation();
+            const data = [{ agent_id: 'AG-001', nama: 'Budi Santoso', hp: '6281234567890', apk: 'GNP' }];
+            const ws = XLSX.utils.json_to_sheet(data);
+            const wb = XLSX.utils.book_new();
+            XLSX.utils.book_append_sheet(wb, ws, 'Customer');
+            XLSX.writeFile(wb, 'contoh_customer.xlsx');
+            showNotifTop('📋 Contoh file Customer berhasil diunduh');
+        });
+    }
+    
+    // Prospek Example
+    const prospekExampleBtn = document.getElementById('downloadProspekExample');
+    if (prospekExampleBtn) {
+        const newProspekBtn = prospekExampleBtn.cloneNode(true);
+        prospekExampleBtn.parentNode.replaceChild(newProspekBtn, prospekExampleBtn);
+        document.getElementById('downloadProspekExample')?.addEventListener('click', function(e) {
+            e.preventDefault();
+            e.stopPropagation();
+            const data = [{ nama: 'Rina Marlina', hp: '6281234567893' }];
+            const ws = XLSX.utils.json_to_sheet(data);
+            const wb = XLSX.utils.book_new();
+            XLSX.utils.book_append_sheet(wb, ws, 'Prospek');
+            XLSX.writeFile(wb, 'contoh_prospek.xlsx');
+            showNotifTop('📋 Contoh file Prospek berhasil diunduh');
+        });
+    }
+    
+    // Transaksi Example
+    const transaksiExampleBtn = document.getElementById('downloadTransaksiExample');
+    if (transaksiExampleBtn) {
+        const newTransaksiBtn = transaksiExampleBtn.cloneNode(true);
+        transaksiExampleBtn.parentNode.replaceChild(newTransaksiBtn, transaksiExampleBtn);
+        document.getElementById('downloadTransaksiExample')?.addEventListener('click', function(e) {
+            e.preventDefault();
+            e.stopPropagation();
+            const data = [
+                {
+                    apk: 'GNP',
+                    agent_id: 'AG-001',
+                    nama: 'Budi Santoso',
+                    hp: '6281234567890',
+                    upline: 'Pak Upline',
+                    hp_upline: '6281234567891',
+                    periode_bulan_lalu: 'Januari 2024',
+                    transaksi_bulan_lalu: 50,
+                    periode_bulan_ini: 'Februari 2024',
+                    transaksi_bulan_ini: 200
+                },
+                {
+                    apk: 'BSB',
+                    agent_id: 'AG-002',
+                    nama: 'Ani Lestari',
+                    hp: '6281234567892',
+                    upline: 'Bu Upline',
+                    hp_upline: '6281234567893',
+                    periode_bulan_lalu: 'Januari 2024',
+                    transaksi_bulan_lalu: 300,
+                    periode_bulan_ini: 'Februari 2024',
+                    transaksi_bulan_ini: 150
+                },
+                {
+                    apk: 'BTN',
+                    agent_id: 'AG-003',
+                    nama: 'Cahya Wijaya',
+                    hp: '6281234567894',
+                    upline: '',
+                    hp_upline: '',
+                    periode_bulan_lalu: 'Januari 2024',
+                    transaksi_bulan_lalu: 50,
+                    periode_bulan_ini: 'Februari 2024',
+                    transaksi_bulan_ini: 80
+                },
+                {
+                    apk: 'GNP',
+                    agent_id: 'AG-004',
+                    nama: 'Dewi Sartika',
+                    hp: '6281234567895',
+                    upline: 'Pak Upline',
+                    hp_upline: '6281234567891',
+                    periode_bulan_lalu: 'Januari 2024',
+                    transaksi_bulan_lalu: 0,
+                    periode_bulan_ini: 'Februari 2024',
+                    transaksi_bulan_ini: 0
+                }
+            ];
+            const ws = XLSX.utils.json_to_sheet(data);
+            const wb = XLSX.utils.book_new();
+            XLSX.utils.book_append_sheet(wb, ws, 'DB Transaksi');
+            XLSX.writeFile(wb, 'contoh_db_transaksi.xlsx');
+            showNotifTop('📋 Contoh file DB Transaksi berhasil diunduh');
+        });
+    }
+}
 
-// ================================================================
-// ========== LOGIN HANDLER (DI LUAR initEventListeners) ==========
-// ================================================================
+function setupAgentImport() {
+    const importBtn = document.getElementById('importAgentExcelBtn');
+    const fileInput = document.getElementById('agentExcelFile');
+    if (!importBtn || !fileInput) return;
+    
+    importBtn.onclick = () => fileInput.click();
+    
+    fileInput.onchange = async (e) => {
+        const file = e.target.files[0];
+        if (!file) return;
+        
+        importBtn.textContent = '⏳ Memproses...';
+        importBtn.disabled = true;
+        
+        const reader = new FileReader();
+        reader.onload = async (event) => {
+            try {
+                const data = new Uint8Array(event.target.result);
+                const workbook = XLSX.read(data, { type: 'array' });
+                const sheet = workbook.Sheets[workbook.SheetNames[0]];
+                const json = XLSX.utils.sheet_to_json(sheet, { defval: "" });
+                
+                if (!json || json.length === 0) {
+                    showNotifTop('File Excel kosong!', true);
+                    return;
+                }
+                
+                let success = 0, failed = 0;
+                
+                for (const row of json) {
+                    try {
+                        const agentId = row.agent_id || row.Agent_ID || '';
+                        const nama = row.nama || row.Nama || '';
+                        let hp = row.hp || row.HP || '';
+                        
+                        if (!agentId || !nama) {
+                            failed++;
+                            continue;
+                        }
+                        
+                        hp = String(hp).replace(/[^\d]/g, '');
+                        if (hp.startsWith('0')) hp = hp.substring(1);
+                        if (hp && !hp.startsWith('62')) hp = '62' + hp;
+                        
+                        await window.db.from('db_agent').insert({
+                            agent_id: agentId.toUpperCase(),
+                            nama: nama,
+                            hp: hp || '',
+                            user_id: currentUser.id,
+                            created_at: new Date().toISOString()
+                        });
+                        success++;
+                    } catch (err) {
+                        failed++;
+                    }
+                }
+                
+                showNotifTop(`✅ Import agent selesai! Berhasil: ${success}, Gagal: ${failed}`);
+                await loadDatabaseAgent();
+                fileInput.value = '';
+            } catch (err) {
+                showNotifTop('❌ Gagal import: ' + err.message, true);
+            } finally {
+                importBtn.textContent = '📥 Import Excel';
+                importBtn.disabled = false;
+            }
+        };
+        reader.readAsArrayBuffer(file);
+    };
+}
 
+function setupAgentFilters() {
+    const searchInput = document.getElementById('searchAgentInput');
+    const filterUpline = document.getElementById('filterUplineAgent');
+    const filterCid = document.getElementById('filterCidAgent');
+    const filterBank = document.getElementById('filterBankAgent');
+    const filterDate = document.getElementById('filterDateAgent');
+    const filterHasHp = document.getElementById('filterHasHpAgent');
+    const filterHasApk = document.getElementById('filterHasApkAgent');
+    const resetBtn = document.getElementById('resetAgentFilterBtn');
+    
+    const applyFilters = () => renderAgentList(agentsData);
+    
+    if (searchInput) searchInput.addEventListener('input', applyFilters);
+    if (filterUpline) filterUpline.addEventListener('input', applyFilters);
+    if (filterCid) filterCid.addEventListener('input', applyFilters);
+    if (filterBank) filterBank.addEventListener('change', applyFilters);
+    if (filterDate) filterDate.addEventListener('change', applyFilters);
+    if (filterHasHp) filterHasHp.addEventListener('change', applyFilters);
+    if (filterHasApk) filterHasApk.addEventListener('change', applyFilters);
+    
+    if (resetBtn) {
+        resetBtn.onclick = () => {
+            if (searchInput) searchInput.value = '';
+            if (filterUpline) filterUpline.value = '';
+            if (filterCid) filterCid.value = '';
+            if (filterBank) filterBank.value = '';
+            if (filterDate) filterDate.value = '';
+            if (filterHasHp) filterHasHp.checked = false;
+            if (filterHasApk) filterHasApk.checked = false;
+            applyFilters();
+        };
+    }
+}
+
+function exportAgentToExcel() {
+    if (agentsData.length === 0) {
+        showNotifTop('Tidak ada data untuk diexport', true);
+        return;
+    }
+    
+    const exportData = agentsData.map(agent => ({
+        'agent_id': agent.agent_id,
+        'nama': agent.nama,
+        'hp': agent.hp,
+        'agent_type': agent.agent_type || '',
+        'upline': agent.upline || '',
+        'cid': agent.cid || '',
+        'jenis_bank': agent.jenis_bank || ''
+    }));
+    
+    const ws = XLSX.utils.json_to_sheet(exportData);
+    const wb = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(wb, ws, 'Database Agent');
+    XLSX.writeFile(wb, `database_agent_${new Date().toISOString().split('T')[0]}.xlsx`);
+    showNotifTop('✅ Export data berhasil!');
+}
+
+function setupProdukImport() {
+    const importBtn = document.getElementById('importProdukExcelBtn');
+    const fileInput = document.getElementById('produkExcelFile');
+    if (!importBtn || !fileInput) return;
+    
+    importBtn.onclick = () => fileInput.click();
+    
+    fileInput.onchange = async (e) => {
+        const file = e.target.files[0];
+        if (!file) return;
+        
+        importBtn.textContent = '⏳ Memproses...';
+        importBtn.disabled = true;
+        
+        const reader = new FileReader();
+        reader.onload = async (event) => {
+            try {
+                const data = new Uint8Array(event.target.result);
+                const workbook = XLSX.read(data, { type: 'array' });
+                const sheet = workbook.Sheets[workbook.SheetNames[0]];
+                const json = XLSX.utils.sheet_to_json(sheet, { defval: "" });
+                
+                if (!json || json.length === 0) {
+                    showNotifTop('File Excel kosong!', true);
+                    return;
+                }
+                
+                let success = 0, failed = 0;
+                
+                for (const row of json) {
+                    try {
+                        const nama = row.nama || row.Nama || '';
+                        const hpp = row.hpp || row.HPP || '';
+                        
+                        if (!nama || !hpp) {
+                            failed++;
+                            continue;
+                        }
+                        
+                        await window.db.from('produk').insert({
+                            nama: nama,
+                            hpp: parseInt(hpp),
+                            harga_jual: parseInt(row.harga_jual || 0),
+                            keterangan: row.keterangan || '',
+                            created_at: new Date().toISOString()
+                        });
+                        success++;
+                    } catch (err) {
+                        failed++;
+                    }
+                }
+                
+                showNotifTop(`✅ Import produk selesai! Berhasil: ${success}, Gagal: ${failed}`);
+                await loadProduk();
+                fileInput.value = '';
+            } catch (err) {
+                showNotifTop('❌ Gagal import: ' + err.message, true);
+            } finally {
+                importBtn.textContent = '📥 Import Excel';
+                importBtn.disabled = false;
+            }
+        };
+        reader.readAsArrayBuffer(file);
+    };
+}
+
+function exportProdukToExcel() {
+    if (produkData.length === 0) {
+        showNotifTop('Tidak ada data produk untuk diexport', true);
+        return;
+    }
+    
+    const exportData = produkData.map(item => ({
+        'Nama Produk': item.nama,
+        'HPP (Modal)': item.hpp,
+        'Harga Jual': item.harga_jual,
+        'Keterangan': item.keterangan || ''
+    }));
+    
+    const ws = XLSX.utils.json_to_sheet(exportData);
+    const wb = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(wb, ws, 'Produk');
+    XLSX.writeFile(wb, `produk_${new Date().toISOString().split('T')[0]}.xlsx`);
+    showNotifTop('✅ Export produk berhasil!');
+}
+
+// ========== SHOW IMPORT RESULT POPUP ==========
+function showImportResultPopup(success, failed, errors, successData, importType) {
+    // Hapus modal lama jika ada
+    const existingModal = document.querySelector('.import-result-modal');
+    if (existingModal) {
+        existingModal.remove();
+    }
+    
+    const typeNames = {
+        'customer': 'Customer/Followup Agen',
+        'prospek': 'Prospek Agen',
+        'transaksi': 'Database Transaksi'
+    };
+    
+    const typeName = typeNames[importType] || 'Data';
+    
+    // Buat daftar error (max 10)
+    const errorList = errors.slice(0, 10).map(err => `<li style="color: #ef4444; font-size: 12px; padding: 4px 0; border-bottom: 1px solid #fef2f2;">${escapeHtml(err)}</li>`).join('');
+    const errorMore = errors.length > 10 ? `<li style="color: #6b7280; font-size: 12px; padding: 4px 0;">... dan ${errors.length - 10} error lainnya</li>` : '';
+    
+    // Buat daftar sukses (max 5)
+    const successList = successData.slice(0, 5).map(s => `<li style="color: #10b981; font-size: 12px; padding: 4px 0; border-bottom: 1px solid #f0fdf4;">${escapeHtml(s)}</li>`).join('');
+    const successMore = successData.length > 5 ? `<li style="color: #6b7280; font-size: 12px; padding: 4px 0;">... dan ${successData.length - 5} data lainnya</li>` : '';
+    
+    const modalHtml = `
+        <div class="modal-content" style="max-width: 500px; max-height: 85vh; overflow: hidden; display: flex; flex-direction: column; background: #fff; border-radius: 24px;">
+            <!-- Header -->
+            <div style="padding: 20px 24px 0; display: flex; justify-content: space-between; align-items: center;">
+                <h3 style="font-size: 20px; margin: 0; color: #1f2937;">📊 Hasil Import</h3>
+                <button onclick="closeImportResultPopup()" style="
+                    background: none;
+                    border: none;
+                    font-size: 28px;
+                    cursor: pointer;
+                    color: #6b7280;
+                    padding: 0 4px;
+                    transition: all 0.2s;
+                    line-height: 1;
+                " onmouseover="this.style.color='#ef4444'" onmouseout="this.style.color='#6b7280'">✕</button>
+            </div>
+            <div class="modal-subtitle" style="font-size: 13px; color: #6b7280; padding: 0 24px 12px 24px; border-bottom: 1px solid #f0f0f0;">
+                Import ${typeName}
+            </div>
+            
+            <!-- Statistik -->
+            <div style="padding: 16px 24px; display: flex; gap: 12px; flex-wrap: wrap;">
+                <div style="flex: 1; min-width: 80px; background: #f0fdf4; border-radius: 12px; padding: 12px 16px; border-left: 4px solid #10b981; text-align: center;">
+                    <div style="font-size: 28px; font-weight: 800; color: #10b981;">${success}</div>
+                    <div style="font-size: 11px; color: #6b7280;">✅ Berhasil</div>
+                </div>
+                <div style="flex: 1; min-width: 80px; background: #fef2f2; border-radius: 12px; padding: 12px 16px; border-left: 4px solid #ef4444; text-align: center;">
+                    <div style="font-size: 28px; font-weight: 800; color: #ef4444;">${failed}</div>
+                    <div style="font-size: 11px; color: #6b7280;">❌ Gagal</div>
+                </div>
+                <div style="flex: 1; min-width: 80px; background: #eef2ff; border-radius: 12px; padding: 12px 16px; border-left: 4px solid #4f46e5; text-align: center;">
+                    <div style="font-size: 28px; font-weight: 800; color: #4f46e5;">${success + failed}</div>
+                    <div style="font-size: 11px; color: #6b7280;">📋 Total</div>
+                </div>
+            </div>
+            
+            <!-- Detail -->
+            <div style="padding: 0 24px; flex: 1; overflow-y: auto; max-height: 250px;">
+                ${successData.length > 0 ? `
+                    <div style="margin-bottom: 12px;">
+                        <div style="font-weight: 600; color: #10b981; font-size: 13px; margin-bottom: 6px;">✅ Data Berhasil (${successData.length})</div>
+                        <ul style="list-style: none; padding: 0; margin: 0; background: #f0fdf4; border-radius: 8px; padding: 8px 12px;">
+                            ${successList}
+                            ${successMore}
+                        </ul>
+                    </div>
+                ` : ''}
+                
+                ${errors.length > 0 ? `
+                    <div>
+                        <div style="font-weight: 600; color: #ef4444; font-size: 13px; margin-bottom: 6px;">❌ Data Gagal (${errors.length})</div>
+                        <ul style="list-style: none; padding: 0; margin: 0; background: #fef2f2; border-radius: 8px; padding: 8px 12px;">
+                            ${errorList}
+                            ${errorMore}
+                        </ul>
+                    </div>
+                ` : ''}
+            </div>
+            
+            <!-- Tombol -->
+            <div class="modal-buttons" style="display: flex; gap: 12px; padding: 16px 24px 24px; border-top: 1px solid #e5e7eb;">
+                <button onclick="closeImportResultPopup()" class="btn-primary" style="flex: 1; padding: 12px; border: none; border-radius: 14px; font-weight: 600; cursor: pointer; background: linear-gradient(135deg, #4f46e5, #6366f1); color: white;">Tutup</button>
+                ${failed > 0 ? `
+                    <button onclick="closeImportResultPopup(); downloadImportErrors('${importType}', ${JSON.stringify(errors).replace(/"/g, '&quot;')})" class="btn-warning" style="flex: 1; padding: 12px; border: none; border-radius: 14px; font-weight: 600; cursor: pointer; background: linear-gradient(135deg, #f59e0b, #d97706); color: white;">📥 Download Error</button>
+                ` : ''}
+            </div>
+        </div>
+    `;
+    
+    const modal = document.createElement('div');
+    modal.className = 'modal import-result-modal';
+    modal.style.cssText = `
+        position: fixed !important;
+        top: 0 !important;
+        left: 0 !important;
+        width: 100% !important;
+        height: 100% !important;
+        background: rgba(0, 0, 0, 0.7) !important;
+        display: flex !important;
+        justify-content: center !important;
+        align-items: center !important;
+        z-index: 999999999 !important;
+        backdrop-filter: blur(5px) !important;
+        pointer-events: auto !important;
+    `;
+    modal.innerHTML = modalHtml;
+    
+    document.body.appendChild(modal);
+    document.body.classList.add('modal-open');
+    document.body.style.overflow = 'hidden';
+    
+    modal.addEventListener('click', function(e) {
+        if (e.target === this) {
+            closeImportResultPopup();
+        }
+    });
+    
+    applyDarkModeToModal(modal);
+}
+
+// ========== CLOSE IMPORT RESULT POPUP ==========
+function closeImportResultPopup() {
+    const modal = document.querySelector('.import-result-modal');
+    if (modal) {
+        modal.remove();
+    }
+    document.body.classList.remove('modal-open');
+    document.body.style.overflow = '';
+    document.body.style.pointerEvents = '';
+}
+
+// ========== DOWNLOAD IMPORT ERRORS ==========
+function downloadImportErrors(importType, errorsData) {
+    try {
+        const errors = typeof errorsData === 'string' ? JSON.parse(errorsData) : errorsData;
+        
+        if (!errors || errors.length === 0) {
+            showNotifTop('Tidak ada error untuk di-download', true);
+            return;
+        }
+        
+        const data = errors.map((err, index) => ({
+            'No': index + 1,
+            'Error': err
+        }));
+        
+        const ws = XLSX.utils.json_to_sheet(data);
+        const wb = XLSX.utils.book_new();
+        XLSX.utils.book_append_sheet(wb, ws, 'Error Import');
+        XLSX.writeFile(wb, `error_import_${importType}_${new Date().toISOString().split('T')[0]}.xlsx`);
+        
+        showNotifTop('📥 File error berhasil diunduh');
+    } catch (e) {
+        console.error('Error download:', e);
+        showNotifTop('❌ Gagal download file error', true);
+    }
+}
+
+// ========== DELETE SELECTED FUNCTIONS ==========
+async function deleteSelectedDBItems(collection, selectedMap, loadFunction) {
+    const selectedIds = Array.from(selectedMap.keys());
+    if (selectedIds.length === 0) {
+        showNotifTop('⚠️ Tidak ada data yang dipilih', true);
+        return;
+    }
+    
+    if (!confirm(`Hapus ${selectedIds.length} data?`)) return;
+    
+    const progress = showFloatingProgress('🗑️ Menghapus', selectedIds.length);
+    let deleted = 0;
+    
+    for (const id of selectedIds) {
+        try {
+            await window.db.from(collection).delete().eq('id', id);
+            selectedMap.delete(id);
+            deleted++;
+            progress.update(Math.floor((deleted / selectedIds.length) * 100), 'Menghapus', `Memproses...`, deleted, selectedIds.length);
+            await delay(30);
+        } catch (e) {
+            console.error(`Gagal hapus ${id}:`, e);
+        }
+    }
+    
+    progress.update(100, 'Selesai', `Berhasil menghapus ${deleted} data`, deleted, selectedIds.length);
+    showNotifTop(`✅ ${deleted} data berhasil dihapus`);
+    setTimeout(() => progress.hide(), 2000);
+    
+    if (loadFunction) await loadFunction();
+}
+
+async function deleteAllDBItems(collection, loadFunction) {
+    if (!confirm(`⚠️ Hapus SEMUA data dari ${collection}? Tidak bisa dibatalkan!`)) return;
+    
+    let query = window.db.from(collection).select('id');
+    if (currentUserRole !== 'owner' && collection !== 'users') {
+        query = query.eq('user_id', currentUser.id);
+    }
+    
+    const { data, error } = await query;
+    if (error) {
+        showNotifTop('❌ Gagal: ' + error.message, true);
+        return;
+    }
+    
+    const progress = showFloatingProgress('🗑️ Menghapus Semua', data.length);
+    let deleted = 0;
+    
+    for (const item of data) {
+        try {
+            await window.db.from(collection).delete().eq('id', item.id);
+            deleted++;
+            progress.update(Math.floor((deleted / data.length) * 100), 'Menghapus', `Memproses...`, deleted, data.length);
+            await delay(20);
+        } catch (e) {
+            console.error('Gagal hapus:', e);
+        }
+    }
+    
+    progress.update(100, 'Selesai', `Berhasil menghapus ${deleted} data`, deleted, data.length);
+    showNotifTop(`✅ ${deleted} data berhasil dihapus`);
+    setTimeout(() => progress.hide(), 2000);
+    
+    if (loadFunction) await loadFunction();
+}
+
+async function deleteSelectedProduk() {
+    const selectedIds = Array.from(selectedProdukIds.keys());
+    if (selectedIds.length === 0) {
+        showNotifTop('⚠️ Tidak ada produk yang dipilih', true);
+        return;
+    }
+    
+    if (!confirm(`Hapus ${selectedIds.length} produk yang dipilih?`)) return;
+    
+    const progress = showFloatingProgress('🗑️ Menghapus Produk', selectedIds.length);
+    let deleted = 0;
+    
+    for (const id of selectedIds) {
+        try {
+            await window.db.from('produk').delete().eq('id', id);
+            selectedProdukIds.delete(id);
+            const index = produkData.findIndex(p => p.id === id);
+            if (index !== -1) produkData.splice(index, 1);
+            deleted++;
+            progress.update(Math.floor((deleted / selectedIds.length) * 100), 'Menghapus', `Memproses...`, deleted, selectedIds.length);
+            await delay(30);
+        } catch (e) {
+            console.error(`Gagal hapus ${id}:`, e);
+        }
+    }
+    
+    renderProdukList();
+    progress.update(100, 'Selesai', `Berhasil menghapus ${selectedIds.length} produk`, selectedIds.length, selectedIds.length);
+    showNotifTop(`✅ ${selectedIds.length} produk berhasil dihapus`);
+    setTimeout(() => progress.hide(), 2000);
+}
+
+async function deleteAllProduk() {
+    if (!confirm('⚠️ Hapus SEMUA data Produk? Tidak bisa dibatalkan!')) return;
+    
+    const { data, error } = await window.db.from('produk').select('id');
+    if (error) {
+        showNotifTop('❌ Gagal: ' + error.message, true);
+        return;
+    }
+    
+    const progress = showFloatingProgress('🗑️ Menghapus Semua Produk', data.length);
+    let deleted = 0;
+    
+    for (const item of data) {
+        try {
+            await window.db.from('produk').delete().eq('id', item.id);
+            deleted++;
+            progress.update(Math.floor((deleted / data.length) * 100), 'Menghapus', `Memproses...`, deleted, data.length);
+            await delay(20);
+        } catch (e) {
+            console.error('Gagal hapus:', e);
+        }
+    }
+    
+    selectedProdukIds.clear();
+    produkData = [];
+    renderProdukList();
+    progress.update(100, 'Selesai', `Berhasil menghapus ${deleted} data`, deleted, data.length);
+    showNotifTop(`✅ ${deleted} data Produk berhasil dihapus`);
+    setTimeout(() => progress.hide(), 2000);
+}
+
+// ========== DELETE FULL MODE FUNCTIONS ==========
+async function deleteSelectedFullFollowup() {
+    if (currentUserRole !== 'owner') {
+        showNotifTop('⚠️ Hanya Owner yang dapat menghapus massal!', true);
+        return;
+    }
+    
+    const selectedIds = Array.from(selectedFullFollowupIds.keys());
+    if (selectedIds.length === 0) {
+        showNotifTop('⚠️ Tidak ada data yang dipilih', true);
+        return;
+    }
+    
+    if (!confirm(`Hapus ${selectedIds.length} data customer?`)) return;
+    
+    const progress = showFloatingProgress('🗑️ Menghapus Data', selectedIds.length);
+    let deleted = 0;
+    const deletedIds = [];
+    
+    for (const id of selectedIds) {
+        try {
+            // ===== AMBIL DATA CUSTOMER SEBELUM DIHAPUS =====
+            const { data: customer } = await window.db
+                .from('customers')
+                .select('agent_id')
+                .eq('id', id)
+                .single();
+            
+            // ===== HAPUS CUSTOMER =====
+            await window.db.from('customers').delete().eq('id', id);
+            
+            // ===== SIMPAN AGENT_ID UNTUK RESTORE =====
+            if (customer && customer.agent_id) {
+                deletedIds.push(customer.agent_id);
+            }
+            
+            selectedFullFollowupIds.delete(id);
+            deleted++;
+            progress.update(Math.floor((deleted / selectedIds.length) * 100), 'Menghapus', `Memproses...`, deleted, selectedIds.length);
+            await delay(30);
+        } catch (e) {
+            console.error(`Gagal hapus ${id}:`, e);
+        }
+    }
+    
+    // ===== RESTORE STATUS TRANSAKSI =====
+    if (deletedIds.length > 0) {
+        try {
+            for (const agentId of deletedIds) {
+                await window.db
+                    .from('db_transaksi')
+                    .update({ 
+                        status: 'pending_import',
+                        updated_at: new Date().toISOString()
+                    })
+                    .eq('agent_id', agentId)
+                    .eq('status', 'imported');
+            }
+            showNotifTop(`🔄 ${deletedIds.length} data di DB Transaksi dikembalikan ke Pending`);
+        } catch (e) {
+            console.warn('Gagal restore transaksi:', e);
+        }
+    }
+    
+    progress.update(100, 'Selesai', `Berhasil menghapus ${deleted} data`, deleted, selectedIds.length);
+    showNotifTop(`✅ ${deleted} data berhasil dihapus`);
+    setTimeout(() => progress.hide(), 2000);
+    
+    await loadCustomers();
+    await loadDbTransaksi(); // Refresh db_transaksi
+    renderFullFollowupKanban();
+}
+
+// ========== RESTORE TRANSAKSI STATUS MASSAL ==========
+async function restoreTransaksiStatusForDeletedCustomers(deletedCustomerIds) {
+    if (!deletedCustomerIds || deletedCustomerIds.length === 0) return;
+    
+    try {
+        // Ambil semua customer yang dihapus
+        const { data: deletedCustomers } = await window.db
+            .from('customers')
+            .select('agent_id')
+            .in('id', deletedCustomerIds);
+        
+        if (!deletedCustomers || deletedCustomers.length === 0) return;
+        
+        const agentIds = deletedCustomers.map(c => c.agent_id).filter(id => id);
+        
+        if (agentIds.length === 0) return;
+        
+        // Update db_transaksi dengan agent_id yang sesuai
+        for (const agentId of agentIds) {
+            await window.db
+                .from('db_transaksi')
+                .update({ 
+                    status: 'pending_import',
+                    updated_at: new Date().toISOString()
+                })
+                .eq('agent_id', agentId)
+                .eq('status', 'imported');
+        }
+        
+        console.log(`✅ Restored ${agentIds.length} transaksi status to pending`);
+        
+    } catch (err) {
+        console.error('Error restoring transaksi status:', err);
+    }
+}
+
+async function deleteSelectedFullProspek() {
+    if (currentUserRole !== 'owner') {
+        showNotifTop('⚠️ Hanya Owner yang dapat menghapus massal!', true);
+        return;
+    }
+    
+    const selectedIds = Array.from(selectedFullProspekIds.keys());
+    if (selectedIds.length === 0) {
+        showNotifTop('⚠️ Tidak ada data yang dipilih', true);
+        return;
+    }
+    
+    if (!confirm(`Hapus ${selectedIds.length} data prospek?`)) return;
+    
+    const progress = showFloatingProgress('🗑️ Menghapus Data Prospek', selectedIds.length);
+    let deleted = 0;
+    
+    for (const id of selectedIds) {
+        try {
+            await window.db.from('prospek').delete().eq('id', id);
+            selectedFullProspekIds.delete(id);
+            deleted++;
+            progress.update(Math.floor((deleted / selectedIds.length) * 100), 'Menghapus', `Memproses...`, deleted, selectedIds.length);
+            await delay(30);
+        } catch (e) {
+            console.error(`Gagal hapus ${id}:`, e);
+        }
+    }
+    
+    progress.update(100, 'Selesai', `Berhasil menghapus ${deleted} data`, deleted, selectedIds.length);
+    showNotifTop(`✅ ${deleted} data berhasil dihapus`);
+    setTimeout(() => progress.hide(), 2000);
+    
+    await loadProspek();
+    renderFullProspekKanban();
+}
+
+async function deleteAllFullFollowup() {
+    if (currentUserRole !== 'owner') {
+        showNotifTop('⚠️ Hanya Owner yang dapat menghapus semua data!', true);
+        return;
+    }
+    
+    if (!confirm('⚠️ PERINGATAN! Anda akan menghapus SEMUA data Followup Agen. Tidak bisa dibatalkan!')) return;
+    
+    const progress = showFloatingProgress('🗑️ Menghapus Semua Followup', 0);
+    progress.update(0, 'Menghapus', 'Mengambil data...');
+    
+    let query = window.db.from('customers').select('id');
+    if (currentUserRole !== 'owner') query = query.eq('user_id', currentUser.id);
+    
+    const { data, error } = await query;
+    if (error) {
+        showNotifTop('❌ Gagal: ' + error.message, true);
+        progress.hide();
+        return;
+    }
+    
+    const totalData = data.length;
+    progress.setTotal(totalData);
+    
+    if (totalData === 0) {
+        showNotifTop('📭 Tidak ada data untuk dihapus', true);
+        progress.hide();
+        return;
+    }
+    
+    let deleted = 0;
+    for (const item of data) {
+        try {
+            await window.db.from('customers').delete().eq('id', item.id);
+            deleted++;
+            progress.update(Math.floor((deleted / totalData) * 100), 'Menghapus', `Memproses...`, deleted, totalData);
+            await delay(20);
+        } catch (e) {
+            console.error('Gagal hapus:', e);
+        }
+    }
+    
+    selectedFullFollowupIds.clear();
+    progress.update(100, 'Selesai', `Berhasil menghapus ${deleted} data`, deleted, totalData);
+    showNotifTop(`✅ ${deleted} data Followup berhasil dihapus`);
+    setTimeout(() => progress.hide(), 2000);
+    
+    await loadCustomers();
+    renderFullFollowupKanban();
+}
+
+async function deleteAllFullProspek() {
+    if (currentUserRole !== 'owner') {
+        showNotifTop('⚠️ Hanya Owner yang dapat menghapus semua data!', true);
+        return;
+    }
+    
+    if (!confirm('⚠️ PERINGATAN! Anda akan menghapus SEMUA data Prospek Agen. Tidak bisa dibatalkan!')) return;
+    
+    const progress = showFloatingProgress('🗑️ Menghapus Semua Prospek', 0);
+    progress.update(0, 'Menghapus', 'Mengambil数据...');
+    
+    let query = window.db.from('prospek').select('id');
+    if (currentUserRole !== 'owner') query = query.eq('user_id', currentUser.id);
+    
+    const { data, error } = await query;
+    if (error) {
+        showNotifTop('❌ Gagal: ' + error.message, true);
+        progress.hide();
+        return;
+    }
+    
+    const totalData = data.length;
+    progress.setTotal(totalData);
+    
+    if (totalData === 0) {
+        showNotifTop('📭 Tidak ada data untuk dihapus', true);
+        progress.hide();
+        return;
+    }
+    
+    let deleted = 0;
+    for (const item of data) {
+        try {
+            await window.db.from('prospek').delete().eq('id', item.id);
+            deleted++;
+            progress.update(Math.floor((deleted / totalData) * 100), 'Menghapus', `Memproses...`, deleted, totalData);
+            await delay(20);
+        } catch (e) {
+            console.error('Gagal hapus:', e);
+        }
+    }
+    
+    selectedFullProspekIds.clear();
+    progress.update(100, 'Selesai', `Berhasil menghapus ${deleted} data`, deleted, totalData);
+    showNotifTop(`✅ ${deleted} data Prospek berhasil dihapus`);
+    setTimeout(() => progress.hide(), 2000);
+    
+    await loadProspek();
+    renderFullProspekKanban();
+}
+
+// ========== CLEAR ALL RIWAYAT (GLOBAL) ==========
+async function clearAllRiwayat() {
+    if (!confirm('⚠️ Hapus SEMUA riwayat transaksi? Tidak bisa dibatalkan!')) return;
+    
+    try {
+        const { error } = await window.db
+            .from('riwayat_transaksi_bulanan')
+            .delete()
+            .eq('user_id', currentUser.id);
+        
+        if (error) {
+            showNotifTop('❌ Gagal hapus: ' + error.message, true);
+            return;
+        }
+        
+        showNotifTop('🗑️ Semua riwayat berhasil dihapus');
+        await loadRiwayatTransaksi();
+        
+    } catch (err) {
+        console.error('Error clear riwayat:', err);
+        showNotifTop('❌ Error: ' + err.message, true);
+    }
+}
+
+// Pastikan fungsi ini global
+window.clearAllRiwayat = clearAllRiwayat;
+
+// ========== FULL MODE SELECTION ==========
+function initFullModeSelection() {
+    if (currentUserRole !== 'owner') {
+        const followupSelectBtn = document.getElementById('selectAllFullFollowup');
+        const followupDeleteBtn = document.getElementById('deleteSelectedFullFollowup');
+        const followupDeleteAllBtn = document.getElementById('deleteAllFullFollowup');
+        const prospekSelectBtn = document.getElementById('selectAllFullProspek');
+        const prospekDeleteBtn = document.getElementById('deleteSelectedFullProspek');
+        const prospekDeleteAllBtn = document.getElementById('deleteAllFullProspek');
+        
+        if (followupSelectBtn) followupSelectBtn.style.display = 'none';
+        if (followupDeleteBtn) followupDeleteBtn.style.display = 'none';
+        if (followupDeleteAllBtn) followupDeleteAllBtn.style.display = 'none';
+        if (prospekSelectBtn) prospekSelectBtn.style.display = 'none';
+        if (prospekDeleteBtn) prospekDeleteBtn.style.display = 'none';
+        if (prospekDeleteAllBtn) prospekDeleteAllBtn.style.display = 'none';
+        return;
+    }
+    
+    const followupSelectBtn = document.getElementById('selectAllFullFollowup');
+    const followupDeleteBtn = document.getElementById('deleteSelectedFullFollowup');
+    const followupDeleteAllBtn = document.getElementById('deleteAllFullFollowup');
+    const prospekSelectBtn = document.getElementById('selectAllFullProspek');
+    const prospekDeleteBtn = document.getElementById('deleteSelectedFullProspek');
+    const prospekDeleteAllBtn = document.getElementById('deleteAllFullProspek');
+    
+    if (followupSelectBtn) {
+        followupSelectBtn.style.display = 'inline-block';
+        followupSelectBtn.onclick = () => toggleSelectAllFullFollowup();
+    }
+    if (followupDeleteBtn) {
+        followupDeleteBtn.style.display = 'inline-block';
+        followupDeleteBtn.onclick = () => deleteSelectedFullFollowup();
+    }
+    if (followupDeleteAllBtn) {
+        followupDeleteAllBtn.style.display = 'inline-block';
+        followupDeleteAllBtn.onclick = () => deleteAllFullFollowup();
+    }
+    if (prospekSelectBtn) {
+        prospekSelectBtn.style.display = 'inline-block';
+        prospekSelectBtn.onclick = () => toggleSelectAllFullProspek();
+    }
+    if (prospekDeleteBtn) {
+        prospekDeleteBtn.style.display = 'inline-block';
+        prospekDeleteBtn.onclick = () => deleteSelectedFullProspek();
+    }
+    if (prospekDeleteAllBtn) {
+        prospekDeleteAllBtn.style.display = 'inline-block';
+        prospekDeleteAllBtn.onclick = () => deleteAllFullProspek();
+    }
+}
+
+// ========== INIT BADGES ==========
+function initBadges() {
+    // Deadline badge
+    const deadlineBadge = document.getElementById('deadlineCount');
+    if (deadlineBadge) {
+        const count = parseInt(deadlineBadge.innerText) || 0;
+        if (count === 0) {
+            deadlineBadge.classList.add('badge-zero');
+        } else {
+            deadlineBadge.classList.add('badge-active');
+        }
+    }
+    
+    // Pesan badge
+    const pesanBadge = document.getElementById('pesanCount');
+    if (pesanBadge) {
+        const count = parseInt(pesanBadge.innerText) || 0;
+        if (count === 0) {
+            pesanBadge.classList.add('badge-zero');
+        } else {
+            pesanBadge.classList.add('badge-active');
+        }
+    }
+}
+
+// ======================================================================
+// ========== DARK MODE OBSERVER ==========
+// ======================================================================
+function initDarkModeObserver() {
+    // ===== PERBAIKAN: Cek apakah observer sudah ada =====
+    if (window._darkModeObserver) {
+        window._darkModeObserver.disconnect();
+    }
+    
+    const observer = new MutationObserver(function(mutations) {
+        mutations.forEach(function(mutation) {
+            if (mutation.attributeName === 'class') {
+                // Update charts saat dark mode berubah
+                setTimeout(() => {
+                    try {
+                        updateChartsForDarkMode();
+                        
+                        // Force update chart background
+                        const isDark = document.body.classList.contains('dark-mode');
+                        if (chartCustomer) {
+                            chartCustomer.options.backgroundColor = isDark ? '#0f172a' : '#ffffff';
+                            chartCustomer.update();
+                        }
+                        if (chartProspek) {
+                            chartProspek.options.backgroundColor = isDark ? '#0f172a' : '#ffffff';
+                            chartProspek.update();
+                        }
+                        if (targetChart) {
+                            targetChart.options.backgroundColor = isDark ? '#0f172a' : '#ffffff';
+                            targetChart.update();
+                        }
+                        if (trendChart) {
+                            trendChart.options.backgroundColor = isDark ? '#0f172a' : '#ffffff';
+                            trendChart.update();
+                        }
+                    } catch (e) {
+                        console.warn('Dark mode observer error:', e);
+                    }
+                }, 100);
+            }
+        });
+    });
+    
+    observer.observe(document.body, { attributes: true });
+    window._darkModeObserver = observer; // Simpan referensi global
+    return observer;
+}
+
+// Inisialisasi observer setelah DOM siap
+let darkModeObserver = null;
+
+// ======================================================================
+
+// ========== INIT EVENT LISTENERS ==========
+function initEventListeners() {
+    initSidebarHover();
+    initProfilePhoto();
+    
+    // Save profile
+    document.getElementById('saveProfileBtn')?.addEventListener('click', saveUserProfile);
+
+    // ===== PERBAIKAN: HANYA 1 EVENT LISTENER UNTUK SELECT ALL =====
+    {
+        const selectAllBtn = document.getElementById('selectAllTransaksi');
+        if (selectAllBtn) {
+            const newSelectAll = selectAllBtn.cloneNode(true);
+            selectAllBtn.parentNode.replaceChild(newSelectAll, selectAllBtn);
+            document.getElementById('selectAllTransaksi')?.addEventListener('click', function(e) {
+                e.preventDefault();
+                e.stopPropagation();
+                console.log('Select All clicked!');
+                toggleSelectAllTransaksi();
+            });
+        }
+    }
+    
+    // ===== PERBAIKAN: HANYA 1 EVENT LISTENER UNTUK DELETE SELECTED =====
+    {
+        const deleteSelectedBtn = document.getElementById('deleteSelectedTransaksi');
+        if (deleteSelectedBtn) {
+            const newDeleteSelected = deleteSelectedBtn.cloneNode(true);
+            deleteSelectedBtn.parentNode.replaceChild(newDeleteSelected, deleteSelectedBtn);
+            document.getElementById('deleteSelectedTransaksi')?.addEventListener('click', function(e) {
+                e.preventDefault();
+                e.stopPropagation();
+                deleteSelectedTransaksi();
+            });
+        }
+    }
+    
+    // ===== PERBAIKAN: HANYA 1 EVENT LISTENER UNTUK MOVE SELECTED =====
+    {
+        const moveSelectedBtn = document.getElementById('moveSelectedToFollowupBtn');
+        if (moveSelectedBtn) {
+            const newMoveSelected = moveSelectedBtn.cloneNode(true);
+            moveSelectedBtn.parentNode.replaceChild(newMoveSelected, moveSelectedBtn);
+            document.getElementById('moveSelectedToFollowupBtn')?.addEventListener('click', function(e) {
+                e.preventDefault();
+                e.stopPropagation();
+                moveSelectedToFollowup();
+            });
+        }
+    }
+    
+    // ===== PERBAIKAN: HANYA 1 EVENT LISTENER UNTUK RIWAYAT =====
+    {
+        const historyBtn = document.getElementById('viewTransaksiHistoryBtn');
+        if (historyBtn) {
+            const newHistoryBtn = historyBtn.cloneNode(true);
+            historyBtn.parentNode.replaceChild(newHistoryBtn, historyBtn);
+            document.getElementById('viewTransaksiHistoryBtn')?.addEventListener('click', function(e) {
+                e.preventDefault();
+                e.stopPropagation();
+                loadRiwayatTransaksi();
+                showModal('riwayatTransaksiModal');
+            });
+        }
+    }
+    
+    // Transaksi filters - setup sekali
+    setupTransaksiFilters();
+    
+    let isSubmittingCustomer = false;
+    let isSubmittingProspek = false;
+    
+    // Add customer
+    document.getElementById('addCustomerBtn')?.addEventListener('click', () => {
+        document.getElementById('customerDate').value = getTodayDate();
+        document.getElementById('customerId').value = '';
+        document.getElementById('customerName').value = '';
+        document.getElementById('customerPhone').value = '';
+        document.getElementById('customerApk').value = '';
+        document.getElementById('customerUpline').value = '';
+        showModal('customerModal');
+    });
+    
+    document.getElementById('addCustomerFullBtn')?.addEventListener('click', () => {
+        document.getElementById('customerDate').value = getTodayDate();
+        document.getElementById('customerId').value = '';
+        document.getElementById('customerName').value = '';
+        document.getElementById('customerPhone').value = '';
+        document.getElementById('customerApk').value = '';
+        document.getElementById('customerUpline').value = '';
+        showModal('customerModal');
+    });
+    
+    document.getElementById('saveCustomerBtn')?.addEventListener('click', async function(e) {
+        if (this.disabled) {
+            showNotifTop('⏳ Mohon tunggu, data sedang diproses...', true);
+            return;
+        }
+        
+        this.disabled = true;
+        const originalText = this.textContent;
+        this.textContent = '⏳ Menyimpan...';
+        
+        try {
+            const agentId = document.getElementById('customerId').value;
+            const nama = document.getElementById('customerName').value;
+            let hp = document.getElementById('customerPhone').value;
+            const apk = document.getElementById('customerApk').value;
+            const upline = document.getElementById('customerUpline').value;
+            const deadline = document.getElementById('customerDate').value;
+            
+            if (!agentId || !nama) {
+                showNotifTop('⚠️ ID Agent dan Nama wajib diisi!', true);
+                return;
+            }
+            
+            hp = hp.replace(/[^\d]/g, '');
+            if (hp.startsWith('0')) hp = hp.substring(1);
+            
+            const success = await addCustomer(agentId, nama, hp, apk, upline, deadline);
+            if (success) {
+                closeModal('customerModal');
+                document.getElementById('customerId').value = '';
+                document.getElementById('customerName').value = '';
+                document.getElementById('customerPhone').value = '';
+                document.getElementById('customerApk').value = '';
+                document.getElementById('customerUpline').value = '';
+            }
+        } catch (err) {
+            console.error('Error:', err);
+            showNotifTop('❌ Gagal: ' + err.message, true);
+        } finally {
+            this.disabled = false;
+            this.textContent = originalText;
+        }
+    });
+    
+    // Add prospek
+    document.getElementById('addProspekBtn')?.addEventListener('click', () => {
+        document.getElementById('prospekDeadline').value = getTodayDate();
+        document.getElementById('prospekName').value = '';
+        document.getElementById('prospekPhone').value = '';
+        showModal('prospekModal');
+    });
+    
+    document.getElementById('addProspekFullBtn')?.addEventListener('click', () => {
+        document.getElementById('prospekDeadline').value = getTodayDate();
+        document.getElementById('prospekName').value = '';
+        document.getElementById('prospekPhone').value = '';
+        showModal('prospekModal');
+    });
+    
+    document.getElementById('saveProspekBtn')?.addEventListener('click', async function(e) {
+        if (this.disabled) {
+            showNotifTop('⏳ Mohon tunggu, data sedang diproses...', true);
+            return;
+        }
+        
+        this.disabled = true;
+        const originalText = this.textContent;
+        this.textContent = '⏳ Menyimpan...';
+        
+        try {
+            const nama = document.getElementById('prospekName').value;
+            let hp = document.getElementById('prospekPhone').value;
+            const deadline = document.getElementById('prospekDeadline').value;
+            
+            if (!nama) {
+                showNotifTop('⚠️ Nama wajib diisi!', true);
+                return;
+            }
+            
+            hp = hp.replace(/[^\d]/g, '');
+            if (hp.startsWith('0')) hp = hp.substring(1);
+            
+            const success = await addProspek(nama, hp, deadline);
+            if (success) {
+                closeModal('prospekModal');
+                document.getElementById('prospekName').value = '';
+                document.getElementById('prospekPhone').value = '';
+            }
+        } catch (err) {
+            console.error('Error:', err);
+            showNotifTop('❌ Gagal: ' + err.message, true);
+        } finally {
+            this.disabled = false;
+            this.textContent = originalText;
+        }
+    });
+    
+    // Reminder
+    document.getElementById('addReminderBtn')?.addEventListener('click', () => {
+        document.getElementById('reminderTitle').value = '';
+        document.getElementById('reminderDesc').value = '';
+        document.getElementById('reminderDateTime').value = '';
+        showModal('reminderModal');
+    });
+    document.getElementById('saveReminderBtn')?.addEventListener('click', async () => {
+        const title = document.getElementById('reminderTitle').value;
+        const description = document.getElementById('reminderDesc').value;
+        const datetime = document.getElementById('reminderDateTime').value;
+        
+        if (!title) {
+            showNotifTop('⚠️ Judul pengingat wajib diisi!', true);
+            return;
+        }
+        
+        await window.db.from('reminders').insert({
+            title: title,
+            description: description,
+            datetime: datetime,
+            user_id: currentUser.id,
+            user_name: currentUserName,
+            created_at: new Date().toISOString()
+        });
+        
+        showNotifTop('✅ Pengingat berhasil ditambahkan');
+        closeModal('reminderModal');
+        await loadReminders();
+    });
+    
+    // Pesan
+    document.getElementById('addPesanBtn')?.addEventListener('click', async () => {
+        await loadUsersForSelect();
+        showModal('pesanModal');
+    });
+    document.getElementById('savePesanBtn')?.addEventListener('click', async () => {
+        const toId = document.getElementById('pesanTo').value;
+        const message = document.getElementById('pesanMessage').value;
+        
+        if (!toId || !message) {
+            showNotifTop('⚠️ Lengkapi data!', true);
+            return;
+        }
+        
+        await sendPesan(toId, message);
+        closeModal('pesanModal');
+        document.getElementById('pesanTo').value = '';
+        document.getElementById('pesanMessage').value = '';
+    });
+    
+    // Target management
+    document.getElementById('manageTargetBtn')?.addEventListener('click', () => {
+        document.getElementById('targetAgentInput').value = targetData.agent || 0;
+        document.getElementById('targetKoorInput').value = targetData.koordinator || 0;
+        document.getElementById('targetCAInput').value = targetData.ca || 0;
+        document.getElementById('targetTransaksiInput').value = targetData.transaksi || 0;
+        showModal('manageTargetModal');
+    });
+    document.getElementById('saveTargetBtn')?.addEventListener('click', saveTargetData);
+    document.getElementById('cancelTargetBtn')?.addEventListener('click', () => closeModal('manageTargetModal'));
+    
+    // Transaksi
+    document.getElementById('targetTransaksiCard')?.addEventListener('click', showInputTransaksiModal);
+    document.getElementById('saveTransaksiBtn')?.addEventListener('click', async () => {
+        const nominal = document.getElementById('transaksiNominal').value;
+        const keterangan = document.getElementById('transaksiKeterangan').value;
+        const tanggal = document.getElementById('transaksiTanggal').value;
+        await saveTransaksiGlobal(nominal, keterangan, tanggal, currentTransaksiId);
+        closeModal('inputTransaksiModal');
+        currentTransaksiId = null;
+    });
+    document.getElementById('cancelTransaksiBtn')?.addEventListener('click', () => closeModal('inputTransaksiModal'));
+    
+    // Info modal
+    document.getElementById('infoBtn')?.addEventListener('click', () => showModal('infoModal'));
+    document.getElementById('infoModalClose')?.addEventListener('click', () => closeModal('infoModal'));
+    
+    // Deadline notification
+    {
+        const deadlineBtn = document.getElementById('deadlineNotifBtn');
+        if (deadlineBtn) {
+            const newDeadlineBtn = deadlineBtn.cloneNode(true);
+            deadlineBtn.parentNode.replaceChild(newDeadlineBtn, deadlineBtn);
+            const freshDeadlineBtn = document.getElementById('deadlineNotifBtn');
+            if (freshDeadlineBtn) {
+                freshDeadlineBtn.addEventListener('click', function(e) {
+                    e.preventDefault();
+                    e.stopPropagation();
+                    showDeadlinePopup();
+                });
+            }
+        }
+    }
+    
+    // ===== Pesan Notification =====
+    {
+        const pesanBtn = document.getElementById('pesanNotifBtn');
+        if (pesanBtn) {
+            const newPesanBtn = pesanBtn.cloneNode(true);
+            pesanBtn.parentNode.replaceChild(newPesanBtn, pesanBtn);
+            const freshPesanBtn = document.getElementById('pesanNotifBtn');
+            if (freshPesanBtn) {
+                freshPesanBtn.addEventListener('click', function(e) {
+                    e.preventDefault();
+                    e.stopPropagation();
+                    navigateTo('pesan');
+                });
+            }
+        }
+    }
+    
+    // Logout
+    document.getElementById('logoutBtn')?.addEventListener('click', handleLogout);
+    
+    // Navigation menu
+    document.querySelectorAll('.menu-item[data-page]').forEach(item => {
+        item.addEventListener('click', () => {
+            navigateTo(item.dataset.page);
+            if (isMobile()) document.getElementById('sidebar')?.classList.remove('active');
+            updateSidebarBodyClass();
+        });
+    });
+    
+    // Password toggle
+    document.getElementById('togglePasswordBtn')?.addEventListener('click', () => {
+        const input = document.getElementById('loginPassword');
+        input.type = input.type === 'password' ? 'text' : 'password';
+    });
+    
+    // Search
+    document.getElementById('searchBtn')?.addEventListener('click', performSearch);
+    document.getElementById('clearSearchBtn')?.addEventListener('click', clearSearch);
+    document.getElementById('searchInput')?.addEventListener('keypress', (e) => {
+        if (e.key === 'Enter') performSearch();
+    });
+    
+    // Close modal buttons
+    document.querySelectorAll('.closeModalBtn').forEach(btn => {
+        btn.addEventListener('click', () => closeModal(btn.dataset.modal));
+    });
+    
+    // Auto format inputs
+    const customerId = document.getElementById('customerId');
+    const customerName = document.getElementById('customerName');
+    const customerPhone = document.getElementById('customerPhone');
+    const prospekName = document.getElementById('prospekName');
+    const prospekPhone = document.getElementById('prospekPhone');
+    const profilePhone = document.getElementById('profilePhone');
+    
+    if (customerId) customerId.addEventListener('input', function() { formatAgentIdAuto(this); });
+    if (customerName) customerName.addEventListener('input', function() { formatNamaAuto(this); });
+    if (customerPhone) customerPhone.addEventListener('input', function() { formatPhoneAuto(this); });
+    if (prospekName) prospekName.addEventListener('input', function() { formatNamaAuto(this); });
+    if (prospekPhone) prospekPhone.addEventListener('input', function() { formatPhoneAuto(this); });
+    if (profilePhone) profilePhone.addEventListener('input', function() { formatPhone(this); });
+    
+    // Modal click outside
+    const modals = ['customerModal', 'prospekModal', 'profileModal', 'detailModal', 'infoModal', 
+                    'manageTargetModal', 'inputTransaksiModal', 'transaksiListModal', 'reminderModal', 
+                    'pesanModal', 'addCsModal', 'pilihNomorModal', 'editDeadlineModal', 'previewPhotoModal',
+                    'followupConfirmModal', 'prospekDihubungiModal', 'prospekNegosiasiModal', 'convertModal'];
+    modals.forEach(id => setupModalClickOutside(id));
+    
+    // Broadcast
+    document.querySelectorAll('input[name="sourceType"]').forEach(radio => {
+        radio.addEventListener('change', () => {
+            const customCard = document.getElementById('customNumbersCard');
+            if (customCard) customCard.style.display = radio.value === 'custom' ? 'block' : 'none';
+            loadBroadcastNumbers();
+        });
+    });
+    document.getElementById('refreshNumbersBtn')?.addEventListener('click', loadBroadcastNumbers);
+    document.getElementById('sendBroadcastBtn')?.addEventListener('click', sendBroadcast);
+    document.getElementById('customNumbers')?.addEventListener('input', loadBroadcastNumbers);
+    loadBroadcastNumbers();
+
+    // ========== BROADCAST UPLINE ==========
+    // Inisialisasi upline broadcast (akan dipanggil saat halaman broadcastUpline dibuka)
+    
+    // ===== DATABASE BUTTONS =====
+    // Select All buttons
+    setupSelectAll('selectAllClosing', '#dbClosingList', selectedClosingIds);
+    setupSelectAll('selectAllTidak', '#dbTidakList', selectedTidakIds);
+    setupSelectAll('selectAllNomorSalah', '#dbNomorSalahList', selectedNomorSalahIds);
+    setupSelectAll('selectAllCommitment', '#dbCommitmentList', selectedCommitmentIds);
+    setupSelectAll('selectAllAgent', '#dbAgentList', selectedAgentIds);
+    setupSelectAll('selectAllProduk', '#produkList', selectedProdukIds);
+    
+    // ===== DELETE BUTTONS (HANYA 1 LISTENER MASING-MASING) =====
+    document.getElementById('deleteSelectedClosing')?.addEventListener('click', function(e) {
+        e.preventDefault();
+        e.stopPropagation();
+        deleteSelectedDBItems('db_closing', selectedClosingIds, loadDBClosing);
+    });
+    document.getElementById('deleteAllClosing')?.addEventListener('click', function(e) {
+        e.preventDefault();
+        e.stopPropagation();
+        deleteAllDBItems('db_closing', loadDBClosing);
+    });
+    
+    document.getElementById('deleteSelectedTidak')?.addEventListener('click', function(e) {
+        e.preventDefault();
+        e.stopPropagation();
+        deleteSelectedDBItems('db_tidak_tertarik', selectedTidakIds, loadDBTidak);
+    });
+    document.getElementById('deleteAllTidak')?.addEventListener('click', function(e) {
+        e.preventDefault();
+        e.stopPropagation();
+        deleteAllDBItems('db_tidak_tertarik', loadDBTidak);
+    });
+    
+    document.getElementById('deleteSelectedNomorSalah')?.addEventListener('click', function(e) {
+        e.preventDefault();
+        e.stopPropagation();
+        deleteSelectedDBItems('nomor_salah', selectedNomorSalahIds, loadDBNomorSalah);
+    });
+    document.getElementById('deleteAllNomorSalah')?.addEventListener('click', function(e) {
+        e.preventDefault();
+        e.stopPropagation();
+        deleteAllDBItems('nomor_salah', loadDBNomorSalah);
+    });
+    
+    document.getElementById('deleteSelectedCommitment')?.addEventListener('click', function(e) {
+        e.preventDefault();
+        e.stopPropagation();
+        deleteSelectedDBItems('db_commitment', selectedCommitmentIds, loadDBCommitment);
+    });
+    document.getElementById('deleteAllCommitment')?.addEventListener('click', function(e) {
+        e.preventDefault();
+        e.stopPropagation();
+        deleteAllDBItems('db_commitment', loadDBCommitment);
+    });
+    
+    document.getElementById('deleteSelectedProduk')?.addEventListener('click', function(e) {
+        e.preventDefault();
+        e.stopPropagation();
+        deleteSelectedProduk();
+    });
+    document.getElementById('deleteAllProduk')?.addEventListener('click', function(e) {
+        e.preventDefault();
+        e.stopPropagation();
+        deleteAllProduk();
+    });
+    
+    document.getElementById('deleteSelectedAgent')?.addEventListener('click', function(e) {
+        e.preventDefault();
+        e.stopPropagation();
+        deleteSelectedDBItems('db_agent', selectedAgentIds, loadDatabaseAgent);
+    });
+    document.getElementById('deleteAllAgent')?.addEventListener('click', function(e) {
+        e.preventDefault();
+        e.stopPropagation();
+        deleteAllDBItems('db_agent', loadDatabaseAgent);
+    });
+    
+    // ===== TRANSAKSI BUTTONS =====
+    // Hapus Terpilih - menggunakan fungsi yang sudah diperbaiki
+    document.getElementById('deleteSelectedTransaksi')?.addEventListener('click', function(e) {
+        e.preventDefault();
+        e.stopPropagation();
+        deleteSelectedTransaksi();
+    });
+    
+    // Hapus Semua - DISEMBUNYIKAN (tidak digunakan)
+    const deleteAllTransaksiBtn = document.getElementById('deleteAllTransaksiBtn');
+    if (deleteAllTransaksiBtn) {
+        deleteAllTransaksiBtn.style.display = 'none';
+    }
+    
+    // Move Selected - sudah dihandle di atas, tapi kita tambahkan guard
+    // untuk mencegah duplikasi, kita HAPUS event listener yang duplikat
+    // dengan cara tidak memasang lagi di sini
+    
+    // Import
+    setupImportExcel();
+    setupAgentImport();
+    setupProdukImport();
+    
+    // Agent filters
+    setupAgentFilters();
+    
+    // Export buttons
+    document.getElementById('exportAgentExcelBtn')?.addEventListener('click', exportAgentToExcel);
+    document.getElementById('exportProdukExcelBtn')?.addEventListener('click', exportProdukToExcel);
+    
+    // Tarif Admin
+    document.getElementById('manageTarifAdminBtn')?.addEventListener('click', () => {
+        loadTarifAdmin();
+        showModal('tarifAdminModal');
+    });
+    document.getElementById('saveTarifAdminBtn')?.addEventListener('click', async () => {
+        const cid = document.getElementById('tarifCid').value;
+        const pospaid = document.getElementById('tarifPospaid').value;
+        const prepaid = document.getElementById('tarifPrepaid').value;
+        const nontaglis = document.getElementById('tarifNontaglis').value;
+        await saveTarifAdmin(cid, pospaid, prepaid, nontaglis, currentEditTarifId);
+        clearTarifForm();
+    });
+    document.getElementById('clearTarifFormBtn')?.addEventListener('click', clearTarifForm);
+    document.getElementById('closeTarifAdminModal')?.addEventListener('click', () => closeModal('tarifAdminModal'));
+    document.getElementById('exportTarifExcelBtn')?.addEventListener('click', () => {
+        if (tarifAdminData.length === 0) {
+            showNotifTop('Tidak ada data untuk diexport', true);
+            return;
+        }
+        const exportData = tarifAdminData.map(item => ({
+            'CID': item.cid,
+            'PLN Pospaid': item.admin_pospaid || 0,
+            'PLN Prepaid': item.admin_prepaid || 0,
+            'PLN Nontaglis': item.admin_nontaglis || 0
+        }));
+        const ws = XLSX.utils.json_to_sheet(exportData);
+        const wb = XLSX.utils.book_new();
+        XLSX.utils.book_append_sheet(wb, ws, 'Admin per CID');
+        XLSX.writeFile(wb, `tarif_admin_${new Date().toISOString().split('T')[0]}.xlsx`);
+        showNotifTop('✅ Export data berhasil!');
+    });
+    document.getElementById('downloadTarifExampleBtn')?.addEventListener('click', () => {
+        const data = [{ cid: '5213247', pospaid: 7200, prepaid: 7200, nontaglis: 7200 }];
+        const ws = XLSX.utils.json_to_sheet(data);
+        const wb = XLSX.utils.book_new();
+        XLSX.utils.book_append_sheet(wb, ws, 'Admin per CID');
+        XLSX.writeFile(wb, 'contoh_tarif_admin.xlsx');
+        showNotifTop('📋 Contoh file Excel berhasil diunduh');
+    });
+    
+    // Add CS
+    document.getElementById('addCsBtn')?.addEventListener('click', () => showModal('addCsModal'));
+    document.getElementById('saveCsBtn')?.addEventListener('click', async () => {
+        const email = document.getElementById('csEmail').value;
+        const password = document.getElementById('csPassword').value;
+        const nama = document.getElementById('csName').value;
+        let hp = document.getElementById('csPhone').value;
+        
+        if (!email || !password || !nama) {
+            showNotifTop('⚠️ Email, Password, dan Nama wajib diisi!', true);
+            return;
+        }
+        
+        if (hp) {
+            hp = hp.replace(/[^\d]/g, '');
+            if (hp.startsWith('0')) hp = hp.substring(1);
+            if (hp && !hp.startsWith('62')) hp = '62' + hp;
+            hp = '+62' + hp;
+        }
+        
+        try {
+            const { data: userCredential, error: signUpError } = await window.db.auth.signUp({
+                email: email,
+                password: password
+            });
+            
+            if (signUpError) throw signUpError;
+            
+            if (userCredential.user) {
+                await window.db.from('users').insert({
+                    id: userCredential.user.id,
+                    nama: nama,
+                    email: email,
+                    hp: hp || null,
+                    role: 'cs',
+                    created_at: new Date().toISOString()
+                });
+                
+                showNotifTop('✅ CS Agent berhasil ditambahkan');
+                closeModal('addCsModal');
+                document.getElementById('csEmail').value = '';
+                document.getElementById('csPassword').value = '';
+                document.getElementById('csName').value = '';
+                document.getElementById('csPhone').value = '';
+                await loadUsersList();
+            }
+        } catch (e) {
+            showNotifTop('❌ Gagal: ' + e.message, true);
+        }
+    });
+    
+    // Edit deadline
+    document.getElementById('saveDeadlineBtn')?.addEventListener('click', saveDeadline);
+    document.getElementById('cancelDeadlineBtn')?.addEventListener('click', () => closeModal('editDeadlineModal'));
+    
+    // Add product
+    document.getElementById('addProdukBtn')?.addEventListener('click', () => {
+        document.getElementById('produkMasterNama').value = '';
+        document.getElementById('produkMasterHpp').value = '';
+        document.getElementById('produkMasterHargaJual').value = '';
+        document.getElementById('produkMasterKeterangan').value = '';
+        document.getElementById('produkMasterTitle').innerText = '🏷️ Tambah Produk';
+        showModal('produkMasterModal');
+    });
+    document.getElementById('saveProdukMasterBtn')?.addEventListener('click', async () => {
+        const nama = document.getElementById('produkMasterNama').value;
+        const hpp = document.getElementById('produkMasterHpp').value;
+        const keterangan = document.getElementById('produkMasterKeterangan').value;
+        const jenisProduk = document.getElementById('produkMasterJenis').value;
+        let hargaJual = 0;
+        let adminDefault = 0;
+        let cidBased = 'no';
+        if (jenisProduk === 'tanpa_admin') {
+            hargaJual = document.getElementById('produkMasterHargaJual').value;
+        } else {
+            adminDefault = document.getElementById('produkMasterAdminDefault').value;
+            cidBased = document.getElementById('produkMasterCidBased').value;
+        }
+        await saveProduk(nama, hpp, hargaJual, keterangan, adminDefault, jenisProduk, cidBased, currentEditProdukId);
+        closeModal('produkMasterModal');
+    });
+    document.getElementById('cancelProdukMasterBtn')?.addEventListener('click', () => closeModal('produkMasterModal'));
+    document.getElementById('produkMasterJenis')?.addEventListener('change', function() {
+        const tanpaAdminFields = document.getElementById('tanpaAdminFields');
+        const beradminFields = document.getElementById('beradminFields');
+        if (this.value === 'tanpa_admin') {
+            tanpaAdminFields.style.display = 'block';
+            beradminFields.style.display = 'none';
+        } else {
+            tanpaAdminFields.style.display = 'none';
+            beradminFields.style.display = 'block';
+        }
+    });
+
+// ===== LOGIN =====
 document.getElementById('loginBtn')?.addEventListener('click', async function(e) {
     e.preventDefault();
     e.stopPropagation();
@@ -9089,13 +11218,6 @@ document.getElementById('loginBtn')?.addEventListener('click', async function(e)
             
             navigateTo('dashboard');
             showNotifTop('✅ Selamat datang, ' + currentUserName + '!');
-            
-            // Inisialisasi dark mode setelah login
-            setTimeout(() => {
-                initDarkMode();
-                initDarkModeObserver();
-                initBadges();
-            }, 100);
         }
     } catch (err) {
         errorEl.textContent = '❌ ' + err.message;
@@ -9117,150 +11239,4 @@ document.getElementById('loginEmail')?.addEventListener('keypress', function(e) 
         document.getElementById('loginPassword').focus();
     }
 });
-
-// ================================================================
-// ========== CHECK AUTH & START ==========
-// ================================================================
-async function checkAuth() {
-    showLoading('Memeriksa autentikasi...', true);
-    
-    const { data: { session } } = await window.db.auth.getSession();
-    
-    if (session) {
-        currentUser = session.user;
-        updateLoadingStep(0);
-        
-        await withLoading(loadUserProfile(), 1);
-        updateLoadingStep(2);
-        
-        await withLoading(loadCustomers(), 3);
-        updateLoadingStep(4);
-        
-        await withLoading(loadProspek(), 5);
-        updateLoadingStep(6);
-        
-        await withLoading(loadDatabaseAgent(), 7);
-        updateLoadingStep(8);
-        
-        await withLoading(loadProduk(), 9);
-        updateLoadingStep(10);
-        
-        await withLoading(loadDbTransaksi(), 10);
-        updateLoadingStep(11);
-        
-        await withLoading(loadDBClosing(), 13);
-        updateLoadingStep(14);
-        
-        await withLoading(loadDBTidak(), 15);
-        updateLoadingStep(16);
-        
-        await withLoading(loadDBNomorSalah(), 17);
-        updateLoadingStep(18);
-        
-        await withLoading(loadDBCommitment(), 19);
-        updateLoadingStep(20);
-        
-        await withLoading(loadReminders(), 21);
-        updateLoadingStep(22);
-        
-        await withLoading(loadMessages(), 23);
-        updateLoadingStep(24);
-        
-        await withLoading(loadUsersList(), 25);
-        updateLoadingStep(26);
-        
-        await withLoading(loadTarifAdmin(), 27);
-        updateLoadingStep(28);
-        
-        await withLoading(loadTargetData(), 29);
-        updateLoadingStep(30);
-        
-        await withLoading(loadTransaksiGlobal(), 31);
-        
-        // Set owner menu visibility
-        if (currentUserRole === 'owner') {
-            document.getElementById('ownerMenu').style.display = 'block';
-            document.getElementById('menuDbAgent').style.display = 'flex';
-            document.getElementById('menuDbTransaksi').style.display = 'flex';
-            document.getElementById('menuImport').style.display = 'flex';
-        } else {
-            document.getElementById('ownerMenu').style.display = 'none';
-            document.getElementById('menuDbAgent').style.display = 'none';
-            document.getElementById('menuDbTransaksi').style.display = 'none';
-            document.getElementById('menuImport').style.display = 'none';
-        }
-        
-        initFullModeSelection();
-        navigateTo('dashboard');
-        
-        // ===== PERBAIKAN: Inisialisasi notifikasi setelah data load =====
-        setTimeout(function() {
-            initBadges();
-            initDarkMode();
-            initDarkModeObserver();
-            
-            // Inisialisasi deadline notification
-            var deadlineBtn = document.getElementById('deadlineNotifBtn');
-            if (deadlineBtn) {
-                var newDeadlineBtn = deadlineBtn.cloneNode(true);
-                deadlineBtn.parentNode.replaceChild(newDeadlineBtn, deadlineBtn);
-                var freshBtn = document.getElementById('deadlineNotifBtn');
-                if (freshBtn) {
-                    freshBtn.addEventListener('click', function(e) {
-                        e.preventDefault();
-                        e.stopPropagation();
-                        showDeadlinePopup();
-                    });
-                }
-            }
-            
-            // Inisialisasi pesan notification
-            var pesanBtn = document.getElementById('pesanNotifBtn');
-            if (pesanBtn) {
-                var newPesanBtn = pesanBtn.cloneNode(true);
-                pesanBtn.parentNode.replaceChild(newPesanBtn, pesanBtn);
-                var freshPesanBtn = document.getElementById('pesanNotifBtn');
-                if (freshPesanBtn) {
-                    freshPesanBtn.addEventListener('click', function(e) {
-                        e.preventDefault();
-                        e.stopPropagation();
-                        navigateTo('pesan');
-                    });
-                }
-            }
-        }, 100);
-        
-        setTimeout(function() {
-            hideLoading();
-        }, 500);
-        
-    } else {
-        hideLoading();
-        document.getElementById('loginPage').style.display = 'flex';
-        document.getElementById('app').style.display = 'none';
-    }
 }
-
-// ================================================================
-// ========== DOM READY ==========
-// ================================================================
-document.addEventListener('DOMContentLoaded', function() {
-    // ===== INISIALISASI EVENT LISTENERS =====
-    initEventListeners();
-    
-    // ===== CHECK AUTHENTICATION =====
-    checkAuth();
-    
-    console.log('✅ PROSPEKTA loaded successfully');
-});
-
-// ================================================================
-// ========== JANGAN PANGGIL initEventListeners() LAGI DI SINI! ==========
-// ================================================================
-// HAPUS / COMMENT baris-baris ini jika ada:
-// initEventListeners();
-// checkAuth();
-
-// ================================================================
-// ========== AKHIR FILE ==========
-// ================================================================
