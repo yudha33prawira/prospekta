@@ -5532,42 +5532,47 @@ body.dark-mode .popup-footer {
 }
 
 /* ================================================================ */
-/* ========== KANBAN - TANPA SCROLLBAR ========== */
+/* ========== FORCE HIDE ALL SCROLLBARS ========== */
 /* ================================================================ */
 
-/* Sembunyikan scrollbar di semua kanban */
-.kanban-cards,
-#baruList, #followupList, #pendingList, #closingList,
-#prospekBaruList, #prospekDihubungiList, #prospekNegosiasiList, #prospekTertarikList,
-#fullBaruList, #fullFollowupList, #fullPendingList, #fullClosingList,
-#fullProspekBaruList, #fullProspekDihubungiList, #fullProspekNegosiasiList, #fullProspekTertarikList {
-    scrollbar-width: none !important; /* Firefox */
-    -ms-overflow-style: none !important; /* IE/Edge */
-    overflow-y: auto !important;
-    padding-right: 0 !important;
-    margin-right: 0 !important;
+/* Hide all scrollbars in the entire app */
+* {
+    scrollbar-width: none !important;
+    -ms-overflow-style: none !important;
 }
 
-/* Chrome, Safari, Opera */
-.kanban-cards::-webkit-scrollbar,
-#baruList::-webkit-scrollbar,
-#followupList::-webkit-scrollbar,
-#pendingList::-webkit-scrollbar,
-#closingList::-webkit-scrollbar,
-#prospekBaruList::-webkit-scrollbar,
-#prospekDihubungiList::-webkit-scrollbar,
-#prospekNegosiasiList::-webkit-scrollbar,
-#prospekTertarikList::-webkit-scrollbar,
-#fullBaruList::-webkit-scrollbar,
-#fullFollowupList::-webkit-scrollbar,
-#fullPendingList::-webkit-scrollbar,
-#fullClosingList::-webkit-scrollbar,
-#fullProspekBaruList::-webkit-scrollbar,
-#fullProspekDihubungiList::-webkit-scrollbar,
-#fullProspekNegosiasiList::-webkit-scrollbar,
-#fullProspekTertarikList::-webkit-scrollbar {
+*::-webkit-scrollbar {
     display: none !important;
     width: 0 !important;
     height: 0 !important;
     background: transparent !important;
+}
+
+*::-webkit-scrollbar-track {
+    display: none !important;
+    background: transparent !important;
+}
+
+*::-webkit-scrollbar-thumb {
+    display: none !important;
+    background: transparent !important;
+}
+
+/* Khusus untuk body dan content */
+body {
+    scrollbar-width: none !important;
+    -ms-overflow-style: none !important;
+}
+
+body::-webkit-scrollbar {
+    display: none !important;
+}
+
+.content-area {
+    scrollbar-width: none !important;
+    -ms-overflow-style: none !important;
+}
+
+.content-area::-webkit-scrollbar {
+    display: none !important;
 }
