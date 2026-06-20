@@ -1622,6 +1622,31 @@ async function openDetailCustomer(id) {
     const customer = customersData.find(c => c.id === id);
     if (!customer) return;
     
+    // ===== AMBIL DATA DARI DB TRANSAKSI =====
+    let transaksiData = null;
+    let dataTransaksi = null;
+    
+    if (customer.agent_id) {
+        const { data } = await window.db
+            .from('db_transaksi')
+            .select('*')
+            .eq('agent_id', customer.agent_id)
+            .maybeSingle();
+        
+        if (data) {
+            transaksiData = data;
+            dataTransaksi = {
+                periode_lalu: data.periode_bulan_lalu || 'Tidak tersedia',
+                periode_ini: data.periode_bulan_ini || 'Tidak tersedia',
+                transaksi_lalu: data.transaksi_bulan_lalu || 0,
+                transaksi_ini: data.transaksi_bulan_ini || 0,
+                progres_jenis: data.progres_jenis || 'normal',
+                progres_jumlah: data.progres_jumlah || 0,
+                status: data.status || 'pending_import'
+            };
+        }
+    }
+    
     const statusText = customer.status === 'followup' ? 'Follow Up' : customer.status;
     const statusClass = customer.status === 'followup' ? 'status-followup' : `status-${customer.status}`;
     
@@ -1659,38 +1684,96 @@ async function openDetailCustomer(id) {
         </div>`;
     }
     
-    document.getElementById('detailContent').innerHTML = `
-        <div class="detail-header">
-            <h3>${escapeHtml(customer.nama)}</h3>
-            <div class="status-badge ${statusClass}">${statusText}</div>
-        </div>
-        <div class="detail-body">
-            <div class="detail-info">
-                ${ownerInfo}
-                <div class="detail-info-item"><strong>🆔 ID Agent:</strong> ${escapeHtml(customer.agent_id || '-')}</div>
-                <div class="detail-info-item"><strong>📱 Nomor WA:</strong> ${escapeHtml(customer.hp)}</div>
-                <div class="detail-info-item"><strong>📱 Aplikasi:</strong> ${escapeHtml(customer.apk || '-')}</div>
-                <div class="detail-info-item"><strong>👤 Upline:</strong> ${escapeHtml(customer.upline_name || '-')}</div>
-                <div class="detail-info-item"><strong>📞 No. Upline:</strong> ${escapeHtml(customer.upline_phone || '-')}</div>
-                <div class="detail-info-item"><strong>📅 Deadline:</strong> ${customer.tanggal || '-'} <button class="edit-deadline-btn" onclick="openEditDeadlineModal('${id}','customer','${customer.tanggal || ''}')">✏️ Edit</button></div>
-                <div class="detail-info-item"><strong>🎯 Total Transaksi Tercapai:</strong> <span style="color: ${totalTercapai >= 0 ? '#10b981' : '#ef4444'}; font-weight: 700;">${totalTercapai > 0 ? '+' : ''}${totalTercapai.toLocaleString()} Transaksi</span></div>
-                ${followupInfo}
-                ${pendingInfo}
+    // ===== BUILD HTML =====
+    const modalHtml = `
+        <div class="modal-content" style="max-width: 550px; max-height: 85vh; overflow-y: auto; background: #fff; border-radius: 24px; position: relative;">
+            <!-- HEADER -->
+            <div style="padding: 20px 24px 0; display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid #f0f0f0;">
+                <div>
+                    <h3 style="font-size: 20px; margin: 0; color: #1f2937;">${escapeHtml(customer.nama)}</h3>
+                    <div style="display: flex; gap: 8px; margin-top: 6px; flex-wrap: wrap;">
+                        <span class="status-badge ${statusClass}">${statusText}</span>
+                        ${customer.agent_id ? `<span style="font-size: 12px; color: #6b7280; background: #f3f4f6; padding: 2px 12px; border-radius: 20px;">🆔 ${escapeHtml(customer.agent_id)}</span>` : ''}
+                        ${dataTransaksi ? `<span style="font-size: 12px; padding: 2px 12px; border-radius: 20px; background: #d1fae5; color: #065f46;">📊 Dari DB Transaksi</span>` : ''}
+                    </div>
+                </div>
+                <button onclick="closeModal('detailModal')" style="
+                    background: none;
+                    border: none;
+                    font-size: 28px;
+                    cursor: pointer;
+                    color: #6b7280;
+                    padding: 0 4px;
+                    transition: all 0.2s;
+                    line-height: 1;
+                " onmouseover="this.style.color='#ef4444'" onmouseout="this.style.color='#6b7280'">✕</button>
             </div>
-            <div class="detail-actions">
-                <button class="btn-success" onclick="openWA('${customer.hp}')">💬 WhatsApp</button>
-                ${customer.status === 'baru' ? `<button class="btn-primary" onclick="updateCustomerStatus('${id}', 'followup')">📞 Lanjut Follow Up</button>` : ''}
-                ${customer.status === 'followup' ? `<button class="btn-primary" onclick="openFollowupConfirm('${id}')">✅ Konfirmasi Follow Up</button>` : ''}
-                ${customer.status === 'pending' ? `<button class="btn-primary" onclick="openPendingModal('${id}')">📝 Kelola Pending</button>` : ''}
-                ${customer.status === 'closing' ? `<button class="btn-primary" onclick="confirmClosingToDB('${id}')">📁 Pindah ke DB Closing</button>` : ''}
+            
+            <div style="padding: 0 24px 20px;">
+                <!-- DATA TRANSAKSI -->
+                ${dataTransaksi ? `
+                    <div style="margin: 16px 0; background: #f9fafb; border-radius: 14px; padding: 16px; border: 1px solid #e5e7eb;">
+                        <div style="font-weight: 600; font-size: 13px; color: #1f2937; margin-bottom: 12px;">📊 Data Perbandingan Transaksi</div>
+                        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 16px;">
+                            <div style="background: #f1f5f9; border-radius: 10px; padding: 12px; border-left: 3px solid #f59e0b;">
+                                <div style="font-size: 10px; color: #6b7280; text-transform: uppercase; letter-spacing: 0.5px;">Periode Lalu</div>
+                                <div style="font-weight: 700; font-size: 20px; color: #1f2937; margin-top: 4px;">${(dataTransaksi.transaksi_lalu || 0).toLocaleString()}</div>
+                                <div style="font-size: 11px; color: #6b7280; margin-top: 2px;">📅 ${dataTransaksi.periode_lalu}</div>
+                            </div>
+                            <div style="background: #f1f5f9; border-radius: 10px; padding: 12px; border-left: 3px solid #4f46e5;">
+                                <div style="font-size: 10px; color: #6b7280; text-transform: uppercase; letter-spacing: 0.5px;">Periode Ini</div>
+                                <div style="font-weight: 700; font-size: 20px; color: #1f2937; margin-top: 4px;">${(dataTransaksi.transaksi_ini || 0).toLocaleString()}</div>
+                                <div style="font-size: 11px; color: #6b7280; margin-top: 2px;">📅 ${dataTransaksi.periode_ini}</div>
+                            </div>
+                        </div>
+                        <div style="margin-top: 12px; text-align: center; font-size: 13px; color: #6b7280;">
+                            Selisih: <strong style="color: ${dataTransaksi.progres_jenis === 'naik' ? '#10b981' : dataTransaksi.progres_jenis === 'turun' ? '#ef4444' : '#f59e0b'};">
+                                ${dataTransaksi.progres_jenis === 'naik' ? '+' : dataTransaksi.progres_jenis === 'turun' ? '-' : ''}${Math.abs(dataTransaksi.progres_jumlah || 0).toLocaleString()}
+                            </strong>
+                            <span style="font-size: 11px; margin-left: 8px; background: ${dataTransaksi.progres_jenis === 'naik' ? '#d1fae5' : dataTransaksi.progres_jenis === 'turun' ? '#fee2e2' : '#fef3c7'}; padding: 2px 10px; border-radius: 20px;">
+                                ${dataTransaksi.progres_jenis === 'naik' ? '📈 Naik' : dataTransaksi.progres_jenis === 'turun' ? '📉 Turun' : '⚖️ Normal'}
+                            </span>
+                        </div>
+                        <div style="margin-top: 8px; font-size: 11px; color: #6b7280; text-align: center;">
+                            Status: ${dataTransaksi.status === 'imported' ? '✅ Sudah Dipindah' : '⏳ Pending'}
+                        </div>
+                    </div>
+                ` : ''}
+                
+                <!-- INFO UTAMA -->
+                <div style="background: #f9fafb; border-radius: 14px; padding: 16px; margin-top: 12px;">
+                    ${ownerInfo}
+                    <div class="detail-info-item"><strong>📱 Nomor WA:</strong> ${escapeHtml(customer.hp)}</div>
+                    <div class="detail-info-item"><strong>📱 Aplikasi:</strong> ${escapeHtml(customer.apk || '-')}</div>
+                    <div class="detail-info-item"><strong>👤 Upline:</strong> ${escapeHtml(customer.upline_name || '-')}</div>
+                    <div class="detail-info-item"><strong>📞 No. Upline:</strong> ${escapeHtml(customer.upline_phone || '-')}</div>
+                    <div class="detail-info-item"><strong>📅 Deadline:</strong> ${customer.tanggal || '-'} <button class="edit-deadline-btn" onclick="openEditDeadlineModal('${id}','customer','${customer.tanggal || ''}')" style="background: #f59e0b; color: white; border: none; border-radius: 6px; padding: 2px 8px; font-size: 11px; cursor: pointer;">✏️ Edit</button></div>
+                    <div class="detail-info-item"><strong>🎯 Total Transaksi Tercapai:</strong> <span style="color: ${totalTercapai >= 0 ? '#10b981' : '#ef4444'}; font-weight: 700;">${totalTercapai > 0 ? '+' : ''}${totalTercapai.toLocaleString()} Transaksi</span></div>
+                    ${followupInfo}
+                    ${pendingInfo}
+                </div>
+                
+                <!-- ACTION BUTTONS -->
+                <div class="detail-actions" style="display: flex; gap: 8px; margin-top: 16px; flex-wrap: wrap;">
+                    <button class="btn-success" onclick="openWA('${customer.hp}')" style="flex: 1; padding: 10px; border: none; border-radius: 12px; font-weight: 600; cursor: pointer; background: #25D366; color: white;">💬 WhatsApp</button>
+                    ${customer.status === 'baru' ? `<button class="btn-primary" onclick="updateCustomerStatus('${id}', 'followup')" style="flex: 1; padding: 10px; border: none; border-radius: 12px; font-weight: 600; cursor: pointer; background: #4f46e5; color: white;">📞 Lanjut Follow Up</button>` : ''}
+                    ${customer.status === 'followup' ? `<button class="btn-primary" onclick="openFollowupConfirm('${id}')" style="flex: 1; padding: 10px; border: none; border-radius: 12px; font-weight: 600; cursor: pointer; background: #4f46e5; color: white;">✅ Konfirmasi Follow Up</button>` : ''}
+                    ${customer.status === 'pending' ? `<button class="btn-primary" onclick="openPendingModal('${id}')" style="flex: 1; padding: 10px; border: none; border-radius: 12px; font-weight: 600; cursor: pointer; background: #4f46e5; color: white;">📝 Kelola Pending</button>` : ''}
+                    ${customer.status === 'closing' ? `<button class="btn-primary" onclick="confirmClosingToDB('${id}')" style="flex: 1; padding: 10px; border: none; border-radius: 12px; font-weight: 600; cursor: pointer; background: #8b5cf6; color: white;">📁 Pindah ke DB Closing</button>` : ''}
+                </div>
             </div>
-        </div>
-        <div class="detail-footer">
-            <button class="btn-outline" onclick="closeModal('detailModal')">Tutup</button>
-            <button class="btn-danger" onclick="deleteCustomer('${id}')">Hapus</button>
+            
+            <!-- FOOTER -->
+            <div class="detail-footer" style="display: flex; gap: 12px; padding: 16px 24px 24px; border-top: 1px solid #e5e7eb;">
+                <button class="btn-outline" onclick="closeModal('detailModal')" style="flex: 1; padding: 12px; border: none; border-radius: 14px; font-weight: 600; cursor: pointer; background: #f3f4f6; color: #374151;">Tutup</button>
+                <button class="btn-danger" onclick="deleteCustomer('${id}')" style="flex: 1; padding: 12px; border: none; border-radius: 14px; font-weight: 600; cursor: pointer; background: linear-gradient(135deg, #ef4444, #dc2626); color: white;">🗑️ Hapus</button>
+            </div>
         </div>
     `;
+    
+    document.getElementById('detailContent').innerHTML = modalHtml;
     showModal('detailModal');
+    applyDarkModeToModal(document.getElementById('detailModal'));
 }
 
 // ========== FUNGSI OPEN DETAIL PROSPEK ==========
@@ -1746,37 +1829,52 @@ async function openDetailProspek(id) {
         </div>`;
     }
     
-    document.getElementById('detailContent').innerHTML = `
-        <div class="detail-header">
-            <h3>${escapeHtml(prospek.nama)}</h3>
-            <div class="status-badge">${prospek.status || 'Baru'}</div>
-        </div>
-        <div class="detail-body">
-            <div class="detail-info">
-                ${ownerInfo}
-                <div class="detail-info-item"><strong>📱 Nomor WA:</strong> ${escapeHtml(prospek.hp)}</div>
-                <div class="detail-info-item"><strong>📅 Deadline:</strong> ${prospek.deadline || '-'} <button class="edit-deadline-btn" onclick="openEditDeadlineModal('${id}','prospek','${prospek.deadline || ''}')">✏️ Edit</button></div>
-                <div class="detail-info-item"><strong>👤 Upline:</strong> ${escapeHtml(prospek.upline_name || '-')}</div>
-                <div class="detail-info-item"><strong>📞 No. Upline:</strong> ${escapeHtml(prospek.upline_phone || '-')}</div>
-                ${dihubungiInfo}
-                ${followupInfo}
-                ${negosiasiInfo}
+    const modalHtml = `
+        <div class="modal-content" style="max-width: 550px; max-height: 85vh; overflow-y: auto; background: #fff; border-radius: 24px; position: relative;">
+            <!-- HEADER -->
+            <div style="padding: 20px 24px 0; display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid #f0f0f0;">
+                <div>
+                    <h3 style="font-size: 20px; margin: 0; color: #1f2937;">${escapeHtml(prospek.nama)}</h3>
+                    <div style="display: flex; gap: 8px; margin-top: 6px; flex-wrap: wrap;">
+                        <span class="status-badge">${prospek.status || 'Baru'}</span>
+                        <span style="font-size: 12px; color: #6b7280; background: #f3f4f6; padding: 2px 12px; border-radius: 20px;">🎯 Prospek</span>
+                    </div>
+                </div>
+                <button onclick="closeModal('detailModal')" style="background: none; border: none; font-size: 28px; cursor: pointer; color: #6b7280; padding: 0 4px; line-height: 1;">✕</button>
             </div>
-            <div class="detail-actions">
-                <button class="btn-success" onclick="openWA('${prospek.hp}')">💬 WhatsApp</button>
-                ${prospek.status === 'Baru' ? `<button class="btn-primary" onclick="updateProspekStatus('${id}', 'Dihubungi')">📞 Dihubungi</button>` : ''}
-                ${prospek.status === 'Dihubungi' ? `<button class="btn-primary" onclick="openProspekDihubungiConfirm('${id}')">✅ Konfirmasi Dihubungi</button>` : ''}
-                ${prospek.status === 'Negosiasi' ? `<button class="btn-primary" onclick="openProspekNegosiasiModal('${id}')">📝 Kelola Negosiasi</button>` : ''}
-                ${prospek.status === 'Negosiasi' && prospek.negosiasi_data?.is_complete ? `<button class="btn-primary" onclick="updateProspekStatus('${id}', 'Tertarik')">⭐ Tertarik</button>` : ''}
-                ${prospek.status === 'Tertarik' ? `<button class="btn-primary" onclick="confirmTertarikToDB('${id}')">⭐ Jadikan Member Baru</button>` : ''}
+            
+            <div style="padding: 0 24px 20px;">
+                <div style="background: #f9fafb; border-radius: 14px; padding: 16px; margin-top: 12px;">
+                    ${ownerInfo}
+                    <div class="detail-info-item"><strong>📱 Nomor WA:</strong> ${escapeHtml(prospek.hp)}</div>
+                    <div class="detail-info-item"><strong>📅 Deadline:</strong> ${prospek.deadline || '-'} <button class="edit-deadline-btn" onclick="openEditDeadlineModal('${id}','prospek','${prospek.deadline || ''}')" style="background: #f59e0b; color: white; border: none; border-radius: 6px; padding: 2px 8px; font-size: 11px; cursor: pointer;">✏️ Edit</button></div>
+                    <div class="detail-info-item"><strong>👤 Upline:</strong> ${escapeHtml(prospek.upline_name || '-')}</div>
+                    <div class="detail-info-item"><strong>📞 No. Upline:</strong> ${escapeHtml(prospek.upline_phone || '-')}</div>
+                    ${dihubungiInfo}
+                    ${followupInfo}
+                    ${negosiasiInfo}
+                </div>
+                
+                <div class="detail-actions" style="display: flex; gap: 8px; margin-top: 16px; flex-wrap: wrap;">
+                    <button class="btn-success" onclick="openWA('${prospek.hp}')" style="flex: 1; padding: 10px; border: none; border-radius: 12px; font-weight: 600; cursor: pointer; background: #25D366; color: white;">💬 WhatsApp</button>
+                    ${prospek.status === 'Baru' ? `<button class="btn-primary" onclick="updateProspekStatus('${id}', 'Dihubungi')" style="flex: 1; padding: 10px; border: none; border-radius: 12px; font-weight: 600; cursor: pointer; background: #4f46e5; color: white;">📞 Dihubungi</button>` : ''}
+                    ${prospek.status === 'Dihubungi' ? `<button class="btn-primary" onclick="openProspekDihubungiConfirm('${id}')" style="flex: 1; padding: 10px; border: none; border-radius: 12px; font-weight: 600; cursor: pointer; background: #4f46e5; color: white;">✅ Konfirmasi Dihubungi</button>` : ''}
+                    ${prospek.status === 'Negosiasi' ? `<button class="btn-primary" onclick="openProspekNegosiasiModal('${id}')" style="flex: 1; padding: 10px; border: none; border-radius: 12px; font-weight: 600; cursor: pointer; background: #4f46e5; color: white;">📝 Kelola Negosiasi</button>` : ''}
+                    ${prospek.status === 'Negosiasi' && prospek.negosiasi_data?.is_complete ? `<button class="btn-primary" onclick="updateProspekStatus('${id}', 'Tertarik')" style="flex: 1; padding: 10px; border: none; border-radius: 12px; font-weight: 600; cursor: pointer; background: #10b981; color: white;">⭐ Tertarik</button>` : ''}
+                    ${prospek.status === 'Tertarik' ? `<button class="btn-primary" onclick="confirmTertarikToDB('${id}')" style="flex: 1; padding: 10px; border: none; border-radius: 12px; font-weight: 600; cursor: pointer; background: #8b5cf6; color: white;">⭐ Jadikan Member Baru</button>` : ''}
+                </div>
             </div>
-        </div>
-        <div class="detail-footer">
-            <button class="btn-outline" onclick="closeModal('detailModal')">Tutup</button>
-            <button class="btn-danger" onclick="deleteProspek('${id}')">Hapus</button>
+            
+            <div class="detail-footer" style="display: flex; gap: 12px; padding: 16px 24px 24px; border-top: 1px solid #e5e7eb;">
+                <button class="btn-outline" onclick="closeModal('detailModal')" style="flex: 1; padding: 12px; border: none; border-radius: 14px; font-weight: 600; cursor: pointer; background: #f3f4f6; color: #374151;">Tutup</button>
+                <button class="btn-danger" onclick="deleteProspek('${id}')" style="flex: 1; padding: 12px; border: none; border-radius: 14px; font-weight: 600; cursor: pointer; background: linear-gradient(135deg, #ef4444, #dc2626); color: white;">🗑️ Hapus</button>
+            </div>
         </div>
     `;
+    
+    document.getElementById('detailContent').innerHTML = modalHtml;
     showModal('detailModal');
+    applyDarkModeToModal(document.getElementById('detailModal'));
 }
 
 // ========== FOLLOWUP CONFIRMATION FUNCTIONS ==========
@@ -3447,127 +3545,205 @@ async function addProspek(nama, hp, deadline) {
 
 // ========== KONFIRMASI CLOSING KE DB ==========
 function confirmClosingToDB(id) {
-    const modal = document.createElement('div');
-    modal.className = 'modal';
-    modal.style.display = 'flex';
-    modal.style.zIndex = '999999999';
-    modal.style.position = 'fixed';
-    modal.style.top = '0';
-    modal.style.left = '0';
-    modal.style.width = '100%';
-    modal.style.height = '100%';
-    modal.style.backgroundColor = 'rgba(0, 0, 0, 0.7)';
-    modal.style.backdropFilter = 'blur(5px)';
-    modal.style.pointerEvents = 'auto';
-    modal.innerHTML = `
-        <div class="modal-content" style="max-width: 400px; z-index: 999999999; pointer-events: auto;">
-            <h3>📋 Pindahkan ke Database Closing</h3>
-            <div class="modal-subtitle">Data customer akan dipindahkan ke Database Closing</div>
-            <div style="background: #fef3c7; padding: 12px; border-radius: 10px; margin: 0 20px 10px 20px;">
-                <p style="font-size: 12px; color: #d97706; margin: 0;">⚠️ <strong>Peringatan:</strong> Data yang sudah dipindahkan TIDAK BISA dikembalikan ke Followup Agen!</p>
-            </div>
-            <div style="padding: 0 20px 20px 20px;">
-                <div class="form-group">
-                    <label>Catatan Closing (Opsional)</label>
-                    <textarea id="closingNote" rows="3" placeholder="Contoh: Berhasil closing dengan produk A..." style="width:100%; padding: 10px; border-radius: 10px; border: 1px solid #e5e7eb;"></textarea>
-                </div>
-            </div>
-            <div class="modal-buttons" style="display: flex; gap: 12px; padding: 16px 20px 20px;">
-                <button id="confirmClosingToDBBtn" class="btn-primary" style="flex: 1; cursor: pointer;">✅ Ya, Pindahkan ke Closing</button>
-                <button id="cancelClosingToDBBtn" class="btn-outline" style="flex: 1; cursor: pointer;">❌ Batal</button>
-            </div>
-        </div>
-    `;
-    
-    document.body.appendChild(modal);
-    document.body.classList.add('modal-open');
-    document.body.style.overflow = 'hidden';
-    
-    document.getElementById('confirmClosingToDBBtn').onclick = async () => {
-        const note = document.getElementById('closingNote').value;
-        
-        // Ambil data customer lengkap
-        const { data: doc, error: getError } = await window.db
-            .from('customers')
-            .select('*')
-            .eq('id', id)
-            .single();
-        
-        if (getError) {
-            console.error('Error ambil data customer:', getError);
-            showNotifTop('❌ Gagal mengambil data customer: ' + getError.message, true);
-            return;
-        }
-        
-        if (!doc) {
+    // ===== AMBIL DATA CUSTOMER =====
+    window.db.from('customers').select('*').eq('id', id).single().then(async ({ data: customer, error: getError }) => {
+        if (getError || !customer) {
             showNotifTop('❌ Data customer tidak ditemukan!', true);
             return;
         }
         
-        try {
-            // Siapkan data followup yang lengkap
-            const followupData = {
-                terkirim: doc.followup_data?.terkirim || false,
-                dibalas: doc.followup_data?.dibalas || false,
-                pesan: doc.followup_data?.pesan || null,
-                balasan: doc.followup_data?.balasan || null,
-                timestamp: doc.followup_data?.timestamp || new Date().toISOString()
-            };
+        // ===== AMBIL DATA TRANSAKSI =====
+        let transaksiData = null;
+        if (customer.agent_id) {
+            const { data } = await window.db
+                .from('db_transaksi')
+                .select('*')
+                .eq('agent_id', customer.agent_id)
+                .maybeSingle();
             
-            // Simpan ke DB Closing
-            const { error: insertError } = await window.db.from('db_closing').insert({
-                nama: doc.nama,
-                hp: doc.hp,
-                closing_date: new Date().toISOString(),
-                closing_note: note || null,
-                user_id: doc.user_id,
-                followup_data: followupData,
-                pending_data: doc.pending_data || [],
-                pesan_terkirim: doc.followup_data?.pesan || null,
-                balasan_diterima: doc.followup_data?.balasan || null,
-                created_at: new Date().toISOString(),
-                updated_at: new Date().toISOString()
-            });
-            
-            if (insertError) {
-                console.error('Error simpan ke db_closing:', insertError);
-                showNotifTop('❌ Gagal menyimpan ke Database Closing: ' + insertError.message, true);
-                return;
+            if (data) {
+                transaksiData = data;
             }
+        }
+        
+        const modal = document.createElement('div');
+        modal.className = 'modal';
+        modal.style.cssText = `
+            position: fixed !important;
+            top: 0 !important;
+            left: 0 !important;
+            width: 100% !important;
+            height: 100% !important;
+            background: rgba(0, 0, 0, 0.7) !important;
+            display: flex !important;
+            justify-content: center !important;
+            align-items: center !important;
+            z-index: 999999999 !important;
+            backdrop-filter: blur(5px) !important;
+            pointer-events: auto !important;
+        `;
+        
+        modal.innerHTML = `
+            <div class="modal-content" style="max-width: 500px; z-index: 999999999; pointer-events: auto; background: #fff; border-radius: 24px; max-height: 85vh; overflow-y: auto;">
+                <div style="padding: 20px 24px 0; display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid #f0f0f0;">
+                    <div>
+                        <h3 style="font-size: 20px; margin: 0; color: #1f2937;">📋 Pindahkan ke Database Closing</h3>
+                        <div class="modal-subtitle" style="font-size: 13px; color: #6b7280; padding: 4px 0 12px 0;">Data customer akan dipindahkan ke Database Closing</div>
+                    </div>
+                    <button onclick="closeModal('${modal.id}')" style="background: none; border: none; font-size: 28px; cursor: pointer; color: #6b7280;">✕</button>
+                </div>
+                
+                <!-- PREVIEW DATA TRANSAKSI -->
+                ${transaksiData ? `
+                    <div style="padding: 0 24px; margin-top: 16px;">
+                        <div style="background: #f9fafb; border-radius: 14px; padding: 16px; border: 1px solid #e5e7eb;">
+                            <div style="font-weight: 600; font-size: 13px; color: #1f2937; margin-bottom: 12px;">📊 Data Transaksi Terkait</div>
+                            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 12px;">
+                                <div style="background: #f1f5f9; border-radius: 8px; padding: 10px; border-left: 3px solid #f59e0b;">
+                                    <div style="font-size: 10px; color: #6b7280;">Periode Lalu</div>
+                                    <div style="font-weight: 700; font-size: 16px; color: #1f2937;">${(transaksiData.transaksi_bulan_lalu || 0).toLocaleString()}</div>
+                                    <div style="font-size: 10px; color: #6b7280;">📅 ${transaksiData.periode_bulan_lalu || 'Tidak tersedia'}</div>
+                                </div>
+                                <div style="background: #f1f5f9; border-radius: 8px; padding: 10px; border-left: 3px solid #4f46e5;">
+                                    <div style="font-size: 10px; color: #6b7280;">Periode Ini</div>
+                                    <div style="font-weight: 700; font-size: 16px; color: #1f2937;">${(transaksiData.transaksi_bulan_ini || 0).toLocaleString()}</div>
+                                    <div style="font-size: 10px; color: #6b7280;">📅 ${transaksiData.periode_bulan_ini || 'Tidak tersedia'}</div>
+                                </div>
+                            </div>
+                            <div style="margin-top: 8px; text-align: center; font-size: 12px; color: #6b7280;">
+                                Selisih: <strong style="color: ${transaksiData.progres_jenis === 'naik' ? '#10b981' : transaksiData.progres_jenis === 'turun' ? '#ef4444' : '#f59e0b'};">
+                                    ${transaksiData.progres_jenis === 'naik' ? '+' : transaksiData.progres_jenis === 'turun' ? '-' : ''}${Math.abs(transaksiData.progres_jumlah || 0).toLocaleString()}
+                                </strong>
+                            </div>
+                        </div>
+                    </div>
+                ` : ''}
+                
+                <div style="padding: 0 20px; margin-top: 12px;">
+                    <div style="background: #fef3c7; padding: 12px; border-radius: 10px; margin: 0 0 10px 0;">
+                        <p style="font-size: 12px; color: #d97706; margin: 0;">⚠️ <strong>Peringatan:</strong> Data yang sudah dipindahkan TIDAK BISA dikembalikan ke Followup Agen!</p>
+                    </div>
+                    <div class="form-group">
+                        <label>Catatan Closing (Opsional)</label>
+                        <textarea id="closingNote" rows="3" placeholder="Contoh: Berhasil closing dengan produk A..." style="width:100%; padding: 10px; border-radius: 10px; border: 1px solid #e5e7eb;"></textarea>
+                    </div>
+                </div>
+                
+                <div class="modal-buttons" style="display: flex; gap: 12px; padding: 16px 20px 20px; border-top: 1px solid #e5e7eb;">
+                    <button id="confirmClosingToDBBtn" class="btn-primary" style="flex: 1; padding: 12px; border: none; border-radius: 14px; font-weight: 600; cursor: pointer; background: linear-gradient(135deg, #4f46e5, #6366f1); color: white;">✅ Ya, Pindahkan ke Closing</button>
+                    <button id="cancelClosingToDBBtn" class="btn-outline" style="flex: 1; padding: 12px; border: none; border-radius: 14px; font-weight: 600; cursor: pointer; background: #f3f4f6; color: #374151;">❌ Batal</button>
+                </div>
+            </div>
+        `;
+        
+        document.body.appendChild(modal);
+        document.body.classList.add('modal-open');
+        document.body.style.overflow = 'hidden';
+        
+        // ===== EVENT LISTENER =====
+        document.getElementById('confirmClosingToDBBtn').onclick = async () => {
+            const note = document.getElementById('closingNote').value;
             
-            console.log('✅ Berhasil simpan ke db_closing dengan pesan:', followupData.pesan);
-            
-            // Hapus dari Customers
-            await window.db.from('customers').delete().eq('id', id);
-            
-            showNotifTop('✅ Data berhasil dipindahkan ke Database Closing!');
+            try {
+                // Siapkan data followup
+                const followupData = {
+                    terkirim: customer.followup_data?.terkirim || false,
+                    dibalas: customer.followup_data?.dibalas || false,
+                    pesan: customer.followup_data?.pesan || null,
+                    balasan: customer.followup_data?.balasan || null,
+                    timestamp: customer.followup_data?.timestamp || new Date().toISOString()
+                };
+                
+                // ===== DATA CLOSING DENGAN DATA TRANSAKSI =====
+                const closingData = {
+                    nama: customer.nama,
+                    hp: customer.hp,
+                    closing_date: new Date().toISOString(),
+                    closing_note: note || null,
+                    user_id: customer.user_id,
+                    followup_data: followupData,
+                    pending_data: customer.pending_data || [],
+                    pesan_terkirim: customer.followup_data?.pesan || null,
+                    balasan_diterima: customer.followup_data?.balasan || null,
+                    
+                    // ===== DATA TRANSAKSI =====
+                    agent_id: customer.agent_id || null,
+                    apk: customer.apk || null,
+                    upline_name: customer.upline_name || null,
+                    upline_phone: customer.upline_phone || null,
+                    
+                    // Data dari db_transaksi
+                    transaksi_bulan_lalu: transaksiData?.transaksi_bulan_lalu || 0,
+                    transaksi_bulan_ini: transaksiData?.transaksi_bulan_ini || 0,
+                    periode_bulan_lalu: transaksiData?.periode_bulan_lalu || null,
+                    periode_bulan_ini: transaksiData?.periode_bulan_ini || null,
+                    progres_jenis: transaksiData?.progres_jenis || 'normal',
+                    progres_jumlah: transaksiData?.progres_jumlah || 0,
+                    
+                    created_at: new Date().toISOString(),
+                    updated_at: new Date().toISOString()
+                };
+                
+                console.log('📊 Data Closing dengan Transaksi:', closingData);
+                
+                // Simpan ke DB Closing
+                const { error: insertError } = await window.db.from('db_closing').insert(closingData);
+                
+                if (insertError) {
+                    console.error('Error simpan ke db_closing:', insertError);
+                    showNotifTop('❌ Gagal menyimpan ke Database Closing: ' + insertError.message, true);
+                    return;
+                }
+                
+                // Update status di db_transaksi menjadi 'imported' jika ada
+                if (transaksiData && transaksiData.id) {
+                    await window.db
+                        .from('db_transaksi')
+                        .update({ 
+                            status: 'imported',
+                            updated_at: new Date().toISOString()
+                        })
+                        .eq('id', transaksiData.id);
+                }
+                
+                // Hapus dari Customers
+                await window.db.from('customers').delete().eq('id', id);
+                
+                showNotifTop('✅ Data berhasil dipindahkan ke Database Closing!');
+                modal.remove();
+                document.body.classList.remove('modal-open');
+                document.body.style.overflow = '';
+                
+                await loadCustomers();
+                await loadDBClosing();
+                await loadDbTransaksi();
+                closeModal('detailModal');
+                
+            } catch (err) {
+                console.error('Error dalam proses:', err);
+                showNotifTop('❌ Terjadi kesalahan: ' + err.message, true);
+            }
+        };
+        
+        document.getElementById('cancelClosingToDBBtn').onclick = () => {
             modal.remove();
             document.body.classList.remove('modal-open');
             document.body.style.overflow = '';
-            
-            await loadCustomers();
-            await loadDBClosing();
-            closeModal('detailModal');
-            
-        } catch (err) {
-            console.error('Error dalam proses:', err);
-            showNotifTop('❌ Terjadi kesalahan: ' + err.message, true);
-        }
-    };
-    
-    document.getElementById('cancelClosingToDBBtn').onclick = () => {
-        modal.remove();
-        document.body.classList.remove('modal-open');
-        document.body.style.overflow = '';
-    };
-    
-    modal.onclick = (e) => {
-        if (e.target === modal) {
-            modal.remove();
-            document.body.classList.remove('modal-open');
-            document.body.style.overflow = '';
-        }
-    };
+        };
+        
+        modal.onclick = (e) => {
+            if (e.target === modal) {
+                modal.remove();
+                document.body.classList.remove('modal-open');
+                document.body.style.overflow = '';
+            }
+        };
+        
+        applyDarkModeToModal(modal);
+    }).catch(err => {
+        console.error('Error:', err);
+        showNotifTop('❌ Gagal: ' + err.message, true);
+    });
 }
 
 // ========== KONFIRMASI PROSPEK TERTARIK KE DB COMMITMENT ==========
@@ -7895,27 +8071,29 @@ function clearSearch() {
 function openDBDetailModal(id, type) {
     let collectionName = '';
     let title = '';
+    let isClosing = false;
     
     switch (type) {
         case 'closing':
             collectionName = 'db_closing';
-            title = 'Detail Database Closing';
+            title = '📊 Detail Database Closing';
+            isClosing = true;
             break;
         case 'tidak':
             collectionName = 'db_tidak_tertarik';
-            title = 'Detail Database Tidak Tertarik';
+            title = '📊 Detail Database Tidak Tertarik';
             break;
         case 'nomor_salah':
             collectionName = 'nomor_salah';
-            title = 'Detail Database Nomor Salah';
+            title = '📊 Detail Database Nomor Salah';
             break;
         case 'commitment':
             collectionName = 'db_commitment';
-            title = 'Detail Database Commitment';
+            title = '📊 Detail Database Commitment';
             break;
         case 'db_agent':
             collectionName = 'db_agent';
-            title = 'Detail Database Agent';
+            title = '📊 Detail Database Agent';
             break;
         default:
             return;
@@ -7937,16 +8115,79 @@ function openDBDetailModal(id, type) {
             } catch(e) { console.error(e); }
         }
         
-        // ===== PERBAIKAN: Inisialisasi variabel =====
-        let followupInfo = '';
-        let pendingInfo = '';
+        // ===== DEKLARASI VARIABEL =====
+        let detailHtml = '';
+        let transaksiSection = '';
         let dihubungiInfo = '';
         let negosiasiInfo = '';
-        let detailHtml = '';
+        let followupInfo = '';
+        let pendingInfo = '';
         
-        // ===== BUILD DETAIL HTML BERDASARKAN TYPE =====
+        // ===== TRANSAKSI SECTION (khusus closing) =====
+        if (isClosing && (d.transaksi_bulan_lalu !== undefined || d.transaksi_bulan_ini !== undefined)) {
+            const periodeLalu = d.periode_bulan_lalu || 'Tidak tersedia';
+            const periodeIni = d.periode_bulan_ini || 'Tidak tersedia';
+            const jenis = d.progres_jenis || 'normal';
+            const jumlah = d.progres_jumlah || 0;
+            
+            let jenisColor = '#f59e0b';
+            let jenisText = '⚖️ Normal';
+            let displayValue = '0';
+            
+            if (jenis === 'naik') {
+                jenisColor = '#10b981';
+                jenisText = '📈 Naik';
+                displayValue = '+' + jumlah.toLocaleString();
+            } else if (jenis === 'turun') {
+                jenisColor = '#ef4444';
+                jenisText = '📉 Turun';
+                displayValue = '-' + Math.abs(jumlah).toLocaleString();
+            } else if (jenis === 'tidak_transaksi') {
+                jenisColor = '#6b7280';
+                jenisText = '🚫 Tidak Transaksi';
+                displayValue = '0';
+            } else {
+                if (jumlah > 0) {
+                    displayValue = '+' + jumlah.toLocaleString();
+                    jenisColor = '#10b981';
+                } else if (jumlah < 0) {
+                    displayValue = '-' + Math.abs(jumlah).toLocaleString();
+                    jenisColor = '#ef4444';
+                } else {
+                    displayValue = '0';
+                    jenisColor = '#f59e0b';
+                }
+            }
+            
+            transaksiSection = `
+                <div style="margin: 16px 0; background: #f9fafb; border-radius: 14px; padding: 16px; border: 1px solid #e5e7eb;">
+                    <div style="font-weight: 600; font-size: 13px; color: #1f2937; margin-bottom: 12px;">📊 Data Perbandingan Transaksi</div>
+                    <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 16px;">
+                        <div style="background: #f1f5f9; border-radius: 10px; padding: 12px; border-left: 3px solid #f59e0b;">
+                            <div style="font-size: 10px; color: #6b7280; text-transform: uppercase; letter-spacing: 0.5px;">Periode Lalu</div>
+                            <div style="font-weight: 700; font-size: 20px; color: #1f2937; margin-top: 4px;">${(d.transaksi_bulan_lalu || 0).toLocaleString()}</div>
+                            <div style="font-size: 11px; color: #6b7280; margin-top: 2px;">📅 ${periodeLalu}</div>
+                        </div>
+                        <div style="background: #f1f5f9; border-radius: 10px; padding: 12px; border-left: 3px solid #4f46e5;">
+                            <div style="font-size: 10px; color: #6b7280; text-transform: uppercase; letter-spacing: 0.5px;">Periode Ini</div>
+                            <div style="font-weight: 700; font-size: 20px; color: #1f2937; margin-top: 4px;">${(d.transaksi_bulan_ini || 0).toLocaleString()}</div>
+                            <div style="font-size: 11px; color: #6b7280; margin-top: 2px;">📅 ${periodeIni}</div>
+                        </div>
+                    </div>
+                    <div style="margin-top: 12px; text-align: center; font-size: 13px; color: #6b7280;">
+                        Selisih: <strong style="color: ${jenisColor};">${displayValue}</strong>
+                        <span style="font-size: 11px; margin-left: 8px; background: ${jenis === 'naik' ? '#d1fae5' : jenis === 'turun' ? '#fee2e2' : '#fef3c7'}; padding: 2px 10px; border-radius: 20px;">${jenisText}</span>
+                    </div>
+                    <div style="margin-top: 8px; font-size: 11px; color: #6b7280; text-align: center;">
+                        Status: ${d.status === 'imported' ? '✅ Sudah Dipindah' : '⏳ Pending'}
+                    </div>
+                </div>
+            `;
+        }
+        
+        // ===== DETAIL HTML BERDASARKAN TYPE =====
         if (type === 'closing') {
-            // Followup Info untuk Closing
+            // Followup Info
             if (d.followup_data) {
                 followupInfo = `<div class="detail-info-item"><strong>✅ Follow Up:</strong><br>
                     <div style="margin-top: 5px; padding-left: 15px;">
@@ -7958,7 +8199,7 @@ function openDBDetailModal(id, type) {
                 </div>`;
             }
             
-            // Pending Info untuk Closing
+            // Pending Info
             if (d.pending_data && d.pending_data.length > 0) {
                 const completedCount = d.pending_data.filter(item => item.checked === true && item.text?.trim() !== '').length;
                 const totalCount = d.pending_data.length;
@@ -7973,55 +8214,14 @@ function openDBDetailModal(id, type) {
                 ${ownerInfo}
                 <div class="detail-info-item"><strong>👤 Nama:</strong> ${escapeHtml(d.nama)}</div>
                 <div class="detail-info-item"><strong>📱 Nomor WA:</strong> ${escapeHtml(d.hp)}</div>
+                ${d.agent_id ? `<div class="detail-info-item"><strong>🆔 ID Agent:</strong> ${escapeHtml(d.agent_id)}</div>` : ''}
+                ${d.apk ? `<div class="detail-info-item"><strong>📱 Aplikasi:</strong> ${escapeHtml(d.apk)}</div>` : ''}
+                ${d.upline_name ? `<div class="detail-info-item"><strong>👤 Upline:</strong> ${escapeHtml(d.upline_name)}</div>` : ''}
+                ${d.upline_phone ? `<div class="detail-info-item"><strong>📞 No. Upline:</strong> ${escapeHtml(d.upline_phone)}</div>` : ''}
                 <div class="detail-info-item"><strong>📅 Tanggal Closing:</strong> ${dateStr}</div>
                 <div class="detail-info-item"><strong>📝 Catatan Closing:</strong> ${escapeHtml(d.closing_note || '-')}</div>
                 ${followupInfo}
                 ${pendingInfo}
-            `;
-        }
-        else if (type === 'commitment') {
-            // Dihubungi Info untuk Commitment
-            if (d.dihubungi_data) {
-                dihubungiInfo = `<div class="detail-info-item"><strong>✅ Dihubungi:</strong><br>
-                    <div style="margin-top: 5px; padding-left: 15px;">
-                        Terkirim: ${d.dihubungi_data.terkirim ? 'Ya' : 'Tidak'}<br>
-                        Dibalas: ${d.dihubungi_data.dibalas ? 'Ya' : 'Tidak'}<br>
-                        <strong>Pesan Terkirim:</strong> ${escapeHtml(d.dihubungi_data.pesan || '-')}<br>
-                        <strong>Balasan:</strong> ${escapeHtml(d.dihubungi_data.balasan || '-')}
-                    </div>
-                </div>`;
-            }
-            
-            // Negosiasi Info untuk Commitment
-            if (d.negosiasi_data) {
-                const nd = d.negosiasi_data;
-                negosiasiInfo = `<div class="detail-info-item"><strong>📋 Data Negosiasi:</strong><br>
-                    <div style="margin-top: 5px; padding-left: 15px;">
-                        Aplikasi: ${escapeHtml(nd.aplikasi || '-')}<br>
-                        Domisili: ${escapeHtml(nd.domisili || '-')}<br>
-                        Transaksi: ${escapeHtml(nd.transaksi || '-')}<br>
-                        Deposit: ${escapeHtml(nd.deposit || '-')}<br>
-                        Tertarik: ${escapeHtml(nd.tertarik || '-')}<br>
-                        Penawaran: ${escapeHtml(nd.penawaran || '-')}
-                    </div>
-                </div>`;
-            }
-            
-            const dateStr = d.committed_at ? formatDateDDMMYYYY(d.committed_at) : '-';
-            const followupDate = d.followup_date ? formatDateDDMMYYYY(d.followup_date) : '-';
-            detailHtml = `
-                ${ownerInfo}
-                <div class="detail-info-item"><strong>👤 Nama:</strong> ${escapeHtml(d.nama)}</div>
-                <div class="detail-info-item"><strong>📱 Nomor WA:</strong> ${escapeHtml(d.hp)}</div>
-                <div class="detail-info-item"><strong>🆔 ID Agent:</strong> ${escapeHtml(d.agent_id || '-')}</div>
-                <div class="detail-info-item"><strong>📱 Aplikasi:</strong> ${escapeHtml(d.aplikasi || '-')}</div>
-                <div class="detail-info-item"><strong>👤 Upline:</strong> ${escapeHtml(d.upline_name || '-')}</div>
-                <div class="detail-info-item"><strong>📞 No. Upline:</strong> ${escapeHtml(d.upline_phone || '-')}</div>
-                <div class="detail-info-item"><strong>📅 Tanggal Komitmen:</strong> ${dateStr}</div>
-                <div class="detail-info-item"><strong>📅 Followup Date:</strong> ${followupDate}</div>
-                <div class="detail-info-item"><strong>📝 Catatan:</strong> ${escapeHtml(d.commitment_note || '-')}</div>
-                ${dihubungiInfo}
-                ${negosiasiInfo}
             `;
         }
         else if (type === 'tidak') {
@@ -8072,7 +8272,7 @@ function openDBDetailModal(id, type) {
                 ${negosiasiInfo}
                 <div class="detail-info-item" style="border-top: 2px solid #ef4444; padding-top: 12px; margin-top: 4px;">
                     <strong>❌ Alasan Tidak Tertarik:</strong>
-                    <div class="alasan-container">
+                    <div class="alasan-container" style="margin-top: 5px; padding: 10px 14px; background: #fef2f2; border-radius: 8px; border-left: 3px solid #ef4444; color: #991b1b; font-weight: 500;">
                         ${escapeHtml(d.alasan || 'Tidak tertarik')}
                     </div>
                 </div>
@@ -8113,6 +8313,51 @@ function openDBDetailModal(id, type) {
                 ${dihubungiInfo}
             `;
         }
+        else if (type === 'commitment') {
+            // Dihubungi Info untuk Commitment
+            if (d.dihubungi_data) {
+                dihubungiInfo = `<div class="detail-info-item"><strong>✅ Dihubungi:</strong><br>
+                    <div style="margin-top: 5px; padding-left: 15px;">
+                        Terkirim: ${d.dihubungi_data.terkirim ? 'Ya' : 'Tidak'}<br>
+                        Dibalas: ${d.dihubungi_data.dibalas ? 'Ya' : 'Tidak'}<br>
+                        <strong>Pesan Terkirim:</strong> ${escapeHtml(d.dihubungi_data.pesan || '-')}<br>
+                        <strong>Balasan:</strong> ${escapeHtml(d.dihubungi_data.balasan || '-')}
+                    </div>
+                </div>`;
+            }
+            
+            // Negosiasi Info untuk Commitment
+            if (d.negosiasi_data) {
+                const nd = d.negosiasi_data;
+                negosiasiInfo = `<div class="detail-info-item"><strong>📋 Data Negosiasi:</strong><br>
+                    <div style="margin-top: 5px; padding-left: 15px;">
+                        Aplikasi: ${escapeHtml(nd.aplikasi || '-')}<br>
+                        Domisili: ${escapeHtml(nd.domisili || '-')}<br>
+                        Transaksi: ${escapeHtml(nd.transaksi || '-')}<br>
+                        Deposit: ${escapeHtml(nd.deposit || '-')}<br>
+                        Tertarik: ${escapeHtml(nd.tertarik || '-')}<br>
+                        Penawaran: ${escapeHtml(nd.penawaran || '-')}
+                    </div>
+                </div>`;
+            }
+            
+            const dateStr = d.committed_at ? formatDateDDMMYYYY(d.committed_at) : '-';
+            const followupDate = d.followup_date ? formatDateDDMMYYYY(d.followup_date) : '-';
+            detailHtml = `
+                ${ownerInfo}
+                <div class="detail-info-item"><strong>👤 Nama:</strong> ${escapeHtml(d.nama)}</div>
+                <div class="detail-info-item"><strong>📱 Nomor WA:</strong> ${escapeHtml(d.hp)}</div>
+                <div class="detail-info-item"><strong>🆔 ID Agent:</strong> ${escapeHtml(d.agent_id || '-')}</div>
+                <div class="detail-info-item"><strong>📱 Aplikasi:</strong> ${escapeHtml(d.aplikasi || '-')}</div>
+                <div class="detail-info-item"><strong>👤 Upline:</strong> ${escapeHtml(d.upline_name || '-')}</div>
+                <div class="detail-info-item"><strong>📞 No. Upline:</strong> ${escapeHtml(d.upline_phone || '-')}</div>
+                <div class="detail-info-item"><strong>📅 Tanggal Komitmen:</strong> ${dateStr}</div>
+                <div class="detail-info-item"><strong>📅 Followup Date:</strong> ${followupDate}</div>
+                <div class="detail-info-item"><strong>📝 Catatan:</strong> ${escapeHtml(d.commitment_note || '-')}</div>
+                ${dihubungiInfo}
+                ${negosiasiInfo}
+            `;
+        }
         else if (type === 'db_agent') {
             const dateStr = d.created_at ? formatDateDDMMYYYY(d.created_at) : '-';
             detailHtml = `
@@ -8130,23 +8375,45 @@ function openDBDetailModal(id, type) {
         }
         
         // ===== TAMPILKAN MODAL DETAIL =====
-        document.getElementById('detailContent').innerHTML = `
-            <div class="detail-header">
-                <h3>${title}</h3>
-                <div class="status-badge">Arsip</div>
-            </div>
-            <div class="detail-body">
-                <div class="detail-info">${detailHtml}</div>
-                <div class="detail-actions">
-                    <button class="btn-success" onclick="openWA('${escapeHtml(d.hp)}')">💬 WhatsApp</button>
+        const modalHtml = `
+            <div class="modal-content" style="max-width: 550px; max-height: 85vh; overflow-y: auto; background: #fff; border-radius: 24px; position: relative;">
+                <div style="padding: 20px 24px 0; display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid #f0f0f0;">
+                    <div>
+                        <h3 style="font-size: 20px; margin: 0; color: #1f2937;">${title}</h3>
+                        <div style="display: flex; gap: 8px; margin-top: 6px; flex-wrap: wrap;">
+                            <span class="status-badge">Arsip</span>
+                            ${d.agent_id ? `<span style="font-size: 12px; color: #6b7280; background: #f3f4f6; padding: 2px 12px; border-radius: 20px;">🆔 ${escapeHtml(d.agent_id)}</span>` : ''}
+                            ${isClosing && d.status === 'imported' ? `<span style="font-size: 12px; padding: 2px 12px; border-radius: 20px; background: #d1fae5; color: #065f46;">📊 Dari DB Transaksi</span>` : ''}
+                        </div>
+                    </div>
+                    <button onclick="closeModal('detailModal')" style="background: none; border: none; font-size: 28px; cursor: pointer; color: #6b7280; padding: 0 4px; line-height: 1; transition: all 0.2s;" onmouseover="this.style.color='#ef4444'" onmouseout="this.style.color='#6b7280'">✕</button>
+                </div>
+                
+                <div style="padding: 0 24px 20px;">
+                    ${transaksiSection}
+                    <div style="background: #f9fafb; border-radius: 14px; padding: 16px; margin-top: 12px;">
+                        ${detailHtml}
+                    </div>
+                    
+                    <div class="detail-actions" style="display: flex; gap: 8px; margin-top: 16px; flex-wrap: wrap;">
+                        <button class="btn-success" onclick="openWA('${escapeHtml(d.hp)}')" style="flex: 1; padding: 10px; border: none; border-radius: 12px; font-weight: 600; cursor: pointer; background: #25D366; color: white;">💬 WhatsApp</button>
+                        ${type === 'nomor_salah' ? `
+                            <button class="btn-primary" onclick="restoreToFollowup('${id}')" style="flex: 1; padding: 10px; border: none; border-radius: 12px; font-weight: 600; cursor: pointer; background: #4f46e5; color: white;">🔄 Kembali ke Followup</button>
+                            <button class="btn-primary" onclick="restoreToProspek('${id}')" style="flex: 1; padding: 10px; border: none; border-radius: 12px; font-weight: 600; cursor: pointer; background: #8b5cf6; color: white;">🔄 Kembali ke Prospek</button>
+                        ` : ''}
+                    </div>
+                </div>
+                
+                <div class="detail-footer" style="display: flex; gap: 12px; padding: 16px 24px 24px; border-top: 1px solid #e5e7eb;">
+                    <button class="btn-outline" onclick="closeModal('detailModal')" style="flex: 1; padding: 12px; border: none; border-radius: 14px; font-weight: 600; cursor: pointer; background: #f3f4f6; color: #374151;">Tutup</button>
+                    <button class="btn-danger" onclick="deleteDBItem('${collectionName}', '${id}'); closeModal('detailModal');" style="flex: 1; padding: 12px; border: none; border-radius: 14px; font-weight: 600; cursor: pointer; background: linear-gradient(135deg, #ef4444, #dc2626); color: white;">🗑️ Hapus</button>
                 </div>
             </div>
-            <div class="detail-footer">
-                <button class="btn-outline" onclick="closeModal('detailModal')">Tutup</button>
-                <button class="btn-danger" onclick="deleteDBItem('${collectionName}', '${id}'); closeModal('detailModal');">🗑️ Hapus</button>
-            </div>
         `;
+        
+        document.getElementById('detailContent').innerHTML = modalHtml;
         showModal('detailModal');
+        applyDarkModeToModal(document.getElementById('detailModal'));
     }).catch(err => {
         console.error('Error:', err);
         showNotifTop('❌ Gagal memuat detail: ' + err.message, true);
