@@ -1643,7 +1643,6 @@ async function openDetailCustomer(id) {
     if (!customer) return;
     
     // ===== AMBIL DATA DARI DB TRANSAKSI =====
-    let transaksiData = null;
     let dataTransaksi = null;
     
     if (customer.agent_id) {
@@ -1654,15 +1653,50 @@ async function openDetailCustomer(id) {
             .maybeSingle();
         
         if (data) {
-            transaksiData = data;
+            const jumlah = data.progres_jumlah || 0;
+            let jenisColor = '#ef4444';
+            let jenisText = 'Turun';
+            let displayValue = '-' + Math.abs(jumlah).toLocaleString();
+            
+            if (data.progres_jenis === 'naik') {
+                jenisColor = '#10b981';
+                jenisText = 'Naik';
+                displayValue = '+' + jumlah.toLocaleString();
+            } else if (data.progres_jenis === 'turun') {
+                jenisColor = '#ef4444';
+                jenisText = 'Turun';
+                displayValue = '-' + Math.abs(jumlah).toLocaleString();
+            } else if (data.progres_jenis === 'tidak_transaksi') {
+                jenisColor = '#6b7280';
+                jenisText = 'Tidak Transaksi';
+                displayValue = '0';
+            } else {
+                if (jumlah > 0) {
+                    displayValue = '+' + jumlah.toLocaleString();
+                    jenisColor = '#10b981';
+                    jenisText = 'Naik';
+                } else if (jumlah < 0) {
+                    displayValue = '-' + Math.abs(jumlah).toLocaleString();
+                    jenisColor = '#ef4444';
+                    jenisText = 'Turun';
+                } else {
+                    displayValue = '0';
+                    jenisColor = '#f59e0b';
+                    jenisText = 'Normal';
+                }
+            }
+            
             dataTransaksi = {
                 periode_lalu: data.periode_bulan_lalu || 'Tidak tersedia',
                 periode_ini: data.periode_bulan_ini || 'Tidak tersedia',
                 transaksi_lalu: data.transaksi_bulan_lalu || 0,
                 transaksi_ini: data.transaksi_bulan_ini || 0,
                 progres_jenis: data.progres_jenis || 'normal',
-                progres_jumlah: data.progres_jumlah || 0,
-                status: data.status || 'pending_import'
+                progres_jumlah: jumlah,
+                status: data.status || 'pending_import',
+                jenis_color: jenisColor,
+                jenis_text: jenisText,
+                display_value: displayValue
             };
         }
     }
@@ -1678,104 +1712,163 @@ async function openDetailCustomer(id) {
         try {
             const { data: userDoc } = await window.db.from('users').select('nama').eq('id', customer.user_id).single();
             const ownerName = userDoc?.nama || 'CS Agent';
-            ownerInfo = `<div class="detail-info-item"><strong>👤 Pemilik Data:</strong> ${escapeHtml(ownerName)}</div>`;
+            ownerInfo = `<div class="info-row"><span class="label">👤 Pemilik Data</span><span class="value">${escapeHtml(ownerName)}</span></div>`;
         } catch(e) { console.error(e); }
     }
     
-    let followupInfo = '';
-    if (customer.followup_data) {
-        followupInfo = `<div class="detail-info-item"><strong>✅ Follow Up:</strong><br>
-            <div style="margin-top: 5px; padding-left: 15px;">
-                Terkirim: ${customer.followup_data.terkirim ? 'Ya' : 'Tidak'}<br>
-                Dibalas: ${customer.followup_data.dibalas ? 'Ya' : 'Tidak'}<br>
-                <strong>Pesan Terkirim:</strong> ${escapeHtml(customer.followup_data.pesan || '-')}<br>
-                <strong>Balasan:</strong> ${escapeHtml(customer.followup_data.balasan || '-')}
+    // ===== BUILD FOLLOWUP HISTORY =====
+    let followupHistoryHtml = '';
+    if (customer.followup_history && customer.followup_history.length > 0) {
+        followupHistoryHtml = `
+            <div class="detail-section">
+                <div class="section-title">📞 Riwayat Followup</div>
+                ${customer.followup_history.map((item, idx) => `
+                    <div class="history-item">
+                        <span class="history-number">#${idx + 1}</span>
+                        <span class="history-pesan">${escapeHtml(item.pesan || '-')}</span>
+                        <span class="history-time">${item.timestamp ? formatDateDDMMYYYY(item.timestamp) : ''}</span>
+                    </div>
+                `).join('')}
             </div>
-        </div>`;
+        `;
     }
     
-    let pendingInfo = '';
+    // ===== BUILD PENDING DATA =====
+    let pendingHtml = '';
     if (customer.pending_data && customer.pending_data.length > 0) {
         const completedCount = customer.pending_data.filter(item => item.checked === true && item.text?.trim() !== '').length;
-        const totalCount = customer.pending_data.length;
-        pendingInfo = `<div class="detail-info-item"><strong>📝 Pending Responses (${completedCount}/${totalCount}):</strong><br>
-            <div style="margin-top: 5px; padding-left: 15px;">${customer.pending_data.slice(0, 5).map(item => `${item.checked ? '✅' : '⭕'} ${escapeHtml(item.text || '(kosong)')}`).join('<br>')}</div>
-            ${customer.pending_data.length > 5 ? `<small>... dan ${customer.pending_data.length - 5} balasan lainnya</small>` : ''}
-        </div>`;
+        pendingHtml = `
+            <div class="detail-section">
+                <div class="section-title">📝 Pending (${completedCount}/${customer.pending_data.length})</div>
+                ${customer.pending_data.map(item => `
+                    <div class="pending-item">
+                        <span>${item.checked ? '✅' : '⭕'}</span>
+                        <span>${escapeHtml(item.text || '(kosong)')}</span>
+                    </div>
+                `).join('')}
+            </div>
+        `;
     }
     
-    // ===== HITUNG JUMLAH FOLLOWUP =====
-    const followupHistory = customer.followup_history || [];
-    const totalFollowup = followupHistory.length;
-    
-    // ===== BUILD HTML SEPERTI DB TRANSAKSI =====
+    // ===== BUILD HTML SEPERTI GAMBAR =====
     const modalHtml = `
-        <div class="modal-content" style="max-width: 550px; max-height: 85vh; overflow-y: auto; background: #fff; border-radius: 24px; position: relative;">
+        <div class="modal-content detail-transaksi-popup" style="max-width: 550px; max-height: 85vh; overflow-y: auto; background: #fff; border-radius: 24px; position: relative; padding: 0;">
             <!-- HEADER -->
-            <div style="padding: 20px 24px 0; display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid #f0f0f0;">
+            <div class="popup-header" style="padding: 20px 24px 0; display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid #f0f0f0; position: sticky; top: 0; background: #fff; z-index: 10; border-radius: 24px 24px 0 0;">
                 <div>
-                    <h3 style="font-size: 20px; margin: 0; color: #1f2937;">${escapeHtml(customer.nama)}</h3>
-                    <div style="display: flex; gap: 8px; margin-top: 6px; flex-wrap: wrap;">
-                        <span class="status-badge ${statusClass}">${statusText}</span>
-                        ${customer.agent_id ? `<span style="font-size: 12px; color: #6b7280; background: #f3f4f6; padding: 2px 12px; border-radius: 20px;">🆔 ${escapeHtml(customer.agent_id)}</span>` : ''}
-                        ${dataTransaksi ? `<span style="font-size: 12px; padding: 2px 12px; border-radius: 20px; background: #d1fae5; color: #065f46;">📊 Dari DB Transaksi</span>` : ''}
-                        ${totalFollowup > 0 ? `<span style="font-size: 12px; padding: 2px 12px; border-radius: 20px; background: #eef2ff; color: #4f46e5;">📞 ${totalFollowup}x Followup</span>` : ''}
-                    </div>
+                    <h3 style="font-size: 20px; margin: 0; color: #1f2937;">📊 Detail Transaksi</h3>
+                    <div style="font-size: 13px; color: #6b7280; margin-top: 4px; padding-bottom: 12px;">Informasi lengkap data transaksi</div>
                 </div>
                 <button onclick="closeModal('detailModal')" style="background: none; border: none; font-size: 28px; cursor: pointer; color: #6b7280; padding: 0 4px; line-height: 1; transition: all 0.2s;" onmouseover="this.style.color='#ef4444'" onmouseout="this.style.color='#6b7280'">✕</button>
             </div>
             
-            <div style="padding: 0 24px 20px;">
-                <!-- DATA TRANSAKSI -->
+            <!-- CONTENT -->
+            <div style="padding: 20px 24px 16px;">
+                <!-- DATA TRANSAKSI (ATAS) -->
+                <div class="transaksi-section">
+                    <!-- ID Agent & Nama -->
+                    <div class="info-row">
+                        <span class="label">🆔 ID Agent</span>
+                        <span class="value">${escapeHtml(customer.agent_id || '-')}</span>
+                    </div>
+                    <div class="info-row">
+                        <span class="label">👤 Nama</span>
+                        <span class="value">${escapeHtml(customer.nama)}</span>
+                    </div>
+                    <div class="info-row">
+                        <span class="label">📱 Nomor HP</span>
+                        <span class="value">${escapeHtml(customer.hp)}</span>
+                    </div>
+                    <div class="info-row">
+                        <span class="label">📱 Aplikasi</span>
+                        <span class="value">${escapeHtml(customer.apk || '-')}</span>
+                    </div>
+                    <div class="info-row">
+                        <span class="label">👤 Upline</span>
+                        <span class="value">${escapeHtml(customer.upline_name || '-')}</span>
+                    </div>
+                    <div class="info-row">
+                        <span class="label">📞 HP Upline</span>
+                        <span class="value">${escapeHtml(customer.upline_phone || '-')}</span>
+                    </div>
+                    
+                    <!-- Jenis Progres & Selisih -->
+                    ${dataTransaksi ? `
+                        <div class="info-row" style="border-bottom: none; padding-bottom: 4px;">
+                            <span class="label">📊 Jenis Progres</span>
+                            <span class="value" style="color: ${dataTransaksi.jenis_color}; font-weight: 600;">${dataTransaksi.jenis_text}</span>
+                        </div>
+                        <div class="info-row" style="border-bottom: none;">
+                            <span class="label">📊 Selisih</span>
+                            <span class="value" style="color: ${dataTransaksi.jenis_color}; font-weight: 700; font-size: 18px;">${dataTransaksi.display_value}</span>
+                        </div>
+                    ` : `
+                        <div class="info-row" style="border-bottom: none;">
+                            <span class="label">📊 Data Transaksi</span>
+                            <span class="value" style="color: #9ca3af;">Belum ada data</span>
+                        </div>
+                    `}
+                </div>
+                
+                <!-- DATA PERBANDINGAN TRANSAKSI -->
                 ${dataTransaksi ? `
                     <div style="margin: 16px 0; background: #f9fafb; border-radius: 14px; padding: 16px; border: 1px solid #e5e7eb;">
-                        <div style="font-weight: 600; font-size: 13px; color: #1f2937; margin-bottom: 12px;">📊 Data Perbandingan Transaksi</div>
+                        <div style="font-weight: 600; font-size: 14px; color: #1f2937; margin-bottom: 12px;">📊 Data Perbandingan Transaksi</div>
                         <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 16px;">
                             <div style="background: #f1f5f9; border-radius: 10px; padding: 12px; border-left: 3px solid #f59e0b;">
-                                <div style="font-size: 10px; color: #6b7280; text-transform: uppercase; letter-spacing: 0.5px;">Periode Lalu</div>
-                                <div style="font-weight: 700; font-size: 20px; color: #1f2937; margin-top: 4px;">${(dataTransaksi.transaksi_lalu || 0).toLocaleString()}</div>
-                                <div style="font-size: 11px; color: #6b7280; margin-top: 2px;">📅 ${dataTransaksi.periode_lalu}</div>
+                                <div style="font-size: 10px; color: #6b7280; text-transform: uppercase; letter-spacing: 0.5px; font-weight: 600;">Periode Lalu</div>
+                                <div style="font-weight: 700; font-size: 24px; color: #1f2937; margin-top: 4px;">${(dataTransaksi.transaksi_lalu || 0).toLocaleString()}</div>
+                                <div style="font-size: 12px; color: #6b7280; margin-top: 2px;">📅 ${dataTransaksi.periode_lalu}</div>
                             </div>
                             <div style="background: #f1f5f9; border-radius: 10px; padding: 12px; border-left: 3px solid #4f46e5;">
-                                <div style="font-size: 10px; color: #6b7280; text-transform: uppercase; letter-spacing: 0.5px;">Periode Ini</div>
-                                <div style="font-weight: 700; font-size: 20px; color: #1f2937; margin-top: 4px;">${(dataTransaksi.transaksi_ini || 0).toLocaleString()}</div>
-                                <div style="font-size: 11px; color: #6b7280; margin-top: 2px;">📅 ${dataTransaksi.periode_ini}</div>
+                                <div style="font-size: 10px; color: #6b7280; text-transform: uppercase; letter-spacing: 0.5px; font-weight: 600;">Periode Ini</div>
+                                <div style="font-weight: 700; font-size: 24px; color: #1f2937; margin-top: 4px;">${(dataTransaksi.transaksi_ini || 0).toLocaleString()}</div>
+                                <div style="font-size: 12px; color: #6b7280; margin-top: 2px;">📅 ${dataTransaksi.periode_ini}</div>
                             </div>
                         </div>
-                        <div style="margin-top: 12px; text-align: center; font-size: 13px; color: #6b7280;">
-                            Selisih: <strong style="color: ${dataTransaksi.progres_jenis === 'naik' ? '#10b981' : dataTransaksi.progres_jenis === 'turun' ? '#ef4444' : '#f59e0b'};">
-                                ${dataTransaksi.progres_jenis === 'naik' ? '+' : dataTransaksi.progres_jenis === 'turun' ? '-' : ''}${Math.abs(dataTransaksi.progres_jumlah || 0).toLocaleString()}
-                            </strong>
-                            <span style="font-size: 11px; margin-left: 8px; background: ${dataTransaksi.progres_jenis === 'naik' ? '#d1fae5' : dataTransaksi.progres_jenis === 'turun' ? '#fee2e2' : '#fef3c7'}; padding: 2px 10px; border-radius: 20px;">
-                                ${dataTransaksi.progres_jenis === 'naik' ? '📈 Naik' : dataTransaksi.progres_jenis === 'turun' ? '📉 Turun' : '⚖️ Normal'}
-                            </span>
-                        </div>
-                        <div style="margin-top: 8px; font-size: 11px; color: #6b7280; text-align: center;">
-                            Status: ${dataTransaksi.status === 'imported' ? '✅ Sudah Dipindah' : '⏳ Pending'}
+                        <div style="margin-top: 12px; text-align: center; font-size: 14px; color: #6b7280; padding-top: 12px; border-top: 1px solid #e5e7eb;">
+                            Selisih: <strong style="color: ${dataTransaksi.jenis_color}; font-size: 16px;">${dataTransaksi.display_value}</strong>
                         </div>
                     </div>
                 ` : ''}
                 
-                <!-- INFO UTAMA -->
-                <div style="background: #f9fafb; border-radius: 14px; padding: 16px; margin-top: 12px;">
+                <!-- DATA LAINNYA (BAWAH) -->
+                <div style="margin-top: 12px;">
+                    <!-- Followup Data -->
+                    ${customer.followup_data ? `
+                        <div class="detail-section" style="margin-bottom: 12px;">
+                            <div class="section-title" style="font-weight: 600; font-size: 13px; color: #1f2937; margin-bottom: 8px;">✅ Follow Up</div>
+                            <div class="info-row"><span class="label">Terkirim</span><span class="value">${customer.followup_data.terkirim ? '✅ Ya' : '❌ Tidak'}</span></div>
+                            <div class="info-row"><span class="label">Dibalas</span><span class="value">${customer.followup_data.dibalas ? '✅ Ya' : '❌ Tidak'}</span></div>
+                            <div class="info-row"><span class="label">Pesan</span><span class="value" style="font-size: 12px;">${escapeHtml(customer.followup_data.pesan || '-')}</span></div>
+                            <div class="info-row" style="border-bottom: none;"><span class="label">Balasan</span><span class="value" style="font-size: 12px;">${escapeHtml(customer.followup_data.balasan || '-')}</span></div>
+                        </div>
+                    ` : ''}
+                    
+                    <!-- Followup History -->
+                    ${followupHistoryHtml}
+                    
+                    <!-- Pending -->
+                    ${pendingHtml}
+                    
+                    <!-- Deadline -->
+                    <div class="info-row" style="border-bottom: none; padding-top: 8px;">
+                        <span class="label">📅 Deadline</span>
+                        <span class="value">${customer.tanggal || '-'} <button class="edit-deadline-btn" onclick="openEditDeadlineModal('${id}','customer','${customer.tanggal || ''}')" style="background: #f59e0b; color: white; border: none; border-radius: 6px; padding: 2px 8px; font-size: 11px; cursor: pointer;">✏️ Edit</button></span>
+                    </div>
+                    
                     ${ownerInfo}
-                    <div class="detail-info-item"><strong>📱 Nomor WA:</strong> ${escapeHtml(customer.hp)}</div>
-                    <div class="detail-info-item"><strong>📱 Aplikasi:</strong> ${escapeHtml(customer.apk || '-')}</div>
-                    <div class="detail-info-item"><strong>👤 Upline:</strong> ${escapeHtml(customer.upline_name || '-')}</div>
-                    <div class="detail-info-item"><strong>📞 No. Upline:</strong> ${escapeHtml(customer.upline_phone || '-')}</div>
-                    <div class="detail-info-item"><strong>📅 Deadline:</strong> ${customer.tanggal || '-'} <button class="edit-deadline-btn" onclick="openEditDeadlineModal('${id}','customer','${customer.tanggal || ''}')" style="background: #f59e0b; color: white; border: none; border-radius: 6px; padding: 2px 8px; font-size: 11px; cursor: pointer;">✏️ Edit</button></div>
-                    <div class="detail-info-item"><strong>🎯 Total Transaksi Tercapai:</strong> <span style="color: ${totalTercapai >= 0 ? '#10b981' : '#ef4444'}; font-weight: 700;">${totalTercapai > 0 ? '+' : ''}${totalTercapai.toLocaleString()} Transaksi</span></div>
-                    ${followupInfo}
-                    ${pendingInfo}
                 </div>
-                
-                <!-- ACTION BUTTONS -->
-                <div class="detail-actions" style="display: flex; gap: 8px; margin-top: 16px; flex-wrap: wrap;">
-                    <button class="btn-success" onclick="openWA('${customer.hp}')" style="flex: 1; padding: 10px; border: none; border-radius: 12px; font-weight: 600; cursor: pointer; background: #25D366; color: white;">💬 WhatsApp</button>
-                    ${customer.status === 'baru' ? `<button class="btn-primary" onclick="updateCustomerStatus('${id}', 'followup')" style="flex: 1; padding: 10px; border: none; border-radius: 12px; font-weight: 600; cursor: pointer; background: #4f46e5; color: white;">📞 Lanjut Follow Up</button>` : ''}
-                    ${customer.status === 'followup' ? `<button class="btn-primary" onclick="openFollowupConfirm('${id}')" style="flex: 1; padding: 10px; border: none; border-radius: 12px; font-weight: 600; cursor: pointer; background: #4f46e5; color: white;">✅ Konfirmasi Follow Up</button>` : ''}
-                    ${customer.status === 'pending' ? `<button class="btn-primary" onclick="openPendingModal('${id}')" style="flex: 1; padding: 10px; border: none; border-radius: 12px; font-weight: 600; cursor: pointer; background: #4f46e5; color: white;">📝 Kelola Pending</button>` : ''}
-                    ${customer.status === 'closing' ? `<button class="btn-primary" onclick="confirmClosingToDB('${id}')" style="flex: 1; padding: 10px; border: none; border-radius: 12px; font-weight: 600; cursor: pointer; background: #8b5cf6; color: white;">📁 Pindah ke DB Closing</button>` : ''}
+            </div>
+            
+            <!-- ACTION BUTTONS -->
+            <div style="padding: 0 24px 16px;">
+                <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 8px;">
+                    <button class="btn-success" onclick="openWA('${customer.hp}')" style="padding: 10px; border: none; border-radius: 12px; font-weight: 600; cursor: pointer; background: #25D366; color: white;">💬 WhatsApp</button>
+                    ${customer.status === 'baru' ? `<button class="btn-primary" onclick="updateCustomerStatus('${id}', 'followup')" style="padding: 10px; border: none; border-radius: 12px; font-weight: 600; cursor: pointer; background: #4f46e5; color: white;">📞 Lanjut Follow Up</button>` : ''}
+                    ${customer.status === 'followup' ? `<button class="btn-primary" onclick="openFollowupConfirm('${id}')" style="padding: 10px; border: none; border-radius: 12px; font-weight: 600; cursor: pointer; background: #4f46e5; color: white;">✅ Konfirmasi Follow Up</button>` : ''}
+                    ${customer.status === 'pending' ? `<button class="btn-primary" onclick="openPendingModal('${id}')" style="padding: 10px; border: none; border-radius: 12px; font-weight: 600; cursor: pointer; background: #4f46e5; color: white;">📝 Kelola Pending</button>` : ''}
+                    ${customer.status === 'closing' ? `<button class="btn-primary" onclick="confirmClosingToDB('${id}')" style="padding: 10px; border: none; border-radius: 12px; font-weight: 600; cursor: pointer; background: #8b5cf6; color: white;">📁 Pindah ke DB Closing</button>` : ''}
                 </div>
             </div>
             
