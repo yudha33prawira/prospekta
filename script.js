@@ -956,6 +956,7 @@ function fixModalScrollbar(modalElement) {
     `;
     content.appendChild(style);
 }
+}
 
 // ===== PERBAIKAN: Fungsi update sidebar body class =====
 function updateSidebarBodyClass() {
