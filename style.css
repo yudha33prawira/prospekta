@@ -5530,3 +5530,266 @@ body.dark-mode .popup-footer {
         max-width: 95% !important;
     }
 }
+
+/* ================================================================ */
+/* ========== SCROLLBAR MODERN ========== */
+/* ================================================================ */
+
+/* ===== GLOBAL SCROLLBAR ===== */
+* {
+    scrollbar-width: thin;
+    scrollbar-color: transparent transparent;
+}
+
+*::-webkit-scrollbar {
+    width: 4px;
+    height: 4px;
+}
+
+*::-webkit-scrollbar-track {
+    background: transparent;
+    border-radius: 0;
+}
+
+*::-webkit-scrollbar-thumb {
+    background: transparent;
+    border-radius: 0;
+    transition: background 0.3s ease;
+}
+
+/* ===== SCROLLBAR SAAT DI-HOVER ===== */
+*:hover::-webkit-scrollbar-thumb {
+    background: rgba(79, 70, 229, 0.4);
+}
+
+*::-webkit-scrollbar-thumb:hover {
+    background: rgba(79, 70, 229, 0.7);
+}
+
+/* ===== SCROLLBAR UNTUK CONTENT AREA ===== */
+.content-area {
+    overflow-y: auto;
+    height: 100%;
+    scrollbar-width: thin;
+    scrollbar-color: transparent transparent;
+    padding-right: 0 !important;
+    margin-right: 0 !important;
+}
+
+.content-area::-webkit-scrollbar {
+    width: 4px;
+}
+
+.content-area::-webkit-scrollbar-track {
+    background: transparent;
+}
+
+.content-area::-webkit-scrollbar-thumb {
+    background: transparent;
+    border-radius: 0;
+    transition: background 0.3s ease;
+}
+
+.content-area:hover::-webkit-scrollbar-thumb {
+    background: rgba(79, 70, 229, 0.3);
+}
+
+.content-area::-webkit-scrollbar-thumb:hover {
+    background: rgba(79, 70, 229, 0.6);
+}
+
+/* ===== SCROLLBAR UNTUK MODAL ===== */
+.modal-content {
+    overflow-y: auto;
+    scrollbar-width: thin;
+    scrollbar-color: transparent transparent;
+    padding-right: 0 !important;
+    margin-right: 0 !important;
+}
+
+.modal-content::-webkit-scrollbar {
+    width: 4px;
+}
+
+.modal-content::-webkit-scrollbar-track {
+    background: transparent;
+}
+
+.modal-content::-webkit-scrollbar-thumb {
+    background: transparent;
+    border-radius: 0;
+    transition: background 0.3s ease;
+}
+
+.modal-content:hover::-webkit-scrollbar-thumb {
+    background: rgba(79, 70, 229, 0.3);
+}
+
+.modal-content::-webkit-scrollbar-thumb:hover {
+    background: rgba(79, 70, 229, 0.6);
+}
+
+/* ===== SCROLLBAR UNTUK DB LIST ===== */
+.db-list {
+    overflow-y: auto;
+    scrollbar-width: thin;
+    scrollbar-color: transparent transparent;
+    padding-right: 0 !important;
+    margin-right: 0 !important;
+}
+
+.db-list::-webkit-scrollbar {
+    width: 4px;
+}
+
+.db-list::-webkit-scrollbar-track {
+    background: transparent;
+}
+
+.db-list::-webkit-scrollbar-thumb {
+    background: transparent;
+    border-radius: 0;
+    transition: background 0.3s ease;
+}
+
+.db-list:hover::-webkit-scrollbar-thumb {
+    background: rgba(79, 70, 229, 0.3);
+}
+
+.db-list::-webkit-scrollbar-thumb:hover {
+    background: rgba(79, 70, 229, 0.6);
+}
+
+/* ===== SCROLLBAR UNTUK KANBAN ===== */
+.kanban-cards {
+    overflow-y: auto;
+    scrollbar-width: thin;
+    scrollbar-color: transparent transparent;
+    padding-right: 2px !important;
+    margin-right: 0 !important;
+}
+
+.kanban-cards::-webkit-scrollbar {
+    width: 3px;
+}
+
+.kanban-cards::-webkit-scrollbar-track {
+    background: transparent;
+}
+
+.kanban-cards::-webkit-scrollbar-thumb {
+    background: transparent;
+    border-radius: 0;
+    transition: background 0.3s ease;
+}
+
+.kanban-cards:hover::-webkit-scrollbar-thumb {
+    background: rgba(79, 70, 229, 0.25);
+}
+
+.kanban-cards::-webkit-scrollbar-thumb:hover {
+    background: rgba(79, 70, 229, 0.5);
+}
+
+/* ===== SCROLLBAR UNTUK SIDEBAR ===== */
+.sidebar {
+    overflow-y: auto;
+    scrollbar-width: thin;
+    scrollbar-color: transparent transparent;
+}
+
+.sidebar::-webkit-scrollbar {
+    width: 3px;
+}
+
+.sidebar::-webkit-scrollbar-track {
+    background: transparent;
+}
+
+.sidebar::-webkit-scrollbar-thumb {
+    background: transparent;
+    border-radius: 0;
+    transition: background 0.3s ease;
+}
+
+.sidebar:hover::-webkit-scrollbar-thumb {
+    background: rgba(79, 70, 229, 0.25);
+}
+
+.sidebar::-webkit-scrollbar-thumb:hover {
+    background: rgba(79, 70, 229, 0.5);
+}
+
+/* ================================================================ */
+/* ========== DARK MODE SCROLLBAR ========== */
+/* ================================================================ */
+
+body.dark-mode *:hover::-webkit-scrollbar-thumb {
+    background: rgba(99, 102, 241, 0.4);
+}
+
+body.dark-mode *::-webkit-scrollbar-thumb:hover {
+    background: rgba(99, 102, 241, 0.7);
+}
+
+body.dark-mode .content-area:hover::-webkit-scrollbar-thumb {
+    background: rgba(99, 102, 241, 0.3);
+}
+
+body.dark-mode .modal-content:hover::-webkit-scrollbar-thumb {
+    background: rgba(99, 102, 241, 0.3);
+}
+
+body.dark-mode .db-list:hover::-webkit-scrollbar-thumb {
+    background: rgba(99, 102, 241, 0.3);
+}
+
+body.dark-mode .kanban-cards:hover::-webkit-scrollbar-thumb {
+    background: rgba(99, 102, 241, 0.25);
+}
+
+body.dark-mode .sidebar:hover::-webkit-scrollbar-thumb {
+    background: rgba(99, 102, 241, 0.25);
+}
+
+/* ================================================================ */
+/* ========== HIDE SCROLLBAR SAAT TIDAK DIGUNAKAN ========== */
+/* ================================================================ */
+
+/* Sembunyikan scrollbar sepenuhnya saat tidak di-hover */
+.content-area:not(:hover)::-webkit-scrollbar-thumb,
+.modal-content:not(:hover)::-webkit-scrollbar-thumb,
+.db-list:not(:hover)::-webkit-scrollbar-thumb,
+.kanban-cards:not(:hover)::-webkit-scrollbar-thumb,
+.sidebar:not(:hover)::-webkit-scrollbar-thumb {
+    background: transparent !important;
+}
+
+/* ================================================================ */
+/* ========== FIREFOX SCROLLBAR ========== */
+/* ================================================================ */
+
+.content-area,
+.modal-content,
+.db-list,
+.kanban-cards,
+.sidebar {
+    scrollbar-width: thin;
+    scrollbar-color: transparent transparent;
+}
+
+.content-area:hover,
+.modal-content:hover,
+.db-list:hover,
+.kanban-cards:hover,
+.sidebar:hover {
+    scrollbar-color: rgba(79, 70, 229, 0.3) transparent;
+}
+
+body.dark-mode .content-area:hover,
+body.dark-mode .modal-content:hover,
+body.dark-mode .db-list:hover,
+body.dark-mode .kanban-cards:hover,
+body.dark-mode .sidebar:hover {
+    scrollbar-color: rgba(99, 102, 241, 0.3) transparent;
+}
