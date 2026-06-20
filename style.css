@@ -5179,3 +5179,45 @@ body.dark-mode #riwayatTransaksiModal .modal-content h3 {
 body.dark-mode #riwayatTransaksiModal .modal-subtitle {
     color: #94a3b8 !important;
 }
+
+/* ================================================================ */
+/* ========== DETAIL INFO ITEM ========== */
+/* ================================================================ */
+
+.detail-info-item {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+    padding: 8px 0;
+    border-bottom: 1px solid #f0f0f0;
+}
+
+.detail-info-item:last-child {
+    border-bottom: none;
+}
+
+.detail-info-item strong {
+    font-size: 12px;
+    color: #6b7280;
+    font-weight: 600;
+}
+
+.detail-info-item span {
+    font-size: 14px;
+    color: #1f2937;
+    font-weight: 500;
+    word-break: break-word;
+}
+
+/* Dark mode */
+body.dark-mode .detail-info-item {
+    border-bottom-color: #334155;
+}
+
+body.dark-mode .detail-info-item strong {
+    color: #94a3b8;
+}
+
+body.dark-mode .detail-info-item span {
+    color: #f1f5f9;
+}
