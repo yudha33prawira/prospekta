@@ -905,59 +905,6 @@ function initSidebarHover() {
         }
     }
 
-// ========== FIX SCROLLBAR MODAL ==========
-function fixModalScrollbar(modalElement) {
-    if (!modalElement) return;
-    
-    const content = modalElement.querySelector('.modal-content');
-    if (!content) return;
-    
-    // Pastikan padding kanan 0
-    content.style.paddingRight = '0 !important';
-    content.style.marginRight = '0 !important';
-    content.style.overflowY = 'auto !important';
-    content.style.overflowX = 'hidden !important';
-    
-    // Reset semua child div
-    const allDivs = content.querySelectorAll('div');
-    allDivs.forEach(div => {
-        // Skip header dan footer
-        if (div.closest('.popup-header') || 
-            div.closest('.detail-header') || 
-            div.closest('.modal-header') ||
-            div.closest('.popup-footer') || 
-            div.closest('.detail-footer') || 
-            div.closest('.modal-buttons') ||
-            div.closest('.preview-photo-header')) {
-            return;
-        }
-        
-        // Reset padding kanan
-        div.style.paddingRight = '0 !important';
-        div.style.marginRight = '0 !important';
-    });
-    
-    // Tambahkan style untuk scrollbar
-    const style = document.createElement('style');
-    style.textContent = `
-        .modal-content::-webkit-scrollbar {
-            width: 4px !important;
-        }
-        .modal-content::-webkit-scrollbar-track {
-            background: transparent !important;
-        }
-        .modal-content::-webkit-scrollbar-thumb {
-            background: rgba(79, 70, 229, 0.3) !important;
-            border-radius: 0 !important;
-        }
-        .modal-content::-webkit-scrollbar-thumb:hover {
-            background: rgba(79, 70, 229, 0.6) !important;
-        }
-    `;
-    content.appendChild(style);
-}
-}
-
 // ===== PERBAIKAN: Fungsi update sidebar body class =====
 function updateSidebarBodyClass() {
     const sidebar = document.getElementById('sidebar');
