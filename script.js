@@ -1704,7 +1704,11 @@ async function openDetailCustomer(id) {
         </div>`;
     }
     
-    // ===== BUILD HTML =====
+    // ===== HITUNG JUMLAH FOLLOWUP =====
+    const followupHistory = customer.followup_history || [];
+    const totalFollowup = followupHistory.length;
+    
+    // ===== BUILD HTML SEPERTI DB TRANSAKSI =====
     const modalHtml = `
         <div class="modal-content" style="max-width: 550px; max-height: 85vh; overflow-y: auto; background: #fff; border-radius: 24px; position: relative;">
             <!-- HEADER -->
@@ -1715,18 +1719,10 @@ async function openDetailCustomer(id) {
                         <span class="status-badge ${statusClass}">${statusText}</span>
                         ${customer.agent_id ? `<span style="font-size: 12px; color: #6b7280; background: #f3f4f6; padding: 2px 12px; border-radius: 20px;">🆔 ${escapeHtml(customer.agent_id)}</span>` : ''}
                         ${dataTransaksi ? `<span style="font-size: 12px; padding: 2px 12px; border-radius: 20px; background: #d1fae5; color: #065f46;">📊 Dari DB Transaksi</span>` : ''}
+                        ${totalFollowup > 0 ? `<span style="font-size: 12px; padding: 2px 12px; border-radius: 20px; background: #eef2ff; color: #4f46e5;">📞 ${totalFollowup}x Followup</span>` : ''}
                     </div>
                 </div>
-                <button onclick="closeModal('detailModal')" style="
-                    background: none;
-                    border: none;
-                    font-size: 28px;
-                    cursor: pointer;
-                    color: #6b7280;
-                    padding: 0 4px;
-                    transition: all 0.2s;
-                    line-height: 1;
-                " onmouseover="this.style.color='#ef4444'" onmouseout="this.style.color='#6b7280'">✕</button>
+                <button onclick="closeModal('detailModal')" style="background: none; border: none; font-size: 28px; cursor: pointer; color: #6b7280; padding: 0 4px; line-height: 1; transition: all 0.2s;" onmouseover="this.style.color='#ef4444'" onmouseout="this.style.color='#6b7280'">✕</button>
             </div>
             
             <div style="padding: 0 24px 20px;">
@@ -8244,6 +8240,7 @@ function openDBDetailModal(id, type) {
                 ${pendingInfo}
             `;
         }
+    
         else if (type === 'tidak') {
             // Dihubungi Info untuk Tidak Tertarik
             if (d.dihubungi_data) {
