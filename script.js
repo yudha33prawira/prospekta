@@ -8305,9 +8305,129 @@ async function updatePesanBadge() {
     }
 }
 
+// ========== CHECK AUTH & START ==========
+async function checkAuth() {
+    showLoading('Memeriksa autentikasi...', true);
+    
+    const { data: { session } } = await window.db.auth.getSession();
+    
+    if (session) {
+        currentUser = session.user;
+        updateLoadingStep(0);
+        
+        await withLoading(loadUserProfile(), 1);
+        updateLoadingStep(2);
+        
+        await withLoading(loadCustomers(), 3);
+        updateLoadingStep(4);
+        
+        await withLoading(loadProspek(), 5);
+        updateLoadingStep(6);
+        
+        await withLoading(loadDatabaseAgent(), 7);
+        updateLoadingStep(8);
+        
+        await withLoading(loadProduk(), 9);
+        updateLoadingStep(10);
+        
+        await withLoading(loadDbTransaksi(), 10);
+        updateLoadingStep(11);
+        
+        await withLoading(loadDBClosing(), 13);
+        updateLoadingStep(14);
+        
+        await withLoading(loadDBTidak(), 15);
+        updateLoadingStep(16);
+        
+        await withLoading(loadDBNomorSalah(), 17);
+        updateLoadingStep(18);
+        
+        await withLoading(loadDBCommitment(), 19);
+        updateLoadingStep(20);
+        
+        await withLoading(loadReminders(), 21);
+        updateLoadingStep(22);
+        
+        await withLoading(loadMessages(), 23);
+        updateLoadingStep(24);
+        
+        await withLoading(loadUsersList(), 25);
+        updateLoadingStep(26);
+        
+        await withLoading(loadTarifAdmin(), 27);
+        updateLoadingStep(28);
+        
+        await withLoading(loadTargetData(), 29);
+        updateLoadingStep(30);
+        
+        await withLoading(loadTransaksiGlobal(), 31);
+        
+        // Set owner menu visibility
+        if (currentUserRole === 'owner') {
+            document.getElementById('ownerMenu').style.display = 'block';
+            document.getElementById('menuDbAgent').style.display = 'flex';
+            document.getElementById('menuDbTransaksi').style.display = 'flex';
+            document.getElementById('menuImport').style.display = 'flex';
+        } else {
+            document.getElementById('ownerMenu').style.display = 'none';
+            document.getElementById('menuDbAgent').style.display = 'none';
+            document.getElementById('menuDbTransaksi').style.display = 'none';
+            document.getElementById('menuImport').style.display = 'none';
+        }
+        
+        initFullModeSelection();
+        navigateTo('dashboard');
+        
+        // ===== PERBAIKAN: Inisialisasi notifikasi setelah data load =====
+        setTimeout(function() {
+            initBadges();
+            initDarkMode();
+            initDarkModeObserver();
+            
+            // Inisialisasi deadline notification
+            var deadlineBtn = document.getElementById('deadlineNotifBtn');
+            if (deadlineBtn) {
+                var newDeadlineBtn = deadlineBtn.cloneNode(true);
+                deadlineBtn.parentNode.replaceChild(newDeadlineBtn, deadlineBtn);
+                var freshBtn = document.getElementById('deadlineNotifBtn');
+                if (freshBtn) {
+                    freshBtn.addEventListener('click', function(e) {
+                        e.preventDefault();
+                        e.stopPropagation();
+                        showDeadlinePopup();
+                    });
+                }
+            }
+            
+            // Inisialisasi pesan notification
+            var pesanBtn = document.getElementById('pesanNotifBtn');
+            if (pesanBtn) {
+                var newPesanBtn = pesanBtn.cloneNode(true);
+                pesanBtn.parentNode.replaceChild(newPesanBtn, pesanBtn);
+                var freshPesanBtn = document.getElementById('pesanNotifBtn');
+                if (freshPesanBtn) {
+                    freshPesanBtn.addEventListener('click', function(e) {
+                        e.preventDefault();
+                        e.stopPropagation();
+                        navigateTo('pesan');
+                    });
+                }
+            }
+        }, 100);
+        
+        setTimeout(function() {
+            hideLoading();
+        }, 500);
+        
+    } else {
+        hideLoading();
+        document.getElementById('loginPage').style.display = 'flex';
+        document.getElementById('app').style.display = 'none';
+    }
+}
+
 // ========== DOM READY ==========
 document.addEventListener('DOMContentLoaded', function() {
-    
     // ===== INISIALISASI EVENT LISTENERS =====
     initEventListeners();
     
