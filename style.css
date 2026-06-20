@@ -5576,3 +5576,88 @@ body::-webkit-scrollbar {
 .content-area::-webkit-scrollbar {
     display: none !important;
 }
+
+/* ================================================================ */
+/* ========== FIX DOUBLE PADDING DI MODAL ========== */
+/* ================================================================ */
+
+/* Reset padding di modal content */
+.modal-content {
+    padding: 0 !important;
+    margin: 0 !important;
+    overflow-y: auto;
+    scrollbar-width: none !important;
+    -ms-overflow-style: none !important;
+}
+
+.modal-content::-webkit-scrollbar {
+    display: none !important;
+    width: 0 !important;
+    height: 0 !important;
+}
+
+/* Khusus untuk detail popup */
+.modal-content.detail-popup,
+#detailContent .modal-content {
+    padding: 0 !important;
+    margin: 0 !important;
+}
+
+/* Header popup - tidak perlu padding berlebih */
+.popup-header {
+    padding: 16px 20px 0 !important;
+    margin: 0 !important;
+}
+
+/* Content popup */
+#detailContent > div {
+    padding: 0 !important;
+    margin: 0 !important;
+}
+
+/* Info grid di detail */
+.info-grid {
+    padding: 12px 16px !important;
+    margin: 0 16px !important;
+}
+
+/* Comparison box */
+.comparison-box {
+    padding: 12px 16px !important;
+    margin: 0 16px 12px !important;
+}
+
+/* Detail section */
+.detail-section {
+    padding: 10px 14px !important;
+    margin: 0 16px 10px !important;
+}
+
+/* Action buttons */
+.action-grid {
+    padding: 0 16px !important;
+    margin: 0 !important;
+}
+
+/* Footer popup */
+.popup-footer {
+    padding: 12px 20px 16px !important;
+    margin: 0 !important;
+}
+
+/* Modal buttons */
+.modal-buttons {
+    padding: 12px 20px 16px !important;
+    margin: 0 !important;
+}
+
+/* Form groups di modal */
+.form-group {
+    padding: 0 !important;
+    margin-bottom: 12px !important;
+}
+
+/* Padding untuk konten modal yang butuh padding */
+#detailContent .modal-content > div:not(.popup-header):not(.popup-footer) {
+    padding: 0 !important;
+}
