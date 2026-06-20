@@ -6063,6 +6063,7 @@ function toggleSelectAllTransaksi() {
 let isMovingSelected = false;
 
 async function moveSelectedToFollowup() {
+    // Cegah multiple click
     if (isMovingSelected) {
         showNotifTop('⏳ Proses pemindahan sedang berjalan...', true);
         return;
@@ -6079,7 +6080,13 @@ async function moveSelectedToFollowup() {
         return;
     }
     
-    if (!confirm(`Pindahkan ${selectedIds.length} data ke Followup Agen?`)) {
+    // ===== KONFIRMASI HANYA 1 KALI =====
+    const isConfirmed = confirm(`📋 Pindahkan ${selectedIds.length} data ke Followup Agen?`);
+    
+    // ===== JIKA BATAL, LANGSUNG KELUAR =====
+    if (!isConfirmed) {
+        console.log('❌ Pemindahan massal dibatalkan oleh user');
+        showNotifTop('❌ Pemindahan dibatalkan', true);
         return;
     }
     
@@ -6406,14 +6413,22 @@ async function deleteTransaksiItem(id) {
 }
 
 // ========== MOVE SINGLE TO FOLLOWUP ==========
+let isMovingSingle = false;
+
 async function moveSingleToFollowup(id) {
+    // Cegah multiple click
+    if (isMovingSingle) {
+        showNotifTop('⏳ Proses pemindahan sedang berjalan...', true);
+        return;
+    }
+    
     const item = transaksiData.find(t => t.id === id);
     if (!item) {
         showNotifTop('❌ Data tidak ditemukan!', true);
         return;
     }
     
-    // Cek apakah sudah ada di customers
+    // ===== CEK DUPLIKAT =====
     const { data: existing } = await window.db
         .from('customers')
         .select('id')
@@ -6425,9 +6440,18 @@ async function moveSingleToFollowup(id) {
         return;
     }
     
-    if (!confirm(`Pindahkan data "${escapeHtml(item.nama || item.agent_id)}" ke Followup Agen?`)) {
+    // ===== KONFIRMASI HANYA 1 KALI =====
+    const isConfirmed = confirm(`📋 Pindahkan data "${escapeHtml(item.nama || item.agent_id)}" ke Followup Agen?`);
+    
+    // ===== JIKA BATAL, LANGSUNG KELUAR =====
+    if (!isConfirmed) {
+        console.log('❌ Pemindahan dibatalkan oleh user');
+        showNotifTop('❌ Pemindahan dibatalkan', true);
         return;
     }
+    
+    // ===== PROSES PINDAH =====
+    isMovingSingle = true;
     
     try {
         // Insert ke customers
@@ -6446,6 +6470,7 @@ async function moveSingleToFollowup(id) {
         
         if (insertError) {
             showNotifTop('❌ Gagal pindah: ' + insertError.message, true);
+            isMovingSingle = false;
             return;
         }
         
@@ -6465,6 +6490,8 @@ async function moveSingleToFollowup(id) {
     } catch (err) {
         console.error('Error move to followup:', err);
         showNotifTop('❌ Gagal: ' + err.message, true);
+    } finally {
+        isMovingSingle = false;
     }
 }
 
@@ -10032,15 +10059,12 @@ function initEventListeners() {
     {
         const selectAllBtn = document.getElementById('selectAllTransaksi');
         if (selectAllBtn) {
-            // Hapus semua listener lama dengan clone
             const newSelectAll = selectAllBtn.cloneNode(true);
             selectAllBtn.parentNode.replaceChild(newSelectAll, selectAllBtn);
-            
-            // Pasang event listener baru
             document.getElementById('selectAllTransaksi')?.addEventListener('click', function(e) {
                 e.preventDefault();
                 e.stopPropagation();
-                console.log('Select All clicked!'); // Debug
+                console.log('Select All clicked!');
                 toggleSelectAllTransaksi();
             });
         }
@@ -10048,7 +10072,7 @@ function initEventListeners() {
     
     // ===== PERBAIKAN: HANYA 1 EVENT LISTENER UNTUK DELETE SELECTED =====
     {
-        const deleteSelectedBtn = document.getElementById('deleteSelectedTransaksi'); // ← ID yang benar!
+        const deleteSelectedBtn = document.getElementById('deleteSelectedTransaksi');
         if (deleteSelectedBtn) {
             const newDeleteSelected = deleteSelectedBtn.cloneNode(true);
             deleteSelectedBtn.parentNode.replaceChild(newDeleteSelected, deleteSelectedBtn);
@@ -10066,7 +10090,11 @@ function initEventListeners() {
         if (moveSelectedBtn) {
             const newMoveSelected = moveSelectedBtn.cloneNode(true);
             moveSelectedBtn.parentNode.replaceChild(newMoveSelected, moveSelectedBtn);
-            document.getElementById('moveSelectedToFollowupBtn')?.addEventListener('click', moveSelectedToFollowup);
+            document.getElementById('moveSelectedToFollowupBtn')?.addEventListener('click', function(e) {
+                e.preventDefault();
+                e.stopPropagation();
+                moveSelectedToFollowup();
+            });
         }
     }
     
@@ -10094,7 +10122,6 @@ function initEventListeners() {
     // Add customer
     document.getElementById('addCustomerBtn')?.addEventListener('click', () => {
         document.getElementById('customerDate').value = getTodayDate();
-        // Reset form
         document.getElementById('customerId').value = '';
         document.getElementById('customerName').value = '';
         document.getElementById('customerPhone').value = '';
@@ -10114,7 +10141,6 @@ function initEventListeners() {
     });
     
     document.getElementById('saveCustomerBtn')?.addEventListener('click', async function(e) {
-        // ===== PERBAIKAN: Prevent multiple click =====
         if (this.disabled) {
             showNotifTop('⏳ Mohon tunggu, data sedang diproses...', true);
             return;
@@ -10174,7 +10200,6 @@ function initEventListeners() {
     });
     
     document.getElementById('saveProspekBtn')?.addEventListener('click', async function(e) {
-        // ===== PERBAIKAN: Prevent multiple click =====
         if (this.disabled) {
             showNotifTop('⏳ Mohon tunggu, data sedang diproses...', true);
             return;
@@ -10285,10 +10310,6 @@ function initEventListeners() {
         currentTransaksiId = null;
     });
     document.getElementById('cancelTransaksiBtn')?.addEventListener('click', () => closeModal('inputTransaksiModal'));
-    document.getElementById('viewTransaksiHistoryBtn')?.addEventListener('click', function() {
-        loadRiwayatTransaksi();
-        showModal('riwayatTransaksiModal');
-    });
     
     // Info modal
     document.getElementById('infoBtn')?.addEventListener('click', () => showModal('infoModal'));
@@ -10395,10 +10416,9 @@ function initEventListeners() {
 
     // ========== BROADCAST UPLINE ==========
     // Inisialisasi upline broadcast (akan dipanggil saat halaman broadcastUpline dibuka)
-    // Tombol dan event listener untuk upline broadcast akan diinisialisasi di initUplineBroadcast()
-
     
-    // Database buttons
+    // ===== DATABASE BUTTONS =====
+    // Select All buttons
     setupSelectAll('selectAllClosing', '#dbClosingList', selectedClosingIds);
     setupSelectAll('selectAllTidak', '#dbTidakList', selectedTidakIds);
     setupSelectAll('selectAllNomorSalah', '#dbNomorSalahList', selectedNomorSalahIds);
@@ -10406,31 +10426,90 @@ function initEventListeners() {
     setupSelectAll('selectAllAgent', '#dbAgentList', selectedAgentIds);
     setupSelectAll('selectAllProduk', '#produkList', selectedProdukIds);
     
-    document.getElementById('deleteSelectedClosing')?.addEventListener('click', () => deleteSelectedDBItems('db_closing', selectedClosingIds, loadDBClosing));
-    document.getElementById('deleteAllClosing')?.addEventListener('click', () => deleteAllDBItems('db_closing', loadDBClosing));
-    document.getElementById('deleteSelectedTidak')?.addEventListener('click', () => deleteSelectedDBItems('db_tidak_tertarik', selectedTidakIds, loadDBTidak));
-    document.getElementById('deleteAllTidak')?.addEventListener('click', () => deleteAllDBItems('db_tidak_tertarik', loadDBTidak));
-    document.getElementById('deleteSelectedNomorSalah')?.addEventListener('click', () => deleteSelectedDBItems('nomor_salah', selectedNomorSalahIds, loadDBNomorSalah));
-    document.getElementById('deleteAllNomorSalah')?.addEventListener('click', () => deleteAllDBItems('nomor_salah', loadDBNomorSalah));
-    document.getElementById('deleteSelectedCommitment')?.addEventListener('click', () => deleteSelectedDBItems('db_commitment', selectedCommitmentIds, loadDBCommitment));
-    document.getElementById('deleteAllCommitment')?.addEventListener('click', () => deleteAllDBItems('db_commitment', loadDBCommitment));
-    document.getElementById('deleteSelectedProduk')?.addEventListener('click', deleteSelectedProduk);
-    document.getElementById('deleteAllProduk')?.addEventListener('click', deleteAllProduk);
-    document.getElementById('deleteSelectedAgent')?.addEventListener('click', () => deleteSelectedDBItems('db_agent', selectedAgentIds, loadDatabaseAgent));
-    document.getElementById('deleteAllAgent')?.addEventListener('click', () => deleteAllDBItems('db_agent', loadDatabaseAgent));
-    document.getElementById('deleteSelectedTransaksi')?.addEventListener('click', () => deleteSelectedDBItems('db_transaksi', selectedTransaksiIds, loadDbTransaksi));
-    document.getElementById('deleteAllTransaksiBtn')?.addEventListener('click', () => deleteAllDBItems('db_transaksi', loadDbTransaksi));
-    document.getElementById('moveSelectedToFollowupBtn')?.addEventListener('click', async () => {
-        const selectedIds = Array.from(selectedTransaksiIds.keys());
-        if (selectedIds.length === 0) {
-            showNotifTop('⚠️ Tidak ada data yang dipilih!', true);
-            return;
-        }
-        for (const id of selectedIds) {
-            await moveSingleToFollowup(id);
-        }
-        showNotifTop(`✅ ${selectedIds.length} data dipindahkan ke Followup Agen`);
+    // ===== DELETE BUTTONS (HANYA 1 LISTENER MASING-MASING) =====
+    document.getElementById('deleteSelectedClosing')?.addEventListener('click', function(e) {
+        e.preventDefault();
+        e.stopPropagation();
+        deleteSelectedDBItems('db_closing', selectedClosingIds, loadDBClosing);
     });
+    document.getElementById('deleteAllClosing')?.addEventListener('click', function(e) {
+        e.preventDefault();
+        e.stopPropagation();
+        deleteAllDBItems('db_closing', loadDBClosing);
+    });
+    
+    document.getElementById('deleteSelectedTidak')?.addEventListener('click', function(e) {
+        e.preventDefault();
+        e.stopPropagation();
+        deleteSelectedDBItems('db_tidak_tertarik', selectedTidakIds, loadDBTidak);
+    });
+    document.getElementById('deleteAllTidak')?.addEventListener('click', function(e) {
+        e.preventDefault();
+        e.stopPropagation();
+        deleteAllDBItems('db_tidak_tertarik', loadDBTidak);
+    });
+    
+    document.getElementById('deleteSelectedNomorSalah')?.addEventListener('click', function(e) {
+        e.preventDefault();
+        e.stopPropagation();
+        deleteSelectedDBItems('nomor_salah', selectedNomorSalahIds, loadDBNomorSalah);
+    });
+    document.getElementById('deleteAllNomorSalah')?.addEventListener('click', function(e) {
+        e.preventDefault();
+        e.stopPropagation();
+        deleteAllDBItems('nomor_salah', loadDBNomorSalah);
+    });
+    
+    document.getElementById('deleteSelectedCommitment')?.addEventListener('click', function(e) {
+        e.preventDefault();
+        e.stopPropagation();
+        deleteSelectedDBItems('db_commitment', selectedCommitmentIds, loadDBCommitment);
+    });
+    document.getElementById('deleteAllCommitment')?.addEventListener('click', function(e) {
+        e.preventDefault();
+        e.stopPropagation();
+        deleteAllDBItems('db_commitment', loadDBCommitment);
+    });
+    
+    document.getElementById('deleteSelectedProduk')?.addEventListener('click', function(e) {
+        e.preventDefault();
+        e.stopPropagation();
+        deleteSelectedProduk();
+    });
+    document.getElementById('deleteAllProduk')?.addEventListener('click', function(e) {
+        e.preventDefault();
+        e.stopPropagation();
+        deleteAllProduk();
+    });
+    
+    document.getElementById('deleteSelectedAgent')?.addEventListener('click', function(e) {
+        e.preventDefault();
+        e.stopPropagation();
+        deleteSelectedDBItems('db_agent', selectedAgentIds, loadDatabaseAgent);
+    });
+    document.getElementById('deleteAllAgent')?.addEventListener('click', function(e) {
+        e.preventDefault();
+        e.stopPropagation();
+        deleteAllDBItems('db_agent', loadDatabaseAgent);
+    });
+    
+    // ===== TRANSAKSI BUTTONS =====
+    // Hapus Terpilih - menggunakan fungsi yang sudah diperbaiki
+    document.getElementById('deleteSelectedTransaksi')?.addEventListener('click', function(e) {
+        e.preventDefault();
+        e.stopPropagation();
+        deleteSelectedTransaksi();
+    });
+    
+    // Hapus Semua - DISEMBUNYIKAN (tidak digunakan)
+    const deleteAllTransaksiBtn = document.getElementById('deleteAllTransaksiBtn');
+    if (deleteAllTransaksiBtn) {
+        deleteAllTransaksiBtn.style.display = 'none';
+    }
+    
+    // Move Selected - sudah dihandle di atas, tapi kita tambahkan guard
+    // untuk mencegah duplikasi, kita HAPUS event listener yang duplikat
+    // dengan cara tidak memasang lagi di sini
     
     // Import
     setupImportExcel();
@@ -10579,208 +10658,3 @@ function initEventListeners() {
         }
     });
 }
-
-// ========== CHECK AUTH & START ==========
-async function checkAuth() {
-    showLoading('Memeriksa autentikasi...', true);
-    
-    const { data: { session } } = await window.db.auth.getSession();
-    
-    if (session) {
-        currentUser = session.user;
-        updateLoadingStep(0);
-        
-        await withLoading(loadUserProfile(), 1);
-        updateLoadingStep(2);
-        
-        await withLoading(loadCustomers(), 3);
-        updateLoadingStep(4);
-        
-        await withLoading(loadProspek(), 5);
-        updateLoadingStep(6);
-        
-        await withLoading(loadDatabaseAgent(), 7);
-        updateLoadingStep(8);
-        
-        await withLoading(loadProduk(), 9);
-        updateLoadingStep(10);
-        
-        await withLoading(loadDbTransaksi(), 10);
-        updateLoadingStep(11);
-        
-        await withLoading(loadDBClosing(), 13);
-        updateLoadingStep(14);
-        
-        await withLoading(loadDBTidak(), 15);
-        updateLoadingStep(16);
-        
-        await withLoading(loadDBNomorSalah(), 17);
-        updateLoadingStep(18);
-        
-        await withLoading(loadDBCommitment(), 19);
-        updateLoadingStep(20);
-        
-        await withLoading(loadReminders(), 21);
-        updateLoadingStep(22);
-        
-        await withLoading(loadMessages(), 23);
-        updateLoadingStep(24);
-        
-        await withLoading(loadUsersList(), 25);
-        updateLoadingStep(26);
-        
-        await withLoading(loadTarifAdmin(), 27);
-        updateLoadingStep(28);
-        
-        await withLoading(loadTargetData(), 29);
-        updateLoadingStep(30);
-        
-        await withLoading(loadTransaksiGlobal(), 31);
-        
-        // Set owner menu visibility
-        if (currentUserRole === 'owner') {
-            document.getElementById('ownerMenu').style.display = 'block';
-            document.getElementById('menuDbAgent').style.display = 'flex';
-            document.getElementById('menuDbTransaksi').style.display = 'flex';
-            document.getElementById('menuImport').style.display = 'flex';
-        } else {
-            document.getElementById('ownerMenu').style.display = 'none';
-            document.getElementById('menuDbAgent').style.display = 'none';
-            document.getElementById('menuDbTransaksi').style.display = 'none';
-            document.getElementById('menuImport').style.display = 'none';
-        }
-        
-        initFullModeSelection();
-        navigateTo('dashboard');
-        
-        // ===== PERBAIKAN: Inisialisasi notifikasi setelah data load =====
-        setTimeout(function() {
-            initBadges();
-            initDarkMode();
-            initDarkModeObserver();
-            
-            // Inisialisasi deadline notification
-            var deadlineBtn = document.getElementById('deadlineNotifBtn');
-            if (deadlineBtn) {
-                var newDeadlineBtn = deadlineBtn.cloneNode(true);
-                deadlineBtn.parentNode.replaceChild(newDeadlineBtn, deadlineBtn);
-                var freshBtn = document.getElementById('deadlineNotifBtn');
-                if (freshBtn) {
-                    freshBtn.addEventListener('click', function(e) {
-                        e.preventDefault();
-                        e.stopPropagation();
-                        showDeadlinePopup();
-                    });
-                }
-            }
-            
-            // Inisialisasi pesan notification
-            var pesanBtn = document.getElementById('pesanNotifBtn');
-            if (pesanBtn) {
-                var newPesanBtn = pesanBtn.cloneNode(true);
-                pesanBtn.parentNode.replaceChild(newPesanBtn, pesanBtn);
-                var freshPesanBtn = document.getElementById('pesanNotifBtn');
-                if (freshPesanBtn) {
-                    freshPesanBtn.addEventListener('click', function(e) {
-                        e.preventDefault();
-                        e.stopPropagation();
-                        navigateTo('pesan');
-                    });
-                }
-            }
-        }, 100);
-        
-        setTimeout(function() {
-            hideLoading();
-        }, 500);
-        
-    } else {
-        hideLoading();
-        document.getElementById('loginPage').style.display = 'flex';
-        document.getElementById('app').style.display = 'none';
-    }
-}
-
-// Login handler
-document.getElementById('loginBtn')?.addEventListener('click', async () => {
-    const email = document.getElementById('loginEmail').value;
-    const password = document.getElementById('loginPassword').value;
-    const errorDiv = document.getElementById('loginError');
-    
-    if (!email || !password) {
-        errorDiv.textContent = 'Email dan password harus diisi!';
-        return;
-    }
-    
-    errorDiv.textContent = '';
-    const btn = document.getElementById('loginBtn');
-    btn.textContent = 'Loading...';
-    btn.disabled = true;
-    
-    try {
-        await handleLogin(email, password);
-        await checkAuth();
-    } catch (err) {
-        errorDiv.textContent = 'Login gagal: ' + err.message;
-    } finally {
-        btn.textContent = 'Masuk';
-        btn.disabled = false;
-    }
-});
-
-// Auth state change listener
-window.db.auth.onAuthStateChange((event, session) => {
-    if (event === 'SIGNED_OUT') {
-        currentUser = null;
-        document.getElementById('loginPage').style.display = 'flex';
-        document.getElementById('app').style.display = 'none';
-    } else if (event === 'SIGNED_IN' && session) {
-        currentUser = session.user;
-        document.getElementById('loginPage').style.display = 'none';
-        document.getElementById('app').style.display = 'block';
-        loadUserProfile();
-        loadCustomers();
-        loadProspek();
-        navigateTo('dashboard');
-    }
-});
-
-// Make functions global for onclick
-window.openWA = openWA;
-window.openWAById = openWAById;
-window.updateCustomerStatus = updateCustomerStatus;
-window.updateProspekStatus = updateProspekStatus;
-window.deleteCustomer = deleteCustomer;
-window.deleteProspek = deleteProspek;
-window.deleteReminder = deleteReminder;
-window.deletePesan = deletePesan;
-window.deleteUser = deleteUser;
-window.deleteProduk = deleteProduk;
-window.deleteTransaksiItem = deleteTransaksiItem;
-window.deleteAgentItem = deleteAgentItem;
-window.deleteDBItem = deleteDBItem;
-window.moveAgentToFollowup = moveAgentToFollowup;
-window.moveSingleToFollowup = moveSingleToFollowup;
-window.editProduk = editProduk;
-window.editTarifAdmin = editTarifAdmin;
-window.clearTarifForm = clearTarifForm;
-window.openDetailCustomer = openDetailCustomer;
-window.openDetailProspek = openDetailProspek;
-window.openEditDeadlineModal = openEditDeadlineModal;
-window.openTambahProgres = openTambahProgres;
-window.openFollowupConfirm = openFollowupConfirm;
-window.openProspekNegosiasiModal = openProspekNegosiasiModal;
-window.openProspekDihubungiConfirm = openProspekDihubungiConfirm;
-window.openPendingModal = openPendingModal;
-window.showConvertToCustomerModal = showConvertToCustomerModal;
-window.closeModal = closeModal;
-window.formatPhone = formatPhone;
-window.formatAgentIdAuto = formatAgentIdAuto;
-window.formatNamaAuto = formatNamaAuto;
-window.formatPhoneAuto = formatPhoneAuto;
-window.saveTarifAdmin = saveTarifAdmin;
-window.loadTarifAdmin = loadTarifAdmin;
-
-// Start app
-initEventListeners();
-checkAuth();
