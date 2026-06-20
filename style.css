@@ -5530,32 +5530,3 @@ body.dark-mode .popup-footer {
         max-width: 95% !important;
     }
 }
-
-/* ================================================================ */
-/* ========== FIX SCROLLBAR PADDING ========== */
-/* ================================================================ */
-
-.kanban-cards {
-    max-height: 400px;
-    overflow-y: auto;
-    padding-right: 8px; /* Beri ruang untuk scrollbar */
-    margin-right: 0;
-    scrollbar-width: thin;
-    scrollbar-color: transparent transparent;
-}
-
-/* Pastikan konten di dalam kanban-cards tidak terpotong */
-.kanban-cards .card-item {
-    margin-right: 0;
-    padding-right: 8px;
-}
-
-/* Sembunyikan scrollbar saat tidak dihover */
-.kanban-cards:not(:hover)::-webkit-scrollbar-thumb {
-    background: transparent !important;
-}
-
-/* Scrollbar styling di dark mode */
-body.dark-mode .kanban-cards:hover::-webkit-scrollbar-thumb {
-    background: rgba(99, 102, 241, 0.25) !important;
-}
