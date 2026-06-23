@@ -8683,6 +8683,51 @@ async function updatePesanBadge() {
     }
 }
 
+// ========== AUTH STATE CHANGE LISTENER ==========
+function initAuthListener() {
+    window.db.auth.onAuthStateChange((event, session) => {
+        console.log('Auth state change:', event, session?.user?.email);
+        
+        if (event === 'SIGNED_IN' && session) {
+            currentUser = session.user;
+            document.getElementById('loginPage').style.display = 'none';
+            document.getElementById('app').style.display = 'block';
+            showNotifTop('✅ Login berhasil!');
+            
+            // Reload data
+            setTimeout(() => {
+                loadUserProfile();
+                loadCustomers();
+                loadProspek();
+                loadDatabaseAgent();
+                loadProduk();
+                loadDbTransaksi();
+                loadDBClosing();
+                loadDBTidak();
+                loadDBNomorSalah();
+                loadDBCommitment();
+                loadReminders();
+                loadMessages();
+                loadUsersList();
+                loadTarifAdmin();
+                loadTargetData();
+                loadTransaksiGlobal();
+                navigateTo('dashboard');
+            }, 500);
+            
+        } else if (event === 'SIGNED_OUT') {
+            currentUser = null;
+            document.getElementById('loginPage').style.display = 'flex';
+            document.getElementById('app').style.display = 'none';
+            showNotifTop('👋 Anda telah logout');
+        } else if (event === 'TOKEN_REFRESHED') {
+            console.log('Token refreshed successfully');
+        } else if (event === 'USER_UPDATED') {
+            console.log('User updated');
+        }
+    });
+}
+
 // ========== CHECK AUTH & START ==========
 async function checkAuth() {
     // Tampilkan loading
@@ -10701,51 +10746,6 @@ function initEventListeners() {
             });
         }
     }
-
-    // ========== AUTH STATE CHANGE LISTENER ==========
-function initAuthListener() {
-    window.db.auth.onAuthStateChange((event, session) => {
-        console.log('Auth state change:', event, session?.user?.email);
-        
-        if (event === 'SIGNED_IN' && session) {
-            currentUser = session.user;
-            document.getElementById('loginPage').style.display = 'none';
-            document.getElementById('app').style.display = 'block';
-            showNotifTop('✅ Login berhasil!');
-            
-            // Reload data
-            setTimeout(() => {
-                loadUserProfile();
-                loadCustomers();
-                loadProspek();
-                loadDatabaseAgent();
-                loadProduk();
-                loadDbTransaksi();
-                loadDBClosing();
-                loadDBTidak();
-                loadDBNomorSalah();
-                loadDBCommitment();
-                loadReminders();
-                loadMessages();
-                loadUsersList();
-                loadTarifAdmin();
-                loadTargetData();
-                loadTransaksiGlobal();
-                navigateTo('dashboard');
-            }, 500);
-            
-        } else if (event === 'SIGNED_OUT') {
-            currentUser = null;
-            document.getElementById('loginPage').style.display = 'flex';
-            document.getElementById('app').style.display = 'none';
-            showNotifTop('👋 Anda telah logout');
-        } else if (event === 'TOKEN_REFRESHED') {
-            console.log('Token refreshed successfully');
-        } else if (event === 'USER_UPDATED') {
-            console.log('User updated');
-        }
-    });
-}
     
     // ===== PERBAIKAN: HANYA 1 EVENT LISTENER UNTUK RIWAYAT =====
     {
