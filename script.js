@@ -8206,27 +8206,38 @@ async function processAllBroadcastActions() {
     await loadDBNomorSalah();
 }
 
-// ===== SHOW CONTINUE MODAL (UNTUK SATU PER SATU) =====
+// ================================================================
+// ========== SHOW CONTINUE MODAL (DENGAN PILIHAN STATUS) ==========
+// ================================================================
+
 function showContinueModal(item, current, total) {
     return new Promise((resolve) => {
         const modalHtml = `
-            <div class="modal-content" style="max-width: 400px;">
+            <div class="modal-content" style="max-width: 420px;">
                 <h3>📤 Lanjut Broadcast</h3>
                 <div class="modal-subtitle">${current} dari ${total}</div>
                 <div style="padding: 0 20px 20px;">
                     <div style="background: #eef2ff; padding: 12px; border-radius: 10px; margin-bottom: 16px;">
                         <p style="font-size: 13px; color: #4f46e5; margin: 0;">
-                            ✅ Pesan terkirim ke <strong>${escapeHtml(item.nama)}</strong>
+                            📤 Pesan dikirim ke <strong>${escapeHtml(item.nama)}</strong>
                         </p>
                         <p style="font-size: 11px; color: #6b7280; margin: 4px 0 0;">
                             📞 ${escapeHtml(item.hp)}
                         </p>
                     </div>
+                    <div style="background: #fef3c7; padding: 10px 14px; border-radius: 8px; margin-bottom: 16px; border-left: 3px solid #f59e0b;">
+                        <p style="font-size: 11px; color: #92400e; margin: 0;">
+                            ⚠️ <strong>Konfirmasi:</strong> Apakah pesan berhasil terkirim ke nomor di atas?
+                        </p>
+                    </div>
                     <div style="display: flex; flex-direction: column; gap: 10px;">
-                        <button id="continueNextBtn" class="btn-primary" style="width: 100%; padding: 12px; border-radius: 12px; border: none; cursor: pointer; font-weight: 600; background: #4f46e5; color: white;">
-                            📤 Kirim Berikutnya (${current + 1}/${total})
+                        <button id="continueSuccessBtn" class="btn-success" style="width: 100%; padding: 12px; border-radius: 12px; border: none; cursor: pointer; font-weight: 600; background: #10b981; color: white;">
+                            ✅ Berhasil Terkirim
                         </button>
-                        <button id="continueStopBtn" class="btn-danger" style="width: 100%; padding: 12px; border-radius: 12px; border: none; cursor: pointer; font-weight: 600; background: #ef4444; color: white;">
+                        <button id="continueFailedBtn" class="btn-danger" style="width: 100%; padding: 12px; border-radius: 12px; border: none; cursor: pointer; font-weight: 600; background: #ef4444; color: white;">
+                            ❌ Gagal Terkirim
+                        </button>
+                        <button id="continueStopBtn" class="btn-outline" style="width: 100%; padding: 12px; border-radius: 12px; border: none; cursor: pointer; font-weight: 600; background: #f3f4f6; color: #374151;">
                             ⏹️ Hentikan Broadcast
                         </button>
                     </div>
@@ -8236,18 +8247,23 @@ function showContinueModal(item, current, total) {
         
         const modal = createModalWithHighZIndex(modalHtml, () => {
             closeDynamicModal(modal);
-            resolve(false);
+            resolve({ status: 'stopped' });
         });
         
-        modal.querySelector('#continueNextBtn').onclick = () => {
+        modal.querySelector('#continueSuccessBtn').onclick = () => {
             closeDynamicModal(modal);
-            resolve(true);
+            resolve({ status: 'success' });
+        };
+        
+        modal.querySelector('#continueFailedBtn').onclick = () => {
+            closeDynamicModal(modal);
+            resolve({ status: 'failed' });
         };
         
         modal.querySelector('#continueStopBtn').onclick = () => {
             if (confirm('Hentikan broadcast? Data yang sudah terkirim akan tetap tersimpan di history.')) {
                 closeDynamicModal(modal);
-                resolve(false);
+                resolve({ status: 'stopped' });
             }
         };
     });
@@ -8828,16 +8844,32 @@ async function sendBroadcast() {
     const progress = showFloatingProgress('📢 Broadcast', currentNumbers.length);
     let success = 0;
     let failed = 0;
+    let stopped = false;
     
     for (let i = 0; i < currentNumbers.length; i++) {
         const item = currentNumbers[i];
         const message = messageTemplate.replace(/{nama}/g, item.nama || 'Customer');
         const nomor = item.hp.toString().replace('+', '').replace(/^0/, '62').replace(/[^\d]/g, '');
         
-        try {
-            window.open('https://wa.me/' + nomor + '?text=' + encodeURIComponent(message), '_blank');
+        // Buka WhatsApp
+        window.open('https://wa.me/' + nomor + '?text=' + encodeURIComponent(message), '_blank');
+        
+        // ===== TUNGGU KONFIRMASI DARI USER =====
+        let confirmResult;
+        if (sendOneByOne) {
+            confirmResult = await showContinueModal(item, i + 1, currentNumbers.length);
+        } else {
+            // Jika tidak satu per satu, anggap sukses otomatis
+            confirmResult = { status: 'success' };
+        }
+        
+        // ===== PROSES HASIL KONFIRMASI =====
+        if (confirmResult.status === 'stopped') {
+            stopped = true;
+            showNotifTop('⏸️ Broadcast dihentikan oleh user');
+            break;
+        } else if (confirmResult.status === 'success') {
             success++;
-            
             broadcastHistory.push({
                 id: item.id,
                 nama: item.nama || 'Customer',
@@ -8848,22 +8880,8 @@ async function sendBroadcast() {
                 status_awal: item.status,
                 processed: false
             });
-            
-            const percent = Math.floor(((i + 1) / currentNumbers.length) * 100);
-            progress.update(percent, '📢 Mengirim', `Mengirim ke ${item.nama} (${i + 1}/${currentNumbers.length})...`, i + 1, currentNumbers.length);
-            
-            if (sendOneByOne) {
-                const shouldContinue = await showContinueModal(item, i + 1, currentNumbers.length);
-                if (!shouldContinue) {
-                    showNotifTop('⏸️ Broadcast dihentikan oleh user');
-                    break;
-                }
-            }
-            
-        } catch (e) {
-            console.error(`Gagal kirim ke ${item.nama}:`, e);
+        } else if (confirmResult.status === 'failed') {
             failed++;
-            
             broadcastHistory.push({
                 id: item.id,
                 nama: item.nama || 'Customer',
@@ -8872,13 +8890,20 @@ async function sendBroadcast() {
                 timestamp: new Date().toISOString(),
                 source: item.source,
                 status_awal: item.status,
-                processed: true
+                processed: true // Gagal otomatis diproses
             });
             
+            // Pindahkan ke DB Nomor Salah jika gagal
             if (item.id) {
                 await moveToNomorSalah(item.id, item.source === 'prospek' ? 'prospek' : 'customer', 'Gagal broadcast');
             }
         }
+        
+        const percent = Math.floor(((i + 1) / currentNumbers.length) * 100);
+        progress.update(percent, '📢 Mengirim', `Memproses ${item.nama} (${i + 1}/${currentNumbers.length})...`, i + 1, currentNumbers.length);
+        
+        // Delay kecil agar tidak terlalu cepat
+        await delay(300);
     }
     
     progress.update(100, '✅ Selesai', `Berhasil: ${success}, Gagal: ${failed}`, currentNumbers.length, currentNumbers.length);
@@ -8886,10 +8911,14 @@ async function sendBroadcast() {
     if (failed > 0) {
         showNotifTop(`⚠️ ${failed} nomor gagal dipindahkan ke DB Nomor Salah`, true);
     }
+    if (stopped) {
+        showNotifTop('⏸️ Broadcast dihentikan sebagian');
+    }
     
     isBroadcasting = false;
     setTimeout(() => progress.hide(), 1000);
     
+    // ===== TAMPILKAN HISTORY =====
     showBroadcastHistory(false);
     
     await loadBroadcastNumbers();
@@ -9076,6 +9105,7 @@ async function sendUplineBroadcast() {
     const progress = showFloatingProgress('⭐ Broadcast ke Upline', uplineDataList.length);
     let success = 0;
     let failed = 0;
+    let stopped = false;
     
     for (let i = 0; i < uplineDataList.length; i++) {
         const upline = uplineDataList[i];
@@ -9100,10 +9130,28 @@ async function sendUplineBroadcast() {
         }
         const cleanNomor = nomor.replace(/[^\d]/g, '');
         
-        try {
-            window.open('https://wa.me/' + cleanNomor + '?text=' + encodeURIComponent(message), '_blank');
+        // Buka WhatsApp
+        window.open('https://wa.me/' + cleanNomor + '?text=' + encodeURIComponent(message), '_blank');
+        
+        // ===== TUNGGU KONFIRMASI DARI USER =====
+        let confirmResult;
+        if (sendOneByOne) {
+            confirmResult = await showContinueModal(
+                { nama: upline.upline_name, hp: upline.upline_phone }, 
+                i + 1, 
+                uplineDataList.length
+            );
+        } else {
+            confirmResult = { status: 'success' };
+        }
+        
+        // ===== PROSES HASIL KONFIRMASI =====
+        if (confirmResult.status === 'stopped') {
+            stopped = true;
+            showNotifTop('⏸️ Broadcast dihentikan oleh user');
+            break;
+        } else if (confirmResult.status === 'success') {
             success++;
-            
             upline.agents.forEach(agent => {
                 uplineBroadcastHistory.push({
                     id: agent.id,
@@ -9117,26 +9165,8 @@ async function sendUplineBroadcast() {
                     processed: false
                 });
             });
-            
-            const percent = Math.floor(((i + 1) / uplineDataList.length) * 100);
-            progress.update(percent, '⭐ Mengirim', `Mengirim ke ${upline.upline_name} (${i + 1}/${uplineDataList.length})...`, i + 1, uplineDataList.length);
-            
-            if (sendOneByOne) {
-                const shouldContinue = await showContinueModal(
-                    { nama: upline.upline_name, hp: upline.upline_phone }, 
-                    i + 1, 
-                    uplineDataList.length
-                );
-                if (!shouldContinue) {
-                    showNotifTop('⏸️ Broadcast dihentikan oleh user');
-                    break;
-                }
-            }
-            
-        } catch (e) {
-            console.error(`Gagal kirim ke ${upline.upline_name}:`, e);
+        } else if (confirmResult.status === 'failed') {
             failed++;
-            
             upline.agents.forEach(agent => {
                 uplineBroadcastHistory.push({
                     id: agent.id,
@@ -9157,12 +9187,20 @@ async function sendUplineBroadcast() {
                 }
             }
         }
+        
+        const percent = Math.floor(((i + 1) / uplineDataList.length) * 100);
+        progress.update(percent, '⭐ Mengirim', `Mengirim ke ${upline.upline_name} (${i + 1}/${uplineDataList.length})...`, i + 1, uplineDataList.length);
+        
+        await delay(300);
     }
     
     progress.update(100, '✅ Selesai', `Berhasil: ${success}, Gagal: ${failed}`, uplineDataList.length, uplineDataList.length);
-    showNotifTop(`✅ Broadcast ke Upline selesai! Terkirim ke ${success} upline, Gagal: ${failed}`);
+    showNotifTop(`✅ Broadcast ke Upline selesai! Berhasil: ${success}, Gagal: ${failed}`);
     if (failed > 0) {
         showNotifTop(`⚠️ ${failed} data gagal dipindahkan ke DB Nomor Salah`, true);
+    }
+    if (stopped) {
+        showNotifTop('⏸️ Broadcast dihentikan sebagian');
     }
     
     isUplineBroadcasting = false;
