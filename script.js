@@ -8777,36 +8777,43 @@ async function broadcastSimpan(item, message) {
     const status = item.status_awal || item.status || '';
     
     if (isCustomer) {
-        const { data: customer } = await window.db
+        const { data: customer, error } = await window.db
             .from('customers')
             .select('*')
             .eq('id', item.id)
             .single();
         
-        if (!customer) return;
+        if (error || !customer) {
+            showNotifTop('❌ Data customer tidak ditemukan!', true);
+            return;
+        }
         
         const newDeadline = getDeadlineByStatus(status, 'simpan', true);
         const followupHistory = customer.followup_history || [];
         const broadcastHistory = customer.broadcast_history || [];
+        const followupNumber = followupHistory.length + 1;
         
+        // ===== DATA FOLLOWUP LENGKAP =====
         const followupData = {
             terkirim: true,
             dibalas: false,
             pesan: message || 'Broadcast - Simpan',
             balasan: null,
             timestamp: new Date().toISOString(),
-            followup_number: followupHistory.length + 1
+            followup_number: followupNumber
         };
         
-        await window.db.from('customers').update({
+        const newFollowupHistory = [...followupHistory, {
+            pesan: message || 'Broadcast - Simpan',
+            balasan: null,
+            timestamp: new Date().toISOString(),
+            followup_number: followupNumber,
+            dibalas: false
+        }];
+        
+        const updateData = {
             followup_data: followupData,
-            followup_history: [...followupHistory, {
-                pesan: message || 'Broadcast - Simpan',
-                balasan: null,
-                timestamp: new Date().toISOString(),
-                followup_number: followupHistory.length + 1,
-                dibalas: false
-            }],
+            followup_history: newFollowupHistory,
             broadcast_history: [...broadcastHistory, {
                 timestamp: new Date().toISOString(),
                 action: 'simpan',
@@ -8816,42 +8823,65 @@ async function broadcastSimpan(item, message) {
             pesan_terkirim: message || 'Broadcast - Simpan',
             pesan_dikirim_at: new Date().toISOString(),
             updated_at: new Date().toISOString()
-        }).eq('id', item.id);
+        };
         
-        showNotifTop(`✅ Followup #${followupHistory.length + 1} tersimpan! Deadline menjadi ${newDeadline}`);
+        // ===== Jika ada konfirmasi data, tambahkan balasan =====
+        if (item._confirmData) {
+            updateData.followup_data.dibalas = true;
+            updateData.followup_data.balasan = item._confirmData.balasan || null;
+            // Update history terakhir dengan balasan
+            const lastIndex = newFollowupHistory.length - 1;
+            if (lastIndex >= 0) {
+                newFollowupHistory[lastIndex].balasan = item._confirmData.balasan || null;
+                newFollowupHistory[lastIndex].dibalas = true;
+            }
+            updateData.followup_history = newFollowupHistory;
+            updateData.balasan_diterima = item._confirmData.balasan || null;
+        }
+        
+        await window.db.from('customers').update(updateData).eq('id', item.id);
+        
+        showNotifTop(`✅ Followup #${followupNumber} tersimpan! Deadline menjadi ${newDeadline}`);
         await loadCustomers();
         
     } else if (isProspek) {
-        const { data: prospek } = await window.db
+        const { data: prospek, error } = await window.db
             .from('prospek')
             .select('*')
             .eq('id', item.id)
             .single();
         
-        if (!prospek) return;
+        if (error || !prospek) {
+            showNotifTop('❌ Data prospek tidak ditemukan!', true);
+            return;
+        }
         
         const newDeadline = getDeadlineByStatus(status, 'simpan', false);
         const dihubungiHistory = prospek.dihubungi_history || [];
         const broadcastHistory = prospek.broadcast_history || [];
+        const dihubungiNumber = dihubungiHistory.length + 1;
         
+        // ===== DATA DIHUBUNGI LENGKAP =====
         const dihubungiData = {
             terkirim: true,
             dibalas: false,
             pesan: message || 'Broadcast - Simpan',
             balasan: null,
             timestamp: new Date().toISOString(),
-            dihubungi_number: dihubungiHistory.length + 1
+            dihubungi_number: dihubungiNumber
         };
         
-        await window.db.from('prospek').update({
+        const newDihubungiHistory = [...dihubungiHistory, {
+            pesan: message || 'Broadcast - Simpan',
+            balasan: null,
+            timestamp: new Date().toISOString(),
+            dihubungi_number: dihubungiNumber,
+            dibalas: false
+        }];
+        
+        const updateData = {
             dihubungi_data: dihubungiData,
-            dihubungi_history: [...dihubungiHistory, {
-                pesan: message || 'Broadcast - Simpan',
-                balasan: null,
-                timestamp: new Date().toISOString(),
-                dihubungi_number: dihubungiHistory.length + 1,
-                dibalas: false
-            }],
+            dihubungi_history: newDihubungiHistory,
             broadcast_history: [...broadcastHistory, {
                 timestamp: new Date().toISOString(),
                 action: 'simpan',
@@ -8861,9 +8891,24 @@ async function broadcastSimpan(item, message) {
             pesan_terkirim: message || 'Broadcast - Simpan',
             pesan_dikirim_at: new Date().toISOString(),
             updated_at: new Date().toISOString()
-        }).eq('id', item.id);
+        };
         
-        showNotifTop(`✅ Dihubungi #${dihubungiHistory.length + 1} tersimpan! Deadline menjadi ${newDeadline}`);
+        // ===== Jika ada konfirmasi data, tambahkan balasan =====
+        if (item._confirmData) {
+            updateData.dihubungi_data.dibalas = true;
+            updateData.dihubungi_data.balasan = item._confirmData.balasan || null;
+            const lastIndex = newDihubungiHistory.length - 1;
+            if (lastIndex >= 0) {
+                newDihubungiHistory[lastIndex].balasan = item._confirmData.balasan || null;
+                newDihubungiHistory[lastIndex].dibalas = true;
+            }
+            updateData.dihubungi_history = newDihubungiHistory;
+            updateData.balasan_diterima = item._confirmData.balasan || null;
+        }
+        
+        await window.db.from('prospek').update(updateData).eq('id', item.id);
+        
+        showNotifTop(`✅ Dihubungi #${dihubungiNumber} tersimpan! Deadline menjadi ${newDeadline}`);
         await loadProspek();
     }
 }
@@ -8873,13 +8918,16 @@ async function broadcastSimpan(item, message) {
 // ================================================================
 
 async function broadcastPending(item, message) {
-    const { data: customer } = await window.db
+    const { data: customer, error } = await window.db
         .from('customers')
         .select('*')
         .eq('id', item.id)
         .single();
     
-    if (!customer) return;
+    if (error || !customer) {
+        showNotifTop('❌ Data customer tidak ditemukan!', true);
+        return;
+    }
     
     const confirmData = item._confirmData || {};
     const pesan = confirmData.pesan || message || 'Broadcast - Pindah ke Pending';
@@ -8888,26 +8936,30 @@ async function broadcastPending(item, message) {
     const newDeadline = getDeadlineByStatus('pending', 'pending', true);
     const followupHistory = customer.followup_history || [];
     const broadcastHistory = customer.broadcast_history || [];
+    const followupNumber = followupHistory.length + 1;
     
+    // ===== DATA FOLLOWUP LENGKAP =====
     const followupData = {
         terkirim: true,
         dibalas: true,
         pesan: pesan,
         balasan: balasan,
         timestamp: new Date().toISOString(),
-        followup_number: followupHistory.length + 1
+        followup_number: followupNumber
     };
+    
+    const newFollowupHistory = [...followupHistory, {
+        pesan: pesan,
+        balasan: balasan,
+        timestamp: new Date().toISOString(),
+        followup_number: followupNumber,
+        dibalas: true
+    }];
     
     await window.db.from('customers').update({
         status: 'pending',
         followup_data: followupData,
-        followup_history: [...followupHistory, {
-            pesan: pesan,
-            balasan: balasan,
-            timestamp: new Date().toISOString(),
-            followup_number: followupHistory.length + 1,
-            dibalas: true
-        }],
+        followup_history: newFollowupHistory,
         broadcast_history: [...broadcastHistory, {
             timestamp: new Date().toISOString(),
             action: 'pending',
@@ -8929,13 +8981,16 @@ async function broadcastPending(item, message) {
 // ================================================================
 
 async function broadcastNegosiasi(item, message) {
-    const { data: prospek } = await window.db
+    const { data: prospek, error } = await window.db
         .from('prospek')
         .select('*')
         .eq('id', item.id)
         .single();
     
-    if (!prospek) return;
+    if (error || !prospek) {
+        showNotifTop('❌ Data prospek tidak ditemukan!', true);
+        return;
+    }
     
     const confirmData = item._confirmData || {};
     const pesan = confirmData.pesan || message || 'Broadcast - Pindah ke Negosiasi';
@@ -8944,26 +8999,30 @@ async function broadcastNegosiasi(item, message) {
     const newDeadline = getDeadlineByStatus('Negosiasi', 'negosiasi', false);
     const dihubungiHistory = prospek.dihubungi_history || [];
     const broadcastHistory = prospek.broadcast_history || [];
+    const dihubungiNumber = dihubungiHistory.length + 1;
     
+    // ===== DATA DIHUBUNGI LENGKAP =====
     const dihubungiData = {
         terkirim: true,
         dibalas: true,
         pesan: pesan,
         balasan: balasan,
         timestamp: new Date().toISOString(),
-        dihubungi_number: dihubungiHistory.length + 1
+        dihubungi_number: dihubungiNumber
     };
+    
+    const newDihubungiHistory = [...dihubungiHistory, {
+        pesan: pesan,
+        balasan: balasan,
+        timestamp: new Date().toISOString(),
+        dihubungi_number: dihubungiNumber,
+        dibalas: true
+    }];
     
     await window.db.from('prospek').update({
         status: 'Negosiasi',
         dihubungi_data: dihubungiData,
-        dihubungi_history: [...dihubungiHistory, {
-            pesan: pesan,
-            balasan: balasan,
-            timestamp: new Date().toISOString(),
-            dihubungi_number: dihubungiHistory.length + 1,
-            dibalas: true
-        }],
+        dihubungi_history: newDihubungiHistory,
         broadcast_history: [...broadcastHistory, {
             timestamp: new Date().toISOString(),
             action: 'negosiasi',
@@ -8987,6 +9046,8 @@ async function broadcastNegosiasi(item, message) {
 async function moveToNomorSalah(id, type, alasan) {
     try {
         let data;
+        let insertData = {};
+        
         if (type === 'customer') {
             const { data: customer, error } = await window.db
                 .from('customers')
@@ -8996,35 +9057,40 @@ async function moveToNomorSalah(id, type, alasan) {
             
             if (error || !customer) {
                 console.error('Error get customer:', error);
+                showNotifTop('❌ Data customer tidak ditemukan!', true);
                 return;
             }
             data = customer;
             
-            if (data) {
-                const insertData = {
-                    nama: data.nama || 'Tidak ada nama',
-                    hp: data.hp || '',
-                    alasan: alasan || 'Nomor tidak bisa dihubungi / tidak aktif',
-                    followup_data: data.followup_data || null,
-                    agent_id: data.agent_id || null,
-                    user_id: data.user_id || currentUser.id,
-                    deleted_at: new Date().toISOString(),
-                    created_at: new Date().toISOString()
-                };
-                
-                const { error: insertError } = await window.db
-                    .from('nomor_salah')
-                    .insert(insertData);
-                
-                if (insertError) {
-                    console.error('Error insert nomor_salah:', insertError);
-                    showNotifTop('❌ Gagal menyimpan ke DB Nomor Salah: ' + insertError.message, true);
-                    return;
-                }
-                
-                await window.db.from('customers').delete().eq('id', id);
-                showNotifTop(`📵 ${data.nama} dipindahkan ke DB Nomor Salah: ${alasan}`);
+            // ===== DATA LENGKAP CUSTOMER UNTUK NOMOR SALAH =====
+            insertData = {
+                nama: data.nama || 'Tidak ada nama',
+                hp: data.hp || '',
+                alasan: alasan || 'Nomor tidak bisa dihubungi / tidak aktif',
+                agent_id: data.agent_id || null,
+                followup_data: data.followup_data || null,
+                // Data tambahan untuk arsip
+                user_id: data.user_id || currentUser.id,
+                deleted_at: new Date().toISOString(),
+                created_at: new Date().toISOString()
+            };
+            
+            console.log('📝 Insert ke nomor_salah (customer):', insertData);
+            
+            const { error: insertError } = await window.db
+                .from('nomor_salah')
+                .insert(insertData);
+            
+            if (insertError) {
+                console.error('Error insert nomor_salah:', insertError);
+                showNotifTop('❌ Gagal menyimpan ke DB Nomor Salah: ' + insertError.message, true);
+                return;
             }
+            
+            // Hapus dari customers
+            await window.db.from('customers').delete().eq('id', id);
+            showNotifTop(`📵 ${data.nama} dipindahkan ke DB Nomor Salah: ${alasan}`);
+            
         } else if (type === 'prospek') {
             const { data: prospek, error } = await window.db
                 .from('prospek')
@@ -9034,37 +9100,42 @@ async function moveToNomorSalah(id, type, alasan) {
             
             if (error || !prospek) {
                 console.error('Error get prospek:', error);
+                showNotifTop('❌ Data prospek tidak ditemukan!', true);
                 return;
             }
             data = prospek;
             
-            if (data) {
-                const insertData = {
-                    nama: data.nama || 'Tidak ada nama',
-                    hp: data.hp || '',
-                    alasan: alasan || 'Nomor tidak bisa dihubungi / tidak aktif',
-                    dihubungi_data: data.dihubungi_data || null,
-                    negosiasi_data: data.negosiasi_data || null,
-                    user_id: data.user_id || currentUser.id,
-                    deleted_at: new Date().toISOString(),
-                    created_at: new Date().toISOString()
-                };
-                
-                const { error: insertError } = await window.db
-                    .from('nomor_salah')
-                    .insert(insertData);
-                
-                if (insertError) {
-                    console.error('Error insert nomor_salah:', insertError);
-                    showNotifTop('❌ Gagal menyimpan ke DB Nomor Salah: ' + insertError.message, true);
-                    return;
-                }
-                
-                await window.db.from('prospek').delete().eq('id', id);
-                showNotifTop(`📵 ${data.nama} dipindahkan ke DB Nomor Salah: ${alasan}`);
+            // ===== DATA LENGKAP PROSPEK UNTUK NOMOR SALAH =====
+            insertData = {
+                nama: data.nama || 'Tidak ada nama',
+                hp: data.hp || '',
+                alasan: alasan || 'Nomor tidak bisa dihubungi / tidak aktif',
+                dihubungi_data: data.dihubungi_data || null,
+                negosiasi_data: data.negosiasi_data || null,
+                // Data tambahan untuk arsip
+                user_id: data.user_id || currentUser.id,
+                deleted_at: new Date().toISOString(),
+                created_at: new Date().toISOString()
+            };
+            
+            console.log('📝 Insert ke nomor_salah (prospek):', insertData);
+            
+            const { error: insertError } = await window.db
+                .from('nomor_salah')
+                .insert(insertData);
+            
+            if (insertError) {
+                console.error('Error insert nomor_salah:', insertError);
+                showNotifTop('❌ Gagal menyimpan ke DB Nomor Salah: ' + insertError.message, true);
+                return;
             }
+            
+            // Hapus dari prospek
+            await window.db.from('prospek').delete().eq('id', id);
+            showNotifTop(`📵 ${data.nama} dipindahkan ke DB Nomor Salah: ${alasan}`);
         }
         
+        // Refresh data
         await loadDBNomorSalah();
         await loadCustomers();
         await loadProspek();
