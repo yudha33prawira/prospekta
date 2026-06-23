@@ -284,68 +284,110 @@
 
                 <div id="pesanPage" class="page-content" style="display:none"><div class="db-section"><div class="db-header"><h3>💬 Pesan Antar CS</h3><button class="add-btn" id="addPesanBtn">+ Kirim Pesan</button></div><div id="pesanList" class="db-list"></div></div></div>
 
-                <!-- BROADCAST PAGE -->
-                <div id="broadcastPage" class="page-content" style="display:none">
-                    <div class="broadcast-section">
-                        <div class="broadcast-header"><h3>📢 Broadcast WhatsApp</h3><p>Kirim pesan ke banyak nomor sekaligus</p></div>
-                        <div class="broadcast-grid">
-                            <div class="broadcast-card"><h4>📋 Pilih Sumber Nomor</h4><div class="radio-group"><label><input type="radio" name="sourceType" value="customer" checked> 📞 Followup Agen</label><label><input type="radio" name="sourceType" value="prospek"> 🎯 Prospek Agen</label><label><input type="radio" name="sourceType" value="custom"> ✏️ Custom Nomor</label></div></div>
-                            <div class="broadcast-card" id="customNumbersCard" style="display:none;"><h4>✏️ Daftar Nomor</h4><textarea id="customNumbers" rows="4" placeholder="Contoh:&#10;6281234567890"></textarea><small>Format: 628xxxxx</small></div>
-                            <div class="broadcast-card"><h4>📱 Nomor Terpilih (<span id="numberCount">0</span>)</h4><div class="selected-numbers" id="numbersList"></div><button class="btn-refresh" id="refreshNumbersBtn">🔄 Refresh Nomor</button></div>
-                            <div class="broadcast-card"><h4>✏️ Pesan Broadcast</h4><textarea id="broadcastMessage" rows="5" placeholder="Tulis pesan...&#10;Gunakan {nama} untuk personalisasi"></textarea><div class="variable-hint"><small>Gunakan <code>{nama}</code> untuk mengganti dengan nama</small></div></div>
-                            <div class="broadcast-card"><h4>📤 Kirim Broadcast</h4><button class="broadcast-btn" id="sendBroadcastBtn">📢 Kirim Broadcast</button><div class="warning-text">⚠️ Setiap klik akan membuka chat WhatsApp di tab baru</div></div>
-                        </div>
-                    </div>
+<!-- BROADCAST PAGE -->
+<div id="broadcastPage" class="page-content" style="display:none">
+    <div class="broadcast-section">
+        <div class="broadcast-header">
+            <h3>📢 Broadcast WhatsApp</h3>
+            <p>Kirim pesan ke banyak nomor sekaligus</p>
+        </div>
+        <div class="broadcast-grid">
+            <!-- Pilih Sumber Nomor -->
+            <div class="broadcast-card">
+                <h4>📋 Pilih Sumber Nomor</h4>
+                <div class="radio-group">
+                    <label><input type="radio" name="sourceType" value="customer" checked> 📞 Followup Agen</label>
+                    <label><input type="radio" name="sourceType" value="prospek"> 🎯 Prospek Agen</label>
+                    <label><input type="radio" name="sourceType" value="custom"> ✏️ Custom Nomor</label>
                 </div>
+            </div>
+            
+            <!-- Custom Nomor -->
+            <div class="broadcast-card" id="customNumbersCard" style="display:none;">
+                <h4>✏️ Daftar Nomor</h4>
+                <textarea id="customNumbers" rows="4" placeholder="Contoh:&#10;6281234567890"></textarea>
+                <small>Format: 628xxxxx (satu nomor per baris)</small>
+            </div>
+            
+            <!-- Nomor Terpilih -->
+            <div class="broadcast-card">
+                <h4>📱 Nomor Terpilih (<span id="numberCount">0</span>)</h4>
+                <div class="selected-numbers" id="numbersList"></div>
+                <button class="btn-refresh" id="refreshNumbersBtn">🔄 Refresh Nomor</button>
+            </div>
+            
+            <!-- Template Pesan -->
+            <div class="broadcast-card">
+                <h4>📝 Template Pesan</h4>
+                <div style="margin-bottom: 8px;">
+                    <label style="font-size: 12px; color: #6b7280;">Pilih Template:</label>
+                    <select id="templateSelect" style="width:100%; padding: 8px 12px; border-radius: 8px; border: 1px solid #e5e7eb; font-size: 13px;">
+                        <option value="">-- Pilih Template --</option>
+                        <option value="followup">📞 Follow Up</option>
+                        <option value="dihubungi">📞 Dihubungi</option>
+                        <option value="custom">✏️ Custom</option>
+                    </select>
+                </div>
+                <textarea id="broadcastMessage" rows="5" placeholder="Tulis pesan...&#10;Gunakan {nama} untuk personalisasi"></textarea>
+                <div class="variable-hint">
+                    <small>💡 Gunakan variabel: <code>{nama}</code> untuk mengganti dengan nama</small>
+                </div>
+                <div style="margin-top: 8px;">
+                    <button class="btn-primary" id="saveTemplateBtn" style="padding: 6px 12px; font-size: 12px; border-radius: 8px; border: none; cursor: pointer;">💾 Simpan Template</button>
+                </div>
+            </div>
+            
+            <!-- Kirim Broadcast -->
+            <div class="broadcast-card">
+                <h4>📤 Kirim Broadcast</h4>
+                <div style="margin-bottom: 12px;">
+                    <label style="font-size: 12px; color: #6b7280;">
+                        <input type="checkbox" id="sendOneByOne" checked> Kirim satu per satu (manual)
+                    </label>
+                </div>
+                <button class="broadcast-btn" id="sendBroadcastBtn">📢 Kirim Broadcast</button>
+                <div class="warning-text">⚠️ Setiap klik akan membuka chat WhatsApp di tab baru</div>
+            </div>
+        </div>
+    </div>
+</div>
 
-<!-- BROADCAST UPLINE PAGE (Terpisah) -->
+<!-- BROADCAST UPLINE PAGE -->
 <div id="broadcastUplinePage" class="page-content" style="display:none">
     <div class="broadcast-section">
         <div class="broadcast-header">
             <h3>⭐ Broadcast ke Upline</h3>
-            <p>Kirim pesan rangkuman ke semua Upline dengan data agent di bawahnya</p>
+            <p>Kirim pesan rangkuman ke semua Upline</p>
         </div>
         <div class="broadcast-grid">
+            <!-- Pilih Sumber Data -->
             <div class="broadcast-card">
                 <h4>📋 Pilih Sumber Data</h4>
                 <div class="radio-group">
-                    <label class="radio-label">
-                        <input type="radio" name="uplineSourceType" value="transaksi" checked> 
-                        <span>📁 Database Transaksi</span>
-                    </label>
-                    <label class="radio-label">
-                        <input type="radio" name="uplineSourceType" value="customer"> 
-                        <span>📞 Followup Agen</span>
-                    </label>
-                    <label class="radio-label">
-                        <input type="radio" name="uplineSourceType" value="custom"> 
-                        <span>✏️ Custom Nomor</span>
-                    </label>
+                    <label><input type="radio" name="uplineSourceType" value="customer" checked> 📞 Followup Agen</label>
+                    <label><input type="radio" name="uplineSourceType" value="custom"> ✏️ Custom Nomor</label>
                 </div>
             </div>
             
-            <div class="broadcast-card" id="uplineCustomerFilter" style="display:none;">
+            <!-- Filter Status (hanya untuk customer) -->
+            <div class="broadcast-card" id="uplineCustomerFilter">
                 <h4>🎯 Filter Status</h4>
-                <div class="filter-status-group">
-                    <label><input type="checkbox" value="baru"> Baru</label>
+                <div class="filter-status-group" style="display: flex; flex-wrap: wrap; gap: 8px;">
+                    <label><input type="checkbox" value="baru" checked> Baru</label>
                     <label><input type="checkbox" value="followup" checked> Follow Up</label>
                     <label><input type="checkbox" value="pending"> Pending</label>
                     <label><input type="checkbox" value="closing"> Closing</label>
                 </div>
             </div>
             
-            <div class="broadcast-card" id="uplineTransaksiFilter" style="display:flex;">
-                <h4>📊 Database Transaksi</h4>
-                <p style="font-size: 12px; color: #6b7280;">Semua data transaksi akan dikelompokkan berdasarkan Upline</p>
-                <small style="color: #9ca3af;">💡 Data akan otomatis dikelompokkan berdasarkan upline_phone dan upline_name</small>
-            </div>
-            
+            <!-- Custom Nomor -->
             <div class="broadcast-card" id="uplineCustomCard" style="display:none;">
                 <h4>✏️ Daftar Nomor Upline</h4>
                 <textarea id="uplineCustomNumbers" rows="4" placeholder="Contoh:&#10;6281234567890&#10;6281234567891"></textarea>
                 <small>Masukkan nomor WhatsApp upline (satu nomor per baris)</small>
             </div>
             
+            <!-- Daftar Upline -->
             <div class="broadcast-card">
                 <h4>👥 Daftar Upline (<span id="uplineCount">0</span>)</h4>
                 <div class="selected-numbers" id="uplineNumbersList" style="max-height: 300px; overflow-y: auto;">
@@ -354,18 +396,22 @@
                 <button class="btn-refresh" id="refreshUplineBtn" style="margin-top: 12px;">🔄 Refresh Data Upline</button>
             </div>
             
+            <!-- Template Pesan Upline -->
             <div class="broadcast-card">
-                <h4>✏️ Pesan Broadcast ke Upline</h4>
+                <h4>📝 Template Pesan</h4>
                 <textarea id="uplineBroadcastMessage" rows="6" placeholder="Tulis pesan...&#10;&#10;Variabel yang tersedia:&#10;{nama_upline} - Nama Upline&#10;{total_agent} - Jumlah Agent di bawah Upline&#10;{tabel_agent} - Tabel lengkap data Agent"></textarea>
                 <div class="variable-hint" style="margin-top: 8px;">
                     <small>💡 Gunakan variabel: <code>{nama_upline}</code>, <code>{total_agent}</code>, <code>{tabel_agent}</code></small>
                 </div>
             </div>
             
+            <!-- Kirim Broadcast Upline -->
             <div class="broadcast-card">
                 <h4>📤 Kirim Broadcast ke Upline</h4>
-                <div class="send-options">
-                    <label><input type="checkbox" id="uplineSendOneByOne" checked> Kirim satu per satu (manual)</label>
+                <div style="margin-bottom: 12px;">
+                    <label style="font-size: 12px; color: #6b7280;">
+                        <input type="checkbox" id="uplineSendOneByOne" checked> Kirim satu per satu (manual)
+                    </label>
                 </div>
                 <button class="broadcast-btn" id="sendUplineBroadcastBtn" style="background: #8b5cf6;">⭐ Kirim ke Semua Upline</button>
                 <div class="warning-text">⚠️ Setiap klik akan membuka chat WhatsApp di tab baru. Kirim pesan secara manual.</div>
