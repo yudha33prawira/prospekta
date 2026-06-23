@@ -8118,7 +8118,6 @@ function showBroadcastHistory(isUpline = false) {
             }
             
             // ===== DATA SUKSES BELUM DIPROSES =====
-            let actionButtons = '';
             const isCustomer = item.source === 'customer';
             const isProspekItem = item.source === 'prospek';
             const statusAwal = item.status_awal || '';
@@ -8131,33 +8130,45 @@ function showBroadcastHistory(isUpline = false) {
             const isClosing = (isCustomer && statusAwal === 'closing');
             const isTertarik = (isProspekItem && statusAwal === 'Tertarik');
             
+            let actionButtons = '';
+            let actionLabel = '';
+            
             if (isUplineItem) {
+                // ===== UPLINE: BUKA POPUP FOLLOWUP =====
                 actionButtons = `
-                    <button class="btn-action-item btn-primary" data-index="${index}" data-action="move_followup" style="padding:4px 8px;font-size:9px;border-radius:6px;border:none;cursor:pointer;background:#4f46e5;color:white;">📞 Pindah Followup</button>
+                    <button class="btn-action-item btn-primary" data-index="${index}" data-action="open_followup" style="padding:4px 8px;font-size:9px;border-radius:6px;border:none;cursor:pointer;background:#4f46e5;color:white;">📞 Buka Followup</button>
                 `;
             } else if (isNew) {
                 if (isCustomer) {
+                    // ===== CUSTOMER BARU: BUKA POPUP FOLLOWUP =====
                     actionButtons = `
-                        <button class="btn-action-item btn-primary" data-index="${index}" data-action="move_followup" style="padding:4px 8px;font-size:9px;border-radius:6px;border:none;cursor:pointer;background:#4f46e5;color:white;">📞 Pindah Followup</button>
+                        <button class="btn-action-item btn-primary" data-index="${index}" data-action="open_followup" style="padding:4px 8px;font-size:9px;border-radius:6px;border:none;cursor:pointer;background:#4f46e5;color:white;">📞 Buka Followup</button>
                     `;
                 } else if (isProspekItem) {
+                    // ===== PROSPEK BARU: BUKA POPUP DIHUBUNGI =====
                     actionButtons = `
-                        <button class="btn-action-item btn-primary" data-index="${index}" data-action="move_dihubungi" style="padding:4px 8px;font-size:9px;border-radius:6px;border:none;cursor:pointer;background:#4f46e5;color:white;">📞 Pindah Dihubungi</button>
+                        <button class="btn-action-item btn-primary" data-index="${index}" data-action="open_dihubungi" style="padding:4px 8px;font-size:9px;border-radius:6px;border:none;cursor:pointer;background:#4f46e5;color:white;">📞 Buka Dihubungi</button>
                     `;
                 }
-            } else if (isFollowup || isDihubungi || isPending || isNegosiasi) {
-                const isCustomerStatus = isCustomer && (isFollowup || isPending);
-                const isProspekStatus = isProspekItem && (isDihubungi || isNegosiasi);
-                const pindahLabel = isCustomerStatus ? 'Pindah Pending' : 'Pindah Negosiasi';
-                const pindahAction = isCustomerStatus ? 'pending' : 'negosiasi';
-                
+            } else if (isFollowup || isPending) {
+                // ===== CUSTOMER FOLLOWUP/PENDING: BUKA POPUP FOLLOWUP =====
                 actionButtons = `
-                    <button class="btn-action-item btn-primary" data-index="${index}" data-action="simpan" style="padding:4px 8px;font-size:9px;border-radius:6px;border:none;cursor:pointer;background:#4f46e5;color:white;">💾 Simpan</button>
-                    <button class="btn-action-item btn-warning" data-index="${index}" data-action="${pindahAction}" style="padding:4px 8px;font-size:9px;border-radius:6px;border:none;cursor:pointer;background:#f59e0b;color:white;">📋 ${pindahLabel}</button>
+                    <button class="btn-action-item btn-primary" data-index="${index}" data-action="open_followup" style="padding:4px 8px;font-size:9px;border-radius:6px;border:none;cursor:pointer;background:#4f46e5;color:white;">📞 Buka Followup</button>
                 `;
-            } else if (isClosing || isTertarik) {
+            } else if (isDihubungi || isNegosiasi) {
+                // ===== PROSPEK DIHUBUNGI/NEGOSIASI: BUKA POPUP DIHUBUNGI =====
                 actionButtons = `
-                    <button class="btn-action-item btn-primary" data-index="${index}" data-action="simpan" style="padding:4px 8px;font-size:9px;border-radius:6px;border:none;cursor:pointer;background:#4f46e5;color:white;">💾 Simpan</button>
+                    <button class="btn-action-item btn-primary" data-index="${index}" data-action="open_dihubungi" style="padding:4px 8px;font-size:9px;border-radius:6px;border:none;cursor:pointer;background:#4f46e5;color:white;">📞 Buka Dihubungi</button>
+                `;
+            } else if (isClosing) {
+                // ===== CLOSING: BUKA POPUP FOLLOWUP =====
+                actionButtons = `
+                    <button class="btn-action-item btn-primary" data-index="${index}" data-action="open_followup" style="padding:4px 8px;font-size:9px;border-radius:6px;border:none;cursor:pointer;background:#4f46e5;color:white;">📞 Buka Followup</button>
+                `;
+            } else if (isTertarik) {
+                // ===== TERTARIK: BUKA POPUP DIHUBUNGI =====
+                actionButtons = `
+                    <button class="btn-action-item btn-primary" data-index="${index}" data-action="open_dihubungi" style="padding:4px 8px;font-size:9px;border-radius:6px;border:none;cursor:pointer;background:#4f46e5;color:white;">📞 Buka Dihubungi</button>
                 `;
             }
             
@@ -8220,46 +8231,19 @@ async function handleActionClick(e) {
     btn.style.cursor = 'not-allowed';
     
     try {
-        const itemData = {
-            id: item.id,
-            nama: item.nama,
-            hp: item.hp,
-            source: isUpline ? 'customer_upline' : item.source,
-            status: item.status_awal || item.status
-        };
+        const isCustomer = item.source === 'customer' || item.source === 'customer_upline';
+        const isProspek = item.source === 'prospek';
         
-        // ===== KONFIRMASI UNTUK PENDING/NEGOSIASI =====
-        if (action === 'pending' || action === 'negosiasi') {
-            const confirmResult = await showConfirmModal(itemData, action, isUpline);
-            if (!confirmResult) {
-                btn.disabled = false;
-                btn.textContent = '🔄';
-                btn.style.opacity = '1';
-                btn.style.cursor = 'pointer';
-                return;
-            }
+        // ===== BUKA POPUP SESUAI TINDAKAN =====
+        if (action === 'open_followup') {
+            // Buka popup followup (sama seperti di menu followup)
+            await openFollowupPopup(item.id);
+        } else if (action === 'open_dihubungi') {
+            // Buka popup dihubungi (sama seperti di menu prospek)
+            await openDihubungiPopup(item.id);
         }
         
-        // ===== KONFIRMASI UNTUK SIMPAN =====
-        if (action === 'simpan') {
-            const isFollowupStatus = (itemData.source === 'customer' && (itemData.status === 'followup' || itemData.status === 'pending')) ||
-                                    (itemData.source === 'prospek' && (itemData.status === 'Dihubungi' || itemData.status === 'Negosiasi'));
-            
-            if (isFollowupStatus) {
-                const confirmResult = await showSimpanConfirmModal(itemData, isUpline);
-                if (!confirmResult) {
-                    btn.disabled = false;
-                    btn.textContent = '🔄';
-                    btn.style.opacity = '1';
-                    btn.style.cursor = 'pointer';
-                    return;
-                }
-            }
-        }
-        
-        const result = await showBroadcastOptionModal(itemData, '', isUpline);
-        await handleBroadcastAction(itemData, '', result);
-        
+        // Tandai sudah diproses
         item.processed = true;
         item.processed_action = action;
         
@@ -8277,232 +8261,164 @@ async function handleActionClick(e) {
 }
 
 // ================================================================
-// ========== SHOW SIMPAN CONFIRM MODAL ==========
+// ========== OPEN POPUP FOLLOWUP (SAMA DENGAN MENU) ==========
 // ================================================================
 
-function showSimpanConfirmModal(item, isUpline) {
-    return new Promise((resolve) => {
-        const isCustomer = item.source === 'customer' || item.source === 'customer_upline';
-        const isProspek = item.source === 'prospek';
-        const type = isCustomer ? 'Follow Up' : 'Dihubungi';
-        const status = item.status || '';
-        const statusLabel = isCustomer ? status : status;
+async function openFollowupPopup(id) {
+    // Ambil data customer
+    const { data: customer } = await window.db
+        .from('customers')
+        .select('*')
+        .eq('id', id)
+        .single();
+    
+    if (!customer) {
+        showNotifTop('❌ Data customer tidak ditemukan!', true);
+        return;
+    }
+    
+    // Tentukan status dan action
+    const status = customer.status || 'baru';
+    
+    if (status === 'baru') {
+        // ===== BARU: LANGSUNG PINDAH KE FOLLOWUP =====
+        const newDeadline = addDaysFromToday(1);
+        const followupHistory = customer.followup_history || [];
         
-        const modalHtml = `
-            <div class="modal-content" style="max-width: 450px;">
-                <h3>💾 Konfirmasi Simpan</h3>
-                <div class="modal-subtitle">Simpan pesan ke riwayat ${type}</div>
-                <div style="padding: 0 20px;">
-                    <div style="background: #eef2ff; padding: 12px; border-radius: 10px; margin-bottom: 16px;">
-                        <p style="font-size: 12px; color: #4f46e5; margin: 0;">📌 <strong>Ketentuan:</strong><br>
-                        • Centang checklist dan isi pesan untuk menyimpan<br>
-                        • Deadline akan bertambah sesuai ketentuan</p>
-                    </div>
-                    <div class="form-group">
-                        <label><input type="checkbox" id="simpan_terkirim" style="margin-right: 8px;"> Apakah pesan sudah terkirim dan terbaca? <span style="color: #ef4444;">*</span></label>
-                    </div>
-                    <div class="form-group">
-                        <label>Isi Pesan yang Dikirim <span style="color: #ef4444;">*</span></label>
-                        <textarea id="simpan_pesan" rows="3" placeholder="Tulis pesan yang dikirim..." style="width:100%; padding: 10px; border-radius: 10px; border: 1px solid #e5e7eb;"></textarea>
-                    </div>
-                    <div class="form-group">
-                        <label><input type="checkbox" id="simpan_dibalas" style="margin-right: 8px;"> Apakah sudah di balas? <span style="color: #ef4444;">*</span></label>
-                    </div>
-                    <div class="form-group">
-                        <label>Balasan dari ${isCustomer ? 'Customer' : 'Prospek'} <span style="color: #ef4444;">*</span></label>
-                        <textarea id="simpan_balasan" rows="2" placeholder="Tulis balasan..." style="width:100%; padding: 10px; border-radius: 10px; border: 1px solid #e5e7eb;"></textarea>
-                    </div>
-                    <div style="background: #f3f4f6; padding: 8px 12px; border-radius: 8px; margin-top: 8px;">
-                        <small>📊 Status saat ini: <strong>${escapeHtml(statusLabel || '-')}</strong></small>
-                    </div>
-                </div>
-                <div class="modal-buttons" style="display: flex; gap: 12px; flex-wrap: wrap; padding: 16px 20px 20px;">
-                    <button id="simpanConfirmYes" class="btn-success" style="flex: 1; padding: 12px; border-radius: 12px; border: none; cursor: pointer; font-weight: 600; background: #10b981; color: white;" disabled>✅ Konfirmasi Simpan</button>
-                    <button id="simpanConfirmCancel" class="btn-outline" style="flex: 1; padding: 12px; border-radius: 12px; border: none; cursor: pointer; font-weight: 600; background: #f3f4f6; color: #374151;">❌ Batal</button>
-                </div>
-            </div>
-        `;
+        const followupData = {
+            terkirim: true,
+            dibalas: false,
+            pesan: 'Broadcast - Pindah ke Followup',
+            balasan: null,
+            timestamp: new Date().toISOString(),
+            followup_number: followupHistory.length + 1
+        };
         
-        const modal = createModalWithHighZIndex(modalHtml, () => {
-            closeDynamicModal(modal);
-            resolve(false);
-        });
+        await window.db.from('customers').update({
+            status: 'followup',
+            followup_data: followupData,
+            followup_history: [...followupHistory, {
+                pesan: 'Broadcast - Pindah ke Followup',
+                balasan: null,
+                timestamp: new Date().toISOString(),
+                followup_number: followupHistory.length + 1,
+                dibalas: false
+            }],
+            tanggal: newDeadline,
+            pesan_terkirim: 'Broadcast - Pindah ke Followup',
+            pesan_dikirim_at: new Date().toISOString(),
+            updated_at: new Date().toISOString()
+        }).eq('id', id);
         
-        const cb1 = modal.querySelector('#simpan_terkirim');
-        const cb2 = modal.querySelector('#simpan_dibalas');
-        const pesanInput = modal.querySelector('#simpan_pesan');
-        const balasanInput = modal.querySelector('#simpan_balasan');
-        const confirmBtn = modal.querySelector('#simpanConfirmYes');
+        showNotifTop(`✅ ${customer.nama} dipindahkan ke Followup. Deadline +1 hari`);
+        await loadCustomers();
         
-        function validateForm() {
-            const isChecked = cb1.checked;
-            const hasPesan = pesanInput.value.trim() !== '';
-            const hasBalasan = balasanInput.value.trim() !== '';
-            const isDibalas = cb2.checked;
-            
-            const canConfirm = isChecked && hasPesan && hasBalasan && isDibalas;
-            
-            if (canConfirm) {
-                confirmBtn.disabled = false;
-                confirmBtn.style.opacity = '1';
-                confirmBtn.style.cursor = 'pointer';
-            } else {
-                confirmBtn.disabled = true;
-                confirmBtn.style.opacity = '0.6';
-                confirmBtn.style.cursor = 'not-allowed';
-            }
+    } else if (status === 'followup' || status === 'pending') {
+        // ===== FOLLOWUP/PENDING: BUKA POPUP KONFIRMASI FOLLOWUP =====
+        // Panggil fungsi openFollowupConfirm dari script utama
+        if (typeof openFollowupConfirm === 'function') {
+            // Tutup modal history dulu
+            closeModal('broadcastHistoryModal');
+            // Buka popup followup confirm
+            await openFollowupConfirm(id);
+            // Setelah selesai, refresh history
+            setTimeout(() => {
+                showBroadcastHistory(false);
+            }, 500);
+        } else {
+            showNotifTop('❌ Fungsi followup tidak tersedia!', true);
         }
         
-        cb1.onclick = validateForm;
-        cb2.onclick = validateForm;
-        pesanInput.oninput = validateForm;
-        balasanInput.oninput = validateForm;
-        validateForm();
-        
-        confirmBtn.onclick = async () => {
-            if (confirmBtn.disabled) return;
-            
-            confirmBtn.disabled = true;
-            confirmBtn.textContent = '⏳ Memproses...';
-            
-            try {
-                item._confirmData = {
-                    pesan: pesanInput.value,
-                    balasan: balasanInput.value,
-                    terkirim: cb1.checked,
-                    dibalas: cb2.checked
-                };
-                closeDynamicModal(modal);
-                resolve(true);
-            } catch (err) {
-                console.error('Error:', err);
-                showNotifTop('❌ Gagal: ' + err.message, true);
-                confirmBtn.disabled = false;
-                confirmBtn.textContent = '✅ Konfirmasi Simpan';
-                resolve(false);
-            }
-        };
-        
-        modal.querySelector('#simpanConfirmCancel').onclick = () => {
-            closeDynamicModal(modal);
-            resolve(false);
-        };
-    });
+    } else if (status === 'closing') {
+        // ===== CLOSING: BUKA POPUP FOLLOWUP =====
+        if (typeof openFollowupConfirm === 'function') {
+            closeModal('broadcastHistoryModal');
+            await openFollowupConfirm(id);
+            setTimeout(() => {
+                showBroadcastHistory(false);
+            }, 500);
+        } else {
+            showNotifTop('❌ Fungsi followup tidak tersedia!', true);
+        }
+    }
 }
 
 // ================================================================
-// ========== SHOW CONFIRM MODAL UNTUK PENDING/NEGOSIASI ==========
+// ========== OPEN POPUP DIHUBUNGI (SAMA DENGAN MENU) ==========
 // ================================================================
 
-function showConfirmModal(item, action, isUpline) {
-    return new Promise((resolve) => {
-        const isCustomer = item.source === 'customer' || item.source === 'customer_upline';
-        const isProspek = item.source === 'prospek';
-        const title = action === 'pending' ? 'Konfirmasi Pindah ke Pending' : 'Konfirmasi Pindah ke Negosiasi';
-        const type = isCustomer ? 'Follow Up' : 'Dihubungi';
-        const pindahKe = action === 'pending' ? 'Pending' : 'Negosiasi';
-        const status = item.status || '';
+async function openDihubungiPopup(id) {
+    // Ambil data prospek
+    const { data: prospek } = await window.db
+        .from('prospek')
+        .select('*')
+        .eq('id', id)
+        .single();
+    
+    if (!prospek) {
+        showNotifTop('❌ Data prospek tidak ditemukan!', true);
+        return;
+    }
+    
+    const status = prospek.status || 'Baru';
+    
+    if (status === 'Baru') {
+        // ===== BARU: LANGSUNG PINDAH KE DIHUBUNGI =====
+        const newDeadline = addDaysFromToday(1);
+        const dihubungiHistory = prospek.dihubungi_history || [];
         
-        const modalHtml = `
-            <div class="modal-content" style="max-width: 450px;">
-                <h3>✅ ${title}</h3>
-                <div class="modal-subtitle">Pastikan sudah melakukan ${type} sebelum pindah ke ${pindahKe}</div>
-                <div style="padding: 0 20px;">
-                    <div style="background: #eef2ff; padding: 12px; border-radius: 10px; margin-bottom: 16px;">
-                        <p style="font-size: 12px; color: #4f46e5; margin: 0;">📌 <strong>Ketentuan:</strong><br>
-                        • Centang checklist dan isi pesan untuk menyimpan<br>
-                        • Isi BALASAN untuk dapat pindah ke ${pindahKe}</p>
-                    </div>
-                    <div class="form-group">
-                        <label><input type="checkbox" id="confirm_terkirim" style="margin-right: 8px;"> Apakah pesan sudah terkirim dan terbaca? <span style="color: #ef4444;">*</span></label>
-                    </div>
-                    <div class="form-group">
-                        <label>Isi Pesan yang Dikirim <span style="color: #ef4444;">*</span></label>
-                        <textarea id="confirm_pesan" rows="3" placeholder="Tulis pesan yang dikirim..." style="width:100%; padding: 10px; border-radius: 10px; border: 1px solid #e5e7eb;"></textarea>
-                    </div>
-                    <div class="form-group">
-                        <label><input type="checkbox" id="confirm_dibalas" style="margin-right: 8px;"> Apakah sudah di balas? <span style="color: #ef4444;">*</span></label>
-                    </div>
-                    <div class="form-group">
-                        <label>Balasan dari ${isCustomer ? 'Customer' : 'Prospek'} <span style="color: #ef4444;">*</span></label>
-                        <textarea id="confirm_balasan" rows="2" placeholder="Tulis balasan..." style="width:100%; padding: 10px; border-radius: 10px; border: 1px solid #e5e7eb;"></textarea>
-                    </div>
-                    <div style="background: #f3f4f6; padding: 8px 12px; border-radius: 8px; margin-top: 8px;">
-                        <small>📊 Status saat ini: <strong>${escapeHtml(status || '-')}</strong></small>
-                    </div>
-                </div>
-                <div class="modal-buttons" style="display: flex; gap: 12px; flex-wrap: wrap; padding: 16px 20px 20px;">
-                    <button id="confirmYes" class="btn-success" style="flex: 1; padding: 12px; border-radius: 12px; border: none; cursor: pointer; font-weight: 600; background: #10b981; color: white;" disabled>✅ Konfirmasi & Pindah</button>
-                    <button id="confirmCancel" class="btn-outline" style="flex: 1; padding: 12px; border-radius: 12px; border: none; cursor: pointer; font-weight: 600; background: #f3f4f6; color: #374151;">❌ Batal</button>
-                </div>
-            </div>
-        `;
+        const dihubungiData = {
+            terkirim: true,
+            dibalas: false,
+            pesan: 'Broadcast - Pindah ke Dihubungi',
+            balasan: null,
+            timestamp: new Date().toISOString(),
+            dihubungi_number: dihubungiHistory.length + 1
+        };
         
-        const modal = createModalWithHighZIndex(modalHtml, () => {
-            closeDynamicModal(modal);
-            resolve(false);
-        });
+        await window.db.from('prospek').update({
+            status: 'Dihubungi',
+            dihubungi_data: dihubungiData,
+            dihubungi_history: [...dihubungiHistory, {
+                pesan: 'Broadcast - Pindah ke Dihubungi',
+                balasan: null,
+                timestamp: new Date().toISOString(),
+                dihubungi_number: dihubungiHistory.length + 1,
+                dibalas: false
+            }],
+            deadline: newDeadline,
+            pesan_terkirim: 'Broadcast - Pindah ke Dihubungi',
+            pesan_dikirim_at: new Date().toISOString(),
+            updated_at: new Date().toISOString()
+        }).eq('id', id);
         
-        const cb1 = modal.querySelector('#confirm_terkirim');
-        const cb2 = modal.querySelector('#confirm_dibalas');
-        const pesanInput = modal.querySelector('#confirm_pesan');
-        const balasanInput = modal.querySelector('#confirm_balasan');
-        const confirmBtn = modal.querySelector('#confirmYes');
+        showNotifTop(`✅ ${prospek.nama} dipindahkan ke Dihubungi. Deadline +1 hari`);
+        await loadProspek();
         
-        function validateForm() {
-            const isChecked = cb1.checked;
-            const hasPesan = pesanInput.value.trim() !== '';
-            const hasBalasan = balasanInput.value.trim() !== '';
-            const isDibalas = cb2.checked;
-            
-            const canConfirm = isChecked && hasPesan && hasBalasan && isDibalas;
-            
-            if (canConfirm) {
-                confirmBtn.disabled = false;
-                confirmBtn.style.opacity = '1';
-                confirmBtn.style.cursor = 'pointer';
-            } else {
-                confirmBtn.disabled = true;
-                confirmBtn.style.opacity = '0.6';
-                confirmBtn.style.cursor = 'not-allowed';
-            }
+    } else if (status === 'Dihubungi' || status === 'Negosiasi') {
+        // ===== DIHUBUNGI/NEGOSIASI: BUKA POPUP KONFIRMASI DIHUBUNGI =====
+        if (typeof openProspekDihubungiConfirm === 'function') {
+            closeModal('broadcastHistoryModal');
+            await openProspekDihubungiConfirm(id);
+            setTimeout(() => {
+                showBroadcastHistory(false);
+            }, 500);
+        } else {
+            showNotifTop('❌ Fungsi dihubungi tidak tersedia!', true);
         }
         
-        cb1.onclick = validateForm;
-        cb2.onclick = validateForm;
-        pesanInput.oninput = validateForm;
-        balasanInput.oninput = validateForm;
-        validateForm();
-        
-        confirmBtn.onclick = async () => {
-            if (confirmBtn.disabled) return;
-            
-            confirmBtn.disabled = true;
-            confirmBtn.textContent = '⏳ Memproses...';
-            
-            try {
-                item._confirmData = {
-                    pesan: pesanInput.value,
-                    balasan: balasanInput.value,
-                    terkirim: cb1.checked,
-                    dibalas: cb2.checked
-                };
-                closeDynamicModal(modal);
-                resolve(true);
-            } catch (err) {
-                console.error('Error:', err);
-                showNotifTop('❌ Gagal: ' + err.message, true);
-                confirmBtn.disabled = false;
-                confirmBtn.textContent = '✅ Konfirmasi & Pindah';
-                resolve(false);
-            }
-        };
-        
-        modal.querySelector('#confirmCancel').onclick = () => {
-            closeDynamicModal(modal);
-            resolve(false);
-        };
-    });
+    } else if (status === 'Tertarik') {
+        // ===== TERTARIK: BUKA POPUP DIHUBUNGI =====
+        if (typeof openProspekDihubungiConfirm === 'function') {
+            closeModal('broadcastHistoryModal');
+            await openProspekDihubungiConfirm(id);
+            setTimeout(() => {
+                showBroadcastHistory(false);
+            }, 500);
+        } else {
+            showNotifTop('❌ Fungsi dihubungi tidak tersedia!', true);
+        }
+    }
 }
 
 // ===== PROSES SEMUA TINDAKAN =====
@@ -8536,40 +8452,30 @@ async function processAllBroadcastActions() {
     
     for (let i = 0; i < successItems.length; i++) {
         const item = successItems[i];
-        
-        const itemData = {
-            id: item.id,
-            nama: item.nama,
-            hp: item.hp,
-            source: isUpline ? 'customer_upline' : item.source,
-            status: item.status_awal || item.status
-        };
-        
-        const isCustomer = item.source === 'customer';
-        const isProspekItem = item.source === 'prospek';
+        const isCustomer = item.source === 'customer' || item.source === 'customer_upline';
+        const isProspek = item.source === 'prospek';
         const statusAwal = item.status_awal || '';
-        const isNew = (isCustomer && statusAwal === 'baru') || (isProspekItem && statusAwal === 'Baru');
-        const isFollowup = (isCustomer && statusAwal === 'followup') || (isProspekItem && statusAwal === 'Dihubungi');
         
-        let result;
-        if (isNew) {
-            result = isCustomer ? 'move_followup' : 'move_dihubungi';
-        } else if (isFollowup) {
-            // Untuk followup/dihubungi, tampilkan pilihan
-            result = await showBroadcastOptionModal(itemData, '', isUpline);
-        } else {
-            result = 'simpan';
+        try {
+            if (isCustomer || isUpline) {
+                // Customer: buka popup followup
+                await openFollowupPopup(item.id);
+            } else if (isProspek) {
+                // Prospek: buka popup dihubungi
+                await openDihubungiPopup(item.id);
+            }
+            
+            item.processed = true;
+            processed++;
+            
+        } catch (err) {
+            console.error('Error processing:', err);
         }
-        
-        await handleBroadcastAction(itemData, '', result);
-        
-        item.processed = true;
-        processed++;
         
         const percent = Math.floor(((i + 1) / successItems.length) * 100);
         progress.update(percent, '📋 Memproses', `Memproses ${item.nama} (${i + 1}/${successItems.length})...`, i + 1, successItems.length);
         
-        await delay(300);
+        await delay(500);
     }
     
     progress.update(100, '✅ Selesai', `Semua ${processed} data telah diproses`);
@@ -8581,670 +8487,6 @@ async function processAllBroadcastActions() {
     await loadCustomers();
     await loadProspek();
     await loadDBNomorSalah();
-}
-
-// ================================================================
-// ========== SHOW BROADCAST OPTION MODAL ==========
-// ================================================================
-
-function showBroadcastOptionModal(item, message, isUpline = false) {
-    return new Promise((resolve) => {
-        const isCustomer = item.source === 'customer' || item.source === 'customer_upline';
-        const isProspek = item.source === 'prospek';
-        const status = item.status || '';
-        
-        const isNew = (isCustomer && status === 'baru') || (isProspek && status === 'Baru');
-        const isFollowup = (isCustomer && status === 'followup');
-        const isDihubungi = (isProspek && status === 'Dihubungi');
-        const isPending = (isCustomer && status === 'pending');
-        const isNegosiasi = (isProspek && status === 'Negosiasi');
-        const isClosing = (isCustomer && status === 'closing');
-        const isTertarik = (isProspek && status === 'Tertarik');
-        
-        let title = isUpline ? '⭐ Broadcast ke Upline' : '📢 Broadcast WhatsApp';
-        let buttons = [];
-        let rulesText = '';
-        
-        if (isUpline) {
-            rulesText = `
-                <div style="background: #eef2ff; padding: 12px; border-radius: 10px; margin: 0 20px 10px 20px;">
-                    <p style="font-size: 12px; color: #4f46e5; margin: 0;">📌 <strong>Aturan:</strong><br>
-                    • Pilih <strong>Pindah ke Followup</strong> untuk memindahkan data ke Followup Agen</p>
-                </div>
-            `;
-            buttons = [
-                { id: 'move_followup', label: '📞 Pindah ke Followup', class: 'btn-primary' }
-            ];
-        } else if (isNew) {
-            if (isCustomer) {
-                rulesText = `
-                    <div style="background: #eef2ff; padding: 12px; border-radius: 10px; margin: 0 20px 10px 20px;">
-                        <p style="font-size: 12px; color: #4f46e5; margin: 0;">📌 <strong>Aturan:</strong><br>
-                        • Pilih <strong>Pindah ke Followup</strong> untuk memindahkan data ke Followup Agen</p>
-                    </div>
-                `;
-                buttons = [
-                    { id: 'move_followup', label: '📞 Pindah ke Followup', class: 'btn-primary' }
-                ];
-            } else if (isProspek) {
-                rulesText = `
-                    <div style="background: #eef2ff; padding: 12px; border-radius: 10px; margin: 0 20px 10px 20px;">
-                        <p style="font-size: 12px; color: #4f46e5; margin: 0;">📌 <strong>Aturan:</strong><br>
-                        • Pilih <strong>Pindah ke Dihubungi</strong> untuk memindahkan data ke Prospek Dihubungi</p>
-                    </div>
-                `;
-                buttons = [
-                    { id: 'move_dihubungi', label: '📞 Pindah ke Dihubungi', class: 'btn-primary' }
-                ];
-            }
-        } else if (isFollowup || isDihubungi || isPending || isNegosiasi) {
-            const isCustomerStatus = isCustomer && (isFollowup || isPending);
-            const isProspekStatus = isProspek && (isDihubungi || isNegosiasi);
-            const pindahLabel = isCustomerStatus ? 'Pindah ke Pending' : 'Pindah ke Negosiasi';
-            const pindahAction = isCustomerStatus ? 'pending' : 'negosiasi';
-            
-            rulesText = `
-                <div style="background: #eef2ff; padding: 12px; border-radius: 10px; margin: 0 20px 10px 20px;">
-                    <p style="font-size: 12px; color: #4f46e5; margin: 0;">📌 <strong>Aturan:</strong><br>
-                    • <strong>Simpan</strong> - Menyimpan pesan ke riwayat (harus isi data lengkap)<br>
-                    • <strong>${pindahLabel}</strong> - Memindahkan data ke status ${pindahLabel} (harus isi data lengkap)</p>
-                </div>
-            `;
-            buttons = [
-                { id: 'simpan', label: '💾 Simpan', class: 'btn-primary' },
-                { id: pindahAction, label: `📋 ${pindahLabel}`, class: 'btn-warning' }
-            ];
-        } else if (isClosing || isTertarik) {
-            rulesText = `
-                <div style="background: #eef2ff; padding: 12px; border-radius: 10px; margin: 0 20px 10px 20px;">
-                    <p style="font-size: 12px; color: #4f46e5; margin: 0;">📌 <strong>Aturan:</strong><br>
-                    • <strong>Simpan</strong> - Menyimpan pesan ke riwayat (harus isi data lengkap)</p>
-                </div>
-            `;
-            buttons = [
-                { id: 'simpan', label: '💾 Simpan', class: 'btn-primary' }
-            ];
-        }
-        
-        if (buttons.length === 0) {
-            resolve('skip');
-            return;
-        }
-        
-        const modalHtml = `
-            <div class="modal-content" style="max-width: 450px;">
-                <h3>${title}</h3>
-                <div class="modal-subtitle">Pilih tindakan untuk ${escapeHtml(item.nama)}</div>
-                ${rulesText}
-                <div style="padding: 0 20px;">
-                    <div style="background: #f3f4f6; padding: 8px 12px; border-radius: 8px; margin-bottom: 16px;">
-                        <small>📊 Status saat ini: <strong>${escapeHtml(status || '-')}</strong></small>
-                    </div>
-                    <div style="display: flex; flex-direction: column; gap: 10px;">
-                        ${buttons.map(btn => `
-                            <button id="broadcast_${btn.id}" class="${btn.class}" style="width: 100%; padding: 12px; border-radius: 12px; border: none; cursor: pointer; font-weight: 600; ${btn.class === 'btn-warning' ? 'background: #f59e0b; color: white;' : ''}">
-                                ${btn.label}
-                            </button>
-                        `).join('')}
-                        <button id="broadcast_skip" class="btn-outline" style="width: 100%; padding: 12px; border-radius: 12px; border: none; cursor: pointer; font-weight: 600; background: #f3f4f6; color: #374151;">
-                            ⏭️ Lewati
-                        </button>
-                    </div>
-                </div>
-            </div>
-        `;
-        
-        const modal = createModalWithHighZIndex(modalHtml, () => {
-            closeDynamicModal(modal);
-            resolve('skip');
-        });
-        
-        buttons.forEach(btn => {
-            const btnEl = modal.querySelector(`#broadcast_${btn.id}`);
-            if (btnEl) {
-                btnEl.onclick = () => {
-                    closeDynamicModal(modal);
-                    resolve(btn.id);
-                };
-            }
-        });
-        
-        modal.querySelector('#broadcast_skip').onclick = () => {
-            closeDynamicModal(modal);
-            resolve('skip');
-        };
-    });
-}
-
-// ================================================================
-// ========== HANDLE BROADCAST ACTIONS ==========
-// ================================================================
-
-async function handleBroadcastAction(item, message, action) {
-    if (action === 'skip') return;
-    
-    const isCustomer = item.source === 'customer' || item.source === 'customer_upline';
-    const isProspek = item.source === 'prospek';
-    
-    try {
-        switch (action) {
-            case 'move_followup':
-                await moveToFollowup(item, message);
-                break;
-            case 'move_dihubungi':
-                await moveToDihubungi(item, message);
-                break;
-            case 'simpan':
-                await broadcastSimpan(item, message);
-                break;
-            case 'pending':
-                await broadcastPending(item, message);
-                break;
-            case 'negosiasi':
-                await broadcastNegosiasi(item, message);
-                break;
-            default:
-                console.warn('Unknown action:', action);
-        }
-    } catch (err) {
-        console.error('Error handle broadcast action:', err);
-        showNotifTop('❌ Gagal: ' + err.message, true);
-    }
-}
-
-// ================================================================
-// ========== GET DEADLINE BERDASARKAN STATUS ==========
-// ================================================================
-
-function getDeadlineByStatus(status, action, isCustomer) {
-    if (isCustomer) {
-        switch (status) {
-            case 'baru':
-                return addDaysFromToday(1);
-            case 'followup':
-                return addDaysFromToday(1);
-            case 'pending':
-                return addDaysFromToday(2);
-            case 'closing':
-                return addDaysFromToday(1);
-            default:
-                return addDaysFromToday(1);
-        }
-    } else {
-        switch (status) {
-            case 'Baru':
-                return addDaysFromToday(1);
-            case 'Dihubungi':
-                return addDaysFromToday(5);
-            case 'Negosiasi':
-                return addDaysFromToday(5);
-            case 'Tertarik':
-                return addDaysFromToday(1);
-            default:
-                return addDaysFromToday(1);
-        }
-    }
-}
-
-// ================================================================
-// ========== MOVE TO FOLLOWUP ==========
-// ================================================================
-
-async function moveToFollowup(item, message) {
-    const { data: customer } = await window.db
-        .from('customers')
-        .select('*')
-        .eq('id', item.id)
-        .single();
-    
-    if (!customer) return;
-    
-    const newDeadline = getDeadlineByStatus('baru', 'move_followup', true);
-    const followupHistory = customer.followup_history || [];
-    const broadcastHistory = customer.broadcast_history || [];
-    
-    const followupData = {
-        terkirim: true,
-        dibalas: false,
-        pesan: message || 'Broadcast - Pindah ke Followup',
-        balasan: null,
-        timestamp: new Date().toISOString(),
-        followup_number: followupHistory.length + 1
-    };
-    
-    await window.db.from('customers').update({
-        status: 'followup',
-        followup_data: followupData,
-        followup_history: [...followupHistory, {
-            pesan: message || 'Broadcast - Pindah ke Followup',
-            balasan: null,
-            timestamp: new Date().toISOString(),
-            followup_number: followupHistory.length + 1,
-            dibalas: false
-        }],
-        broadcast_history: [...broadcastHistory, {
-            timestamp: new Date().toISOString(),
-            action: 'move_followup',
-            message: message || 'Broadcast'
-        }],
-        tanggal: newDeadline,
-        pesan_terkirim: message || 'Broadcast - Pindah ke Followup',
-        pesan_dikirim_at: new Date().toISOString(),
-        updated_at: new Date().toISOString()
-    }).eq('id', item.id);
-    
-    showNotifTop(`✅ ${item.nama} dipindahkan ke Followup. Deadline menjadi ${newDeadline}`);
-    await loadCustomers();
-}
-
-// ================================================================
-// ========== MOVE TO DIHUBUNGI ==========
-// ================================================================
-
-async function moveToDihubungi(item, message) {
-    const { data: prospek } = await window.db
-        .from('prospek')
-        .select('*')
-        .eq('id', item.id)
-        .single();
-    
-    if (!prospek) return;
-    
-    const newDeadline = getDeadlineByStatus('Baru', 'move_dihubungi', false);
-    const dihubungiHistory = prospek.dihubungi_history || [];
-    const broadcastHistory = prospek.broadcast_history || [];
-    
-    const dihubungiData = {
-        terkirim: true,
-        dibalas: false,
-        pesan: message || 'Broadcast - Pindah ke Dihubungi',
-        balasan: null,
-        timestamp: new Date().toISOString(),
-        dihubungi_number: dihubungiHistory.length + 1
-    };
-    
-    await window.db.from('prospek').update({
-        status: 'Dihubungi',
-        dihubungi_data: dihubungiData,
-        dihubungi_history: [...dihubungiHistory, {
-            pesan: message || 'Broadcast - Pindah ke Dihubungi',
-            balasan: null,
-            timestamp: new Date().toISOString(),
-            dihubungi_number: dihubungiHistory.length + 1,
-            dibalas: false
-        }],
-        broadcast_history: [...broadcastHistory, {
-            timestamp: new Date().toISOString(),
-            action: 'move_dihubungi',
-            message: message || 'Broadcast'
-        }],
-        deadline: newDeadline,
-        pesan_terkirim: message || 'Broadcast - Pindah ke Dihubungi',
-        pesan_dikirim_at: new Date().toISOString(),
-        updated_at: new Date().toISOString()
-    }).eq('id', item.id);
-    
-    showNotifTop(`✅ ${item.nama} dipindahkan ke Dihubungi. Deadline menjadi ${newDeadline}`);
-    await loadProspek();
-}
-
-// ================================================================
-// ========== BROADCAST SIMPAN (LENGKAP) ==========
-// ================================================================
-
-async function broadcastSimpan(item, message) {
-    const isCustomer = item.source === 'customer' || item.source === 'customer_upline';
-    const isProspek = item.source === 'prospek';
-    const status = item.status_awal || item.status || '';
-    const confirmData = item._confirmData || {};
-    
-    // ===== VALIDASI: Harus ada data konfirmasi =====
-    if (!confirmData.pesan || !confirmData.balasan) {
-        showNotifTop('⚠️ Harap lengkapi data terlebih dahulu!', true);
-        return;
-    }
-    
-    const pesan = confirmData.pesan || message || 'Broadcast - Simpan';
-    const balasan = confirmData.balasan || 'Tidak ada balasan';
-    const terkirim = confirmData.terkirim || true;
-    const dibalas = confirmData.dibalas || false;
-    
-    if (isCustomer) {
-        const { data: customer } = await window.db
-            .from('customers')
-            .select('*')
-            .eq('id', item.id)
-            .single();
-        
-        if (!customer) {
-            showNotifTop('❌ Data customer tidak ditemukan!', true);
-            return;
-        }
-        
-        const newDeadline = getDeadlineByStatus(status, 'simpan', true);
-        const followupHistory = customer.followup_history || [];
-        const broadcastHistory = customer.broadcast_history || [];
-        const followupNumber = followupHistory.length + 1;
-        
-        const followupData = {
-            terkirim: terkirim,
-            dibalas: dibalas,
-            pesan: pesan,
-            balasan: dibalas ? balasan : null,
-            timestamp: new Date().toISOString(),
-            followup_number: followupNumber
-        };
-        
-        const newFollowupHistory = [...followupHistory, {
-            pesan: pesan,
-            balasan: dibalas ? balasan : null,
-            timestamp: new Date().toISOString(),
-            followup_number: followupNumber,
-            dibalas: dibalas
-        }];
-        
-        await window.db.from('customers').update({
-            followup_data: followupData,
-            followup_history: newFollowupHistory,
-            broadcast_history: [...broadcastHistory, {
-                timestamp: new Date().toISOString(),
-                action: 'simpan',
-                message: message || 'Broadcast'
-            }],
-            tanggal: newDeadline,
-            pesan_terkirim: pesan,
-            balasan_diterima: dibalas ? balasan : null,
-            pesan_dikirim_at: new Date().toISOString(),
-            updated_at: new Date().toISOString()
-        }).eq('id', item.id);
-        
-        showNotifTop(`✅ Followup #${followupNumber} tersimpan! Deadline menjadi ${newDeadline}`);
-        await loadCustomers();
-        
-    } else if (isProspek) {
-        const { data: prospek } = await window.db
-            .from('prospek')
-            .select('*')
-            .eq('id', item.id)
-            .single();
-        
-        if (!prospek) {
-            showNotifTop('❌ Data prospek tidak ditemukan!', true);
-            return;
-        }
-        
-        const newDeadline = getDeadlineByStatus(status, 'simpan', false);
-        const dihubungiHistory = prospek.dihubungi_history || [];
-        const broadcastHistory = prospek.broadcast_history || [];
-        const dihubungiNumber = dihubungiHistory.length + 1;
-        
-        const dihubungiData = {
-            terkirim: terkirim,
-            dibalas: dibalas,
-            pesan: pesan,
-            balasan: dibalas ? balasan : null,
-            timestamp: new Date().toISOString(),
-            dihubungi_number: dihubungiNumber
-        };
-        
-        const newDihubungiHistory = [...dihubungiHistory, {
-            pesan: pesan,
-            balasan: dibalas ? balasan : null,
-            timestamp: new Date().toISOString(),
-            dihubungi_number: dihubungiNumber,
-            dibalas: dibalas
-        }];
-        
-        await window.db.from('prospek').update({
-            dihubungi_data: dihubungiData,
-            dihubungi_history: newDihubungiHistory,
-            broadcast_history: [...broadcastHistory, {
-                timestamp: new Date().toISOString(),
-                action: 'simpan',
-                message: message || 'Broadcast'
-            }],
-            deadline: newDeadline,
-            pesan_terkirim: pesan,
-            balasan_diterima: dibalas ? balasan : null,
-            pesan_dikirim_at: new Date().toISOString(),
-            updated_at: new Date().toISOString()
-        }).eq('id', item.id);
-        
-        showNotifTop(`✅ Dihubungi #${dihubungiNumber} tersimpan! Deadline menjadi ${newDeadline}`);
-        await loadProspek();
-    }
-}
-
-// ================================================================
-// ========== BROADCAST PENDING (LENGKAP) ==========
-// ================================================================
-
-async function broadcastPending(item, message) {
-    const { data: customer } = await window.db
-        .from('customers')
-        .select('*')
-        .eq('id', item.id)
-        .single();
-    
-    if (!customer) {
-        showNotifTop('❌ Data customer tidak ditemukan!', true);
-        return;
-    }
-    
-    const confirmData = item._confirmData || {};
-    
-    // ===== VALIDASI: Harus ada data konfirmasi =====
-    if (!confirmData.pesan || !confirmData.balasan) {
-        showNotifTop('⚠️ Harap lengkapi data konfirmasi terlebih dahulu!', true);
-        return;
-    }
-    
-    const pesan = confirmData.pesan || message || 'Broadcast - Pindah ke Pending';
-    const balasan = confirmData.balasan || 'Belum ada balasan (pending)';
-    
-    const newDeadline = getDeadlineByStatus('pending', 'pending', true);
-    const followupHistory = customer.followup_history || [];
-    const broadcastHistory = customer.broadcast_history || [];
-    const followupNumber = followupHistory.length + 1;
-    
-    const followupData = {
-        terkirim: true,
-        dibalas: true,
-        pesan: pesan,
-        balasan: balasan,
-        timestamp: new Date().toISOString(),
-        followup_number: followupNumber
-    };
-    
-    const newFollowupHistory = [...followupHistory, {
-        pesan: pesan,
-        balasan: balasan,
-        timestamp: new Date().toISOString(),
-        followup_number: followupNumber,
-        dibalas: true
-    }];
-    
-    await window.db.from('customers').update({
-        status: 'pending',
-        followup_data: followupData,
-        followup_history: newFollowupHistory,
-        broadcast_history: [...broadcastHistory, {
-            timestamp: new Date().toISOString(),
-            action: 'pending',
-            message: message || 'Broadcast'
-        }],
-        tanggal: newDeadline,
-        pesan_terkirim: pesan,
-        balasan_diterima: balasan,
-        pesan_dikirim_at: new Date().toISOString(),
-        updated_at: new Date().toISOString()
-    }).eq('id', item.id);
-    
-    showNotifTop(`✅ ${item.nama} dipindahkan ke Pending. Deadline menjadi ${newDeadline}`);
-    await loadCustomers();
-}
-
-// ================================================================
-// ========== BROADCAST NEGOSIASI (LENGKAP) ==========
-// ================================================================
-
-async function broadcastNegosiasi(item, message) {
-    const { data: prospek } = await window.db
-        .from('prospek')
-        .select('*')
-        .eq('id', item.id)
-        .single();
-    
-    if (!prospek) {
-        showNotifTop('❌ Data prospek tidak ditemukan!', true);
-        return;
-    }
-    
-    const confirmData = item._confirmData || {};
-    
-    // ===== VALIDASI: Harus ada data konfirmasi =====
-    if (!confirmData.pesan || !confirmData.balasan) {
-        showNotifTop('⚠️ Harap lengkapi data konfirmasi terlebih dahulu!', true);
-        return;
-    }
-    
-    const pesan = confirmData.pesan || message || 'Broadcast - Pindah ke Negosiasi';
-    const balasan = confirmData.balasan || 'Belum ada balasan (negosiasi)';
-    
-    const newDeadline = getDeadlineByStatus('Negosiasi', 'negosiasi', false);
-    const dihubungiHistory = prospek.dihubungi_history || [];
-    const broadcastHistory = prospek.broadcast_history || [];
-    const dihubungiNumber = dihubungiHistory.length + 1;
-    
-    const dihubungiData = {
-        terkirim: true,
-        dibalas: true,
-        pesan: pesan,
-        balasan: balasan,
-        timestamp: new Date().toISOString(),
-        dihubungi_number: dihubungiNumber
-    };
-    
-    const newDihubungiHistory = [...dihubungiHistory, {
-        pesan: pesan,
-        balasan: balasan,
-        timestamp: new Date().toISOString(),
-        dihubungi_number: dihubungiNumber,
-        dibalas: true
-    }];
-    
-    await window.db.from('prospek').update({
-        status: 'Negosiasi',
-        dihubungi_data: dihubungiData,
-        dihubungi_history: newDihubungiHistory,
-        broadcast_history: [...broadcastHistory, {
-            timestamp: new Date().toISOString(),
-            action: 'negosiasi',
-            message: message || 'Broadcast'
-        }],
-        deadline: newDeadline,
-        pesan_terkirim: pesan,
-        balasan_diterima: balasan,
-        pesan_dikirim_at: new Date().toISOString(),
-        updated_at: new Date().toISOString()
-    }).eq('id', item.id);
-    
-    showNotifTop(`✅ ${item.nama} dipindahkan ke Negosiasi. Deadline menjadi ${newDeadline}`);
-    await loadProspek();
-}
-
-// ================================================================
-// ========== MOVE TO NOMOR SALAH ==========
-// ================================================================
-
-async function moveToNomorSalah(id, type, alasan) {
-    try {
-        let data;
-        let insertData = {};
-        
-        if (type === 'customer') {
-            const { data: customer, error } = await window.db
-                .from('customers')
-                .select('*')
-                .eq('id', id)
-                .single();
-            
-            if (error || !customer) {
-                console.error('Error get customer:', error);
-                return;
-            }
-            data = customer;
-            
-            insertData = {
-                nama: data.nama || 'Tidak ada nama',
-                hp: data.hp || '',
-                alasan: alasan || 'Nomor tidak bisa dihubungi / tidak aktif',
-                agent_id: data.agent_id || null,
-                followup_data: data.followup_data || null,
-                user_id: data.user_id || currentUser.id,
-                deleted_at: new Date().toISOString(),
-                created_at: new Date().toISOString()
-            };
-            
-            const { error: insertError } = await window.db
-                .from('nomor_salah')
-                .insert(insertData);
-            
-            if (insertError) {
-                console.error('Error insert nomor_salah:', insertError);
-                showNotifTop('❌ Gagal menyimpan ke DB Nomor Salah: ' + insertError.message, true);
-                return;
-            }
-            
-            await window.db.from('customers').delete().eq('id', id);
-            showNotifTop(`📵 ${data.nama} dipindahkan ke DB Nomor Salah: ${alasan}`);
-            
-        } else if (type === 'prospek') {
-            const { data: prospek, error } = await window.db
-                .from('prospek')
-                .select('*')
-                .eq('id', id)
-                .single();
-            
-            if (error || !prospek) {
-                console.error('Error get prospek:', error);
-                return;
-            }
-            data = prospek;
-            
-            insertData = {
-                nama: data.nama || 'Tidak ada nama',
-                hp: data.hp || '',
-                alasan: alasan || 'Nomor tidak bisa dihubungi / tidak aktif',
-                dihubungi_data: data.dihubungi_data || null,
-                negosiasi_data: data.negosiasi_data || null,
-                user_id: data.user_id || currentUser.id,
-                deleted_at: new Date().toISOString(),
-                created_at: new Date().toISOString()
-            };
-            
-            const { error: insertError } = await window.db
-                .from('nomor_salah')
-                .insert(insertData);
-            
-            if (insertError) {
-                console.error('Error insert nomor_salah:', insertError);
-                showNotifTop('❌ Gagal menyimpan ke DB Nomor Salah: ' + insertError.message, true);
-                return;
-            }
-            
-            await window.db.from('prospek').delete().eq('id', id);
-            showNotifTop(`📵 ${data.nama} dipindahkan ke DB Nomor Salah: ${alasan}`);
-        }
-        
-        await loadDBNomorSalah();
-        await loadCustomers();
-        await loadProspek();
-        
-    } catch (err) {
-        console.error('Error move to nomor salah:', err);
-        showNotifTop('❌ Gagal pindah ke nomor salah: ' + err.message, true);
-    }
 }
 
 // ================================================================
@@ -9683,6 +8925,72 @@ function initUplineBroadcast() {
     }
     
     loadUplineNumbers();
+}
+
+// ================================================================
+// ========== MOVE TO NOMOR SALAH ==========
+// ================================================================
+
+async function moveToNomorSalah(id, type, alasan) {
+    try {
+        let insertData = {};
+        
+        if (type === 'customer') {
+            const { data: customer } = await window.db
+                .from('customers')
+                .select('*')
+                .eq('id', id)
+                .single();
+            
+            if (!customer) return;
+            
+            insertData = {
+                nama: customer.nama || 'Tidak ada nama',
+                hp: customer.hp || '',
+                alasan: alasan || 'Nomor tidak bisa dihubungi / tidak aktif',
+                agent_id: customer.agent_id || null,
+                followup_data: customer.followup_data || null,
+                user_id: customer.user_id || currentUser.id,
+                deleted_at: new Date().toISOString(),
+                created_at: new Date().toISOString()
+            };
+            
+            await window.db.from('nomor_salah').insert(insertData);
+            await window.db.from('customers').delete().eq('id', id);
+            
+        } else if (type === 'prospek') {
+            const { data: prospek } = await window.db
+                .from('prospek')
+                .select('*')
+                .eq('id', id)
+                .single();
+            
+            if (!prospek) return;
+            
+            insertData = {
+                nama: prospek.nama || 'Tidak ada nama',
+                hp: prospek.hp || '',
+                alasan: alasan || 'Nomor tidak bisa dihubungi / tidak aktif',
+                dihubungi_data: prospek.dihubungi_data || null,
+                negosiasi_data: prospek.negosiasi_data || null,
+                user_id: prospek.user_id || currentUser.id,
+                deleted_at: new Date().toISOString(),
+                created_at: new Date().toISOString()
+            };
+            
+            await window.db.from('nomor_salah').insert(insertData);
+            await window.db.from('prospek').delete().eq('id', id);
+        }
+        
+        showNotifTop(`📵 Data dipindahkan ke DB Nomor Salah: ${alasan}`);
+        await loadDBNomorSalah();
+        await loadCustomers();
+        await loadProspek();
+        
+    } catch (err) {
+        console.error('Error move to nomor salah:', err);
+        showNotifTop('❌ Gagal pindah ke nomor salah: ' + err.message, true);
+    }
 }
 
 // ================================================================
