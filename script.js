@@ -8493,11 +8493,215 @@ function loadUplineTemplate() {
 }
 
 // ================================================================
+// ========== BROADCAST TEMPLATE FUNCTIONS ==========
+// ================================================================
+
+const TEMPLATE_STORAGE_KEY = 'broadcast_templates';
+
+// Template default
+const DEFAULT_TEMPLATES = {
+    followup: {
+        name: '📞 Follow Up',
+        message: 'Halo {nama},\n\nKami ingin menindaklanjuti komunikasi sebelumnya. Apakah ada yang bisa kami bantu?\n\nTerima kasih.'
+    },
+    dihubungi: {
+        name: '📞 Dihubungi',
+        message: 'Halo {nama},\n\nTerima kasih atas waktunya. Kami ingin menanyakan apakah Anda sudah mempertimbangkan penawaran kami?\n\nKami tunggu kabar baiknya.'
+    },
+    custom: {
+        name: '✏️ Custom',
+        message: ''
+    }
+};
+
+// ===== LOAD TEMPLATES =====
+function loadBroadcastTemplates() {
+    const select = document.getElementById('templateSelect');
+    if (!select) return;
+    select.innerHTML = '<option value="">-- Pilih Template --</option>';
+    
+    const savedTemplates = JSON.parse(localStorage.getItem(TEMPLATE_STORAGE_KEY) || '{}');
+    const allTemplates = { ...DEFAULT_TEMPLATES, ...savedTemplates };
+    
+    for (const [key, value] of Object.entries(allTemplates)) {
+        const option = document.createElement('option');
+        option.value = key;
+        option.textContent = value.name || key;
+        select.appendChild(option);
+    }
+}
+
+function loadUplineTemplates() {
+    const select = document.getElementById('uplineTemplateSelect');
+    if (!select) return;
+    select.innerHTML = '<option value="">-- Pilih Template --</option>';
+    
+    // ===== GUNAKAN TEMPLATE YANG SAMA DENGAN BROADCAST AGENT =====
+    const savedTemplates = JSON.parse(localStorage.getItem(TEMPLATE_STORAGE_KEY) || '{}');
+    const allTemplates = { ...DEFAULT_TEMPLATES, ...savedTemplates };
+    
+    for (const [key, value] of Object.entries(allTemplates)) {
+        const option = document.createElement('option');
+        option.value = key;
+        option.textContent = value.name || key;
+        select.appendChild(option);
+    }
+}
+
+// ===== SAVE TEMPLATE =====
+function saveBroadcastTemplate() {
+    const message = document.getElementById('broadcastMessage').value;
+    const templateName = document.getElementById('templateSelect').value;
+    
+    if (!message) {
+        showNotifTop('⚠️ Pesan tidak boleh kosong!', true);
+        return;
+    }
+    
+    let key = templateName;
+    let name = '';
+    
+    if (templateName && templateName !== '') {
+        name = prompt('Edit nama template:', templateName);
+        if (name === null) return;
+        key = name.toLowerCase().replace(/\s/g, '_');
+    } else {
+        name = prompt('Masukkan nama template:');
+        if (!name || name.trim() === '') {
+            showNotifTop('⚠️ Nama template tidak boleh kosong!', true);
+            return;
+        }
+        key = name.toLowerCase().replace(/\s/g, '_');
+    }
+    
+    const templates = JSON.parse(localStorage.getItem(TEMPLATE_STORAGE_KEY) || '{}');
+    templates[key] = { name: name, message: message };
+    localStorage.setItem(TEMPLATE_STORAGE_KEY, JSON.stringify(templates));
+    
+    loadBroadcastTemplates();
+    document.getElementById('templateSelect').value = key;
+    showNotifTop(`✅ Template "${name}" berhasil disimpan!`);
+}
+
+function saveUplineTemplate() {
+    const message = document.getElementById('uplineBroadcastMessage').value;
+    const templateName = document.getElementById('uplineTemplateSelect').value;
+    
+    if (!message) {
+        showNotifTop('⚠️ Pesan tidak boleh kosong!', true);
+        return;
+    }
+    
+    let key = templateName;
+    let name = '';
+    
+    if (templateName && templateName !== '') {
+        name = prompt('Edit nama template:', templateName);
+        if (name === null) return;
+        key = name.toLowerCase().replace(/\s/g, '_');
+    } else {
+        name = prompt('Masukkan nama template:');
+        if (!name || name.trim() === '') {
+            showNotifTop('⚠️ Nama template tidak boleh kosong!', true);
+            return;
+        }
+        key = name.toLowerCase().replace(/\s/g, '_');
+    }
+    
+    // ===== SIMPAN KE STORAGE YANG SAMA =====
+    const templates = JSON.parse(localStorage.getItem(TEMPLATE_STORAGE_KEY) || '{}');
+    templates[key] = { name: name, message: message };
+    localStorage.setItem(TEMPLATE_STORAGE_KEY, JSON.stringify(templates));
+    
+    loadUplineTemplates();
+    document.getElementById('uplineTemplateSelect').value = key;
+    showNotifTop(`✅ Template Upline "${name}" berhasil disimpan!`);
+}
+
+// ===== DELETE TEMPLATE =====
+function deleteBroadcastTemplate() {
+    const templateName = document.getElementById('templateSelect').value;
+    if (!templateName || templateName === '') {
+        showNotifTop('⚠️ Pilih template yang akan dihapus!', true);
+        return;
+    }
+    if (DEFAULT_TEMPLATES[templateName]) {
+        showNotifTop('⚠️ Template default tidak bisa dihapus!', true);
+        return;
+    }
+    if (!confirm(`Hapus template "${templateName}"?`)) return;
+    
+    const templates = JSON.parse(localStorage.getItem(TEMPLATE_STORAGE_KEY) || '{}');
+    delete templates[templateName];
+    localStorage.setItem(TEMPLATE_STORAGE_KEY, JSON.stringify(templates));
+    
+    loadBroadcastTemplates();
+    document.getElementById('broadcastMessage').value = '';
+    showNotifTop(`🗑️ Template berhasil dihapus!`);
+}
+
+function deleteUplineTemplate() {
+    const templateName = document.getElementById('uplineTemplateSelect').value;
+    if (!templateName || templateName === '') {
+        showNotifTop('⚠️ Pilih template yang akan dihapus!', true);
+        return;
+    }
+    if (DEFAULT_TEMPLATES[templateName]) {
+        showNotifTop('⚠️ Template default tidak bisa dihapus!', true);
+        return;
+    }
+    if (!confirm(`Hapus template upline "${templateName}"?`)) return;
+    
+    const templates = JSON.parse(localStorage.getItem(TEMPLATE_STORAGE_KEY) || '{}');
+    delete templates[templateName];
+    localStorage.setItem(TEMPLATE_STORAGE_KEY, JSON.stringify(templates));
+    
+    loadUplineTemplates();
+    document.getElementById('uplineBroadcastMessage').value = '';
+    showNotifTop(`🗑️ Template Upline berhasil dihapus!`);
+}
+
+// ===== LOAD TEMPLATE =====
+function loadBroadcastTemplate() {
+    const templateName = document.getElementById('templateSelect').value;
+    if (!templateName) {
+        document.getElementById('broadcastMessage').value = '';
+        return;
+    }
+    const templates = JSON.parse(localStorage.getItem(TEMPLATE_STORAGE_KEY) || '{}');
+    if (templates[templateName]) {
+        document.getElementById('broadcastMessage').value = templates[templateName].message;
+        return;
+    }
+    if (DEFAULT_TEMPLATES[templateName]) {
+        document.getElementById('broadcastMessage').value = DEFAULT_TEMPLATES[templateName].message;
+    }
+}
+
+function loadUplineTemplate() {
+    const templateName = document.getElementById('uplineTemplateSelect').value;
+    if (!templateName) {
+        document.getElementById('uplineBroadcastMessage').value = '';
+        return;
+    }
+    const templates = JSON.parse(localStorage.getItem(TEMPLATE_STORAGE_KEY) || '{}');
+    if (templates[templateName]) {
+        document.getElementById('uplineBroadcastMessage').value = templates[templateName].message;
+        return;
+    }
+    if (DEFAULT_TEMPLATES[templateName]) {
+        document.getElementById('uplineBroadcastMessage').value = DEFAULT_TEMPLATES[templateName].message;
+    }
+}
+
+// ================================================================
 // ========== BROADCAST WHATSAPP FUNCTIONS ==========
 // ================================================================
 
 let currentNumbers = [];
 let isBroadcasting = false;
+let broadcastHistory = [];
+let isProcessingHistory = false;
 
 // ===== LOAD BROADCAST NUMBERS =====
 async function loadBroadcastNumbers() {
@@ -8587,8 +8791,99 @@ function updateNumberDisplay() {
     ).join('');
 }
 
+// ===== SHOW BROADCAST HISTORY =====
+function showBroadcastHistory(isUpline = false) {
+    const historyData = isUpline ? uplineBroadcastHistory : broadcastHistory;
+    const successCount = historyData.filter(h => h.status === 'success').length;
+    const failedCount = historyData.filter(h => h.status === 'failed').length;
+    
+    document.getElementById('historySuccessCount').innerText = successCount;
+    document.getElementById('historyFailedCount').innerText = failedCount;
+    document.getElementById('historyTotalCount').innerText = historyData.length;
+    
+    const list = document.getElementById('broadcastHistoryList');
+    if (historyData.length === 0) {
+        list.innerHTML = '<p style="text-align:center;padding:20px;color:#9ca3af;">Belum ada data broadcast</p>';
+    } else {
+        list.innerHTML = historyData.map((item, index) => `
+            <div style="display:flex;align-items:center;gap:10px;padding:8px 12px;margin-bottom:4px;border-radius:8px;background:${item.status === 'success' ? '#f0fdf4' : '#fef2f2'};border-left:3px solid ${item.status === 'success' ? '#10b981' : '#ef4444'};">
+                <span style="font-size:16px;">${item.status === 'success' ? '✅' : '❌'}</span>
+                <div style="flex:1;min-width:0;">
+                    <div style="font-weight:500;font-size:13px;color:#1f2937;">${escapeHtml(item.nama)}</div>
+                    <div style="font-size:11px;color:#6b7280;">📞 ${escapeHtml(item.hp)} | Status: ${item.status === 'success' ? 'Terkirim' : 'Gagal'}</div>
+                    ${item.upline_name ? `<div style="font-size:10px;color:#9ca3af;">👤 Upline: ${escapeHtml(item.upline_name)}</div>` : ''}
+                </div>
+                <span style="font-size:10px;color:#9ca3af;">${item.timestamp ? formatDateDDMMYYYY(item.timestamp) : '-'}</span>
+            </div>
+        `).join('');
+    }
+    
+    // Simpan flag untuk mengetahui ini dari upline atau biasa
+    document.getElementById('broadcastHistoryModal').dataset.isUpline = isUpline ? 'true' : 'false';
+    showModal('broadcastHistoryModal');
+}
+
+// ===== PROSES TINDAKAN DARI HISTORY =====
+async function processBroadcastActions() {
+    if (isProcessingHistory) {
+        showNotifTop('⏳ Proses sedang berjalan...', true);
+        return;
+    }
+    
+    const modal = document.getElementById('broadcastHistoryModal');
+    const isUpline = modal?.dataset?.isUpline === 'true';
+    const historyData = isUpline ? uplineBroadcastHistory : broadcastHistory;
+    
+    const successItems = historyData.filter(h => h.status === 'success' && h.id);
+    
+    if (successItems.length === 0) {
+        showNotifTop('⚠️ Tidak ada data sukses untuk diproses!', true);
+        return;
+    }
+    
+    if (!confirm(`📋 Proses tindakan untuk ${successItems.length} data yang berhasil dikirim?`)) {
+        return;
+    }
+    
+    isProcessingHistory = true;
+    closeModal('broadcastHistoryModal');
+    
+    const progress = showFloatingProgress('📋 Memproses Tindakan', successItems.length);
+    
+    for (let i = 0; i < successItems.length; i++) {
+        const item = successItems[i];
+        
+        const itemData = {
+            id: item.id,
+            nama: item.nama,
+            hp: item.hp,
+            source: isUpline ? 'customer_upline' : item.source,
+            status: item.status_awal || item.status
+        };
+        
+        const result = await showBroadcastOptionModal(itemData, '', isUpline);
+        await handleBroadcastAction(itemData, '', result);
+        
+        const percent = Math.floor(((i + 1) / successItems.length) * 100);
+        progress.update(percent, '📋 Memproses', `Memproses ${item.nama} (${i + 1}/${successItems.length})...`, i + 1, successItems.length);
+        
+        await delay(300);
+    }
+    
+    progress.update(100, '✅ Selesai', `Semua data telah diproses`);
+    showNotifTop('✅ Semua tindakan selesai diproses!');
+    
+    isProcessingHistory = false;
+    setTimeout(() => progress.hide(), 2000);
+    
+    // Refresh data
+    await loadCustomers();
+    await loadProspek();
+    await loadDBNomorSalah();
+}
+
 // ================================================================
-// ========== SHOW BROADCAST OPTION MODAL ==========
+// ========== SHOW BROADCAST OPTION MODAL (DENGAN ATURAN) ==========
 // ================================================================
 
 function showBroadcastOptionModal(item, message, isUpline = false) {
@@ -8602,15 +8897,30 @@ function showBroadcastOptionModal(item, message, isUpline = false) {
         
         let title = isUpline ? '⭐ Broadcast ke Upline' : '📢 Broadcast WhatsApp';
         let buttons = [];
+        let rulesText = '';
         
         if (isUpline) {
-            // Broadcast Upline
             if (isNew) {
+                rulesText = `
+                    <div style="background: #eef2ff; padding: 12px; border-radius: 10px; margin: 0 20px 10px 20px;">
+                        <p style="font-size: 12px; color: #4f46e5; margin: 0;">📌 <strong>Aturan:</strong><br>
+                        • Pilih <strong>Pindah ke Followup</strong> untuk memindahkan data ke Followup Agen<br>
+                        • Pilih <strong>Pindah ke DB Nomor Salah</strong> jika nomor tidak valid</p>
+                    </div>
+                `;
                 buttons = [
                     { id: 'move_followup', label: '📞 Pindah ke Followup', class: 'btn-primary' },
                     { id: 'move_nomor_salah', label: '📵 Pindah ke DB Nomor Salah', class: 'btn-danger' }
                 ];
             } else if (isFollowup) {
+                rulesText = `
+                    <div style="background: #eef2ff; padding: 12px; border-radius: 10px; margin: 0 20px 10px 20px;">
+                        <p style="font-size: 12px; color: #4f46e5; margin: 0;">📌 <strong>Aturan:</strong><br>
+                        • <strong>Simpan</strong> - Menyimpan pesan ke riwayat followup (deadline +1 hari)<br>
+                        • <strong>Pindah ke Pending</strong> - Memindahkan data ke status Pending<br>
+                        • <strong>Pindah ke DB Nomor Salah</strong> - Jika nomor tidak valid</p>
+                    </div>
+                `;
                 buttons = [
                     { id: 'simpan', label: '💾 Simpan', class: 'btn-primary' },
                     { id: 'pending', label: '📋 Pindah ke Pending', class: 'btn-warning' },
@@ -8618,14 +8928,27 @@ function showBroadcastOptionModal(item, message, isUpline = false) {
                 ];
             }
         } else {
-            // Broadcast WhatsApp
             if (isNew) {
                 if (isCustomer) {
+                    rulesText = `
+                        <div style="background: #eef2ff; padding: 12px; border-radius: 10px; margin: 0 20px 10px 20px;">
+                            <p style="font-size: 12px; color: #4f46e5; margin: 0;">📌 <strong>Aturan:</strong><br>
+                            • Pilih <strong>Pindah ke Followup</strong> untuk memindahkan data ke Followup Agen<br>
+                            • Pilih <strong>Pindah ke DB Nomor Salah</strong> jika nomor tidak valid</p>
+                        </div>
+                    `;
                     buttons = [
                         { id: 'move_followup', label: '📞 Pindah ke Followup', class: 'btn-primary' },
                         { id: 'move_nomor_salah', label: '📵 Pindah ke DB Nomor Salah', class: 'btn-danger' }
                     ];
                 } else if (isProspek) {
+                    rulesText = `
+                        <div style="background: #eef2ff; padding: 12px; border-radius: 10px; margin: 0 20px 10px 20px;">
+                            <p style="font-size: 12px; color: #4f46e5; margin: 0;">📌 <strong>Aturan:</strong><br>
+                            • Pilih <strong>Pindah ke Dihubungi</strong> untuk memindahkan data ke Prospek Dihubungi<br>
+                            • Pilih <strong>Pindah ke DB Nomor Salah</strong> jika nomor tidak valid</p>
+                        </div>
+                    `;
                     buttons = [
                         { id: 'move_dihubungi', label: '📞 Pindah ke Dihubungi', class: 'btn-primary' },
                         { id: 'move_nomor_salah', label: '📵 Pindah ke DB Nomor Salah', class: 'btn-danger' }
@@ -8633,12 +8956,28 @@ function showBroadcastOptionModal(item, message, isUpline = false) {
                 }
             } else if (isFollowup) {
                 if (isCustomer) {
+                    rulesText = `
+                        <div style="background: #eef2ff; padding: 12px; border-radius: 10px; margin: 0 20px 10px 20px;">
+                            <p style="font-size: 12px; color: #4f46e5; margin: 0;">📌 <strong>Aturan:</strong><br>
+                            • <strong>Simpan</strong> - Menyimpan pesan ke riwayat followup (deadline +1 hari)<br>
+                            • <strong>Pindah ke Pending</strong> - Memindahkan data ke status Pending<br>
+                            • <strong>Pindah ke DB Nomor Salah</strong> - Jika nomor tidak valid</p>
+                        </div>
+                    `;
                     buttons = [
                         { id: 'simpan', label: '💾 Simpan', class: 'btn-primary' },
                         { id: 'pending', label: '📋 Pindah ke Pending', class: 'btn-warning' },
                         { id: 'move_nomor_salah', label: '📵 Pindah ke DB Nomor Salah', class: 'btn-danger' }
                     ];
                 } else if (isProspek) {
+                    rulesText = `
+                        <div style="background: #eef2ff; padding: 12px; border-radius: 10px; margin: 0 20px 10px 20px;">
+                            <p style="font-size: 12px; color: #4f46e5; margin: 0;">📌 <strong>Aturan:</strong><br>
+                            • <strong>Simpan</strong> - Menyimpan pesan ke riwayat dihubungi (deadline +1 hari)<br>
+                            • <strong>Pindah ke Negosiasi</strong> - Memindahkan data ke status Negosiasi<br>
+                            • <strong>Pindah ke DB Nomor Salah</strong> - Jika nomor tidak valid</p>
+                        </div>
+                    `;
                     buttons = [
                         { id: 'simpan', label: '💾 Simpan', class: 'btn-primary' },
                         { id: 'negosiasi', label: '📋 Pindah ke Negosiasi', class: 'btn-warning' },
@@ -8648,7 +8987,6 @@ function showBroadcastOptionModal(item, message, isUpline = false) {
             }
         }
         
-        // Jika tidak ada button, resolve dengan 'skip'
         if (buttons.length === 0) {
             resolve('skip');
             return;
@@ -8658,12 +8996,10 @@ function showBroadcastOptionModal(item, message, isUpline = false) {
             <div class="modal-content" style="max-width: 450px;">
                 <h3>${title}</h3>
                 <div class="modal-subtitle">Pilih tindakan untuk ${escapeHtml(item.nama)}</div>
+                ${rulesText}
                 <div style="padding: 0 20px;">
-                    <div style="background: #eef2ff; padding: 12px; border-radius: 10px; margin-bottom: 16px;">
-                        <p style="font-size: 12px; color: #4f46e5; margin: 0;">
-                            ✅ Pesan berhasil terkirim ke ${escapeHtml(item.nama)}
-                            <br><small>Status: ${escapeHtml(status)}</small>
-                        </p>
+                    <div style="background: #f3f4f6; padding: 8px 12px; border-radius: 8px; margin-bottom: 16px;">
+                        <small>📊 Status saat ini: <strong>${escapeHtml(status || '-')}</strong></small>
                     </div>
                     <div style="display: flex; flex-direction: column; gap: 10px;">
                         ${buttons.map(btn => `
@@ -9089,7 +9425,7 @@ async function moveToNomorSalah(id, type, alasan) {
 }
 
 // ================================================================
-// ========== SEND BROADCAST ==========
+// ========== SEND BROADCAST (DENGAN HISTORY) ==========
 // ================================================================
 
 async function sendBroadcast() {
@@ -9116,6 +9452,8 @@ async function sendBroadcast() {
     }
     
     isBroadcasting = true;
+    broadcastHistory = [];
+    
     const progress = showFloatingProgress('📢 Broadcast', currentNumbers.length);
     let success = 0;
     let failed = 0;
@@ -9129,11 +9467,15 @@ async function sendBroadcast() {
             window.open('https://wa.me/' + nomor + '?text=' + encodeURIComponent(message), '_blank');
             success++;
             
-            // Tampilkan pilihan untuk setiap data yang sukses
-            if (item.id) {
-                const result = await showBroadcastOptionModal(item, message, false);
-                await handleBroadcastAction(item, message, result);
-            }
+            broadcastHistory.push({
+                id: item.id,
+                nama: item.nama || 'Customer',
+                hp: item.hp,
+                status: 'success',
+                timestamp: new Date().toISOString(),
+                source: item.source,
+                status_awal: item.status
+            });
             
             const percent = Math.floor(((i + 1) / currentNumbers.length) * 100);
             progress.update(percent, '📢 Mengirim', `Mengirim ke ${item.nama} (${i + 1}/${currentNumbers.length})...`, i + 1, currentNumbers.length);
@@ -9145,6 +9487,17 @@ async function sendBroadcast() {
         } catch (e) {
             console.error(`Gagal kirim ke ${item.nama}:`, e);
             failed++;
+            
+            broadcastHistory.push({
+                id: item.id,
+                nama: item.nama || 'Customer',
+                hp: item.hp,
+                status: 'failed',
+                timestamp: new Date().toISOString(),
+                source: item.source,
+                status_awal: item.status
+            });
+            
             if (item.id) {
                 await moveToNomorSalah(item.id, item.source === 'prospek' ? 'prospek' : 'customer', 'Gagal broadcast');
             }
@@ -9158,7 +9511,11 @@ async function sendBroadcast() {
     }
     
     isBroadcasting = false;
-    setTimeout(() => progress.hide(), 3000);
+    setTimeout(() => progress.hide(), 1000);
+    
+    // ===== TAMPILKAN HISTORY =====
+    showBroadcastHistory(false);
+    
     await loadBroadcastNumbers();
     await loadCustomers();
     await loadProspek();
@@ -9171,6 +9528,7 @@ async function sendBroadcast() {
 
 let uplineDataList = [];
 let isUplineBroadcasting = false;
+let uplineBroadcastHistory = [];
 
 // ===== LOAD UPLINE NUMBERS =====
 async function loadUplineNumbers() {
@@ -9212,7 +9570,6 @@ async function loadUplineNumbers() {
         return;
     }
     
-    // Customer - hanya status baru dan followup
     const statusValues = Array.from(document.querySelectorAll('#uplineCustomerFilter input:checked')).map(cb => cb.value);
     if (statusValues.length === 0) {
         showNotifTop('⚠️ Pilih minimal satu status!', true);
@@ -9239,7 +9596,6 @@ async function loadUplineNumbers() {
         return;
     }
     
-    // Kelompokkan berdasarkan upline
     const uplineMap = new Map();
     let dataWithoutUpline = 0;
     
@@ -9339,6 +9695,8 @@ async function sendUplineBroadcast() {
     }
     
     isUplineBroadcasting = true;
+    uplineBroadcastHistory = [];
+    
     const progress = showFloatingProgress('⭐ Broadcast ke Upline', uplineDataList.length);
     let success = 0;
     let failed = 0;
@@ -9370,22 +9728,19 @@ async function sendUplineBroadcast() {
             window.open('https://wa.me/' + cleanNomor + '?text=' + encodeURIComponent(message), '_blank');
             success++;
             
-            // Tampilkan pilihan untuk setiap upline yang sukses
-            if (upline.agents.length > 0) {
-                for (const agent of upline.agents) {
-                    if (agent.id) {
-                        const item = {
-                            id: agent.id,
-                            nama: agent.nama,
-                            source: 'customer_upline',
-                            status: agent.status,
-                            hp: agent.hp
-                        };
-                        const result = await showBroadcastOptionModal(item, message, true);
-                        await handleBroadcastAction(item, message, result);
-                    }
-                }
-            }
+            // Simpan history untuk setiap agent di bawah upline
+            upline.agents.forEach(agent => {
+                uplineBroadcastHistory.push({
+                    id: agent.id,
+                    nama: agent.nama,
+                    hp: agent.hp,
+                    status: 'success',
+                    timestamp: new Date().toISOString(),
+                    source: 'customer_upline',
+                    status_awal: agent.status,
+                    upline_name: upline.upline_name
+                });
+            });
             
             const percent = Math.floor(((i + 1) / uplineDataList.length) * 100);
             progress.update(percent, '⭐ Mengirim', `Mengirim ke ${upline.upline_name} (${i + 1}/${uplineDataList.length})...`, i + 1, uplineDataList.length);
@@ -9397,6 +9752,20 @@ async function sendUplineBroadcast() {
         } catch (e) {
             console.error(`Gagal kirim ke ${upline.upline_name}:`, e);
             failed++;
+            
+            upline.agents.forEach(agent => {
+                uplineBroadcastHistory.push({
+                    id: agent.id,
+                    nama: agent.nama,
+                    hp: agent.hp,
+                    status: 'failed',
+                    timestamp: new Date().toISOString(),
+                    source: 'customer_upline',
+                    status_awal: agent.status,
+                    upline_name: upline.upline_name
+                });
+            });
+            
             for (const agent of upline.agents) {
                 if (agent.id) {
                     await moveToNomorSalah(agent.id, 'customer', 'Gagal broadcast upline');
@@ -9412,7 +9781,11 @@ async function sendUplineBroadcast() {
     }
     
     isUplineBroadcasting = false;
-    setTimeout(() => progress.hide(), 4000);
+    setTimeout(() => progress.hide(), 1000);
+    
+    // ===== TAMPILKAN HISTORY =====
+    showBroadcastHistory(true);
+    
     await loadCustomers();
     await loadDBNomorSalah();
     await loadUplineNumbers();
@@ -11880,63 +12253,80 @@ function initEventListeners() {
                     'followupConfirmModal', 'prospekDihubungiModal', 'prospekNegosiasiModal', 'convertModal'];
     modals.forEach(id => setupModalClickOutside(id));
     
-// ===== BROADCAST EVENT LISTENERS =====
-// Source type change
-document.querySelectorAll('input[name="sourceType"]').forEach(radio => {
-    radio.addEventListener('change', loadBroadcastNumbers);
-});
-
-// Customer filter checkboxes
-document.querySelectorAll('#customerFilterCard input').forEach(cb => {
-    cb.addEventListener('change', loadBroadcastNumbers);
-});
-
-// Prospek filter checkboxes
-document.querySelectorAll('#prospekFilterCard input').forEach(cb => {
-    cb.addEventListener('change', loadBroadcastNumbers);
-});
-
-// Custom numbers input
-document.getElementById('customNumbers')?.addEventListener('input', loadBroadcastNumbers);
-
-// Refresh numbers
-document.getElementById('refreshNumbersBtn')?.addEventListener('click', loadBroadcastNumbers);
-
-// Template functions
-document.getElementById('templateSelect')?.addEventListener('change', loadBroadcastTemplate);
-document.getElementById('saveTemplateBtn')?.addEventListener('click', saveBroadcastTemplate);
-document.getElementById('deleteTemplateBtn')?.addEventListener('click', deleteBroadcastTemplate); // <-- TAMBAHKAN INI
-
-// Send broadcast
-document.getElementById('sendBroadcastBtn')?.addEventListener('click', sendBroadcast);
-
-// ===== BROADCAST UPLINE EVENT LISTENERS =====
-// Source type change
-document.querySelectorAll('input[name="uplineSourceType"]').forEach(radio => {
-    radio.addEventListener('change', loadUplineNumbers);
-});
-
-// Upline customer filter checkboxes
-document.querySelectorAll('#uplineCustomerFilter input').forEach(cb => {
-    cb.addEventListener('change', loadUplineNumbers);
-});
-
-// Upline custom numbers input
-document.getElementById('uplineCustomNumbers')?.addEventListener('input', loadUplineNumbers);
-
-// Refresh upline
-document.getElementById('refreshUplineBtn')?.addEventListener('click', loadUplineNumbers);
-
-// Upline template functions
-document.getElementById('uplineTemplateSelect')?.addEventListener('change', loadUplineTemplate);
-document.getElementById('uplineSaveTemplateBtn')?.addEventListener('click', saveUplineTemplate);
-document.getElementById('uplineDeleteTemplateBtn')?.addEventListener('click', deleteUplineTemplate); // <-- TAMBAHKAN INI
-
-// Send upline broadcast
-document.getElementById('sendUplineBroadcastBtn')?.addEventListener('click', sendUplineBroadcast);
-
-// ===== LOAD ALL TEMPLATES =====
-loadAllTemplates();
+    // ================================================================
+    // ========== BROADCAST EVENT LISTENERS ==========
+    // ================================================================
+    
+    // Source type change
+    document.querySelectorAll('input[name="sourceType"]').forEach(radio => {
+        radio.addEventListener('change', loadBroadcastNumbers);
+    });
+    
+    // Customer filter checkboxes
+    document.querySelectorAll('#customerFilterCard input').forEach(cb => {
+        cb.addEventListener('change', loadBroadcastNumbers);
+    });
+    
+    // Prospek filter checkboxes
+    document.querySelectorAll('#prospekFilterCard input').forEach(cb => {
+        cb.addEventListener('change', loadBroadcastNumbers);
+    });
+    
+    // Custom numbers input
+    document.getElementById('customNumbers')?.addEventListener('input', loadBroadcastNumbers);
+    
+    // Refresh numbers
+    document.getElementById('refreshNumbersBtn')?.addEventListener('click', loadBroadcastNumbers);
+    
+    // Template functions
+    document.getElementById('templateSelect')?.addEventListener('change', loadBroadcastTemplate);
+    document.getElementById('saveTemplateBtn')?.addEventListener('click', saveBroadcastTemplate);
+    document.getElementById('deleteTemplateBtn')?.addEventListener('click', deleteBroadcastTemplate);
+    
+    // Send broadcast
+    document.getElementById('sendBroadcastBtn')?.addEventListener('click', sendBroadcast);
+    
+    // ===== TOMBOL PROSES TINDAKAN DARI HISTORY =====
+    // INI YANG PERLU DITAMBAHKAN
+    document.getElementById('historyProcessActionsBtn')?.addEventListener('click', function(e) {
+        e.preventDefault();
+        e.stopPropagation();
+        processBroadcastActions();
+    });
+    
+    // ================================================================
+    // ========== BROADCAST UPLINE EVENT LISTENERS ==========
+    // ================================================================
+    
+    // Source type change
+    document.querySelectorAll('input[name="uplineSourceType"]').forEach(radio => {
+        radio.addEventListener('change', loadUplineNumbers);
+    });
+    
+    // Upline customer filter checkboxes
+    document.querySelectorAll('#uplineCustomerFilter input').forEach(cb => {
+        cb.addEventListener('change', loadUplineNumbers);
+    });
+    
+    // Upline custom numbers input
+    document.getElementById('uplineCustomNumbers')?.addEventListener('input', loadUplineNumbers);
+    
+    // Refresh upline
+    document.getElementById('refreshUplineBtn')?.addEventListener('click', loadUplineNumbers);
+    
+    // Upline template functions
+    document.getElementById('uplineTemplateSelect')?.addEventListener('change', loadUplineTemplate);
+    document.getElementById('uplineSaveTemplateBtn')?.addEventListener('click', saveUplineTemplate);
+    document.getElementById('uplineDeleteTemplateBtn')?.addEventListener('click', deleteUplineTemplate);
+    
+    // Send upline broadcast
+    document.getElementById('sendUplineBroadcastBtn')?.addEventListener('click', sendUplineBroadcast);
+    
+    // ================================================================
+    // ========== LOAD ALL TEMPLATES ==========
+    // ================================================================
+    
+    loadAllTemplates();
     
     // ===== DATABASE BUTTONS =====
     // Select All buttons
