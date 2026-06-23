@@ -302,6 +302,24 @@
                 </div>
             </div>
             
+            <!-- Filter Status untuk Customer -->
+            <div class="broadcast-card" id="customerFilterCard">
+                <h4>🎯 Filter Status</h4>
+                <div class="filter-status-group" style="display: flex; flex-wrap: wrap; gap: 8px;">
+                    <label><input type="checkbox" value="baru" checked> Baru</label>
+                    <label><input type="checkbox" value="followup" checked> Follow Up</label>
+                </div>
+            </div>
+            
+            <!-- Filter Status untuk Prospek -->
+            <div class="broadcast-card" id="prospekFilterCard" style="display:none;">
+                <h4>🎯 Filter Status</h4>
+                <div class="filter-status-group" style="display: flex; flex-wrap: wrap; gap: 8px;">
+                    <label><input type="checkbox" value="Baru" checked> Baru</label>
+                    <label><input type="checkbox" value="Dihubungi" checked> Dihubungi</label>
+                </div>
+            </div>
+            
             <!-- Custom Nomor -->
             <div class="broadcast-card" id="customNumbersCard" style="display:none;">
                 <h4>✏️ Daftar Nomor</h4>
@@ -323,17 +341,15 @@
                     <label style="font-size: 12px; color: #6b7280;">Pilih Template:</label>
                     <select id="templateSelect" style="width:100%; padding: 8px 12px; border-radius: 8px; border: 1px solid #e5e7eb; font-size: 13px;">
                         <option value="">-- Pilih Template --</option>
-                        <option value="followup">📞 Follow Up</option>
-                        <option value="dihubungi">📞 Dihubungi</option>
-                        <option value="custom">✏️ Custom</option>
                     </select>
+                    <div style="display: flex; gap: 8px; margin-top: 8px;">
+                        <button class="btn-primary" id="saveTemplateBtn" style="padding: 6px 12px; font-size: 12px; border-radius: 8px; border: none; cursor: pointer;">💾 Simpan Template</button>
+                        <button class="btn-danger" id="deleteTemplateBtn" style="padding: 6px 12px; font-size: 12px; border-radius: 8px; border: none; cursor: pointer;">🗑️ Hapus Template</button>
+                    </div>
                 </div>
                 <textarea id="broadcastMessage" rows="5" placeholder="Tulis pesan...&#10;Gunakan {nama} untuk personalisasi"></textarea>
                 <div class="variable-hint">
                     <small>💡 Gunakan variabel: <code>{nama}</code> untuk mengganti dengan nama</small>
-                </div>
-                <div style="margin-top: 8px;">
-                    <button class="btn-primary" id="saveTemplateBtn" style="padding: 6px 12px; font-size: 12px; border-radius: 8px; border: none; cursor: pointer;">💾 Simpan Template</button>
                 </div>
             </div>
             
@@ -375,8 +391,6 @@
                 <div class="filter-status-group" style="display: flex; flex-wrap: wrap; gap: 8px;">
                     <label><input type="checkbox" value="baru" checked> Baru</label>
                     <label><input type="checkbox" value="followup" checked> Follow Up</label>
-                    <label><input type="checkbox" value="pending"> Pending</label>
-                    <label><input type="checkbox" value="closing"> Closing</label>
                 </div>
             </div>
             
@@ -399,6 +413,16 @@
             <!-- Template Pesan Upline -->
             <div class="broadcast-card">
                 <h4>📝 Template Pesan</h4>
+                <div style="margin-bottom: 8px;">
+                    <label style="font-size: 12px; color: #6b7280;">Pilih Template:</label>
+                    <select id="uplineTemplateSelect" style="width:100%; padding: 8px 12px; border-radius: 8px; border: 1px solid #e5e7eb; font-size: 13px;">
+                        <option value="">-- Pilih Template --</option>
+                    </select>
+                    <div style="display: flex; gap: 8px; margin-top: 8px;">
+                        <button class="btn-primary" id="uplineSaveTemplateBtn" style="padding: 6px 12px; font-size: 12px; border-radius: 8px; border: none; cursor: pointer;">💾 Simpan Template</button>
+                        <button class="btn-danger" id="uplineDeleteTemplateBtn" style="padding: 6px 12px; font-size: 12px; border-radius: 8px; border: none; cursor: pointer;">🗑️ Hapus Template</button>
+                    </div>
+                </div>
                 <textarea id="uplineBroadcastMessage" rows="6" placeholder="Tulis pesan...&#10;&#10;Variabel yang tersedia:&#10;{nama_upline} - Nama Upline&#10;{total_agent} - Jumlah Agent di bawah Upline&#10;{tabel_agent} - Tabel lengkap data Agent"></textarea>
                 <div class="variable-hint" style="margin-top: 8px;">
                     <small>💡 Gunakan variabel: <code>{nama_upline}</code>, <code>{total_agent}</code>, <code>{tabel_agent}</code></small>
