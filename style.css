@@ -6661,3 +6661,44 @@ body.dark-mode #pendingModal .pending-item .delete-pending-item:hover {
         padding: 0 16px !important;
     }
 }
+
+/* ================================================================ */
+/* ========== BROADCAST HISTORY ACTION BUTTONS ========== */
+/* ================================================================ */
+
+.btn-action-item {
+    padding: 4px 8px !important;
+    font-size: 9px !important;
+    border-radius: 6px !important;
+    border: none !important;
+    cursor: pointer !important;
+    font-weight: 600 !important;
+    transition: all 0.2s ease !important;
+    white-space: nowrap !important;
+}
+
+.btn-action-item:hover {
+    transform: translateY(-1px) !important;
+    box-shadow: 0 2px 8px rgba(0,0,0,0.15) !important;
+}
+
+.btn-action-item.btn-primary {
+    background: #4f46e5 !important;
+    color: white !important;
+}
+
+.btn-action-item.btn-warning {
+    background: #f59e0b !important;
+    color: white !important;
+}
+
+.btn-action-item.btn-danger {
+    background: #ef4444 !important;
+    color: white !important;
+}
+
+.btn-action-item:disabled {
+    opacity: 0.5 !important;
+    cursor: not-allowed !important;
+    transform: none !important;
+}
