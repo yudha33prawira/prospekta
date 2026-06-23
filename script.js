@@ -7725,6 +7725,10 @@ const DEFAULT_TEMPLATES = {
     }
 };
 
+// ===== KEY UNTUK STORAGE HISTORY =====
+const BROADCAST_HISTORY_KEY = 'broadcast_history';
+const UPLINE_BROADCAST_HISTORY_KEY = 'upline_broadcast_history';
+
 // ===== LOAD TEMPLATES =====
 function loadBroadcastTemplates() {
     const select = document.getElementById('templateSelect');
@@ -7904,6 +7908,48 @@ function loadUplineTemplate() {
 }
 
 // ================================================================
+// ========== SAVE & LOAD BROADCAST HISTORY ==========
+// ================================================================
+
+function saveBroadcastHistory(isUpline = false) {
+    const key = isUpline ? UPLINE_BROADCAST_HISTORY_KEY : BROADCAST_HISTORY_KEY;
+    const data = isUpline ? uplineBroadcastHistory : broadcastHistory;
+    
+    // Filter hanya data yang belum diproses
+    const pendingData = data.filter(item => item.status === 'success' && item.id && !item.processed);
+    
+    // Simpan ke localStorage (hanya data terakhir, akan menimpa yang lama)
+    localStorage.setItem(key, JSON.stringify(pendingData));
+}
+
+function loadBroadcastHistory(isUpline = false) {
+    const key = isUpline ? UPLINE_BROADCAST_HISTORY_KEY : BROADCAST_HISTORY_KEY;
+    const savedData = localStorage.getItem(key);
+    
+    if (savedData) {
+        try {
+            const parsedData = JSON.parse(savedData);
+            if (Array.isArray(parsedData) && parsedData.length > 0) {
+                if (isUpline) {
+                    uplineBroadcastHistory = parsedData;
+                } else {
+                    broadcastHistory = parsedData;
+                }
+                return true;
+            }
+        } catch (e) {
+            console.error('Error loading history:', e);
+        }
+    }
+    return false;
+}
+
+function clearBroadcastHistory(isUpline = false) {
+    const key = isUpline ? UPLINE_BROADCAST_HISTORY_KEY : BROADCAST_HISTORY_KEY;
+    localStorage.removeItem(key);
+}
+
+// ================================================================
 // ========== BROADCAST WHATSAPP FUNCTIONS ==========
 // ================================================================
 
@@ -7911,7 +7957,6 @@ let currentNumbers = [];
 let isBroadcasting = false;
 let broadcastHistory = [];
 let isProcessingHistory = false;
-let currentProcessingIndex = 0;
 
 // ===== LOAD BROADCAST NUMBERS =====
 async function loadBroadcastNumbers() {
@@ -8062,6 +8107,14 @@ function showContinueModal(item, current, total) {
     });
 }
 
+// ===== CLOSE BROADCAST HISTORY =====
+function closeBroadcastHistory() {
+    // Simpan history sebelum ditutup
+    saveBroadcastHistory(false);
+    saveBroadcastHistory(true);
+    closeModal('broadcastHistoryModal');
+}
+
 // ================================================================
 // ========== SHOW BROADCAST HISTORY ==========
 // ================================================================
@@ -8070,10 +8123,12 @@ function showBroadcastHistory(isUpline = false) {
     const historyData = isUpline ? uplineBroadcastHistory : broadcastHistory;
     const successCount = historyData.filter(h => h.status === 'success').length;
     const failedCount = historyData.filter(h => h.status === 'failed').length;
+    const pendingCount = historyData.filter(h => h.status === 'success' && h.id && !h.processed).length;
     
     document.getElementById('historySuccessCount').innerText = successCount;
     document.getElementById('historyFailedCount').innerText = failedCount;
     document.getElementById('historyTotalCount').innerText = historyData.length;
+    document.getElementById('historyPendingCount').innerText = pendingCount;
     
     const list = document.getElementById('broadcastHistoryList');
     if (historyData.length === 0) {
@@ -8104,10 +8159,10 @@ function showBroadcastHistory(isUpline = false) {
             // ===== DATA SUDAH DIPROSES =====
             if (isProcessed) {
                 return `
-                <div style="display:flex;align-items:center;gap:8px;padding:8px 12px;margin-bottom:4px;border-radius:8px;background:#f0fdf4;border-left:3px solid #10b981;flex-wrap:wrap;">
+                <div style="display:flex;align-items:center;gap:8px;padding:8px 12px;margin-bottom:4px;border-radius:8px;background:#d1fae5;border-left:3px solid #10b981;flex-wrap:wrap;opacity:0.7;">
                     <span style="font-size:14px;">✅</span>
                     <div style="flex:1;min-width:0;">
-                        <div style="font-weight:500;font-size:12px;color:#1f2937;">${escapeHtml(item.nama)}</div>
+                        <div style="font-weight:500;font-size:12px;color:#1f2937;text-decoration:line-through;">${escapeHtml(item.nama)}</div>
                         <div style="font-size:10px;color:#6b7280;">📞 ${escapeHtml(item.hp)} | <span style="color:#10b981;">Sudah Diproses</span></div>
                         ${item.upline_name ? `<div style="font-size:9px;color:#9ca3af;">👤 Upline: ${escapeHtml(item.upline_name)}</div>` : ''}
                     </div>
@@ -8123,57 +8178,36 @@ function showBroadcastHistory(isUpline = false) {
             const statusAwal = item.status_awal || '';
             
             const isNew = (isCustomer && statusAwal === 'baru') || (isProspekItem && statusAwal === 'Baru');
-            const isFollowup = (isCustomer && statusAwal === 'followup');
-            const isDihubungi = (isProspekItem && statusAwal === 'Dihubungi');
-            const isPending = (isCustomer && statusAwal === 'pending');
-            const isNegosiasi = (isProspekItem && statusAwal === 'Negosiasi');
-            const isClosing = (isCustomer && statusAwal === 'closing');
-            const isTertarik = (isProspekItem && statusAwal === 'Tertarik');
+            const isFollowup = (isCustomer && (statusAwal === 'followup' || statusAwal === 'pending' || statusAwal === 'closing'));
+            const isDihubungi = (isProspekItem && (statusAwal === 'Dihubungi' || statusAwal === 'Negosiasi' || statusAwal === 'Tertarik'));
             
-            let actionButtons = '';
             let actionLabel = '';
+            let actionIcon = '';
+            let actionId = '';
             
-            if (isUplineItem) {
-                // ===== UPLINE: BUKA POPUP FOLLOWUP =====
-                actionButtons = `
-                    <button class="btn-action-item btn-primary" data-index="${index}" data-action="open_followup" style="padding:4px 8px;font-size:9px;border-radius:6px;border:none;cursor:pointer;background:#4f46e5;color:white;">📞 Buka Followup</button>
-                `;
-            } else if (isNew) {
-                if (isCustomer) {
-                    // ===== CUSTOMER BARU: BUKA POPUP FOLLOWUP =====
-                    actionButtons = `
-                        <button class="btn-action-item btn-primary" data-index="${index}" data-action="open_followup" style="padding:4px 8px;font-size:9px;border-radius:6px;border:none;cursor:pointer;background:#4f46e5;color:white;">📞 Buka Followup</button>
-                    `;
-                } else if (isProspekItem) {
-                    // ===== PROSPEK BARU: BUKA POPUP DIHUBUNGI =====
-                    actionButtons = `
-                        <button class="btn-action-item btn-primary" data-index="${index}" data-action="open_dihubungi" style="padding:4px 8px;font-size:9px;border-radius:6px;border:none;cursor:pointer;background:#4f46e5;color:white;">📞 Buka Dihubungi</button>
-                    `;
-                }
-            } else if (isFollowup || isPending) {
-                // ===== CUSTOMER FOLLOWUP/PENDING: BUKA POPUP FOLLOWUP =====
-                actionButtons = `
-                    <button class="btn-action-item btn-primary" data-index="${index}" data-action="open_followup" style="padding:4px 8px;font-size:9px;border-radius:6px;border:none;cursor:pointer;background:#4f46e5;color:white;">📞 Buka Followup</button>
-                `;
-            } else if (isDihubungi || isNegosiasi) {
-                // ===== PROSPEK DIHUBUNGI/NEGOSIASI: BUKA POPUP DIHUBUNGI =====
-                actionButtons = `
-                    <button class="btn-action-item btn-primary" data-index="${index}" data-action="open_dihubungi" style="padding:4px 8px;font-size:9px;border-radius:6px;border:none;cursor:pointer;background:#4f46e5;color:white;">📞 Buka Dihubungi</button>
-                `;
-            } else if (isClosing) {
-                // ===== CLOSING: BUKA POPUP FOLLOWUP =====
-                actionButtons = `
-                    <button class="btn-action-item btn-primary" data-index="${index}" data-action="open_followup" style="padding:4px 8px;font-size:9px;border-radius:6px;border:none;cursor:pointer;background:#4f46e5;color:white;">📞 Buka Followup</button>
-                `;
-            } else if (isTertarik) {
-                // ===== TERTARIK: BUKA POPUP DIHUBUNGI =====
-                actionButtons = `
-                    <button class="btn-action-item btn-primary" data-index="${index}" data-action="open_dihubungi" style="padding:4px 8px;font-size:9px;border-radius:6px;border:none;cursor:pointer;background:#4f46e5;color:white;">📞 Buka Dihubungi</button>
-                `;
+            if (isUplineItem || isCustomer) {
+                actionLabel = 'Buka Followup';
+                actionIcon = '📞';
+                actionId = 'open_followup';
+            } else if (isProspekItem) {
+                actionLabel = 'Buka Dihubungi';
+                actionIcon = '📞';
+                actionId = 'open_dihubungi';
             }
             
-            if (!actionButtons) {
-                actionButtons = `<span style="font-size:9px;color:#9ca3af;">Tidak ada tindakan</span>`;
+            // Jika tidak ada tombol
+            if (!actionId) {
+                return `
+                <div style="display:flex;align-items:center;gap:8px;padding:8px 12px;margin-bottom:4px;border-radius:8px;background:#f0fdf4;border-left:3px solid #10b981;flex-wrap:wrap;">
+                    <span style="font-size:14px;">✅</span>
+                    <div style="flex:1;min-width:0;">
+                        <div style="font-weight:500;font-size:12px;color:#1f2937;">${escapeHtml(item.nama)}</div>
+                        <div style="font-size:10px;color:#6b7280;">📞 ${escapeHtml(item.hp)} | <span style="color:#10b981;">Terkirim</span></div>
+                    </div>
+                    <span style="font-size:9px;color:#9ca3af;">${item.timestamp ? formatDateDDMMYYYY(item.timestamp) : '-'}</span>
+                    <span style="font-size:9px;color:#9ca3af;">Tidak ada tindakan</span>
+                </div>
+            `;
             }
             
             return `
@@ -8185,9 +8219,9 @@ function showBroadcastHistory(isUpline = false) {
                     <div style="font-size:9px;color:#9ca3af;">Status: <strong>${escapeHtml(statusAwal || '-')}</strong></div>
                     ${item.upline_name ? `<div style="font-size:9px;color:#9ca3af;">👤 Upline: ${escapeHtml(item.upline_name)}</div>` : ''}
                 </div>
-                <div style="display:flex;gap:4px;flex-wrap:wrap;">
-                    ${actionButtons}
-                </div>
+                <button class="btn-action-item btn-primary" data-index="${index}" data-action="${actionId}" style="padding:4px 10px;font-size:10px;border-radius:6px;border:none;cursor:pointer;background:#4f46e5;color:white;font-weight:600;white-space:nowrap;">
+                    ${actionIcon} ${actionLabel}
+                </button>
                 <span style="font-size:9px;color:#9ca3af;">${item.timestamp ? formatDateDDMMYYYY(item.timestamp) : '-'}</span>
             </div>
         `}).join('');
@@ -8225,27 +8259,31 @@ async function handleActionClick(e) {
         return;
     }
     
+    // Cek apakah sudah diproses
+    if (item.processed) {
+        showNotifTop('⏳ Data sudah diproses sebelumnya!', true);
+        return;
+    }
+    
     btn.disabled = true;
     btn.textContent = '⏳';
     btn.style.opacity = '0.5';
     btn.style.cursor = 'not-allowed';
     
     try {
-        const isCustomer = item.source === 'customer' || item.source === 'customer_upline';
-        const isProspek = item.source === 'prospek';
-        
         // ===== BUKA POPUP SESUAI TINDAKAN =====
         if (action === 'open_followup') {
-            // Buka popup followup (sama seperti di menu followup)
             await openFollowupPopup(item.id);
         } else if (action === 'open_dihubungi') {
-            // Buka popup dihubungi (sama seperti di menu prospek)
             await openDihubungiPopup(item.id);
         }
         
         // Tandai sudah diproses
         item.processed = true;
-        item.processed_action = action;
+        item.processed_at = new Date().toISOString();
+        
+        // Simpan history ke localStorage
+        saveBroadcastHistory(isUpline);
         
         showNotifTop(`✅ ${item.nama} berhasil diproses!`);
         showBroadcastHistory(isUpline);
@@ -8254,7 +8292,7 @@ async function handleActionClick(e) {
         console.error('Error processing action:', err);
         showNotifTop('❌ Gagal: ' + err.message, true);
         btn.disabled = false;
-        btn.textContent = '🔄';
+        btn.textContent = action === 'open_followup' ? '📞 Buka Followup' : '📞 Buka Dihubungi';
         btn.style.opacity = '1';
         btn.style.cursor = 'pointer';
     }
@@ -8265,7 +8303,6 @@ async function handleActionClick(e) {
 // ================================================================
 
 async function openFollowupPopup(id) {
-    // Ambil data customer
     const { data: customer } = await window.db
         .from('customers')
         .select('*')
@@ -8277,7 +8314,6 @@ async function openFollowupPopup(id) {
         return;
     }
     
-    // Tentukan status dan action
     const status = customer.status || 'baru';
     
     if (status === 'baru') {
@@ -8313,27 +8349,14 @@ async function openFollowupPopup(id) {
         showNotifTop(`✅ ${customer.nama} dipindahkan ke Followup. Deadline +1 hari`);
         await loadCustomers();
         
-    } else if (status === 'followup' || status === 'pending') {
-        // ===== FOLLOWUP/PENDING: BUKA POPUP KONFIRMASI FOLLOWUP =====
-        // Panggil fungsi openFollowupConfirm dari script utama
+    } else if (status === 'followup' || status === 'pending' || status === 'closing') {
+        // ===== FOLLOWUP/PENDING/CLOSING: BUKA POPUP KONFIRMASI FOLLOWUP =====
         if (typeof openFollowupConfirm === 'function') {
             // Tutup modal history dulu
             closeModal('broadcastHistoryModal');
             // Buka popup followup confirm
             await openFollowupConfirm(id);
             // Setelah selesai, refresh history
-            setTimeout(() => {
-                showBroadcastHistory(false);
-            }, 500);
-        } else {
-            showNotifTop('❌ Fungsi followup tidak tersedia!', true);
-        }
-        
-    } else if (status === 'closing') {
-        // ===== CLOSING: BUKA POPUP FOLLOWUP =====
-        if (typeof openFollowupConfirm === 'function') {
-            closeModal('broadcastHistoryModal');
-            await openFollowupConfirm(id);
             setTimeout(() => {
                 showBroadcastHistory(false);
             }, 500);
@@ -8348,7 +8371,6 @@ async function openFollowupPopup(id) {
 // ================================================================
 
 async function openDihubungiPopup(id) {
-    // Ambil data prospek
     const { data: prospek } = await window.db
         .from('prospek')
         .select('*')
@@ -8395,20 +8417,8 @@ async function openDihubungiPopup(id) {
         showNotifTop(`✅ ${prospek.nama} dipindahkan ke Dihubungi. Deadline +1 hari`);
         await loadProspek();
         
-    } else if (status === 'Dihubungi' || status === 'Negosiasi') {
-        // ===== DIHUBUNGI/NEGOSIASI: BUKA POPUP KONFIRMASI DIHUBUNGI =====
-        if (typeof openProspekDihubungiConfirm === 'function') {
-            closeModal('broadcastHistoryModal');
-            await openProspekDihubungiConfirm(id);
-            setTimeout(() => {
-                showBroadcastHistory(false);
-            }, 500);
-        } else {
-            showNotifTop('❌ Fungsi dihubungi tidak tersedia!', true);
-        }
-        
-    } else if (status === 'Tertarik') {
-        // ===== TERTARIK: BUKA POPUP DIHUBUNGI =====
+    } else if (status === 'Dihubungi' || status === 'Negosiasi' || status === 'Tertarik') {
+        // ===== DIHUBUNGI/NEGOSIASI/TERTARIK: BUKA POPUP KONFIRMASI DIHUBUNGI =====
         if (typeof openProspekDihubungiConfirm === 'function') {
             closeModal('broadcastHistoryModal');
             await openProspekDihubungiConfirm(id);
@@ -8421,72 +8431,70 @@ async function openDihubungiPopup(id) {
     }
 }
 
-// ===== PROSES SEMUA TINDAKAN =====
-async function processAllBroadcastActions() {
-    if (isProcessingHistory) {
-        showNotifTop('⏳ Proses sedang berjalan...', true);
-        return;
-    }
-    
-    const modal = document.getElementById('broadcastHistoryModal');
-    const isUpline = modal?.dataset?.isUpline === 'true';
-    const historyData = isUpline ? uplineBroadcastHistory : broadcastHistory;
-    
-    const successItems = historyData.filter(h => h.status === 'success' && h.id && !h.processed);
-    
-    if (successItems.length === 0) {
-        showNotifTop('⚠️ Tidak ada data yang perlu diproses!', true);
-        return;
-    }
-    
-    if (!confirm(`📋 Proses semua ${successItems.length} data yang berhasil dikirim?`)) {
-        return;
-    }
-    
-    isProcessingHistory = true;
-    currentProcessingIndex = 0;
-    closeModal('broadcastHistoryModal');
-    
-    const progress = showFloatingProgress('📋 Memproses Semua', successItems.length);
-    let processed = 0;
-    
-    for (let i = 0; i < successItems.length; i++) {
-        const item = successItems[i];
-        const isCustomer = item.source === 'customer' || item.source === 'customer_upline';
-        const isProspek = item.source === 'prospek';
-        const statusAwal = item.status_awal || '';
+// ================================================================
+// ========== MOVE TO NOMOR SALAH ==========
+// ================================================================
+
+async function moveToNomorSalah(id, type, alasan) {
+    try {
+        let insertData = {};
         
-        try {
-            if (isCustomer || isUpline) {
-                // Customer: buka popup followup
-                await openFollowupPopup(item.id);
-            } else if (isProspek) {
-                // Prospek: buka popup dihubungi
-                await openDihubungiPopup(item.id);
-            }
+        if (type === 'customer') {
+            const { data: customer } = await window.db
+                .from('customers')
+                .select('*')
+                .eq('id', id)
+                .single();
             
-            item.processed = true;
-            processed++;
+            if (!customer) return;
             
-        } catch (err) {
-            console.error('Error processing:', err);
+            insertData = {
+                nama: customer.nama || 'Tidak ada nama',
+                hp: customer.hp || '',
+                alasan: alasan || 'Nomor tidak bisa dihubungi / tidak aktif',
+                agent_id: customer.agent_id || null,
+                followup_data: customer.followup_data || null,
+                user_id: customer.user_id || currentUser.id,
+                deleted_at: new Date().toISOString(),
+                created_at: new Date().toISOString()
+            };
+            
+            await window.db.from('nomor_salah').insert(insertData);
+            await window.db.from('customers').delete().eq('id', id);
+            
+        } else if (type === 'prospek') {
+            const { data: prospek } = await window.db
+                .from('prospek')
+                .select('*')
+                .eq('id', id)
+                .single();
+            
+            if (!prospek) return;
+            
+            insertData = {
+                nama: prospek.nama || 'Tidak ada nama',
+                hp: prospek.hp || '',
+                alasan: alasan || 'Nomor tidak bisa dihubungi / tidak aktif',
+                dihubungi_data: prospek.dihubungi_data || null,
+                negosiasi_data: prospek.negosiasi_data || null,
+                user_id: prospek.user_id || currentUser.id,
+                deleted_at: new Date().toISOString(),
+                created_at: new Date().toISOString()
+            };
+            
+            await window.db.from('nomor_salah').insert(insertData);
+            await window.db.from('prospek').delete().eq('id', id);
         }
         
-        const percent = Math.floor(((i + 1) / successItems.length) * 100);
-        progress.update(percent, '📋 Memproses', `Memproses ${item.nama} (${i + 1}/${successItems.length})...`, i + 1, successItems.length);
+        showNotifTop(`📵 Data dipindahkan ke DB Nomor Salah: ${alasan}`);
+        await loadDBNomorSalah();
+        await loadCustomers();
+        await loadProspek();
         
-        await delay(500);
+    } catch (err) {
+        console.error('Error move to nomor salah:', err);
+        showNotifTop('❌ Gagal pindah ke nomor salah: ' + err.message, true);
     }
-    
-    progress.update(100, '✅ Selesai', `Semua ${processed} data telah diproses`);
-    showNotifTop(`✅ ${processed} data berhasil diproses!`);
-    
-    isProcessingHistory = false;
-    setTimeout(() => progress.hide(), 2000);
-    
-    await loadCustomers();
-    await loadProspek();
-    await loadDBNomorSalah();
 }
 
 // ================================================================
@@ -8588,6 +8596,9 @@ async function sendBroadcast() {
     
     isBroadcasting = false;
     setTimeout(() => progress.hide(), 1000);
+    
+    // Simpan history ke localStorage
+    saveBroadcastHistory(false);
     
     showBroadcastHistory(false);
     
@@ -8872,6 +8883,9 @@ async function sendUplineBroadcast() {
     isUplineBroadcasting = false;
     setTimeout(() => progress.hide(), 1000);
     
+    // Simpan history ke localStorage
+    saveBroadcastHistory(true);
+    
     showBroadcastHistory(true);
     
     await loadCustomers();
@@ -8882,6 +8896,12 @@ async function sendUplineBroadcast() {
 // ===== INIT UPLINE BROADCAST =====
 function initUplineBroadcast() {
     console.log('initUplineBroadcast dipanggil');
+    
+    // Load history dari localStorage
+    const hasHistory = loadBroadcastHistory(true);
+    if (hasHistory) {
+        console.log('📂 Loaded upline broadcast history from localStorage');
+    }
     
     const radioButtons = document.querySelectorAll('input[name="uplineSourceType"]');
     radioButtons.forEach(radio => {
@@ -8928,78 +8948,20 @@ function initUplineBroadcast() {
 }
 
 // ================================================================
-// ========== MOVE TO NOMOR SALAH ==========
-// ================================================================
-
-async function moveToNomorSalah(id, type, alasan) {
-    try {
-        let insertData = {};
-        
-        if (type === 'customer') {
-            const { data: customer } = await window.db
-                .from('customers')
-                .select('*')
-                .eq('id', id)
-                .single();
-            
-            if (!customer) return;
-            
-            insertData = {
-                nama: customer.nama || 'Tidak ada nama',
-                hp: customer.hp || '',
-                alasan: alasan || 'Nomor tidak bisa dihubungi / tidak aktif',
-                agent_id: customer.agent_id || null,
-                followup_data: customer.followup_data || null,
-                user_id: customer.user_id || currentUser.id,
-                deleted_at: new Date().toISOString(),
-                created_at: new Date().toISOString()
-            };
-            
-            await window.db.from('nomor_salah').insert(insertData);
-            await window.db.from('customers').delete().eq('id', id);
-            
-        } else if (type === 'prospek') {
-            const { data: prospek } = await window.db
-                .from('prospek')
-                .select('*')
-                .eq('id', id)
-                .single();
-            
-            if (!prospek) return;
-            
-            insertData = {
-                nama: prospek.nama || 'Tidak ada nama',
-                hp: prospek.hp || '',
-                alasan: alasan || 'Nomor tidak bisa dihubungi / tidak aktif',
-                dihubungi_data: prospek.dihubungi_data || null,
-                negosiasi_data: prospek.negosiasi_data || null,
-                user_id: prospek.user_id || currentUser.id,
-                deleted_at: new Date().toISOString(),
-                created_at: new Date().toISOString()
-            };
-            
-            await window.db.from('nomor_salah').insert(insertData);
-            await window.db.from('prospek').delete().eq('id', id);
-        }
-        
-        showNotifTop(`📵 Data dipindahkan ke DB Nomor Salah: ${alasan}`);
-        await loadDBNomorSalah();
-        await loadCustomers();
-        await loadProspek();
-        
-    } catch (err) {
-        console.error('Error move to nomor salah:', err);
-        showNotifTop('❌ Gagal pindah ke nomor salah: ' + err.message, true);
-    }
-}
-
-// ================================================================
-// ========== LOAD ALL TEMPLATES ==========
+// ========== LOAD ALL TEMPLATES & HISTORY ==========
 // ================================================================
 
 function loadAllTemplates() {
     loadBroadcastTemplates();
     loadUplineTemplates();
+    
+    // Load history dari localStorage
+    const hasBroadcastHistory = loadBroadcastHistory(false);
+    const hasUplineHistory = loadBroadcastHistory(true);
+    
+    if (hasBroadcastHistory || hasUplineHistory) {
+        console.log('📂 Loaded broadcast history from localStorage');
+    }
 }
 
 // ========== SEARCH FUNCTIONS ==========
@@ -12047,16 +12009,6 @@ document.getElementById('deleteTemplateBtn')?.addEventListener('click', deleteBr
 document.getElementById('sendBroadcastBtn')?.addEventListener('click', sendBroadcast);
 
 // ================================================================
-// ========== BROADCAST HISTORY MODAL ==========
-// ================================================================
-
-document.getElementById('historyProcessAllBtn')?.addEventListener('click', function(e) {
-    e.preventDefault();
-    e.stopPropagation();
-    processAllBroadcastActions();
-});
-
-// ================================================================
 // ========== BROADCAST UPLINE EVENT LISTENERS ==========
 // ================================================================
 
@@ -12079,10 +12031,19 @@ document.getElementById('uplineDeleteTemplateBtn')?.addEventListener('click', de
 document.getElementById('sendUplineBroadcastBtn')?.addEventListener('click', sendUplineBroadcast);
 
 // ================================================================
-// ========== LOAD ALL TEMPLATES ==========
+// ========== LOAD ALL TEMPLATES & HISTORY ==========
 // ================================================================
 
 loadAllTemplates();
+
+// Jika ada history tersimpan, tampilkan notifikasi
+setTimeout(() => {
+    const hasBroadcast = loadBroadcastHistory(false);
+    const hasUpline = loadBroadcastHistory(true);
+    if (hasBroadcast || hasUpline) {
+        showNotifTop('📂 Ada history broadcast yang belum selesai. Buka halaman Broadcast untuk melanjutkan.');
+    }
+}, 2000);
     
     // ===== DATABASE BUTTONS =====
     // Select All buttons
