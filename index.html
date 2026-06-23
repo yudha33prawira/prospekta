@@ -482,59 +482,62 @@
                 <!-- MODAL PROFILE -->
                 <div class="modal" id="profileModal"><div class="modal-content"><h3>👤 Profile CS Agent</h3><div class="modal-subtitle">Kelola informasi akun Anda</div><div class="profile-photo-wrapper"><div class="profile-photo-container"><img id="previewFoto" src="https://i.pravatar.cc/100"><input type="file" id="profileFoto" hidden accept="image/*"></div><div><button type="button" id="cameraIconBtn">📷 Ganti Foto</button><small>🔍 Klik foto untuk memperbesar</small></div></div><div class="form-group"><label>Nama Lengkap</label><input type="text" id="profileName" placeholder="Nama Anda"></div><div class="form-group"><label>Email</label><input type="email" id="profileEmail" disabled></div><div class="form-group"><label>Nomor WhatsApp</label><div class="phone-input"><div class="phone-prefix">+62</div><input type="tel" id="profilePhone" placeholder="81234567890"></div></div><div class="dark-mode-toggle" id="darkModeToggle"><span>🌙 Mode Gelap / Terang</span><div class="toggle-switch"></div></div><div class="modal-buttons"><button id="saveProfileBtn" class="btn-primary">💾 Simpan</button><button class="closeModalBtn btn-outline" data-modal="profileModal">Batal</button></div></div></div>
 
-<!-- MODAL HISTORY BROADCAST -->
-<div class="modal" id="broadcastHistoryModal">
-    <div class="modal-content" style="max-width: 650px; max-height: 80vh; overflow: hidden; display: flex; flex-direction: column;">
-        <div style="padding: 20px 24px 0; display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid #f0f0f0;">
-            <h3 style="font-size: 20px; margin: 0; color: #1f2937;">📊 Laporan Broadcast</h3>
-            <button onclick="closeModal('broadcastHistoryModal')" style="background: none; border: none; font-size: 28px; cursor: pointer; color: #6b7280; padding: 0 4px; line-height: 1;">✕</button>
-        </div>
-        <div class="modal-subtitle" style="padding: 8px 24px 12px; font-size: 13px; color: #6b7280; border-bottom: 1px solid #f0f0f0;">
-            Ringkasan hasil broadcast - Klik tombol tindakan pada setiap data
-        </div>
-        
-        <!-- Statistik -->
-        <div style="padding: 12px 24px; display: flex; gap: 12px; flex-wrap: wrap; border-bottom: 1px solid #f0f0f0;">
-            <div style="flex: 1; min-width: 60px; background: #f0fdf4; border-radius: 12px; padding: 8px 12px; border-left: 4px solid #10b981; text-align: center;">
-                <div style="font-size: 20px; font-weight: 800; color: #10b981;" id="historySuccessCount">0</div>
-                <div style="font-size: 10px; color: #6b7280;">✅ Terkirim</div>
-            </div>
-            <div style="flex: 1; min-width: 60px; background: #fef2f2; border-radius: 12px; padding: 8px 12px; border-left: 4px solid #ef4444; text-align: center;">
-                <div style="font-size: 20px; font-weight: 800; color: #ef4444;" id="historyFailedCount">0</div>
-                <div style="font-size: 10px; color: #6b7280;">❌ Gagal</div>
-            </div>
-            <div style="flex: 1; min-width: 60px; background: #eef2ff; border-radius: 12px; padding: 8px 12px; border-left: 4px solid #4f46e5; text-align: center;">
-                <div style="font-size: 20px; font-weight: 800; color: #4f46e5;" id="historyTotalCount">0</div>
-                <div style="font-size: 10px; color: #6b7280;">📋 Total</div>
-            </div>
-        </div>
-        
-        <!-- Daftar History dengan Tombol Tindakan -->
-        <div id="broadcastHistoryList" style="padding: 12px 16px; flex: 1; overflow-y: auto; max-height: 350px;"></div>
-        
-        <!-- Footer -->
-        <div class="modal-buttons" style="display: flex; gap: 12px; padding: 12px 24px 16px; border-top: 1px solid #e5e7eb;">
-            <button onclick="closeModal('broadcastHistoryModal')" class="btn-primary" style="flex: 1; padding: 10px; border: none; border-radius: 14px; font-weight: 600; cursor: pointer; background: linear-gradient(135deg, #4f46e5, #6366f1); color: white;">Tutup</button>
-            <button id="historyProcessAllBtn" class="btn-success" style="flex: 1; padding: 10px; border: none; border-radius: 14px; font-weight: 600; cursor: pointer; background: #10b981; color: white;">📋 Proses Semua</button>
-        </div>
-    </div>
-</div>
-                
-<!-- MODAL PREVIEW PHOTO -->
-<div class="modal" id="previewPhotoModal">
-    <div class="modal-content preview-photo-content">
-        <div class="preview-photo-header">
-            <h3>📸 Foto Profile</h3>
-            <button onclick="closeModal('previewPhotoModal')" style="background:none; border:none; font-size:24px; cursor:pointer; color:#6b7280;">✕</button>
-        </div>
-        <div class="preview-photo-body" style="padding:20px; text-align:center;">
-            <img id="previewPhotoLarge" src="" alt="Foto Profil" style="max-width:100%; max-height:70vh; border-radius:16px; object-fit:contain; display:block; margin:0 auto;">
-        </div>
-        <div class="modal-buttons" style="padding:16px 24px 24px;">
-            <button onclick="closeModal('previewPhotoModal')" class="btn-primary" style="width:100%;">Tutup</button>
-        </div>
-    </div>
-</div>
+                <!-- MODAL HISTORY BROADCAST -->
+                <div class="modal" id="broadcastHistoryModal">
+                    <div class="modal-content" style="max-width: 650px; max-height: 80vh; overflow: hidden; display: flex; flex-direction: column;">
+                        <div style="padding: 20px 24px 0; display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid #f0f0f0;">
+                            <h3 style="font-size: 20px; margin: 0; color: #1f2937;">📊 Laporan Broadcast</h3>
+                            <button onclick="closeBroadcastHistory()" style="background: none; border: none; font-size: 28px; cursor: pointer; color: #6b7280; padding: 0 4px; line-height: 1;">✕</button>
+                        </div>
+                        <div class="modal-subtitle" style="padding: 8px 24px 12px; font-size: 13px; color: #6b7280; border-bottom: 1px solid #f0f0f0;">
+                            Ringkasan hasil broadcast - Klik tombol pada setiap data untuk memproses
+                        </div>
+                        
+                        <!-- Statistik -->
+                        <div style="padding: 12px 24px; display: flex; gap: 12px; flex-wrap: wrap; border-bottom: 1px solid #f0f0f0;">
+                            <div style="flex: 1; min-width: 60px; background: #f0fdf4; border-radius: 12px; padding: 8px 12px; border-left: 4px solid #10b981; text-align: center;">
+                                <div style="font-size: 20px; font-weight: 800; color: #10b981;" id="historySuccessCount">0</div>
+                                <div style="font-size: 10px; color: #6b7280;">✅ Terkirim</div>
+                            </div>
+                            <div style="flex: 1; min-width: 60px; background: #fef2f2; border-radius: 12px; padding: 8px 12px; border-left: 4px solid #ef4444; text-align: center;">
+                                <div style="font-size: 20px; font-weight: 800; color: #ef4444;" id="historyFailedCount">0</div>
+                                <div style="font-size: 10px; color: #6b7280;">❌ Gagal</div>
+                            </div>
+                            <div style="flex: 1; min-width: 60px; background: #eef2ff; border-radius: 12px; padding: 8px 12px; border-left: 4px solid #4f46e5; text-align: center;">
+                                <div style="font-size: 20px; font-weight: 800; color: #4f46e5;" id="historyTotalCount">0</div>
+                                <div style="font-size: 10px; color: #6b7280;">📋 Total</div>
+                            </div>
+                            <div style="flex: 1; min-width: 60px; background: #fef3c7; border-radius: 12px; padding: 8px 12px; border-left: 4px solid #f59e0b; text-align: center;">
+                                <div style="font-size: 20px; font-weight: 800; color: #d97706;" id="historyPendingCount">0</div>
+                                <div style="font-size: 10px; color: #6b7280;">⏳ Tertunda</div>
+                            </div>
+                        </div>
+                        
+                        <!-- Daftar History -->
+                        <div id="broadcastHistoryList" style="padding: 12px 16px; flex: 1; overflow-y: auto; max-height: 400px;"></div>
+                        
+                        <!-- FOOTER - HANYA TOMBOL TUTUP -->
+                        <div style="padding: 12px 24px 16px; border-top: 1px solid #e5e7eb;">
+                            <button onclick="closeBroadcastHistory()" class="btn-primary" style="width: 100%; padding: 10px; border: none; border-radius: 14px; font-weight: 600; cursor: pointer; background: linear-gradient(135deg, #4f46e5, #6366f1); color: white;">Tutup</button>
+                        </div>
+                    </div>
+                </div>
+                                
+                <!-- MODAL PREVIEW PHOTO -->
+                <div class="modal" id="previewPhotoModal">
+                    <div class="modal-content preview-photo-content">
+                        <div class="preview-photo-header">
+                            <h3>📸 Foto Profile</h3>
+                            <button onclick="closeModal('previewPhotoModal')" style="background:none; border:none; font-size:24px; cursor:pointer; color:#6b7280;">✕</button>
+                        </div>
+                        <div class="preview-photo-body" style="padding:20px; text-align:center;">
+                            <img id="previewPhotoLarge" src="" alt="Foto Profil" style="max-width:100%; max-height:70vh; border-radius:16px; object-fit:contain; display:block; margin:0 auto;">
+                        </div>
+                        <div class="modal-buttons" style="padding:16px 24px 24px;">
+                            <button onclick="closeModal('previewPhotoModal')" class="btn-primary" style="width:100%;">Tutup</button>
+                        </div>
+                    </div>
+                </div>
 
                 <div class="modal" id="detailModal"><div class="modal-content" id="detailContent"></div></div>
                 <div class="modal" id="addCsModal"><div class="modal-content"><h3>➕ Tambah CS Agent</h3><div class="modal-subtitle">Buat akun untuk CS Agent baru</div><div class="form-group"><label>Email <span class="required">*</span></label><input type="email" id="csEmail" placeholder="cs@example.com"></div><div class="form-group"><label>Password <span class="required">*</span></label><input type="password" id="csPassword" placeholder="******"></div><div class="form-group"><label>Nama Lengkap <span class="required">*</span></label><input type="text" id="csName" placeholder="Nama CS"></div><div class="form-group"><label>Nomor WhatsApp</label><div class="phone-input"><div class="phone-prefix">+62</div><input type="tel" id="csPhone" placeholder="81234567890"></div></div><div class="modal-buttons"><button id="saveCsBtn" class="btn-primary">Simpan</button><button class="closeModalBtn" data-modal="addCsModal">Batal</button></div></div></div>
