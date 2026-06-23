@@ -46,20 +46,16 @@ let targetChart = null;
 let trendChart = null;
 
 // Broadcast variables
-let currentNumbers = [];
 let savedTemplates = [];
-let isBroadcasting = false;
 let broadcastNumbers = [];
 let broadcastMessageTemplate = '';
 let currentBroadcastIndex = 0;
 let broadcastStatus = [];
 
-// ========== BROADCAST UPLINE VARIABLES ==========
-let uplineDataList = [];
+// Broadcast Upline variables
 let currentUplineIndex = 0;
 let uplineNumbers = [];
 let uplineMessageTemplate = '';
-let isUplineBroadcasting = false;
 let uplineBroadcastStatus = [];
 
 // Current edit variables
