@@ -28,6 +28,9 @@ let targetData = {
     monthlyTargets: []
 };
 
+let isAppInitialized = false;
+let isLoadingData = false;
+
 // Selected items maps
 let selectedAgentIds = new Map();
 let selectedProdukIds = new Map();
@@ -4347,12 +4350,19 @@ async function loadDbTransaksi() {
         return;
     }
     
+    // ===== CEK APAKAH SEDANG LOADING =====
+    if (window._isLoadingTransaksi) {
+        console.log('⏳ Data transaksi sedang dimuat, skip...');
+        return;
+    }
+    
+    // ===== CEK APAKAH DATA SUDAH ADA =====
+    if (transaksiData && transaksiData.length > 0 && isAppInitialized) {
+        console.log('✅ Data transaksi sudah ada, skip loading');
+        return;
+    }
+    
     try {
-        // Cegah multiple loading
-        if (window._isLoadingTransaksi) {
-            console.log('⏳ Data sedang dimuat...');
-            return;
-        }
         window._isLoadingTransaksi = true;
         
         console.log('📊 Memuat semua data transaksi...');
@@ -4363,7 +4373,7 @@ async function loadDbTransaksi() {
         
         let allData = [];
         let page = 0;
-        const pageSize = 1000; // ← HARUS 1000 (batas default Supabase)
+        const pageSize = 1000;
         let hasMore = true;
         let totalCount = 0;
         
@@ -4373,7 +4383,6 @@ async function loadDbTransaksi() {
             
             let query = window.db.from('db_transaksi').select('*', { count: 'exact' });
             
-            // Filter berdasarkan role
             if (currentUserRole !== 'owner') {
                 query = query.eq('user_id', currentUser.id);
             }
@@ -4390,7 +4399,6 @@ async function loadDbTransaksi() {
                 return;
             }
             
-            // Total data di database (hanya di page 0)
             if (page === 0) {
                 totalCount = count || 0;
                 progress.setTotal(totalCount);
@@ -4398,16 +4406,13 @@ async function loadDbTransaksi() {
                 console.log(`📊 Total data di database: ${totalCount.toLocaleString()}`);
             }
             
-            // Jika tidak ada data, stop
             if (!data || data.length === 0) {
                 hasMore = false;
                 break;
             }
             
-            // Tambahkan data ke array
             allData = allData.concat(data);
             
-            // Update progress
             const percent = Math.min(Math.floor((allData.length / totalCount) * 100), 100);
             progress.update(
                 percent,
@@ -4419,36 +4424,28 @@ async function loadDbTransaksi() {
             
             console.log(`📥 Page ${page + 1}: loaded ${data.length} data (total: ${allData.length})`);
             
-            // ===== PERBAIKAN: Cek apakah masih ada data =====
-            // Jika data yang diambil kurang dari pageSize, berarti sudah sampai akhir
-            // ATAU jika total data yang sudah diambil >= totalCount, berarti selesai
             if (data.length < pageSize || allData.length >= totalCount) {
                 hasMore = false;
             }
             
             page++;
-            
-            // Delay kecil agar tidak overload server
             await delay(50);
         }
         
         progress.update(100, '✅ Selesai', `Berhasil memuat ${allData.length.toLocaleString()} data`);
         
-        // ===== SIMPAN DATA KE GLOBAL =====
         window.transaksiData = allData;
         transaksiData = allData;
         
         console.log(`✅ Loaded ${transaksiData.length} transaksi dari ${totalCount} total`);
         console.log('📊 Sample data (5 pertama):', transaksiData.slice(0, 5));
         
-        // ===== UPDATE UI =====
         renderTransaksiList();
         updateTransaksiStats(transaksiData);
         updateSelectAllTransaksiButton();
         updateTransaksiSelectionCount();
         updateTargetDisplay();
         
-        // ===== UPDATE TOTAL INFO =====
         const totalAllSpan = document.getElementById('transaksiTotalAll');
         if (totalAllSpan) {
             totalAllSpan.innerText = totalCount.toLocaleString();
@@ -9484,34 +9481,49 @@ function initAuthListener() {
         console.log('Auth state change:', event, session?.user?.email);
         
         if (event === 'SIGNED_IN' && session) {
+            // ===== CEK APAKAH SUDAH LOGIN =====
+            if (currentUser && currentUser.id === session.user.id) {
+                console.log('⏳ User sudah login, skip reload');
+                return;
+            }
+            
             currentUser = session.user;
             document.getElementById('loginPage').style.display = 'none';
             document.getElementById('app').style.display = 'block';
             showNotifTop('✅ Login berhasil!');
             
-            // Reload data
-            setTimeout(() => {
-                loadUserProfile();
-                loadCustomers();
-                loadProspek();
-                loadDatabaseAgent();
-                loadProduk();
-                loadDbTransaksi();
-                loadDBClosing();
-                loadDBTidak();
-                loadDBNomorSalah();
-                loadDBCommitment();
-                loadReminders();
-                loadMessages();
-                loadUsersList();
-                loadTarifAdmin();
-                loadTargetData();
-                loadTransaksiGlobal();
-                navigateTo('dashboard');
+            // ===== RESET FLAG =====
+            isAppInitialized = false;
+            
+            // Reload data (hanya jika belum dimuat)
+            setTimeout(async () => {
+                try {
+                    await loadUserProfile();
+                    await loadCustomers();
+                    await loadProspek();
+                    await loadDatabaseAgent();
+                    await loadProduk();
+                    await loadDbTransaksi();
+                    await loadDBClosing();
+                    await loadDBTidak();
+                    await loadDBNomorSalah();
+                    await loadDBCommitment();
+                    await loadReminders();
+                    await loadMessages();
+                    await loadUsersList();
+                    await loadTarifAdmin();
+                    await loadTargetData();
+                    await loadTransaksiGlobal();
+                    isAppInitialized = true;
+                    navigateTo('dashboard');
+                } catch (err) {
+                    console.error('Error reload data:', err);
+                }
             }, 500);
             
         } else if (event === 'SIGNED_OUT') {
             currentUser = null;
+            isAppInitialized = false;
             document.getElementById('loginPage').style.display = 'flex';
             document.getElementById('app').style.display = 'none';
             showNotifTop('👋 Anda telah logout');
@@ -9519,12 +9531,22 @@ function initAuthListener() {
             console.log('Token refreshed successfully');
         } else if (event === 'USER_UPDATED') {
             console.log('User updated');
+            // Refresh user data
+            if (currentUser) {
+                loadUserProfile();
+            }
         }
     });
 }
 
 // ========== CHECK AUTH & START ==========
 async function checkAuth() {
+    // ===== CEK APAKAH SUDAH DIINITIALISASI =====
+    if (isAppInitialized) {
+        console.log('✅ App sudah diinisialisasi, skip checkAuth');
+        return;
+    }
+    
     // Tampilkan loading
     showLoading('Memeriksa autentikasi...', true);
     updateLoadingStep(0);
@@ -9533,7 +9555,6 @@ async function checkAuth() {
     try {
         const { data: { session }, error } = await window.db.auth.refreshSession();
         if (session) {
-            // Session berhasil di-refresh
             console.log('Session refreshed successfully');
         }
     } catch (e) {
@@ -9541,7 +9562,6 @@ async function checkAuth() {
     }
     
     try {
-        // ===== PERBAIKAN: Cek session dengan benar =====
         const { data: { session }, error: sessionError } = await window.db.auth.getSession();
         
         if (sessionError) {
@@ -9561,36 +9581,43 @@ async function checkAuth() {
                 await withLoading(loadUserProfile(), 2);
                 updateLoadingStep(3);
                 
-                // Load semua data
-                await withLoading(loadCustomers(), 4);
-                updateLoadingStep(5);
-                await withLoading(loadProspek(), 6);
-                updateLoadingStep(7);
-                await withLoading(loadDatabaseAgent(), 8);
-                updateLoadingStep(9);
-                await withLoading(loadProduk(), 10);
-                updateLoadingStep(11);
-                await withLoading(loadDbTransaksi(), 12);
-                updateLoadingStep(13);
-                await withLoading(loadDBClosing(), 14);
-                updateLoadingStep(15);
-                await withLoading(loadDBTidak(), 16);
-                updateLoadingStep(17);
-                await withLoading(loadDBNomorSalah(), 18);
-                updateLoadingStep(19);
-                await withLoading(loadDBCommitment(), 20);
-                updateLoadingStep(21);
-                await withLoading(loadReminders(), 22);
-                updateLoadingStep(23);
-                await withLoading(loadMessages(), 24);
-                updateLoadingStep(25);
-                await withLoading(loadUsersList(), 26);
-                updateLoadingStep(27);
-                await withLoading(loadTarifAdmin(), 28);
-                updateLoadingStep(29);
-                await withLoading(loadTargetData(), 30);
-                updateLoadingStep(31);
-                await withLoading(loadTransaksiGlobal(), 32);
+                // ===== CEK APAKAH DATA SUDAH DIMUAT =====
+                if (!isAppInitialized) {
+                    // Load semua data
+                    await withLoading(loadCustomers(), 4);
+                    updateLoadingStep(5);
+                    await withLoading(loadProspek(), 6);
+                    updateLoadingStep(7);
+                    await withLoading(loadDatabaseAgent(), 8);
+                    updateLoadingStep(9);
+                    await withLoading(loadProduk(), 10);
+                    updateLoadingStep(11);
+                    await withLoading(loadDbTransaksi(), 12);
+                    updateLoadingStep(13);
+                    await withLoading(loadDBClosing(), 14);
+                    updateLoadingStep(15);
+                    await withLoading(loadDBTidak(), 16);
+                    updateLoadingStep(17);
+                    await withLoading(loadDBNomorSalah(), 18);
+                    updateLoadingStep(19);
+                    await withLoading(loadDBCommitment(), 20);
+                    updateLoadingStep(21);
+                    await withLoading(loadReminders(), 22);
+                    updateLoadingStep(23);
+                    await withLoading(loadMessages(), 24);
+                    updateLoadingStep(25);
+                    await withLoading(loadUsersList(), 26);
+                    updateLoadingStep(27);
+                    await withLoading(loadTarifAdmin(), 28);
+                    updateLoadingStep(29);
+                    await withLoading(loadTargetData(), 30);
+                    updateLoadingStep(31);
+                    await withLoading(loadTransaksiGlobal(), 32);
+                    
+                    isAppInitialized = true; // <-- TANDAI SUDAH DIINIT
+                } else {
+                    console.log('✅ Data sudah dimuat, skip loading data');
+                }
                 
                 // Set owner menu
                 if (currentUserRole === 'owner') {
@@ -9612,42 +9639,44 @@ async function checkAuth() {
                 initFullModeSelection();
                 navigateTo('dashboard');
                 
-                // Inisialisasi notifikasi
-                setTimeout(function() {
-                    initBadges();
-                    initDarkMode();
-                    initDarkModeObserver();
-                    
-                    // Deadline notification
-                    var deadlineBtn = document.getElementById('deadlineNotifBtn');
-                    if (deadlineBtn) {
-                        var newDeadlineBtn = deadlineBtn.cloneNode(true);
-                        deadlineBtn.parentNode.replaceChild(newDeadlineBtn, deadlineBtn);
-                        var freshBtn = document.getElementById('deadlineNotifBtn');
-                        if (freshBtn) {
-                            freshBtn.addEventListener('click', function(e) {
-                                e.preventDefault();
-                                e.stopPropagation();
-                                showDeadlinePopup();
-                            });
+                // Inisialisasi notifikasi (hanya sekali)
+                if (!isAppInitialized) {
+                    setTimeout(function() {
+                        initBadges();
+                        initDarkMode();
+                        initDarkModeObserver();
+                        
+                        // Deadline notification
+                        var deadlineBtn = document.getElementById('deadlineNotifBtn');
+                        if (deadlineBtn) {
+                            var newDeadlineBtn = deadlineBtn.cloneNode(true);
+                            deadlineBtn.parentNode.replaceChild(newDeadlineBtn, deadlineBtn);
+                            var freshBtn = document.getElementById('deadlineNotifBtn');
+                            if (freshBtn) {
+                                freshBtn.addEventListener('click', function(e) {
+                                    e.preventDefault();
+                                    e.stopPropagation();
+                                    showDeadlinePopup();
+                                });
+                            }
                         }
-                    }
-                    
-                    // Pesan notification
-                    var pesanBtn = document.getElementById('pesanNotifBtn');
-                    if (pesanBtn) {
-                        var newPesanBtn = pesanBtn.cloneNode(true);
-                        pesanBtn.parentNode.replaceChild(newPesanBtn, pesanBtn);
-                        var freshPesanBtn = document.getElementById('pesanNotifBtn');
-                        if (freshPesanBtn) {
-                            freshPesanBtn.addEventListener('click', function(e) {
-                                e.preventDefault();
-                                e.stopPropagation();
-                                navigateTo('pesan');
-                            });
+                        
+                        // Pesan notification
+                        var pesanBtn = document.getElementById('pesanNotifBtn');
+                        if (pesanBtn) {
+                            var newPesanBtn = pesanBtn.cloneNode(true);
+                            pesanBtn.parentNode.replaceChild(newPesanBtn, pesanBtn);
+                            var freshPesanBtn = document.getElementById('pesanNotifBtn');
+                            if (freshPesanBtn) {
+                                freshPesanBtn.addEventListener('click', function(e) {
+                                    e.preventDefault();
+                                    e.stopPropagation();
+                                    navigateTo('pesan');
+                                });
+                            }
                         }
-                    }
-                }, 100);
+                    }, 100);
+                }
                 
                 // ===== SEMBUNYIKAN LOADING =====
                 setTimeout(function() {
@@ -9661,7 +9690,6 @@ async function checkAuth() {
             }
             
         } else {
-            // ===== PERBAIKAN: Tidak ada session =====
             console.log('No active session');
             hideLoading();
             document.getElementById('loginPage').style.display = 'flex';
@@ -9678,6 +9706,13 @@ async function checkAuth() {
 
 // ========== DOM READY ==========
 document.addEventListener('DOMContentLoaded', function() {
+    // ===== CEK APAKAH SUDAH DIPROSES =====
+    if (document._domReadyExecuted) {
+        console.log('⏳ DOM already processed, skip');
+        return;
+    }
+    document._domReadyExecuted = true;
+    
     // ===== INISIALISASI AUTH LISTENER =====
     initAuthListener();
     
