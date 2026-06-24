@@ -288,8 +288,18 @@
 <div id="broadcastPage" class="page-content" style="display:none">
     <div class="broadcast-section">
         <div class="broadcast-header">
-            <h3>📢 Broadcast WhatsApp</h3>
-            <p>Kirim pesan ke banyak nomor sekaligus</p>
+            <div style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 10px;">
+                <div>
+                    <h3>📢 Broadcast WhatsApp</h3>
+                    <p>Kirim pesan ke banyak nomor sekaligus</p>
+                </div>
+                <!-- ===== TAMBAHKAN INDIKATOR HISTORY ===== -->
+                <div id="broadcastHistoryIndicator" style="display: none; background: #fef3c7; padding: 8px 16px; border-radius: 10px; border: 1px solid #f59e0b; cursor: pointer;" onclick="showBroadcastHistory(false)">
+                    <span style="font-size: 13px; color: #92400e;">📂 History Broadcast</span>
+                    <span id="broadcastPendingBadge" style="background: #ef4444; color: white; padding: 2px 10px; border-radius: 20px; font-size: 11px; font-weight: 700; margin-left: 8px;">0</span>
+                    <span style="font-size: 11px; color: #92400e; margin-left: 4px;">belum diproses</span>
+                </div>
+            </div>
         </div>
         <div class="broadcast-grid">
             <!-- Pilih Sumber Nomor -->
@@ -376,8 +386,18 @@
 <div id="broadcastUplinePage" class="page-content" style="display:none">
     <div class="broadcast-section">
         <div class="broadcast-header">
-            <h3>⭐ Broadcast ke Upline</h3>
-            <p>Kirim pesan rangkuman ke semua Upline</p>
+            <div style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 10px;">
+                <div>
+                    <h3>⭐ Broadcast ke Upline</h3>
+                    <p>Kirim pesan rangkuman ke semua Upline</p>
+                </div>
+                <!-- ===== TAMBAHKAN INDIKATOR HISTORY UPLINE ===== -->
+                <div id="uplineBroadcastHistoryIndicator" style="display: none; background: #fef3c7; padding: 8px 16px; border-radius: 10px; border: 1px solid #f59e0b; cursor: pointer;" onclick="showBroadcastHistory(true)">
+                    <span style="font-size: 13px; color: #92400e;">📂 History Broadcast Upline</span>
+                    <span id="uplineBroadcastPendingBadge" style="background: #ef4444; color: white; padding: 2px 10px; border-radius: 20px; font-size: 11px; font-weight: 700; margin-left: 8px;">0</span>
+                    <span style="font-size: 11px; color: #92400e; margin-left: 4px;">belum diproses</span>
+                </div>
+            </div>
         </div>
         <div class="broadcast-grid">
             <!-- Pilih Sumber Data -->
