@@ -1199,53 +1199,45 @@ function closeDeadlinePopup() {
 }
 
 // ================================================================
-// ========== SEARCH RIGHT - BERGESER KE KIRI ==========
+// ========== SEARCH RIGHT - HOVER AUTO EXPAND ==========
 // ================================================================
 
 let searchRightResults = [];
 let searchRightIndex = -1;
 let searchRightTimer = null;
 let searchRightOpen = false;
+let searchRightHoverTimer = null;
 
 function initSearchRight() {
-    const trigger = document.getElementById('searchRightTrigger');
+    const wrapper = document.getElementById('searchRightWrapper');
     const expanded = document.getElementById('searchRightExpanded');
     const input = document.getElementById('searchRightInput');
-    const wrapper = document.getElementById('searchRightWrapper');
     const results = document.getElementById('searchRightResults');
     const resultsList = document.getElementById('searchRightResultsList');
     const clearBtn = document.getElementById('searchRightClear');
     const closeBtn = document.getElementById('searchRightClose');
     const countEl = document.getElementById('searchRightCount');
+    const trigger = document.getElementById('searchRightTrigger');
     
-    if (!trigger || !expanded || !input) return;
+    if (!wrapper || !expanded || !input) return;
     
-    // ===== OPEN SEARCH =====
-    function openSearch() {
+    // ===== HOVER EXPAND =====
+    wrapper.addEventListener('mouseenter', function() {
+        clearTimeout(searchRightHoverTimer);
         expanded.classList.add('active');
         searchRightOpen = true;
-        setTimeout(() => {
-            input.focus();
-            input.select();
-        }, 200);
-    }
+    });
     
-    function closeSearch() {
-        expanded.classList.remove('active');
-        results.style.display = 'none';
-        searchRightOpen = false;
-        input.value = '';
-        clearBtn.style.display = 'none';
-        input.blur();
-    }
-    
-    // ===== TRIGGER CLICK =====
-    trigger.addEventListener('click', function(e) {
-        e.stopPropagation();
-        if (searchRightOpen) {
-            closeSearch();
-        } else {
-            openSearch();
+    wrapper.addEventListener('mouseleave', function() {
+        // Jangan collapse jika input sedang focus
+        if (!input.matches(':focus') && !input.value.trim()) {
+            searchRightHoverTimer = setTimeout(() => {
+                if (!input.matches(':focus') && !input.value.trim()) {
+                    expanded.classList.remove('active');
+                    results.style.display = 'none';
+                    searchRightOpen = false;
+                }
+            }, 300);
         }
     });
     
@@ -1269,8 +1261,22 @@ function initSearchRight() {
     
     // ===== FOCUS =====
     input.addEventListener('focus', function() {
+        expanded.classList.add('active');
+        searchRightOpen = true;
         if (this.value.trim().length > 0) {
             results.style.display = 'block';
+        }
+    });
+    
+    input.addEventListener('blur', function() {
+        if (!wrapper.matches(':hover') && !this.value.trim()) {
+            setTimeout(() => {
+                if (!wrapper.matches(':hover') && !this.value.trim()) {
+                    expanded.classList.remove('active');
+                    results.style.display = 'none';
+                    searchRightOpen = false;
+                }
+            }, 200);
         }
     });
     
@@ -1294,7 +1300,12 @@ function initSearchRight() {
                 items[0].click();
             }
         } else if (e.key === 'Escape') {
-            closeSearch();
+            results.style.display = 'none';
+            input.blur();
+            if (!input.value.trim()) {
+                expanded.classList.remove('active');
+                searchRightOpen = false;
+            }
         }
     });
     
@@ -1309,13 +1320,22 @@ function initSearchRight() {
     // ===== CLOSE =====
     closeBtn.addEventListener('click', function(e) {
         e.stopPropagation();
-        closeSearch();
+        expanded.classList.remove('active');
+        results.style.display = 'none';
+        searchRightOpen = false;
+        input.value = '';
+        clearBtn.style.display = 'none';
+        input.blur();
     });
     
     // ===== CLICK OUTSIDE =====
     document.addEventListener('click', function(e) {
         if (wrapper && !wrapper.contains(e.target) && !expanded.contains(e.target)) {
-            closeSearch();
+            if (!input.value.trim()) {
+                expanded.classList.remove('active');
+                results.style.display = 'none';
+                searchRightOpen = false;
+            }
         }
     });
     
@@ -1324,9 +1344,17 @@ function initSearchRight() {
         if ((e.ctrlKey || e.metaKey) && e.key === 'k') {
             e.preventDefault();
             if (searchRightOpen) {
-                closeSearch();
+                expanded.classList.remove('active');
+                results.style.display = 'none';
+                searchRightOpen = false;
+                input.blur();
             } else {
-                openSearch();
+                expanded.classList.add('active');
+                searchRightOpen = true;
+                setTimeout(() => {
+                    input.focus();
+                    input.select();
+                }, 200);
             }
         }
     });
