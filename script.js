@@ -1187,6 +1187,322 @@ function closeDeadlinePopup() {
     document.body.style.pointerEvents = '';
 }
 
+// ================================================================
+// ========== GLOBAL SEARCH PREMIUM ==========
+// ================================================================
+
+let searchDebounceTimer = null;
+let isSearchOpen = false;
+let allSearchData = [];
+
+// Inisialisasi search
+function initGlobalSearch() {
+    const searchInput = document.getElementById('globalSearchInput');
+    const searchResults = document.getElementById('globalSearchResults');
+    const clearBtn = document.getElementById('globalSearchClear');
+    const wrapper = document.querySelector('.global-search-wrapper');
+    
+    if (!searchInput) return;
+    
+    // ===== INDEX ALL DATA =====
+    indexAllData();
+    
+    // ===== EVENT: INPUT =====
+    searchInput.addEventListener('input', function(e) {
+        const query = this.value.trim();
+        
+        if (query.length > 0) {
+            clearBtn.style.display = 'block';
+        } else {
+            clearBtn.style.display = 'none';
+        }
+        
+        clearTimeout(searchDebounceTimer);
+        searchDebounceTimer = setTimeout(() => {
+            if (query.length >= 2) {
+                performGlobalSearch(query);
+            } else {
+                searchResults.classList.remove('active');
+                searchResults.innerHTML = `
+                    <div class="search-results-empty">
+                        <span>🔍</span>
+                        <p>Ketik minimal 2 karakter</p>
+                        <small>Cari di semua database</small>
+                    </div>
+                `;
+                if (query.length === 0) {
+                    searchResults.classList.add('active');
+                }
+            }
+        }, 300);
+    });
+    
+    // ===== EVENT: FOCUS =====
+    searchInput.addEventListener('focus', function() {
+        const query = this.value.trim();
+        if (query.length >= 2) {
+            performGlobalSearch(query);
+        } else {
+            searchResults.classList.add('active');
+            searchResults.innerHTML = `
+                <div class="search-results-empty">
+                    <span>🔍</span>
+                    <p>Ketik untuk mencari data</p>
+                    <small>Cari di Followup, Prospek, Closing, dan Database</small>
+                </div>
+            `;
+        }
+    });
+    
+    // ===== EVENT: BLUR =====
+    searchInput.addEventListener('blur', function() {
+        setTimeout(() => {
+            if (!isSearchOpen) {
+                searchResults.classList.remove('active');
+            }
+        }, 200);
+    });
+    
+    // ===== EVENT: CLEAR =====
+    clearBtn.addEventListener('click', function() {
+        searchInput.value = '';
+        clearBtn.style.display = 'none';
+        searchResults.classList.remove('active');
+        searchInput.focus();
+    });
+    
+    // ===== EVENT: KEYBOARD SHORTCUT (Ctrl+K) =====
+    document.addEventListener('keydown', function(e) {
+        if ((e.ctrlKey || e.metaKey) && e.key === 'k') {
+            e.preventDefault();
+            searchInput.focus();
+            searchInput.select();
+        }
+        // ESC to close
+        if (e.key === 'Escape') {
+            searchResults.classList.remove('active');
+            searchInput.blur();
+        }
+    });
+    
+    // ===== CLICK OUTSIDE =====
+    document.addEventListener('click', function(e) {
+        if (wrapper && !wrapper.contains(e.target)) {
+            isSearchOpen = false;
+            setTimeout(() => {
+                searchResults.classList.remove('active');
+            }, 100);
+        }
+    });
+}
+
+// ===== INDEX ALL DATA =====
+function indexAllData() {
+    allSearchData = [];
+    
+    // Followup Agen
+    customersData.forEach(item => {
+        allSearchData.push({
+            id: item.id,
+            type: 'customer',
+            title: item.nama || 'Tidak ada nama',
+            subtitle: `🆔 ${item.agent_id || '-'} • 📱 ${item.hp || '-'}`,
+            badge: 'Followup',
+            badgeClass: 'followup',
+            icon: '📋',
+            searchText: `${item.nama} ${item.agent_id} ${item.hp} ${item.apk}`.toLowerCase()
+        });
+    });
+    
+    // Prospek Agen
+    prospekData.forEach(item => {
+        allSearchData.push({
+            id: item.id,
+            type: 'prospek',
+            title: item.nama || 'Tidak ada nama',
+            subtitle: `📱 ${item.hp || '-'} • Status: ${item.status || 'Baru'}`,
+            badge: 'Prospek',
+            badgeClass: 'prospek',
+            icon: '🎯',
+            searchText: `${item.nama} ${item.hp}`.toLowerCase()
+        });
+    });
+    
+    // Database Closing
+    if (window.closingData) {
+        window.closingData.forEach(item => {
+            allSearchData.push({
+                id: item.id,
+                type: 'closing',
+                title: item.nama || 'Tidak ada nama',
+                subtitle: `📱 ${item.hp || '-'} • 📅 ${item.closing_date ? formatDateDDMMYYYY(item.closing_date) : '-'}`,
+                badge: 'Closing',
+                badgeClass: 'closing',
+                icon: '📁',
+                searchText: `${item.nama} ${item.hp}`.toLowerCase()
+            });
+        });
+    }
+    
+    // Database Tidak Tertarik
+    if (window.tidakData) {
+        window.tidakData.forEach(item => {
+            allSearchData.push({
+                id: item.id,
+                type: 'tidak',
+                title: item.nama || 'Tidak ada nama',
+                subtitle: `📱 ${item.hp || '-'} • ❌ ${item.alasan || 'Tidak tertarik'}`,
+                badge: 'Tidak Tertarik',
+                badgeClass: 'tidak',
+                icon: '❌',
+                searchText: `${item.nama} ${item.hp} ${item.alasan}`.toLowerCase()
+            });
+        });
+    }
+    
+    // Database Nomor Salah
+    if (window.nomorSalahData) {
+        window.nomorSalahData.forEach(item => {
+            allSearchData.push({
+                id: item.id,
+                type: 'nomor_salah',
+                title: item.nama || 'Tidak ada nama',
+                subtitle: `📱 ${item.hp || '-'} • 📵 ${item.alasan || 'Nomor salah'}`,
+                badge: 'Nomor Salah',
+                badgeClass: 'nomor_salah',
+                icon: '📵',
+                searchText: `${item.nama} ${item.hp}`.toLowerCase()
+            });
+        });
+    }
+    
+    // Database Commitment
+    if (window.commitmentData) {
+        window.commitmentData.forEach(item => {
+            allSearchData.push({
+                id: item.id,
+                type: 'commitment',
+                title: item.nama || 'Tidak ada nama',
+                subtitle: `📱 ${item.hp || '-'} • 🆔 ${item.agent_id || '-'}`,
+                badge: 'Commitment',
+                badgeClass: 'commitment',
+                icon: '⭐',
+                searchText: `${item.nama} ${item.hp} ${item.agent_id}`.toLowerCase()
+            });
+        });
+    }
+}
+
+// ===== PERFORM GLOBAL SEARCH =====
+function performGlobalSearch(query) {
+    const searchResults = document.getElementById('globalSearchResults');
+    const lowerQuery = query.toLowerCase().trim();
+    
+    if (!searchResults) return;
+    
+    if (lowerQuery.length < 2) {
+        searchResults.classList.remove('active');
+        return;
+    }
+    
+    // ===== SEARCH =====
+    const results = allSearchData
+        .filter(item => item.searchText.includes(lowerQuery))
+        .slice(0, 20); // Maksimal 20 hasil
+    
+    // ===== RENDER =====
+    if (results.length === 0) {
+        searchResults.innerHTML = `
+            <div class="search-results-empty">
+                <span>🔍</span>
+                <p>Tidak ada hasil untuk "${escapeHtml(query)}"</p>
+                <small>Coba kata kunci lain</small>
+            </div>
+        `;
+    } else {
+        searchResults.innerHTML = `
+            <div style="padding: 6px 16px 4px; font-size: 11px; color: #94a3b8; font-weight: 500;">
+                ${results.length} hasil ditemukan
+            </div>
+            ${results.map(item => `
+                <div class="search-result-item-global" data-id="${item.id}" data-type="${item.type}">
+                    <div class="result-icon">${item.icon}</div>
+                    <div class="result-info">
+                        <div class="result-title">${escapeHtml(item.title)}</div>
+                        <div class="result-subtitle">${item.subtitle}</div>
+                    </div>
+                    <span class="result-badge ${item.badgeClass}">${item.badge}</span>
+                </div>
+            `).join('')}
+        `;
+        
+        // ===== EVENT CLICK =====
+        searchResults.querySelectorAll('.search-result-item-global').forEach(el => {
+            el.addEventListener('mousedown', function(e) {
+                e.preventDefault();
+                const id = this.dataset.id;
+                const type = this.dataset.type;
+                
+                // Close search
+                searchResults.classList.remove('active');
+                document.getElementById('globalSearchInput').value = '';
+                document.getElementById('globalSearchClear').style.display = 'none';
+                
+                // Navigate to detail
+                openGlobalSearchDetail(id, type);
+            });
+        });
+    }
+    
+    searchResults.classList.add('active');
+    isSearchOpen = true;
+}
+
+// ===== OPEN DETAIL FROM GLOBAL SEARCH =====
+function openGlobalSearchDetail(id, type) {
+    switch(type) {
+        case 'customer':
+            openDetailCustomer(id);
+            break;
+        case 'prospek':
+            openDetailProspek(id);
+            break;
+        case 'closing':
+            openDBDetailModal(id, 'closing');
+            break;
+        case 'tidak':
+            openDBDetailModal(id, 'tidak');
+            break;
+        case 'nomor_salah':
+            openDBDetailModal(id, 'nomor_salah');
+            break;
+        case 'commitment':
+            openDBDetailModal(id, 'commitment');
+            break;
+        default:
+            showNotifTop('⚠️ Data tidak ditemukan', true);
+    }
+}
+
+// ===== REINDEX DATA (panggil setelah load data) =====
+function reindexSearchData() {
+    // Sinkronisasi data dari global variables
+    window.closingData = window.closingData || [];
+    window.tidakData = window.tidakData || [];
+    window.nomorSalahData = window.nomorSalahData || [];
+    window.commitmentData = window.commitmentData || [];
+    
+    indexAllData();
+}
+
+// ===== REINDEX AFTER LOAD =====
+function reindexAfterLoad() {
+    // Tunggu sebentar setelah data dimuat
+    setTimeout(reindexSearchData, 500);
+}
+
+// Panggil reindex setelah setiap load data
+
 // ========== PROFILE PHOTO FUNCTIONS ==========
 function initProfilePhoto() {
     const profileImg = document.getElementById('profileImg');
@@ -4288,6 +4604,7 @@ async function loadCustomers() {
     updateChartCustomer();
     updateDeadlineBadge();
     updateTargetDisplay();
+    reindexAfterLoad();
 }
 
 async function loadProspek() {
@@ -4309,6 +4626,7 @@ async function loadProspek() {
     renderFullProspekKanban();
     updateChartProspek();
     updateDeadlineBadge();
+    reindexAfterLoad();
 }
 
 async function loadDatabaseAgent() {
@@ -4492,6 +4810,7 @@ async function loadDBClosing() {
     }
     
     renderDBClosing(data || []);
+    reindexAfterLoad();
 }
 
 async function loadDBTidak() {
@@ -4509,6 +4828,7 @@ async function loadDBTidak() {
     }
     
     renderDBTidak(data || []);
+    reindexAfterLoad();
 }
 
 async function loadDBNomorSalah() {
@@ -4526,6 +4846,7 @@ async function loadDBNomorSalah() {
     }
     
     renderDBNomorSalah(data || []);
+    reindexAfterLoad();
 }
 
 async function loadDBCommitment() {
@@ -4543,6 +4864,7 @@ async function loadDBCommitment() {
     }
     
     renderDBCommitment(data || []);
+    reindexAfterLoad();
 }
 
 async function loadReminders() {
@@ -11850,6 +12172,7 @@ let darkModeObserver = null;
 function initEventListeners() {
     initSidebarHover();
     initProfilePhoto();
+    initGlobalSearch();
     
     // Save profile
     document.getElementById('saveProfileBtn')?.addEventListener('click', saveUserProfile);
