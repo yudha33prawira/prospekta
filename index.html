@@ -89,55 +89,70 @@
         </div>
 
         <div class="main-content">
-        <!-- TOPBAR -->
-        <div class="topbar">
-            <div class="topbar-left">
-                <button class="toggle-btn" id="toggleSidebarBtn" type="button" aria-label="Toggle Sidebar">☰</button>
-                <!-- ===== LOGO DENGAN ANIMASI FLIP ===== -->
-                <div class="logo-flip-container" id="logoFlipContainer">
-                    <div class="logo-flip-inner">
-                        <!-- Sisi Depan: PROSPEKTA -->
-                        <div class="logo-flip-front">
-                            <span class="logo-text">PROSPEKTA</span>
-                            <span class="logo-badge">✦</span>
-                        </div>
-                        <!-- Sisi Belakang: Nama User -->
-                        <div class="logo-flip-back">
-                            <span class="logo-user-name" id="logoUserName">👤 CS Agent</span>
-                            <span class="logo-user-role" id="logoUserRole">CS</span>
-                        </div>
-                    </div>
-                </div>
-            </div>
-            
-            <!-- SEARCH BAR -->
-            <div class="topbar-center" id="topbarCenter">
-                <div class="global-search-wrapper">
-                    <div class="global-search-container">
-                        <span class="search-icon">🔍</span>
-                        <input type="text" id="globalSearchInput" placeholder="Cari data... (Ctrl+K)" class="global-search-input">
-                        <button class="search-clear-btn" id="globalSearchClear" style="display:none;">✕</button>
-                        <kbd class="search-shortcut">Ctrl+K</kbd>
-                    </div>
-                    <div class="global-search-results" id="globalSearchResults">
-                        <div class="search-results-empty">
-                            <span>🔍</span>
-                            <p>Ketik untuk mencari data</p>
-                            <small>Cari di semua database</small>
+            <div class="topbar">
+                <div class="topbar-left">
+                    <button class="toggle-btn" id="toggleSidebarBtn" type="button" aria-label="Toggle Sidebar">☰</button>
+                    <div class="logo-wrapper animate" id="logoWrapper">
+                        <div class="logo-with-user">
+                            <span class="logo-text">
+                                <span class="logo-char">P</span>
+                                <span class="logo-char">R</span>
+                                <span class="logo-char">O</span>
+                                <span class="logo-char">S</span>
+                                <span class="logo-char">P</span>
+                                <span class="logo-char">E</span>
+                                <span class="logo-char">K</span>
+                                <span class="logo-char">T</span>
+                                <span class="logo-char">A</span>
+                            </span>
+                            <span class="logo-subtitle" id="logoSubtitle">
+                                👤 <span class="user-name" id="logoUserName">CS Agent</span>
+                            </span>
                         </div>
                     </div>
                 </div>
+                <div class="topbar-center" id="topUserName">CS Agent</div>
+                <div class="topbar-right">
+                    <div class="notif-icon" id="infoBtn">⚠️</div>
+                    <div class="notif-icon" id="deadlineNotifBtn">📅<span class="badge badge-zero" id="deadlineCount">0</span></div>
+                    <div class="notif-icon" id="pesanNotifBtn">💬<span class="badge badge-zero" id="pesanCount">0</span></div>
+                    <img class="profile-img" id="profileImg" src="https://i.pravatar.cc/40" alt="Profile">
+                </div>
             </div>
-            
-            <div class="topbar-right">
-                <div class="notif-icon" id="infoBtn">⚠️</div>
-                <div class="notif-icon" id="deadlineNotifBtn">📅<span class="badge badge-zero" id="deadlineCount">0</span></div>
-                <div class="notif-icon" id="pesanNotifBtn">💬<span class="badge badge-zero" id="pesanCount">0</span></div>
-                <img class="profile-img" id="profileImg" src="https://i.pravatar.cc/40" alt="Profile">
-            </div>
-        </div>
 
             <div class="content-area">
+                <!-- SEARCH BAR PREMIUM - GLOBAL -->
+                <div class="search-bar-premium" id="globalSearchBar">
+                    <div class="search-bar-premium-inner">
+                        <div class="search-icon-wrapper">
+                            <span class="search-icon">🔍</span>
+                        </div>
+                        <input 
+                            type="text" 
+                            id="globalSearchInput" 
+                            placeholder="Cari nama, ID Agent, nomor WhatsApp..." 
+                            class="search-input-premium"
+                            autocomplete="off"
+                        >
+                        <button class="search-clear-btn" id="globalSearchClearBtn" style="display:none;">✕</button>
+                        <div class="search-shortcut">⌘K</div>
+                    </div>
+                    
+                    <!-- HASIL PENCARIAN -->
+                    <div class="search-results-premium" id="globalSearchResults" style="display:none;">
+                        <div class="search-results-header">
+                            <span id="searchResultCount">0</span> hasil ditemukan
+                            <button class="search-results-close" id="searchResultsCloseBtn">✕</button>
+                        </div>
+                        <div class="search-results-list" id="globalSearchResultsList">
+                            <!-- Hasil akan di-render di sini -->
+                        </div>
+                        <div class="search-results-footer">
+                            <kbd>↑</kbd> <kbd>↓</kbd> navigasi · <kbd>Enter</kbd> buka · <kbd>Esc</kbd> tutup
+                        </div>
+                    </div>
+                </div>
+                
                 <!-- DASHBOARD PAGE -->
                 <div id="dashboardPage" class="page-content">
                     <div class="stats-grid">
