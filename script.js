@@ -1188,6 +1188,148 @@ function closeDeadlinePopup() {
 }
 
 // ================================================================
+// ========== LOGO FLIP CONTROLLER ==========
+// ================================================================
+
+let autoFlipTimer = null;
+let isLogoFlipped = false;
+
+function initLogoFlip() {
+    const container = document.getElementById('logoFlipContainer');
+    const userName = document.getElementById('logoUserName');
+    const userRole = document.getElementById('logoUserRole');
+    
+    if (!container) return;
+    
+    // ===== UPDATE NAMA USER =====
+    function updateLogoUser() {
+        if (userName) {
+            const name = currentUserName || 'CS Agent';
+            userName.textContent = name.length > 15 ? name.substring(0, 12) + '...' : name;
+        }
+        if (userRole) {
+            const role = currentUserRole === 'owner' ? 'Owner' : 'CS';
+            userRole.textContent = role;
+        }
+    }
+    
+    // ===== AUTO FLIP (BERULANG) =====
+    function startAutoFlip() {
+        stopAutoFlip();
+        container.classList.add('auto-flip');
+        
+        // Reset flip state setelah animasi selesai
+        autoFlipTimer = setTimeout(() => {
+            container.classList.remove('auto-flip');
+            // Flip balik ke depan
+            container.classList.remove('flipped');
+            isLogoFlipped = false;
+            
+            // Mulai lagi setelah jeda
+            setTimeout(startAutoFlip, 2000);
+        }, 6000);
+    }
+    
+    function stopAutoFlip() {
+        if (autoFlipTimer) {
+            clearTimeout(autoFlipTimer);
+            autoFlipTimer = null;
+        }
+        container.classList.remove('auto-flip');
+    }
+    
+    // ===== CLICK: FLIP MANUAL =====
+    container.addEventListener('click', function(e) {
+        e.stopPropagation();
+        stopAutoFlip();
+        
+        // Toggle flip
+        this.classList.toggle('flipped');
+        isLogoFlipped = this.classList.contains('flipped');
+        
+        // Jika flipped ke belakang, reset auto flip setelah 3 detik
+        if (isLogoFlipped) {
+            setTimeout(() => {
+                this.classList.remove('flipped');
+                isLogoFlipped = false;
+                setTimeout(startAutoFlip, 1500);
+            }, 3000);
+        } else {
+            setTimeout(startAutoFlip, 1500);
+        }
+    });
+    
+    // ===== HOVER: PAUSE AUTO FLIP =====
+    container.addEventListener('mouseenter', function() {
+        if (this.classList.contains('auto-flip')) {
+            // Pause animasi
+            this.style.animationPlayState = 'paused';
+        }
+    });
+    
+    container.addEventListener('mouseleave', function() {
+        if (this.classList.contains('auto-flip')) {
+            this.style.animationPlayState = 'running';
+        }
+    });
+    
+    // ===== UPDATE SAAT USER BERUBAH =====
+    // Panggil updateLogoUser setiap kali currentUserName berubah
+    const originalUpdate = window.updateUserDisplay;
+    window.updateUserDisplay = function() {
+        if (originalUpdate) originalUpdate();
+        updateLogoUser();
+    };
+    
+    // Initial update
+    setTimeout(updateLogoUser, 100);
+    
+    // ===== START AUTO FLIP =====
+    setTimeout(startAutoFlip, 1500);
+    
+    // ===== EXPOSE FUNCTIONS =====
+    window.logoFlip = {
+        startAuto: startAutoFlip,
+        stopAuto: stopAutoFlip,
+        flip: () => container.classList.toggle('flipped'),
+        updateUser: updateLogoUser
+    };
+}
+
+// ===== UPDATE LOGO USER =====
+function updateLogoUserDisplay() {
+    const userNameEl = document.getElementById('logoUserName');
+    const userRoleEl = document.getElementById('logoUserRole');
+    
+    if (userNameEl) {
+        const name = currentUserName || 'CS Agent';
+        userNameEl.textContent = name.length > 15 ? name.substring(0, 12) + '...' : name;
+    }
+    if (userRoleEl) {
+        userRoleEl.textContent = currentUserRole === 'owner' ? 'Owner' : 'CS';
+    }
+}
+
+// ===== PANGGIL SAAT USER LOGIN =====
+// Tambahkan di fungsi loadUserProfile atau setelah login
+function updateUserDisplay() {
+    const userNameEl = document.getElementById('logoUserName');
+    const userRoleEl = document.getElementById('logoUserRole');
+    const topUserName = document.getElementById('topUserName');
+    
+    if (userNameEl) {
+        const name = currentUserName || 'CS Agent';
+        userNameEl.textContent = name.length > 15 ? name.substring(0, 12) + '...' : name;
+    }
+    if (userRoleEl) {
+        userRoleEl.textContent = currentUserRole === 'owner' ? 'Owner' : 'CS';
+    }
+    if (topUserName) {
+        topUserName.textContent = currentUserName || 'CS Agent';
+    }
+}
+
+// ================================================================
 // ========== GLOBAL SEARCH PREMIUM ==========
 // ================================================================
 
@@ -10199,6 +10341,44 @@ document.addEventListener('DOMContentLoaded', function() {
     
     // ===== CHECK AUTHENTICATION =====
     checkAuth();
+    
+    // ================================================================
+    // ===== TAMBAHKAN INISIALISASI DI SINI =====
+    // ================================================================
+    
+    // ===== GLOBAL SEARCH =====
+    // Inisialisasi setelah DOM siap dan data sudah dimuat
+    setTimeout(function() {
+        if (typeof initGlobalSearch === 'function') {
+            initGlobalSearch();
+        }
+    }, 300);
+    
+    // ===== LOGO FLIP ANIMATION =====
+    // Tunggu sampai user data dimuat sebelum inisialisasi logo flip
+    setTimeout(function() {
+        if (typeof initLogoFlip === 'function') {
+            initLogoFlip();
+        }
+    }, 800);
+    
+    // ===== REINDEX SEARCH DATA (jika data sudah ada) =====
+    setTimeout(function() {
+        if (typeof reindexSearchData === 'function') {
+            // Cek apakah data sudah dimuat
+            if (customersData && customersData.length > 0) {
+                reindexSearchData();
+            }
+        }
+    }, 1500);
+    
+    // ===== UPDATE LOGO USER =====
+    // Update logo user saat data profile sudah dimuat
+    setTimeout(function() {
+        if (typeof updateLogoUserDisplay === 'function') {
+            updateLogoUserDisplay();
+        }
+    }, 1000);
     
     console.log('✅ PROSPEKTA loaded successfully');
 });
