@@ -1199,7 +1199,7 @@ function closeDeadlinePopup() {
 }
 
 // ================================================================
-// ========== SEARCH RIGHT - HOVER AUTO EXPAND ==========
+// ========== SEARCH RIGHT - FULL DATABASE ==========
 // ================================================================
 
 let searchRightResults = [];
@@ -1229,7 +1229,6 @@ function initSearchRight() {
     });
     
     wrapper.addEventListener('mouseleave', function() {
-        // Jangan collapse jika input sedang focus
         if (!input.matches(':focus') && !input.value.trim()) {
             searchRightHoverTimer = setTimeout(() => {
                 if (!input.matches(':focus') && !input.value.trim()) {
@@ -1255,7 +1254,7 @@ function initSearchRight() {
         
         clearTimeout(searchRightTimer);
         searchRightTimer = setTimeout(() => {
-            performSearchRight(query);
+            performSearchRightFull(query);
         }, 300);
     });
     
@@ -1371,7 +1370,11 @@ function highlightRightItem(items) {
     });
 }
 
-async function performSearchRight(query) {
+// ================================================================
+// ========== SEARCH FULL DATABASE ==========
+// ================================================================
+
+async function performSearchRightFull(query) {
     const results = document.getElementById('searchRightResults');
     const resultsList = document.getElementById('searchRightResultsList');
     const countEl = document.getElementById('searchRightCount');
@@ -1381,18 +1384,22 @@ async function performSearchRight(query) {
         return;
     }
     
+    // Show loading
     resultsList.innerHTML = `
         <div class="search-right-empty">
             <div class="empty-icon">⏳</div>
-            <div class="empty-title">Mencari...</div>
+            <div class="empty-title">Mencari di semua database...</div>
         </div>
     `;
     results.style.display = 'block';
     
     const q = query.toLowerCase().trim();
     const resultItems = [];
+    const searchPromises = [];
     
-    // ===== SEARCH CUSTOMERS =====
+    // ================================================================
+    // 1. SEARCH CUSTOMERS (Followup Agen) - Data sudah di memory
+    // ================================================================
     customersData.forEach(item => {
         if (item.nama?.toLowerCase().includes(q) || 
             item.hp?.includes(q) || 
@@ -1404,12 +1411,15 @@ async function performSearchRight(query) {
                 subtitle: `📱 ${item.hp || '-'} · 🆔 ${item.agent_id || '-'}`,
                 icon: '📞',
                 badge: 'Followup',
-                badgeClass: 'badge-customer'
+                badgeClass: 'badge-customer',
+                status: item.status || 'baru'
             });
         }
     });
     
-    // ===== SEARCH PROSPEK =====
+    // ================================================================
+    // 2. SEARCH PROSPEK - Data sudah di memory
+    // ================================================================
     prospekData.forEach(item => {
         if (item.nama?.toLowerCase().includes(q) || 
             item.hp?.includes(q)) {
@@ -1420,12 +1430,15 @@ async function performSearchRight(query) {
                 subtitle: `📱 ${item.hp || '-'} · ${item.status || 'Baru'}`,
                 icon: '🎯',
                 badge: 'Prospek',
-                badgeClass: 'badge-prospek'
+                badgeClass: 'badge-prospek',
+                status: item.status || 'Baru'
             });
         }
     });
     
-    // ===== SEARCH TRANSAKSI =====
+    // ================================================================
+    // 3. SEARCH DB TRANSAKSI - Data sudah di memory
+    // ================================================================
     if (transaksiData && transaksiData.length > 0) {
         transaksiData.forEach(item => {
             if (item.nama?.toLowerCase().includes(q) || 
@@ -1437,25 +1450,236 @@ async function performSearchRight(query) {
                     title: item.nama || item.agent_id || 'Tidak ada nama',
                     subtitle: `📱 ${item.hp || '-'} · 💰 ${(item.transaksi_bulan_ini || 0).toLocaleString()}`,
                     icon: '📊',
-                    badge: 'Transaksi',
-                    badgeClass: 'badge-transaksi'
+                    badge: 'DB Transaksi',
+                    badgeClass: 'badge-transaksi',
+                    status: item.status || 'pending'
                 });
             }
         });
     }
     
-    const limited = resultItems.slice(0, 20);
+    // ================================================================
+    // 4. SEARCH DB CLOSING - Query ke database
+    // ================================================================
+    searchPromises.push(
+        window.db.from('db_closing')
+            .select('*')
+            .or(`nama.ilike.%${query}%,hp.ilike.%${query}%,agent_id.ilike.%${query}%`)
+            .limit(20)
+            .then(({ data }) => {
+                if (data && data.length > 0) {
+                    data.forEach(item => {
+                        resultItems.push({
+                            id: item.id,
+                            type: 'closing',
+                            title: item.nama || 'Tidak ada nama',
+                            subtitle: `📱 ${item.hp || '-'} · ${item.closing_date ? formatDateDDMMYYYY(item.closing_date) : '-'}`,
+                            icon: '📁',
+                            badge: 'DB Closing',
+                            badgeClass: 'badge-closing',
+                            status: 'closing'
+                        });
+                    });
+                }
+            })
+            .catch(err => console.warn('Search closing error:', err))
+    );
+    
+    // ================================================================
+    // 5. SEARCH DB TIDAK TERTARIK - Query ke database
+    // ================================================================
+    searchPromises.push(
+        window.db.from('db_tidak_tertarik')
+            .select('*')
+            .or(`nama.ilike.%${query}%,hp.ilike.%${query}%`)
+            .limit(20)
+            .then(({ data }) => {
+                if (data && data.length > 0) {
+                    data.forEach(item => {
+                        resultItems.push({
+                            id: item.id,
+                            type: 'tidak',
+                            title: item.nama || 'Tidak ada nama',
+                            subtitle: `📱 ${item.hp || '-'} · ❌ ${item.alasan || 'Tidak tertarik'}`,
+                            icon: '❌',
+                            badge: 'DB Tidak Tertarik',
+                            badgeClass: 'badge-tidak',
+                            status: 'tidak'
+                        });
+                    });
+                }
+            })
+            .catch(err => console.warn('Search tidak tertarik error:', err))
+    );
+    
+    // ================================================================
+    // 6. SEARCH DB NOMOR SALAH - Query ke database
+    // ================================================================
+    searchPromises.push(
+        window.db.from('nomor_salah')
+            .select('*')
+            .or(`nama.ilike.%${query}%,hp.ilike.%${query}%`)
+            .limit(20)
+            .then(({ data }) => {
+                if (data && data.length > 0) {
+                    data.forEach(item => {
+                        resultItems.push({
+                            id: item.id,
+                            type: 'nomor_salah',
+                            title: item.nama || 'Tidak ada nama',
+                            subtitle: `📱 ${item.hp || '-'} · 📵 ${item.alasan || 'Nomor salah'}`,
+                            icon: '📵',
+                            badge: 'DB Nomor Salah',
+                            badgeClass: 'badge-nomor-salah',
+                            status: 'nomor_salah'
+                        });
+                    });
+                }
+            })
+            .catch(err => console.warn('Search nomor salah error:', err))
+    );
+    
+    // ================================================================
+    // 7. SEARCH DB COMMITMENT - Query ke database
+    // ================================================================
+    searchPromises.push(
+        window.db.from('db_commitment')
+            .select('*')
+            .or(`nama.ilike.%${query}%,hp.ilike.%${query}%,agent_id.ilike.%${query}%`)
+            .limit(20)
+            .then(({ data }) => {
+                if (data && data.length > 0) {
+                    data.forEach(item => {
+                        resultItems.push({
+                            id: item.id,
+                            type: 'commitment',
+                            title: item.nama || 'Tidak ada nama',
+                            subtitle: `📱 ${item.hp || '-'} · 🆔 ${item.agent_id || '-'}`,
+                            icon: '🤝',
+                            badge: 'DB Commitment',
+                            badgeClass: 'badge-commitment',
+                            status: 'commitment'
+                        });
+                    });
+                }
+            })
+            .catch(err => console.warn('Search commitment error:', err))
+    );
+    
+    // ================================================================
+    // 8. SEARCH DB AGENT - Query ke database
+    // ================================================================
+    searchPromises.push(
+        window.db.from('db_agent')
+            .select('*')
+            .or(`nama.ilike.%${query}%,hp.ilike.%${query}%,agent_id.ilike.%${query}%`)
+            .limit(20)
+            .then(({ data }) => {
+                if (data && data.length > 0) {
+                    data.forEach(item => {
+                        resultItems.push({
+                            id: item.id,
+                            type: 'db_agent',
+                            title: item.nama || 'Tidak ada nama',
+                            subtitle: `📱 ${item.hp || '-'} · 🆔 ${item.agent_id || '-'}`,
+                            icon: '👥',
+                            badge: 'DB Agent',
+                            badgeClass: 'badge-customer',
+                            status: 'agent'
+                        });
+                    });
+                }
+            })
+            .catch(err => console.warn('Search db_agent error:', err))
+    );
+    
+    // ================================================================
+    // 9. SEARCH PRODUK - Query ke database
+    // ================================================================
+    searchPromises.push(
+        window.db.from('produk')
+            .select('*')
+            .or(`nama.ilike.%${query}%`)
+            .limit(10)
+            .then(({ data }) => {
+                if (data && data.length > 0) {
+                    data.forEach(item => {
+                        resultItems.push({
+                            id: item.id,
+                            type: 'produk',
+                            title: `📦 ${item.nama || 'Produk'}`,
+                            subtitle: `💰 ${formatRupiah(item.hpp || 0)} · ${item.keterangan || ''}`,
+                            icon: '🏷️',
+                            badge: 'Produk',
+                            badgeClass: 'badge-produk',
+                            status: 'produk'
+                        });
+                    });
+                }
+            })
+            .catch(err => console.warn('Search produk error:', err))
+    );
+    
+    // ================================================================
+    // 10. SEARCH USERS (CS Agent) - Query ke database
+    // ================================================================
+    if (currentUserRole === 'owner') {
+        searchPromises.push(
+            window.db.from('users')
+                .select('*')
+                .or(`nama.ilike.%${query}%,email.ilike.%${query}%`)
+                .neq('id', currentUser.id)
+                .limit(10)
+                .then(({ data }) => {
+                    if (data && data.length > 0) {
+                        data.forEach(item => {
+                            resultItems.push({
+                                id: item.id,
+                                type: 'user',
+                                title: item.nama || item.email || 'User',
+                                subtitle: `📧 ${item.email || '-'} · ${item.role || 'cs'}`,
+                                icon: '👤',
+                                badge: 'CS Agent',
+                                badgeClass: 'badge-user',
+                                status: 'user'
+                            });
+                        });
+                    }
+                })
+                .catch(err => console.warn('Search users error:', err))
+        );
+    }
+    
+    // ================================================================
+    // WAIT ALL SEARCH COMPLETE
+    // ================================================================
+    await Promise.allSettled(searchPromises);
+    
+    // ================================================================
+    // SORT & LIMIT RESULTS
+    // ================================================================
+    // Prioritaskan hasil yang lebih relevan (nama exact match lebih dulu)
+    resultItems.sort((a, b) => {
+        const aExact = a.title.toLowerCase() === q ? 0 : 1;
+        const bExact = b.title.toLowerCase() === q ? 0 : 1;
+        return aExact - bExact;
+    });
+    
+    const limited = resultItems.slice(0, 30);
     searchRightResults = limited;
     searchRightIndex = -1;
     
     countEl.textContent = limited.length;
     
+    // ================================================================
+    // RENDER RESULTS
+    // ================================================================
     if (limited.length === 0) {
         resultsList.innerHTML = `
             <div class="search-right-empty">
                 <div class="empty-icon">🔍</div>
                 <div class="empty-title">Tidak ditemukan</div>
-                <div class="empty-sub">Coba dengan kata kunci lain</div>
+                <div class="empty-sub">Coba dengan kata kunci lain di semua database</div>
             </div>
         `;
     } else {
@@ -1475,13 +1699,17 @@ async function performSearchRight(query) {
                 const id = this.dataset.id;
                 const type = this.dataset.type;
                 results.style.display = 'none';
-                openSearchRightResult(id, type);
+                openSearchRightResultFull(id, type);
             });
         });
     }
 }
 
-function openSearchRightResult(id, type) {
+// ================================================================
+// ========== OPEN SEARCH RESULT ==========
+// ================================================================
+
+function openSearchRightResultFull(id, type) {
     switch(type) {
         case 'customer':
             openDetailCustomer(id);
@@ -1492,9 +1720,103 @@ function openSearchRightResult(id, type) {
         case 'transaksi':
             openDetailTransaksi(id);
             break;
+        case 'closing':
+            openDBDetailModal(id, 'closing');
+            break;
+        case 'tidak':
+            openDBDetailModal(id, 'tidak');
+            break;
+        case 'nomor_salah':
+            openDBDetailModal(id, 'nomor_salah');
+            break;
+        case 'commitment':
+            openDBDetailModal(id, 'commitment');
+            break;
+        case 'db_agent':
+            openAgentDetail(id);
+            break;
+        case 'produk':
+            openProdukDetail(id);
+            break;
+        case 'user':
+            showNotifTop('👤 Detail CS Agent: ' + escapeHtml(document.querySelector(`.search-right-result-item[data-id="${id}"] .result-title`)?.textContent || 'User'));
+            break;
         default:
             showNotifTop('⚠️ Data tidak ditemukan', true);
     }
+}
+
+// ================================================================
+// ========== OPEN PRODUK DETAIL ==========
+// ================================================================
+
+function openProdukDetail(id) {
+    const produk = produkData.find(p => p.id === id);
+    if (!produk) {
+        showNotifTop('❌ Produk tidak ditemukan!', true);
+        return;
+    }
+    
+    const modalHtml = `
+        <div class="modal-content" style="max-width: 450px;">
+            <h3>🏷️ Detail Produk</h3>
+            <div class="modal-subtitle">Informasi lengkap produk</div>
+            <div style="padding: 0 20px 20px;">
+                <div class="detail-info-item"><strong>Nama Produk</strong><span>${escapeHtml(produk.nama)}</span></div>
+                <div class="detail-info-item"><strong>HPP (Modal)</strong><span>${formatRupiah(produk.hpp || 0)}</span></div>
+                <div class="detail-info-item"><strong>Harga Jual</strong><span>${formatRupiah(produk.harga_jual || 0)}</span></div>
+                <div class="detail-info-item"><strong>Keterangan</strong><span>${escapeHtml(produk.keterangan || '-')}</span></div>
+                <div class="detail-info-item"><strong>Jenis Produk</strong><span>${produk.jenis_produk === 'beradmin' ? '🏷️ Beradmin' : '📦 Tanpa Admin'}</span></div>
+                ${produk.jenis_produk === 'beradmin' ? `
+                    <div class="detail-info-item"><strong>Admin Default</strong><span>${formatRupiah(produk.admin_default || 0)}</span></div>
+                    <div class="detail-info-item"><strong>Admin Berdasarkan CID</strong><span>${produk.cid_based ? '✅ Ya' : '❌ Tidak'}</span></div>
+                ` : ''}
+            </div>
+            <div class="modal-buttons">
+                <button onclick="closeModal('detailModal')" class="btn-primary">Tutup</button>
+            </div>
+        </div>
+    `;
+    
+    document.getElementById('detailContent').innerHTML = modalHtml;
+    showModal('detailModal');
+    applyDarkModeToModal(document.getElementById('detailModal'));
+}
+
+// ================================================================
+// ========== OPEN AGENT DETAIL ==========
+// ================================================================
+
+function openAgentDetail(id) {
+    const agent = agentsData.find(a => a.id === id);
+    if (!agent) {
+        showNotifTop('❌ Agent tidak ditemukan!', true);
+        return;
+    }
+    
+    const modalHtml = `
+        <div class="modal-content" style="max-width: 450px;">
+            <h3>👤 Detail Agent</h3>
+            <div class="modal-subtitle">Informasi lengkap agent</div>
+            <div style="padding: 0 20px 20px;">
+                <div class="detail-info-item"><strong>Nama</strong><span>${escapeHtml(agent.nama)}</span></div>
+                <div class="detail-info-item"><strong>ID Agent</strong><span>${escapeHtml(agent.agent_id || '-')}</span></div>
+                <div class="detail-info-item"><strong>Nomor HP</strong><span>${escapeHtml(agent.hp || '-')}</span></div>
+                <div class="detail-info-item"><strong>Tipe Agent</strong><span>${escapeHtml(agent.agent_type || '-')}</span></div>
+                <div class="detail-info-item"><strong>Upline</strong><span>${escapeHtml(agent.upline || '-')}</span></div>
+                <div class="detail-info-item"><strong>CID</strong><span>${escapeHtml(agent.cid || '-')}</span></div>
+                <div class="detail-info-item"><strong>Jenis Bank</strong><span>${escapeHtml(agent.jenis_bank || '-')}</span></div>
+            </div>
+            <div class="modal-buttons">
+                <button onclick="closeModal('detailModal')" class="btn-primary">Tutup</button>
+                ${agent.hp ? `<button onclick="openWA('${agent.hp}')" class="btn-success">💬 WhatsApp</button>` : ''}
+            </div>
+        </div>
+    `;
+    
+    document.getElementById('detailContent').innerHTML = modalHtml;
+    showModal('detailModal');
+    applyDarkModeToModal(document.getElementById('detailModal'));
 }
 
 // ========== PROFILE PHOTO FUNCTIONS ==========
