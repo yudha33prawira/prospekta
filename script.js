@@ -1522,12 +1522,15 @@ function initGlobalSearch() {
     console.log('✅ Global search event listeners attached');
 }
 
-// ===== INDEX ALL DATA =====
+// ================================================================
+// ========== INDEX ALL DATA ==========
+// ================================================================
+
 function indexAllData() {
     allSearchData = [];
     
     try {
-        // Followup Agen
+        // ===== FOLLOWUP AGEN =====
         if (customersData && customersData.length > 0) {
             customersData.forEach(function(item) {
                 allSearchData.push({
@@ -1543,7 +1546,7 @@ function indexAllData() {
             });
         }
         
-        // Prospek Agen
+        // ===== PROSPEK AGEN =====
         if (prospekData && prospekData.length > 0) {
             prospekData.forEach(function(item) {
                 allSearchData.push({
@@ -1559,7 +1562,7 @@ function indexAllData() {
             });
         }
         
-        // Database Closing
+        // ===== DATABASE CLOSING =====
         if (window.closingData && window.closingData.length > 0) {
             window.closingData.forEach(function(item) {
                 allSearchData.push({
@@ -1575,66 +1578,68 @@ function indexAllData() {
             });
         }
         
+        // ===== DATABASE TIDAK TERTARIK =====
+        if (window.tidakData && window.tidakData.length > 0) {
+            window.tidakData.forEach(function(item) {
+                allSearchData.push({
+                    id: item.id,
+                    type: 'tidak',
+                    title: item.nama || 'Tidak ada nama',
+                    subtitle: '📱 ' + (item.hp || '-') + ' • ❌ ' + (item.alasan || 'Tidak tertarik'),
+                    badge: 'Tidak Tertarik',
+                    badgeClass: 'tidak',
+                    icon: '❌',
+                    searchText: (item.nama || '') + ' ' + (item.hp || '') + ' ' + (item.alasan || '')
+                });
+            });
+        }
+        
+        // ===== DATABASE NOMOR SALAH =====
+        if (window.nomorSalahData && window.nomorSalahData.length > 0) {
+            window.nomorSalahData.forEach(function(item) {
+                allSearchData.push({
+                    id: item.id,
+                    type: 'nomor_salah',
+                    title: item.nama || 'Tidak ada nama',
+                    subtitle: '📱 ' + (item.hp || '-') + ' • 📵 ' + (item.alasan || 'Nomor salah'),
+                    badge: 'Nomor Salah',
+                    badgeClass: 'nomor_salah',
+                    icon: '📵',
+                    searchText: (item.nama || '') + ' ' + (item.hp || '')
+                });
+            });
+        }
+        
+        // ===== DATABASE COMMITMENT =====
+        if (window.commitmentData && window.commitmentData.length > 0) {
+            window.commitmentData.forEach(function(item) {
+                allSearchData.push({
+                    id: item.id,
+                    type: 'commitment',
+                    title: item.nama || 'Tidak ada nama',
+                    subtitle: '📱 ' + (item.hp || '-') + ' • 🆔 ' + (item.agent_id || '-'),
+                    badge: 'Commitment',
+                    badgeClass: 'commitment',
+                    icon: '⭐',
+                    searchText: (item.nama || '') + ' ' + (item.hp || '') + ' ' + (item.agent_id || '')
+                });
+            });
+        }
+        
         console.log('✅ Search data indexed: ' + allSearchData.length + ' items');
         
     } catch (e) {
         console.warn('⚠️ Index all data error:', e);
     }
 }
-    
-    // Database Tidak Tertarik
-    if (window.tidakData) {
-        window.tidakData.forEach(item => {
-            allSearchData.push({
-                id: item.id,
-                type: 'tidak',
-                title: item.nama || 'Tidak ada nama',
-                subtitle: `📱 ${item.hp || '-'} • ❌ ${item.alasan || 'Tidak tertarik'}`,
-                badge: 'Tidak Tertarik',
-                badgeClass: 'tidak',
-                icon: '❌',
-                searchText: `${item.nama} ${item.hp} ${item.alasan}`.toLowerCase()
-            });
-        });
-    }
-    
-    // Database Nomor Salah
-    if (window.nomorSalahData) {
-        window.nomorSalahData.forEach(item => {
-            allSearchData.push({
-                id: item.id,
-                type: 'nomor_salah',
-                title: item.nama || 'Tidak ada nama',
-                subtitle: `📱 ${item.hp || '-'} • 📵 ${item.alasan || 'Nomor salah'}`,
-                badge: 'Nomor Salah',
-                badgeClass: 'nomor_salah',
-                icon: '📵',
-                searchText: `${item.nama} ${item.hp}`.toLowerCase()
-            });
-        });
-    }
-    
-    // Database Commitment
-    if (window.commitmentData) {
-        window.commitmentData.forEach(item => {
-            allSearchData.push({
-                id: item.id,
-                type: 'commitment',
-                title: item.nama || 'Tidak ada nama',
-                subtitle: `📱 ${item.hp || '-'} • 🆔 ${item.agent_id || '-'}`,
-                badge: 'Commitment',
-                badgeClass: 'commitment',
-                icon: '⭐',
-                searchText: `${item.nama} ${item.hp} ${item.agent_id}`.toLowerCase()
-            });
-        });
-    }
-}
 
-// ===== PERFORM GLOBAL SEARCH =====
+// ================================================================
+// ========== PERFORM GLOBAL SEARCH ==========
+// ================================================================
+
 function performGlobalSearch(query) {
-    const searchResults = document.getElementById('globalSearchResults');
-    const lowerQuery = query.toLowerCase().trim();
+    var searchResults = document.getElementById('globalSearchResults');
+    var lowerQuery = query.toLowerCase().trim();
     
     if (!searchResults) return;
     
@@ -1644,110 +1649,146 @@ function performGlobalSearch(query) {
     }
     
     // ===== SEARCH =====
-    const results = allSearchData
-        .filter(function(item) { return item.searchText.includes(lowerQuery); })
+    var results = allSearchData
+        .filter(function(item) { 
+            return item.searchText && item.searchText.includes(lowerQuery); 
+        })
         .slice(0, 20);
     
     // ===== RENDER =====
     if (results.length === 0) {
-        searchResults.innerHTML = `
-            <div class="search-results-empty">
-                <span>🔍</span>
-                <p>Tidak ada hasil untuk "${escapeHtml(query)}"</p>
-                <small>Coba kata kunci lain</small>
-            </div>
-        `;
+        searchResults.innerHTML = 
+            '<div class="search-results-empty">' +
+                '<span>🔍</span>' +
+                '<p>Tidak ada hasil untuk "' + escapeHtml(query) + '"</p>' +
+                '<small>Coba kata kunci lain</small>' +
+            '</div>';
     } else {
-        var resultsHtml = `
-            <div style="padding: 6px 16px 4px; font-size: 11px; color: #94a3b8; font-weight: 500;">
-                ${results.length} hasil ditemukan
-            </div>
-        `;
+        var resultsHtml = 
+            '<div style="padding: 6px 16px 4px; font-size: 11px; color: #94a3b8; font-weight: 500;">' +
+                results.length + ' hasil ditemukan' +
+            '</div>';
         
-        results.forEach(function(item) {
-            resultsHtml += `
-                <div class="search-result-item-global" data-id="${item.id}" data-type="${item.type}">
-                    <div class="result-icon">${item.icon}</div>
-                    <div class="result-info">
-                        <div class="result-title">${escapeHtml(item.title)}</div>
-                        <div class="result-subtitle">${item.subtitle}</div>
-                    </div>
-                    <span class="result-badge ${item.badgeClass}">${item.badge}</span>
-                </div>
-            `;
-        });
+        for (var i = 0; i < results.length; i++) {
+            var item = results[i];
+            resultsHtml += 
+                '<div class="search-result-item-global" data-id="' + item.id + '" data-type="' + item.type + '">' +
+                    '<div class="result-icon">' + item.icon + '</div>' +
+                    '<div class="result-info">' +
+                        '<div class="result-title">' + escapeHtml(item.title) + '</div>' +
+                        '<div class="result-subtitle">' + item.subtitle + '</div>' +
+                    '</div>' +
+                    '<span class="result-badge ' + item.badgeClass + '">' + item.badge + '</span>' +
+                '</div>';
+        }
         
         searchResults.innerHTML = resultsHtml;
         
         // ===== EVENT CLICK =====
         var items = searchResults.querySelectorAll('.search-result-item-global');
-        items.forEach(function(el) {
-            el.addEventListener('mousedown', function(e) {
-                e.preventDefault();
-                var id = this.dataset.id;
-                var type = this.dataset.type;
-                
-                searchResults.classList.remove('active');
-                var input = document.getElementById('globalSearchInput');
-                if (input) {
-                    input.value = '';
-                    var clearBtn = document.getElementById('globalSearchClear');
-                    if (clearBtn) clearBtn.style.display = 'none';
-                }
-                
-                openGlobalSearchDetail(id, type);
-            });
-        });
+        for (var j = 0; j < items.length; j++) {
+            (function(el) {
+                el.addEventListener('mousedown', function(e) {
+                    e.preventDefault();
+                    var id = this.dataset.id;
+                    var type = this.dataset.type;
+                    
+                    searchResults.classList.remove('active');
+                    var input = document.getElementById('globalSearchInput');
+                    if (input) {
+                        input.value = '';
+                        var clearBtn = document.getElementById('globalSearchClear');
+                        if (clearBtn) clearBtn.style.display = 'none';
+                    }
+                    
+                    openGlobalSearchDetail(id, type);
+                });
+            })(items[j]);
+        }
     }
     
     searchResults.classList.add('active');
-    isSearchOpen = true;
+    window._isSearchOpen = true;
 }
 
-// ===== OPEN DETAIL FROM GLOBAL SEARCH =====
+// ================================================================
+// ========== OPEN DETAIL FROM GLOBAL SEARCH ==========
+// ================================================================
+
 function openGlobalSearchDetail(id, type) {
-    switch(type) {
-        case 'customer':
-            openDetailCustomer(id);
-            break;
-        case 'prospek':
-            openDetailProspek(id);
-            break;
-        case 'closing':
-            openDBDetailModal(id, 'closing');
-            break;
-        case 'tidak':
-            openDBDetailModal(id, 'tidak');
-            break;
-        case 'nomor_salah':
-            openDBDetailModal(id, 'nomor_salah');
-            break;
-        case 'commitment':
-            openDBDetailModal(id, 'commitment');
-            break;
-        default:
-            showNotifTop('⚠️ Data tidak ditemukan', true);
+    try {
+        switch(type) {
+            case 'customer':
+                if (typeof openDetailCustomer === 'function') {
+                    openDetailCustomer(id);
+                }
+                break;
+            case 'prospek':
+                if (typeof openDetailProspek === 'function') {
+                    openDetailProspek(id);
+                }
+                break;
+            case 'closing':
+                if (typeof openDBDetailModal === 'function') {
+                    openDBDetailModal(id, 'closing');
+                }
+                break;
+            case 'tidak':
+                if (typeof openDBDetailModal === 'function') {
+                    openDBDetailModal(id, 'tidak');
+                }
+                break;
+            case 'nomor_salah':
+                if (typeof openDBDetailModal === 'function') {
+                    openDBDetailModal(id, 'nomor_salah');
+                }
+                break;
+            case 'commitment':
+                if (typeof openDBDetailModal === 'function') {
+                    openDBDetailModal(id, 'commitment');
+                }
+                break;
+            default:
+                showNotifTop('⚠️ Data tidak ditemukan', true);
+        }
+    } catch (e) {
+        console.warn('⚠️ Open detail error:', e);
+        showNotifTop('⚠️ Gagal membuka detail', true);
     }
 }
 
-// ===== REINDEX DATA (panggil setelah load data) =====
+// ================================================================
+// ========== REINDEX SEARCH DATA ==========
+// ================================================================
+
 function reindexSearchData() {
-    // Sinkronisasi data dari global variables
-    window.closingData = window.closingData || [];
-    window.tidakData = window.tidakData || [];
-    window.nomorSalahData = window.nomorSalahData || [];
-    window.commitmentData = window.commitmentData || [];
-    
-    indexAllData();
+    try {
+        // Sinkronisasi data dari global variables
+        window.closingData = window.closingData || [];
+        window.tidakData = window.tidakData || [];
+        window.nomorSalahData = window.nomorSalahData || [];
+        window.commitmentData = window.commitmentData || [];
+        
+        indexAllData();
+        console.log('✅ Search data reindexed successfully');
+    } catch (e) {
+        console.warn('⚠️ Reindex search data error:', e);
+    }
 }
 
-// ===== REINDEX AFTER LOAD =====
+// ================================================================
+// ========== REINDEX AFTER LOAD ==========
+// ================================================================
+
 function reindexAfterLoad() {
-    // Tunggu sebentar setelah data dimuat
-    setTimeout(reindexSearchData, 500);
+    try {
+        setTimeout(function() {
+            reindexSearchData();
+        }, 300);
+    } catch (e) {
+        console.warn('⚠️ Reindex after load error:', e);
+    }
 }
-
-// Panggil reindex setelah setiap load data
 
 // ========== PROFILE PHOTO FUNCTIONS ==========
 function initProfilePhoto() {
