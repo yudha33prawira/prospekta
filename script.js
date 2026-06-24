@@ -738,7 +738,7 @@ function initDarkMode() {
         e.preventDefault();
         e.stopPropagation();
         
-        console.log('Dark mode toggle clicked'); // Debug
+        console.log('Dark mode toggle clicked');
         
         // Toggle class
         document.body.classList.toggle('dark-mode');
