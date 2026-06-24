@@ -7390,3 +7390,25 @@ body.dark-mode .search-right-results-footer kbd {
         padding: 10px 12px;
     }
 }
+
+/* Tambahan badge untuk produk dan user */
+.result-badge.badge-produk { 
+    background: #fef3c7; 
+    color: #92400e; 
+}
+
+.result-badge.badge-user { 
+    background: #e0e7ff; 
+    color: #3730a3; 
+}
+
+/* Dark mode */
+body.dark-mode .result-badge.badge-produk {
+    background: #451a03;
+    color: #fbbf24;
+}
+
+body.dark-mode .result-badge.badge-user {
+    background: #1e293b;
+    color: #818cf8;
+}
