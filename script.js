@@ -1229,7 +1229,7 @@ function initLogoFlip() {
             stopAutoFlip();
             container.classList.add('auto-flip');
             
-            autoFlipTimer = setTimeout(() => {
+            autoFlipTimer = setTimeout(function() {
                 container.classList.remove('auto-flip');
                 container.classList.remove('flipped');
                 isLogoFlipped = false;
@@ -1258,11 +1258,11 @@ function initLogoFlip() {
             isLogoFlipped = this.classList.contains('flipped');
             
             if (isLogoFlipped) {
-                setTimeout(() => {
+                setTimeout(function() {
                     this.classList.remove('flipped');
                     isLogoFlipped = false;
                     setTimeout(startAutoFlip, 1500);
-                }, 3000);
+                }.bind(this), 3000);
             } else {
                 setTimeout(startAutoFlip, 1500);
             }
@@ -1290,16 +1290,15 @@ function initLogoFlip() {
     // ===== START AUTO FLIP =====
     setTimeout(startAutoFlip, 1500);
     
-    console.log('✅ Logo flip initialized');
-}
-    
     // ===== EXPOSE FUNCTIONS =====
     window.logoFlip = {
         startAuto: startAutoFlip,
         stopAuto: stopAutoFlip,
-        flip: () => container.classList.toggle('flipped'),
+        flip: function() { container.classList.toggle('flipped'); },
         updateUser: updateLogoUser
     };
+    
+    console.log('✅ Logo flip initialized');
 }
 
 // ===== UPDATE LOGO USER =====
@@ -1421,12 +1420,13 @@ function initGlobalSearch() {
     
     console.log('✅ Global search initialized');
     
+    let searchDebounceTimer = null;
+    let isSearchOpen = false;
+    
     // ===== INDEX ALL DATA =====
     indexAllData();
     
     // ===== EVENT: INPUT =====
-    let searchDebounceTimer = null;
-    
     searchInput.addEventListener('input', function(e) {
         const query = this.value.trim();
         
@@ -1437,7 +1437,7 @@ function initGlobalSearch() {
         }
         
         clearTimeout(searchDebounceTimer);
-        searchDebounceTimer = setTimeout(() => {
+        searchDebounceTimer = setTimeout(function() {
             if (query.length >= 2) {
                 performGlobalSearch(query);
             } else {
@@ -1464,33 +1464,37 @@ function initGlobalSearch() {
         if (query.length >= 2) {
             performGlobalSearch(query);
         } else {
-            searchResults.classList.add('active');
-            searchResults.innerHTML = `
-                <div class="search-results-empty">
-                    <span>🔍</span>
-                    <p>Ketik untuk mencari data</p>
-                    <small>Cari di Followup, Prospek, Closing, dan Database</small>
-                </div>
-            `;
+            if (searchResults) {
+                searchResults.classList.add('active');
+                searchResults.innerHTML = `
+                    <div class="search-results-empty">
+                        <span>🔍</span>
+                        <p>Ketik untuk mencari data</p>
+                        <small>Cari di Followup, Prospek, Closing, dan Database</small>
+                    </div>
+                `;
+            }
         }
     });
     
     // ===== EVENT: BLUR =====
     searchInput.addEventListener('blur', function() {
-        setTimeout(() => {
+        setTimeout(function() {
             if (!isSearchOpen) {
-                searchResults.classList.remove('active');
+                if (searchResults) searchResults.classList.remove('active');
             }
         }, 200);
     });
     
     // ===== EVENT: CLEAR =====
-    clearBtn.addEventListener('click', function() {
-        searchInput.value = '';
-        clearBtn.style.display = 'none';
-        searchResults.classList.remove('active');
-        searchInput.focus();
-    });
+    if (clearBtn) {
+        clearBtn.addEventListener('click', function() {
+            searchInput.value = '';
+            clearBtn.style.display = 'none';
+            if (searchResults) searchResults.classList.remove('active');
+            searchInput.focus();
+        });
+    }
     
     // ===== EVENT: KEYBOARD SHORTCUT (Ctrl+K) =====
     document.addEventListener('keydown', function(e) {
@@ -1499,9 +1503,8 @@ function initGlobalSearch() {
             searchInput.focus();
             searchInput.select();
         }
-        // ESC to close
         if (e.key === 'Escape') {
-            searchResults.classList.remove('active');
+            if (searchResults) searchResults.classList.remove('active');
             searchInput.blur();
         }
     });
@@ -1510,60 +1513,74 @@ function initGlobalSearch() {
     document.addEventListener('click', function(e) {
         if (wrapper && !wrapper.contains(e.target)) {
             isSearchOpen = false;
-            setTimeout(() => {
-                searchResults.classList.remove('active');
+            setTimeout(function() {
+                if (searchResults) searchResults.classList.remove('active');
             }, 100);
         }
     });
+    
+    console.log('✅ Global search event listeners attached');
 }
 
 // ===== INDEX ALL DATA =====
 function indexAllData() {
     allSearchData = [];
     
-    // Followup Agen
-    customersData.forEach(item => {
-        allSearchData.push({
-            id: item.id,
-            type: 'customer',
-            title: item.nama || 'Tidak ada nama',
-            subtitle: `🆔 ${item.agent_id || '-'} • 📱 ${item.hp || '-'}`,
-            badge: 'Followup',
-            badgeClass: 'followup',
-            icon: '📋',
-            searchText: `${item.nama} ${item.agent_id} ${item.hp} ${item.apk}`.toLowerCase()
-        });
-    });
-    
-    // Prospek Agen
-    prospekData.forEach(item => {
-        allSearchData.push({
-            id: item.id,
-            type: 'prospek',
-            title: item.nama || 'Tidak ada nama',
-            subtitle: `📱 ${item.hp || '-'} • Status: ${item.status || 'Baru'}`,
-            badge: 'Prospek',
-            badgeClass: 'prospek',
-            icon: '🎯',
-            searchText: `${item.nama} ${item.hp}`.toLowerCase()
-        });
-    });
-    
-    // Database Closing
-    if (window.closingData) {
-        window.closingData.forEach(item => {
-            allSearchData.push({
-                id: item.id,
-                type: 'closing',
-                title: item.nama || 'Tidak ada nama',
-                subtitle: `📱 ${item.hp || '-'} • 📅 ${item.closing_date ? formatDateDDMMYYYY(item.closing_date) : '-'}`,
-                badge: 'Closing',
-                badgeClass: 'closing',
-                icon: '📁',
-                searchText: `${item.nama} ${item.hp}`.toLowerCase()
+    try {
+        // Followup Agen
+        if (customersData && customersData.length > 0) {
+            customersData.forEach(function(item) {
+                allSearchData.push({
+                    id: item.id,
+                    type: 'customer',
+                    title: item.nama || 'Tidak ada nama',
+                    subtitle: '🆔 ' + (item.agent_id || '-') + ' • 📱 ' + (item.hp || '-'),
+                    badge: 'Followup',
+                    badgeClass: 'followup',
+                    icon: '📋',
+                    searchText: (item.nama || '') + ' ' + (item.agent_id || '') + ' ' + (item.hp || '') + ' ' + (item.apk || '')
+                });
             });
-        });
+        }
+        
+        // Prospek Agen
+        if (prospekData && prospekData.length > 0) {
+            prospekData.forEach(function(item) {
+                allSearchData.push({
+                    id: item.id,
+                    type: 'prospek',
+                    title: item.nama || 'Tidak ada nama',
+                    subtitle: '📱 ' + (item.hp || '-') + ' • Status: ' + (item.status || 'Baru'),
+                    badge: 'Prospek',
+                    badgeClass: 'prospek',
+                    icon: '🎯',
+                    searchText: (item.nama || '') + ' ' + (item.hp || '')
+                });
+            });
+        }
+        
+        // Database Closing
+        if (window.closingData && window.closingData.length > 0) {
+            window.closingData.forEach(function(item) {
+                allSearchData.push({
+                    id: item.id,
+                    type: 'closing',
+                    title: item.nama || 'Tidak ada nama',
+                    subtitle: '📱 ' + (item.hp || '-') + ' • 📅 ' + (item.closing_date ? formatDateDDMMYYYY(item.closing_date) : '-'),
+                    badge: 'Closing',
+                    badgeClass: 'closing',
+                    icon: '📁',
+                    searchText: (item.nama || '') + ' ' + (item.hp || '')
+                });
+            });
+        }
+        
+        console.log('✅ Search data indexed: ' + allSearchData.length + ' items');
+        
+    } catch (e) {
+        console.warn('⚠️ Index all data error:', e);
     }
+}
     
     // Database Tidak Tertarik
     if (window.tidakData) {
@@ -1628,8 +1645,8 @@ function performGlobalSearch(query) {
     
     // ===== SEARCH =====
     const results = allSearchData
-        .filter(item => item.searchText.includes(lowerQuery))
-        .slice(0, 20); // Maksimal 20 hasil
+        .filter(function(item) { return item.searchText.includes(lowerQuery); })
+        .slice(0, 20);
     
     // ===== RENDER =====
     if (results.length === 0) {
@@ -1641,11 +1658,14 @@ function performGlobalSearch(query) {
             </div>
         `;
     } else {
-        searchResults.innerHTML = `
+        var resultsHtml = `
             <div style="padding: 6px 16px 4px; font-size: 11px; color: #94a3b8; font-weight: 500;">
                 ${results.length} hasil ditemukan
             </div>
-            ${results.map(item => `
+        `;
+        
+        results.forEach(function(item) {
+            resultsHtml += `
                 <div class="search-result-item-global" data-id="${item.id}" data-type="${item.type}">
                     <div class="result-icon">${item.icon}</div>
                     <div class="result-info">
@@ -1654,22 +1674,27 @@ function performGlobalSearch(query) {
                     </div>
                     <span class="result-badge ${item.badgeClass}">${item.badge}</span>
                 </div>
-            `).join('')}
-        `;
+            `;
+        });
+        
+        searchResults.innerHTML = resultsHtml;
         
         // ===== EVENT CLICK =====
-        searchResults.querySelectorAll('.search-result-item-global').forEach(el => {
+        var items = searchResults.querySelectorAll('.search-result-item-global');
+        items.forEach(function(el) {
             el.addEventListener('mousedown', function(e) {
                 e.preventDefault();
-                const id = this.dataset.id;
-                const type = this.dataset.type;
+                var id = this.dataset.id;
+                var type = this.dataset.type;
                 
-                // Close search
                 searchResults.classList.remove('active');
-                document.getElementById('globalSearchInput').value = '';
-                document.getElementById('globalSearchClear').style.display = 'none';
+                var input = document.getElementById('globalSearchInput');
+                if (input) {
+                    input.value = '';
+                    var clearBtn = document.getElementById('globalSearchClear');
+                    if (clearBtn) clearBtn.style.display = 'none';
+                }
                 
-                // Navigate to detail
                 openGlobalSearchDetail(id, type);
             });
         });
