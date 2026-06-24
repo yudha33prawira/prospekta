@@ -114,37 +114,30 @@
                 <div class="topbar-center" id="topbarCenter">
                 <!-- Hidden element untuk kompatibilitas -->
                 <span id="topUserName" style="display:none;"></span>
-                <!-- SEARCH BAR - GOOGLE STYLE -->
-                <div class="search-google-wrapper" id="searchGoogleWrapper">
-                    <div class="search-google-trigger" id="searchGoogleTrigger">
-                        <span class="search-google-icon">🔍</span>
-                        <span class="search-google-label">Cari...</span>
+                <!-- SEARCH BAR DINAMIS - GOOGLE CHROME STYLE -->
+                <div class="search-dinamis-wrapper" id="searchDinamisWrapper">
+                    <div class="search-dinamis-container" id="searchDinamisContainer">
+                        <span class="search-dinamis-icon">🔍</span>
+                        <input 
+                            type="text" 
+                            id="searchDinamisInput" 
+                            placeholder="Cari..." 
+                            class="search-dinamis-input"
+                            autocomplete="off"
+                        >
+                        <button class="search-dinamis-clear" id="searchDinamisClear" style="display:none;">✕</button>
                     </div>
-                    <div class="search-google-expanded" id="searchGoogleExpanded">
-                        <div class="search-google-inner">
-                            <span class="search-google-icon-expanded">🔍</span>
-                            <input 
-                                type="text" 
-                                id="searchGoogleInput" 
-                                placeholder="Cari nama, ID Agent, nomor WhatsApp..." 
-                                class="search-google-input"
-                                autocomplete="off"
-                            >
-                            <button class="search-google-clear" id="searchGoogleClear" style="display:none;">✕</button>
-                            <button class="search-google-close" id="searchGoogleClose">✕</button>
+                    
+                    <!-- HASIL PENCARIAN -->
+                    <div class="search-dinamis-results" id="searchDinamisResults" style="display:none;">
+                        <div class="search-dinamis-results-header">
+                            <span id="searchDinamisCount">0</span> hasil ditemukan
                         </div>
-                        
-                        <!-- HASIL PENCARIAN -->
-                        <div class="search-google-results" id="searchGoogleResults" style="display:none;">
-                            <div class="search-google-results-header">
-                                <span id="searchGoogleCount">0</span> hasil ditemukan
-                            </div>
-                            <div class="search-google-results-list" id="searchGoogleResultsList">
-                                <!-- Hasil akan di-render di sini -->
-                            </div>
-                            <div class="search-google-results-footer">
-                                <kbd>↑</kbd> <kbd>↓</kbd> navigasi · <kbd>Enter</kbd> buka · <kbd>Esc</kbd> tutup
-                            </div>
+                        <div class="search-dinamis-results-list" id="searchDinamisResultsList">
+                            <!-- Hasil akan di-render di sini -->
+                        </div>
+                        <div class="search-dinamis-results-footer">
+                            <kbd>↑</kbd> <kbd>↓</kbd> · <kbd>Enter</kbd> buka · <kbd>Esc</kbd> tutup
                         </div>
                     </div>
                 </div>
