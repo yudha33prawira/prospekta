@@ -88,84 +88,89 @@
             </div>
         </div>
 
-        <div class="main-content">
-            <div class="topbar">
-                <div class="topbar-left">
-                    <button class="toggle-btn" id="toggleSidebarBtn" type="button" aria-label="Toggle Sidebar">☰</button>
-                    <div class="logo-wrapper animate" id="logoWrapper">
-                        <div class="logo-with-user">
-                            <span class="logo-text">
-                                <span class="logo-char">P</span>
-                                <span class="logo-char">R</span>
-                                <span class="logo-char">O</span>
-                                <span class="logo-char">S</span>
-                                <span class="logo-char">P</span>
-                                <span class="logo-char">E</span>
-                                <span class="logo-char">K</span>
-                                <span class="logo-char">T</span>
-                                <span class="logo-char">A</span>
-                            </span>
-                            <span class="logo-subtitle" id="logoSubtitle">
-                                👤 <span class="user-name" id="logoUserName">CS Agent</span>
-                            </span>
+            <div class="main-content">
+                <div class="topbar">
+                    <!-- ===== KIRI: Logo ===== -->
+                    <div class="topbar-left">
+                        <button class="toggle-btn" id="toggleSidebarBtn" type="button" aria-label="Toggle Sidebar">☰</button>
+                        <div class="logo-wrapper animate" id="logoWrapper">
+                            <div class="logo-with-user">
+                                <span class="logo-text">
+                                    <span class="logo-char">P</span>
+                                    <span class="logo-char">R</span>
+                                    <span class="logo-char">O</span>
+                                    <span class="logo-char">S</span>
+                                    <span class="logo-char">P</span>
+                                    <span class="logo-char">E</span>
+                                    <span class="logo-char">K</span>
+                                    <span class="logo-char">T</span>
+                                    <span class="logo-char">A</span>
+                                </span>
+                                <span class="logo-subtitle" id="logoSubtitle">
+                                    👤 <span class="user-name" id="logoUserName">CS Agent</span>
+                                </span>
+                            </div>
                         </div>
                     </div>
-                </div>
-                <div class="topbar-center" id="topbarCenter">
-                <!-- Hidden element untuk kompatibilitas -->
-                <span id="topUserName" style="display:none;"></span>
-                <!-- ===== SEARCH BAR DI KANAN (BERGESER KE KIRI) ===== -->
-                <div class="topbar-right">
-                <!-- Search Icon (Trigger) -->
-                <div class="search-right-wrapper" id="searchRightWrapper">
-                    <div class="search-right-trigger" id="searchRightTrigger">
-                        <span class="search-right-icon">🔍</span>
-                        <span class="search-right-label">Cari...</span>
-                        <span class="search-right-shortcut">⌘K</span>
+            
+                    <!-- ===== TENGAH: Kosong atau bisa untuk judul ===== -->
+                    <div class="topbar-center" id="topbarCenter">
+                        <!-- Hidden element untuk kompatibilitas -->
+                        <span id="topUserName" style="display:none;"></span>
                     </div>
-                    
-                    <!-- Search Expanded (Bergeser ke kiri) -->
-                    <div class="search-right-expanded" id="searchRightExpanded">
-                        <div class="search-right-inner">
-                            <span class="search-right-icon-expanded">🔍</span>
-                            <input 
-                                type="text" 
-                                id="searchRightInput" 
-                                placeholder="Cari nama, ID Agent, nomor WhatsApp..." 
-                                class="search-right-input"
-                                autocomplete="off"
-                            >
-                            <button class="search-right-clear" id="searchRightClear" style="display:none;">✕</button>
-                            <button class="search-right-close" id="searchRightClose">✕</button>
+            
+                    <!-- ===== KANAN: Search + Notifikasi + Profile ===== -->
+                    <div class="topbar-right">
+                        <!-- Search Icon (Trigger) -->
+                        <div class="search-right-wrapper" id="searchRightWrapper">
+                            <div class="search-right-trigger" id="searchRightTrigger">
+                                <span class="search-right-icon">🔍</span>
+                                <span class="search-right-label">Cari...</span>
+                                <span class="search-right-shortcut">⌘K</span>
+                            </div>
+                            
+                            <!-- Search Expanded (Bergeser ke kiri) -->
+                            <div class="search-right-expanded" id="searchRightExpanded">
+                                <div class="search-right-inner">
+                                    <span class="search-right-icon-expanded">🔍</span>
+                                    <input 
+                                        type="text" 
+                                        id="searchRightInput" 
+                                        placeholder="Cari nama, ID Agent, nomor WhatsApp..." 
+                                        class="search-right-input"
+                                        autocomplete="off"
+                                    >
+                                    <button class="search-right-clear" id="searchRightClear" style="display:none;">✕</button>
+                                    <button class="search-right-close" id="searchRightClose">✕</button>
+                                </div>
+                                
+                                <!-- HASIL PENCARIAN -->
+                                <div class="search-right-results" id="searchRightResults" style="display:none;">
+                                    <div class="search-right-results-header">
+                                        <span id="searchRightCount">0</span> hasil ditemukan
+                                    </div>
+                                    <div class="search-right-results-list" id="searchRightResultsList">
+                                        <!-- Hasil akan di-render di sini -->
+                                    </div>
+                                    <div class="search-right-results-footer">
+                                        <kbd>↑</kbd> <kbd>↓</kbd> · <kbd>Enter</kbd> buka · <kbd>Esc</kbd> tutup
+                                    </div>
+                                </div>
+                            </div>
                         </div>
                         
-                        <!-- HASIL PENCARIAN -->
-                        <div class="search-right-results" id="searchRightResults" style="display:none;">
-                            <div class="search-right-results-header">
-                                <span id="searchRightCount">0</span> hasil ditemukan
-                            </div>
-                            <div class="search-right-results-list" id="searchRightResultsList">
-                                <!-- Hasil akan di-render di sini -->
-                            </div>
-                            <div class="search-right-results-footer">
-                                <kbd>↑</kbd> <kbd>↓</kbd> · <kbd>Enter</kbd> buka · <kbd>Esc</kbd> tutup
-                            </div>
-                        </div>
+                        <!-- Icon Notifikasi & Profile -->
+                        <div class="notif-icon" id="infoBtn">⚠️</div>
+                        <div class="notif-icon" id="deadlineNotifBtn">📅<span class="badge badge-zero" id="deadlineCount">0</span></div>
+                        <div class="notif-icon" id="pesanNotifBtn">💬<span class="badge badge-zero" id="pesanCount">0</span></div>
+                        <img class="profile-img" id="profileImg" src="https://i.pravatar.cc/40" alt="Profile">
                     </div>
                 </div>
-                
-                <!-- Icon Notifikasi & Profile -->
-                <div class="notif-icon" id="infoBtn">⚠️</div>
-                <div class="notif-icon" id="deadlineNotifBtn">📅<span class="badge badge-zero" id="deadlineCount">0</span></div>
-                <div class="notif-icon" id="pesanNotifBtn">💬<span class="badge badge-zero" id="pesanCount">0</span></div>
-                <img class="profile-img" id="profileImg" src="https://i.pravatar.cc/40" alt="Profile">
-            </div>
-        </div>
-
-            <div class="content-area">
-                <!-- DASHBOARD PAGE -->
-                <div id="dashboardPage" class="page-content">
-                    <div class="stats-grid">
+            
+                <div class="content-area">
+                    <!-- DASHBOARD PAGE -->
+                    <div id="dashboardPage" class="page-content">
+                        <div class="stats-grid">
                         <div class="stat-card"><div class="stat-info"><h4>Total Data</h4><div class="value" id="totalData">0</div><small>Semua Data</small></div><div class="stat-icon bg-purple">👥</div></div>
                         <div class="stat-card"><div class="stat-info"><h4>Closing</h4><div class="value" id="closingTotal">0</div><small>Data Closing</small></div><div class="stat-icon bg-green">✔</div></div>
                         <div class="stat-card"><div class="stat-info"><h4>Rate Closing</h4><div class="value" id="rateClosing">0%</div><small>Dari Total</small></div><div class="stat-icon bg-blue">📊</div></div>
