@@ -10710,45 +10710,40 @@ async function checkAuth() {
                 
                 // ===== CEK APAKAH DATA SUDAH DIMUAT =====
                 if (!isAppInitialized) {
-                // Load data secara berurutan
-                await withLoading(loadCustomers(), 4);
-                updateLoadingStep(5);
-                await withLoading(loadProspek(), 6);
-                updateLoadingStep(7);
-                await withLoading(loadDatabaseAgent(), 8); // Ini akan update target
-                updateLoadingStep(9);
-                await withLoading(loadProduk(), 10);
-                updateLoadingStep(11);
-                await withLoading(loadDbTransaksi(), 12); // Ini juga update target
-                updateLoadingStep(13);
-                await withLoading(loadDBClosing(), 14);
-                updateLoadingStep(15);
-                await withLoading(loadDBTidak(), 16);
-                updateLoadingStep(17);
-                await withLoading(loadDBNomorSalah(), 18);
-                updateLoadingStep(19);
-                await withLoading(loadDBCommitment(), 20);
-                updateLoadingStep(21);
-                await withLoading(loadReminders(), 22);
-                updateLoadingStep(23);
-                await withLoading(loadMessages(), 24);
-                updateLoadingStep(25);
-                await withLoading(loadUsersList(), 26);
-                updateLoadingStep(27);
-                await withLoading(loadTarifAdmin(), 28);
-                updateLoadingStep(29);
-                await withLoading(loadTransaksiGlobal(), 30);
-                
-                // Panggil sekali lagi untuk memastikan target terupdate
-                await updateTargetDisplay();
-                updateLoadingStep(31);
-                
-                isAppInitialized = true;
-                } catch (err) {
-                    console.error('Error loading data:', err);
-                    hideLoading();
-                    showNotifTop('❌ Gagal memuat data: ' + err.message, true);
-                }
+                    // Load data secara berurutan
+                    await withLoading(loadCustomers(), 4);
+                    updateLoadingStep(5);
+                    await withLoading(loadProspek(), 6);
+                    updateLoadingStep(7);
+                    await withLoading(loadDatabaseAgent(), 8);
+                    updateLoadingStep(9);
+                    await withLoading(loadProduk(), 10);
+                    updateLoadingStep(11);
+                    await withLoading(loadDbTransaksi(), 12);
+                    updateLoadingStep(13);
+                    await withLoading(loadDBClosing(), 14);
+                    updateLoadingStep(15);
+                    await withLoading(loadDBTidak(), 16);
+                    updateLoadingStep(17);
+                    await withLoading(loadDBNomorSalah(), 18);
+                    updateLoadingStep(19);
+                    await withLoading(loadDBCommitment(), 20);
+                    updateLoadingStep(21);
+                    await withLoading(loadReminders(), 22);
+                    updateLoadingStep(23);
+                    await withLoading(loadMessages(), 24);
+                    updateLoadingStep(25);
+                    await withLoading(loadUsersList(), 26);
+                    updateLoadingStep(27);
+                    await withLoading(loadTarifAdmin(), 28);
+                    updateLoadingStep(29);
+                    await withLoading(loadTransaksiGlobal(), 30);
+                    
+                    // Panggil sekali lagi untuk memastikan target terupdate
+                    await updateTargetDisplay();
+                    updateLoadingStep(31);
+                    
+                    isAppInitialized = true;
                 } else {
                     console.log('✅ Data sudah dimuat, skip loading data');
                 }
@@ -13610,6 +13605,8 @@ document.getElementById('loginBtn')?.addEventListener('click', async function(e)
             await loadTargetData();
             updateLoadingStep(17);
             await loadTransaksiGlobal();
+            await updateTargetDisplay();
+            updateLoadingStep(18);
             
             // Set owner menu
             if (currentUserRole === 'owner') {
@@ -13624,7 +13621,6 @@ document.getElementById('loginBtn')?.addEventListener('click', async function(e)
                 document.getElementById('menuImport').style.display = 'none';
             }
             
-            updateLoadingStep(18);
             navigateTo('dashboard');
             
             // Inisialisasi badges
