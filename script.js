@@ -1188,46 +1188,56 @@ function closeDeadlinePopup() {
 }
 
 // ================================================================
-// ========== LOGO FLIP CONTROLLER ==========
+// ========== LOGO FLIP CONTROLLER (DENGAN GUARD) ==========
 // ================================================================
-
-let autoFlipTimer = null;
-let isLogoFlipped = false;
 
 function initLogoFlip() {
     const container = document.getElementById('logoFlipContainer');
+    
+    if (!container) {
+        console.warn('⚠️ Logo flip container not found, retrying...');
+        setTimeout(initLogoFlip, 500);
+        return;
+    }
+    
+    console.log('✅ Logo flip container found, initializing...');
+    
     const userName = document.getElementById('logoUserName');
     const userRole = document.getElementById('logoUserRole');
     
-    if (!container) return;
+    let autoFlipTimer = null;
+    let isLogoFlipped = false;
     
     // ===== UPDATE NAMA USER =====
     function updateLogoUser() {
-        if (userName) {
-            const name = currentUserName || 'CS Agent';
-            userName.textContent = name.length > 15 ? name.substring(0, 12) + '...' : name;
-        }
-        if (userRole) {
-            const role = currentUserRole === 'owner' ? 'Owner' : 'CS';
-            userRole.textContent = role;
+        try {
+            if (userName) {
+                const name = currentUserName || 'CS Agent';
+                userName.textContent = name.length > 15 ? name.substring(0, 12) + '...' : name;
+            }
+            if (userRole) {
+                userRole.textContent = currentUserRole === 'owner' ? 'Owner' : 'CS';
+            }
+        } catch (e) {
+            console.warn('⚠️ Update logo user error:', e);
         }
     }
     
     // ===== AUTO FLIP (BERULANG) =====
     function startAutoFlip() {
-        stopAutoFlip();
-        container.classList.add('auto-flip');
-        
-        // Reset flip state setelah animasi selesai
-        autoFlipTimer = setTimeout(() => {
-            container.classList.remove('auto-flip');
-            // Flip balik ke depan
-            container.classList.remove('flipped');
-            isLogoFlipped = false;
+        try {
+            stopAutoFlip();
+            container.classList.add('auto-flip');
             
-            // Mulai lagi setelah jeda
-            setTimeout(startAutoFlip, 2000);
-        }, 6000);
+            autoFlipTimer = setTimeout(() => {
+                container.classList.remove('auto-flip');
+                container.classList.remove('flipped');
+                isLogoFlipped = false;
+                setTimeout(startAutoFlip, 2000);
+            }, 6000);
+        } catch (e) {
+            console.warn('⚠️ Auto flip error:', e);
+        }
     }
     
     function stopAutoFlip() {
@@ -1240,29 +1250,30 @@ function initLogoFlip() {
     
     // ===== CLICK: FLIP MANUAL =====
     container.addEventListener('click', function(e) {
-        e.stopPropagation();
-        stopAutoFlip();
-        
-        // Toggle flip
-        this.classList.toggle('flipped');
-        isLogoFlipped = this.classList.contains('flipped');
-        
-        // Jika flipped ke belakang, reset auto flip setelah 3 detik
-        if (isLogoFlipped) {
-            setTimeout(() => {
-                this.classList.remove('flipped');
-                isLogoFlipped = false;
+        try {
+            e.stopPropagation();
+            stopAutoFlip();
+            
+            this.classList.toggle('flipped');
+            isLogoFlipped = this.classList.contains('flipped');
+            
+            if (isLogoFlipped) {
+                setTimeout(() => {
+                    this.classList.remove('flipped');
+                    isLogoFlipped = false;
+                    setTimeout(startAutoFlip, 1500);
+                }, 3000);
+            } else {
                 setTimeout(startAutoFlip, 1500);
-            }, 3000);
-        } else {
-            setTimeout(startAutoFlip, 1500);
+            }
+        } catch (e) {
+            console.warn('⚠️ Click flip error:', e);
         }
     });
     
     // ===== HOVER: PAUSE AUTO FLIP =====
     container.addEventListener('mouseenter', function() {
         if (this.classList.contains('auto-flip')) {
-            // Pause animasi
             this.style.animationPlayState = 'paused';
         }
     });
@@ -1274,18 +1285,13 @@ function initLogoFlip() {
     });
     
     // ===== UPDATE SAAT USER BERUBAH =====
-    // Panggil updateLogoUser setiap kali currentUserName berubah
-    const originalUpdate = window.updateUserDisplay;
-    window.updateUserDisplay = function() {
-        if (originalUpdate) originalUpdate();
-        updateLogoUser();
-    };
-    
-    // Initial update
-    setTimeout(updateLogoUser, 100);
+    updateLogoUser();
     
     // ===== START AUTO FLIP =====
     setTimeout(startAutoFlip, 1500);
+    
+    console.log('✅ Logo flip initialized');
+}
     
     // ===== EXPOSE FUNCTIONS =====
     window.logoFlip = {
@@ -1330,33 +1336,104 @@ function updateUserDisplay() {
 }
 
 // ================================================================
-// ========== GLOBAL SEARCH PREMIUM ==========
+// ========== UPDATE LOGO USER DISPLAY (DENGAN GUARD) ==========
 // ================================================================
 
-let searchDebounceTimer = null;
-let isSearchOpen = false;
-let allSearchData = [];
+function updateLogoUserDisplay() {
+    // ===== GUARD: Pastikan elemen ada =====
+    const userNameEl = document.getElementById('logoUserName');
+    const userRoleEl = document.getElementById('logoUserRole');
+    
+    if (!userNameEl && !userRoleEl) {
+        // Elemen tidak ditemukan, coba lagi nanti
+        console.warn('⚠️ Logo elements not found, retrying...');
+        setTimeout(updateLogoUserDisplay, 500);
+        return;
+    }
+    
+    try {
+        if (userNameEl) {
+            const name = currentUserName || 'CS Agent';
+            userNameEl.textContent = name.length > 15 ? name.substring(0, 12) + '...' : name;
+        }
+        if (userRoleEl) {
+            userRoleEl.textContent = currentUserRole === 'owner' ? 'Owner' : 'CS';
+        }
+        console.log('✅ Logo user updated:', currentUserName);
+    } catch (e) {
+        console.warn('⚠️ Update logo user error:', e);
+    }
+}
 
-// Inisialisasi search
+// ================================================================
+// ========== UPDATE USER DISPLAY (DENGAN GUARD) ==========
+// ================================================================
+
+function updateUserDisplay() {
+    try {
+        const userNameEl = document.getElementById('logoUserName');
+        const userRoleEl = document.getElementById('logoUserRole');
+        const topUserName = document.getElementById('topUserName');
+        
+        if (userNameEl) {
+            const name = currentUserName || 'CS Agent';
+            userNameEl.textContent = name.length > 15 ? name.substring(0, 12) + '...' : name;
+        }
+        if (userRoleEl) {
+            userRoleEl.textContent = currentUserRole === 'owner' ? 'Owner' : 'CS';
+        }
+        if (topUserName) {
+            topUserName.innerText = currentUserName || 'CS Agent';
+        }
+        
+        // ===== UPDATE PROFILE IMAGE =====
+        const profileImg = document.getElementById('profileImg');
+        if (profileImg && currentUser) {
+            // Load foto dari database
+            window.db.from('users').select('foto').eq('id', currentUser.id).single()
+                .then(({ data }) => {
+                    if (data && data.foto) {
+                        profileImg.src = data.foto;
+                    }
+                })
+                .catch(() => {});
+        }
+    } catch (e) {
+        console.warn('⚠️ Update user display error:', e);
+    }
+}
+
+// ================================================================
+// ========== GLOBAL SEARCH (DENGAN GUARD) ==========
+// ================================================================
+
 function initGlobalSearch() {
     const searchInput = document.getElementById('globalSearchInput');
     const searchResults = document.getElementById('globalSearchResults');
     const clearBtn = document.getElementById('globalSearchClear');
     const wrapper = document.querySelector('.global-search-wrapper');
     
-    if (!searchInput) return;
+    if (!searchInput) {
+        console.warn('⚠️ Global search input not found, retrying...');
+        setTimeout(initGlobalSearch, 500);
+        return;
+    }
+    
+    console.log('✅ Global search initialized');
     
     // ===== INDEX ALL DATA =====
     indexAllData();
     
     // ===== EVENT: INPUT =====
+    let searchDebounceTimer = null;
+    
     searchInput.addEventListener('input', function(e) {
         const query = this.value.trim();
         
         if (query.length > 0) {
-            clearBtn.style.display = 'block';
+            if (clearBtn) clearBtn.style.display = 'block';
         } else {
-            clearBtn.style.display = 'none';
+            if (clearBtn) clearBtn.style.display = 'none';
         }
         
         clearTimeout(searchDebounceTimer);
@@ -1364,16 +1441,18 @@ function initGlobalSearch() {
             if (query.length >= 2) {
                 performGlobalSearch(query);
             } else {
-                searchResults.classList.remove('active');
-                searchResults.innerHTML = `
-                    <div class="search-results-empty">
-                        <span>🔍</span>
-                        <p>Ketik minimal 2 karakter</p>
-                        <small>Cari di semua database</small>
-                    </div>
-                `;
-                if (query.length === 0) {
-                    searchResults.classList.add('active');
+                if (searchResults) {
+                    searchResults.classList.remove('active');
+                    searchResults.innerHTML = `
+                        <div class="search-results-empty">
+                            <span>🔍</span>
+                            <p>Ketik minimal 2 karakter</p>
+                            <small>Cari di semua database</small>
+                        </div>
+                    `;
+                    if (query.length === 0) {
+                        searchResults.classList.add('active');
+                    }
                 }
             }
         }, 300);
@@ -10324,6 +10403,47 @@ async function checkAuth() {
     }
 }
 
+// ========== INISIALISASI SEMUA FITUR ==========
+function initAllFeatures() {
+    console.log('🚀 Initializing all features...');
+    
+    // ===== LOGO FLIP =====
+    setTimeout(function() {
+        if (typeof initLogoFlip === 'function') {
+            try {
+                initLogoFlip();
+                console.log('✅ Logo Flip initialized');
+            } catch (e) {
+                console.warn('⚠️ Logo Flip init error:', e);
+            }
+        }
+    }, 500);
+    
+    // ===== GLOBAL SEARCH =====
+    setTimeout(function() {
+        if (typeof initGlobalSearch === 'function') {
+            try {
+                initGlobalSearch();
+                console.log('✅ Global Search initialized');
+            } catch (e) {
+                console.warn('⚠️ Global Search init error:', e);
+            }
+        }
+    }, 300);
+    
+    // ===== UPDATE LOGO USER =====
+    setTimeout(function() {
+        if (typeof updateLogoUserDisplay === 'function') {
+            try {
+                updateLogoUserDisplay();
+                console.log('✅ Logo user updated');
+            } catch (e) {
+                console.warn('⚠️ Logo user update error:', e);
+            }
+        }
+    }, 800);
+}
+
 // ========== DOM READY ==========
 document.addEventListener('DOMContentLoaded', function() {
     // ===== CEK APAKAH SUDAH DIPROSES =====
@@ -10332,6 +10452,8 @@ document.addEventListener('DOMContentLoaded', function() {
         return;
     }
     document._domReadyExecuted = true;
+    
+    console.log('🚀 DOM Ready - Initializing...');
     
     // ===== INISIALISASI AUTH LISTENER =====
     initAuthListener();
@@ -10342,43 +10464,8 @@ document.addEventListener('DOMContentLoaded', function() {
     // ===== CHECK AUTHENTICATION =====
     checkAuth();
     
-    // ================================================================
-    // ===== TAMBAHKAN INISIALISASI DI SINI =====
-    // ================================================================
-    
-    // ===== GLOBAL SEARCH =====
-    // Inisialisasi setelah DOM siap dan data sudah dimuat
-    setTimeout(function() {
-        if (typeof initGlobalSearch === 'function') {
-            initGlobalSearch();
-        }
-    }, 300);
-    
-    // ===== LOGO FLIP ANIMATION =====
-    // Tunggu sampai user data dimuat sebelum inisialisasi logo flip
-    setTimeout(function() {
-        if (typeof initLogoFlip === 'function') {
-            initLogoFlip();
-        }
-    }, 800);
-    
-    // ===== REINDEX SEARCH DATA (jika data sudah ada) =====
-    setTimeout(function() {
-        if (typeof reindexSearchData === 'function') {
-            // Cek apakah data sudah dimuat
-            if (customersData && customersData.length > 0) {
-                reindexSearchData();
-            }
-        }
-    }, 1500);
-    
-    // ===== UPDATE LOGO USER =====
-    // Update logo user saat data profile sudah dimuat
-    setTimeout(function() {
-        if (typeof updateLogoUserDisplay === 'function') {
-            updateLogoUserDisplay();
-        }
-    }, 1000);
+    // ===== INISIALISASI SEMUA FITUR =====
+    initAllFeatures();
     
     console.log('✅ PROSPEKTA loaded successfully');
 });
@@ -10586,15 +10673,43 @@ function setupSelectAll(btnId, containerSelector, selectedMap) {
 async function loadUserProfile() {
     if (!currentUser) return;
     
-    const { data, error } = await window.db.from('users').select('*').eq('id', currentUser.id).single();
-    if (data) {
-        currentUserName = data.nama || currentUser.email;
-        currentUserRole = data.role || 'cs';
-        document.getElementById('topUserName').innerText = currentUserName;
-        document.getElementById('profileImg').src = data.foto || 'https://i.pravatar.cc/40';
-    } else {
-        currentUserName = currentUser.email;
-        document.getElementById('topUserName').innerText = currentUserName;
+    try {
+        const { data, error } = await window.db.from('users').select('*').eq('id', currentUser.id).single();
+        
+        if (data) {
+            currentUserName = data.nama || currentUser.email;
+            currentUserRole = data.role || 'cs';
+            
+            // ===== UPDATE TOPBAR USERNAME =====
+            const topUserName = document.getElementById('topUserName');
+            if (topUserName) {
+                topUserName.innerText = currentUserName;
+            }
+            
+            // ===== UPDATE PROFILE IMAGE =====
+            const profileImg = document.getElementById('profileImg');
+            if (profileImg) {
+                profileImg.src = data.foto || 'https://i.pravatar.cc/40';
+            }
+            
+            // ===== UPDATE LOGO FLIP =====
+            updateLogoUserDisplay();
+            
+        } else {
+            currentUserName = currentUser.email;
+            
+            const topUserName = document.getElementById('topUserName');
+            if (topUserName) {
+                topUserName.innerText = currentUserName;
+            }
+            
+            updateLogoUserDisplay();
+        }
+        
+        console.log('✅ User profile loaded:', currentUserName);
+        
+    } catch (e) {
+        console.warn('⚠️ Load user profile error:', e);
     }
 }
 
