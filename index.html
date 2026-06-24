@@ -92,6 +92,27 @@
             <div class="topbar">
                 <div class="topbar-left"><button class="toggle-btn" id="toggleSidebarBtn" type="button" aria-label="Toggle Sidebar">☰</button><span class="logo">PROSPEKTA</span></div>
                 <div class="topbar-center" id="topUserName">CS Agent</div>
+                <!-- Di dalam topbar, tambahkan search bar -->
+                <div class="topbar-center" style="flex:1; display:flex; justify-content:center; max-width:600px; margin:0 auto;">
+                    <div class="global-search-wrapper">
+                        <div class="global-search-container">
+                            <span class="search-icon">🔍</span>
+                            <input type="text" id="globalSearchInput" placeholder="Cari data... (Nama, ID Agent, No. HP)" class="global-search-input">
+                            <!-- Tambahkan title attribute -->
+                            <input type="text" id="globalSearchInput" placeholder="Cari data... (Ctrl+K)" class="global-search-input" title="Tekan Ctrl+K untuk fokus ke pencarian">
+                            <button class="search-clear-btn" id="globalSearchClear" style="display:none;">✕</button>
+                            <kbd class="search-shortcut">Ctrl+K</kbd>
+                        </div>
+                        <!-- Dropdown Hasil Pencarian -->
+                        <div class="global-search-results" id="globalSearchResults">
+                            <div class="search-results-empty">
+                                <span>🔍</span>
+                                <p>Ketik untuk mencari data</p>
+                                <small>Cari di Followup, Prospek, Closing, dan Database</small>
+                            </div>
+                        </div>
+                    </div>
+                </div>
                 <div class="topbar-right">
                     <div class="notif-icon" id="infoBtn">⚠️</div>
                     <div class="notif-icon" id="deadlineNotifBtn">📅<span class="badge badge-zero" id="deadlineCount">0</span></div>
