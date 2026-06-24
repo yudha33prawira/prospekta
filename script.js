@@ -1199,102 +1199,117 @@ function closeDeadlinePopup() {
 }
 
 // ================================================================
-// ========== SEARCH GOOGLE STYLE ==========
+// ========== SEARCH DINAMIS - GOOGLE CHROME STYLE ==========
 // ================================================================
 
-let searchGoogleResults = [];
-let searchGoogleIndex = -1;
-let searchGoogleTimer = null;
-let searchGoogleOpen = false;
+let searchDinamisResults = [];
+let searchDinamisIndex = -1;
+let searchDinamisTimer = null;
+let searchDinamisOpen = false;
+let searchDinamisTimeout = null;
 
-function initSearchGoogle() {
-    const trigger = document.getElementById('searchGoogleTrigger');
-    const wrapper = document.getElementById('searchGoogleWrapper');
-    const expanded = document.getElementById('searchGoogleExpanded');
-    const input = document.getElementById('searchGoogleInput');
-    const results = document.getElementById('searchGoogleResults');
-    const resultsList = document.getElementById('searchGoogleResultsList');
-    const clearBtn = document.getElementById('searchGoogleClear');
-    const closeBtn = document.getElementById('searchGoogleClose');
-    const countEl = document.getElementById('searchGoogleCount');
+function initSearchDinamis() {
+    const container = document.getElementById('searchDinamisContainer');
+    const input = document.getElementById('searchDinamisInput');
+    const wrapper = document.getElementById('searchDinamisWrapper');
+    const results = document.getElementById('searchDinamisResults');
+    const resultsList = document.getElementById('searchDinamisResultsList');
+    const clearBtn = document.getElementById('searchDinamisClear');
+    const countEl = document.getElementById('searchDinamisCount');
     
-    if (!trigger || !wrapper || !expanded) return;
+    if (!container || !input) return;
     
-    // ===== OPEN SEARCH =====
-    function openSearch() {
-        expanded.classList.add('active');
-        searchGoogleOpen = true;
-        setTimeout(() => {
-            input.focus();
-            input.select();
-        }, 150);
+    // ===== EXPAND / COLLAPSE =====
+    function expandSearch() {
+        clearTimeout(searchDinamisTimeout);
+        container.classList.add('expanded');
+        container.classList.remove('collapsing');
+        searchDinamisOpen = true;
     }
     
-    function closeSearch() {
-        expanded.classList.remove('active');
-        results.style.display = 'none';
-        searchGoogleOpen = false;
-        input.value = '';
-        clearBtn.style.display = 'none';
-        input.blur();
-    }
-    
-    // ===== TRIGGER CLICK =====
-    trigger.addEventListener('click', function(e) {
-        e.stopPropagation();
-        if (searchGoogleOpen) {
-            closeSearch();
-        } else {
-            openSearch();
+    function collapseSearch() {
+        if (!input.value.trim()) {
+            container.classList.remove('expanded');
+            container.classList.add('collapsing');
+            results.style.display = 'none';
+            searchDinamisOpen = false;
+            input.blur();
         }
+    }
+    
+    // ===== HOVER =====
+    container.addEventListener('mouseenter', function() {
+        clearTimeout(searchDinamisTimeout);
+        expandSearch();
     });
     
-    // ===== INPUT EVENT =====
-    input.addEventListener('input', function(e) {
-        const query = this.value.trim();
-        
-        if (query.length > 0) {
-            clearBtn.style.display = 'block';
-        } else {
-            clearBtn.style.display = 'none';
-            results.style.display = 'none';
-            return;
-        }
-        
-        clearTimeout(searchGoogleTimer);
-        searchGoogleTimer = setTimeout(() => {
-            performSearchGoogle(query);
+    container.addEventListener('mouseleave', function() {
+        searchDinamisTimeout = setTimeout(() => {
+            if (!input.matches(':focus') && !input.value.trim()) {
+                collapseSearch();
+            }
         }, 300);
     });
     
     // ===== FOCUS =====
     input.addEventListener('focus', function() {
+        expandSearch();
+        container.classList.add('focused');
         if (this.value.trim().length > 0) {
             results.style.display = 'block';
         }
     });
     
-    // ===== KEYBOARD NAVIGATION =====
+    input.addEventListener('blur', function() {
+        container.classList.remove('focused');
+        setTimeout(() => {
+            if (!container.matches(':hover') && !this.value.trim()) {
+                collapseSearch();
+            }
+        }, 200);
+    });
+    
+    // ===== INPUT =====
+    input.addEventListener('input', function() {
+        const query = this.value.trim();
+        
+        if (query.length > 0) {
+            clearBtn.classList.add('visible');
+        } else {
+            clearBtn.classList.remove('visible');
+            results.style.display = 'none';
+            return;
+        }
+        
+        clearTimeout(searchDinamisTimer);
+        searchDinamisTimer = setTimeout(() => {
+            performSearchDinamis(query);
+        }, 300);
+    });
+    
+    // ===== KEYBOARD =====
     input.addEventListener('keydown', function(e) {
-        const items = resultsList.querySelectorAll('.search-google-result-item');
+        const items = resultsList.querySelectorAll('.search-dinamis-result-item');
         
         if (e.key === 'ArrowDown') {
             e.preventDefault();
-            searchGoogleIndex = Math.min(searchGoogleIndex + 1, items.length - 1);
-            highlightSearchGoogleItem(items);
+            searchDinamisIndex = Math.min(searchDinamisIndex + 1, items.length - 1);
+            highlightDinamisItem(items);
         } else if (e.key === 'ArrowUp') {
             e.preventDefault();
-            searchGoogleIndex = Math.max(searchGoogleIndex - 1, -1);
-            highlightSearchGoogleItem(items);
+            searchDinamisIndex = Math.max(searchDinamisIndex - 1, -1);
+            highlightDinamisItem(items);
         } else if (e.key === 'Enter') {
             e.preventDefault();
-            if (searchGoogleIndex >= 0 && items[searchGoogleIndex]) {
-                items[searchGoogleIndex].click();
+            if (searchDinamisIndex >= 0 && items[searchDinamisIndex]) {
+                items[searchDinamisIndex].click();
             } else if (items.length > 0) {
                 items[0].click();
             }
         } else if (e.key === 'Escape') {
-            closeSearch();
+            results.style.display = 'none';
+            input.blur();
+            collapseSearch();
         }
     });
     
@@ -1302,39 +1317,37 @@ function initSearchGoogle() {
     clearBtn.addEventListener('click', function() {
         input.value = '';
         results.style.display = 'none';
-        clearBtn.style.display = 'none';
+        clearBtn.classList.remove('visible');
         input.focus();
-    });
-    
-    // ===== CLOSE =====
-    closeBtn.addEventListener('click', function(e) {
-        e.stopPropagation();
-        closeSearch();
     });
     
     // ===== CLICK OUTSIDE =====
     document.addEventListener('click', function(e) {
         if (wrapper && !wrapper.contains(e.target)) {
-            closeSearch();
+            results.style.display = 'none';
+            if (!input.value.trim()) {
+                collapseSearch();
+            }
         }
     });
     
-    // ===== KEYBOARD SHORTCUT (Ctrl+K / Cmd+K) =====
+    // ===== KEYBOARD SHORTCUT =====
     document.addEventListener('keydown', function(e) {
         if ((e.ctrlKey || e.metaKey) && e.key === 'k') {
             e.preventDefault();
-            if (searchGoogleOpen) {
-                closeSearch();
+            if (searchDinamisOpen) {
+                collapseSearch();
             } else {
-                openSearch();
+                expandSearch();
+                input.focus();
             }
         }
     });
 }
 
-function highlightSearchGoogleItem(items) {
+function highlightDinamisItem(items) {
     items.forEach((item, index) => {
-        if (index === searchGoogleIndex) {
+        if (index === searchDinamisIndex) {
             item.classList.add('active');
             item.scrollIntoView({ block: 'nearest' });
         } else {
@@ -1343,19 +1356,18 @@ function highlightSearchGoogleItem(items) {
     });
 }
 
-async function performSearchGoogle(query) {
-    const results = document.getElementById('searchGoogleResults');
-    const resultsList = document.getElementById('searchGoogleResultsList');
-    const countEl = document.getElementById('searchGoogleCount');
+async function performSearchDinamis(query) {
+    const results = document.getElementById('searchDinamisResults');
+    const resultsList = document.getElementById('searchDinamisResultsList');
+    const countEl = document.getElementById('searchDinamisCount');
     
     if (!query || query.length < 2) {
         results.style.display = 'none';
         return;
     }
     
-    // Show loading
     resultsList.innerHTML = `
-        <div class="search-google-empty">
+        <div class="search-dinamis-empty">
             <div class="empty-icon">⏳</div>
             <div class="empty-title">Mencari...</div>
         </div>
@@ -1365,7 +1377,8 @@ async function performSearchGoogle(query) {
     const q = query.toLowerCase().trim();
     const resultItems = [];
     
-    // ===== SEARCH CUSTOMERS =====
+    // ===== SEARCH ALL SOURCES =====
+    // 1. Customers
     customersData.forEach(item => {
         if (item.nama?.toLowerCase().includes(q) || 
             item.hp?.includes(q) || 
@@ -1382,7 +1395,7 @@ async function performSearchGoogle(query) {
         }
     });
     
-    // ===== SEARCH PROSPEK =====
+    // 2. Prospek
     prospekData.forEach(item => {
         if (item.nama?.toLowerCase().includes(q) || 
             item.hp?.includes(q)) {
@@ -1398,7 +1411,7 @@ async function performSearchGoogle(query) {
         }
     });
     
-    // ===== SEARCH TRANSAKSI =====
+    // 3. Transaksi
     if (transaksiData && transaksiData.length > 0) {
         transaksiData.forEach(item => {
             if (item.nama?.toLowerCase().includes(q) || 
@@ -1417,16 +1430,15 @@ async function performSearchGoogle(query) {
         });
     }
     
-    // ===== LIMIT =====
     const limited = resultItems.slice(0, 20);
-    searchGoogleResults = limited;
-    searchGoogleIndex = -1;
+    searchDinamisResults = limited;
+    searchDinamisIndex = -1;
     
     countEl.textContent = limited.length;
     
     if (limited.length === 0) {
         resultsList.innerHTML = `
-            <div class="search-google-empty">
+            <div class="search-dinamis-empty">
                 <div class="empty-icon">🔍</div>
                 <div class="empty-title">Tidak ditemukan</div>
                 <div class="empty-sub">Coba dengan kata kunci lain</div>
@@ -1434,7 +1446,7 @@ async function performSearchGoogle(query) {
         `;
     } else {
         resultsList.innerHTML = limited.map((item, index) => `
-            <div class="search-google-result-item" data-index="${index}" data-id="${item.id}" data-type="${item.type}">
+            <div class="search-dinamis-result-item" data-index="${index}" data-id="${item.id}" data-type="${item.type}">
                 <span class="result-icon">${item.icon}</span>
                 <div class="result-info">
                     <div class="result-title">${escapeHtml(item.title)}</div>
@@ -1444,33 +1456,18 @@ async function performSearchGoogle(query) {
             </div>
         `).join('');
         
-        // ===== CLICK HANDLER =====
-        resultsList.querySelectorAll('.search-google-result-item').forEach(el => {
+        resultsList.querySelectorAll('.search-dinamis-result-item').forEach(el => {
             el.addEventListener('click', function() {
                 const id = this.dataset.id;
                 const type = this.dataset.type;
-                closeSearchGoogle();
-                openSearchResultGoogle(id, type);
+                results.style.display = 'none';
+                openSearchDinamisResult(id, type);
             });
         });
     }
 }
 
-function closeSearchGoogle() {
-    const expanded = document.getElementById('searchGoogleExpanded');
-    const results = document.getElementById('searchGoogleResults');
-    const input = document.getElementById('searchGoogleInput');
-    const clearBtn = document.getElementById('searchGoogleClear');
-    
-    expanded.classList.remove('active');
-    results.style.display = 'none';
-    searchGoogleOpen = false;
-    input.value = '';
-    clearBtn.style.display = 'none';
-    input.blur();
-}
-
-function openSearchResultGoogle(id, type) {
+function openSearchDinamisResult(id, type) {
     switch(type) {
         case 'customer':
             openDetailCustomer(id);
@@ -10180,8 +10177,8 @@ document.addEventListener('DOMContentLoaded', function() {
     // ===== CHECK AUTHENTICATION =====
     checkAuth();
 
-    // ===== INISIALISASI SEARCH GOOGLE =====
-    initSearchGoogle();
+    // ===== INISIALISASI SEARCH DINAMIS =====
+    initSearchDinamis();
     
     // ===== ANIMASI LOGO BERULANG =====
     setInterval(function() {
