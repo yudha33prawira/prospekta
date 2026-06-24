@@ -111,7 +111,42 @@
                         </div>
                     </div>
                 </div>
-                <div class="topbar-center" id="topUserName">CS Agent</div>
+                <div class="topbar-center" id="topbarCenter">
+                <!-- SEARCH BAR - GOOGLE STYLE -->
+                <div class="search-google-wrapper" id="searchGoogleWrapper">
+                    <div class="search-google-trigger" id="searchGoogleTrigger">
+                        <span class="search-google-icon">🔍</span>
+                        <span class="search-google-label">Cari...</span>
+                    </div>
+                    <div class="search-google-expanded" id="searchGoogleExpanded">
+                        <div class="search-google-inner">
+                            <span class="search-google-icon-expanded">🔍</span>
+                            <input 
+                                type="text" 
+                                id="searchGoogleInput" 
+                                placeholder="Cari nama, ID Agent, nomor WhatsApp..." 
+                                class="search-google-input"
+                                autocomplete="off"
+                            >
+                            <button class="search-google-clear" id="searchGoogleClear" style="display:none;">✕</button>
+                            <button class="search-google-close" id="searchGoogleClose">✕</button>
+                        </div>
+                        
+                        <!-- HASIL PENCARIAN -->
+                        <div class="search-google-results" id="searchGoogleResults" style="display:none;">
+                            <div class="search-google-results-header">
+                                <span id="searchGoogleCount">0</span> hasil ditemukan
+                            </div>
+                            <div class="search-google-results-list" id="searchGoogleResultsList">
+                                <!-- Hasil akan di-render di sini -->
+                            </div>
+                            <div class="search-google-results-footer">
+                                <kbd>↑</kbd> <kbd>↓</kbd> navigasi · <kbd>Enter</kbd> buka · <kbd>Esc</kbd> tutup
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
                 <div class="topbar-right">
                     <div class="notif-icon" id="infoBtn">⚠️</div>
                     <div class="notif-icon" id="deadlineNotifBtn">📅<span class="badge badge-zero" id="deadlineCount">0</span></div>
@@ -121,38 +156,6 @@
             </div>
 
             <div class="content-area">
-                <!-- SEARCH BAR PREMIUM - GLOBAL -->
-                <div class="search-bar-premium" id="globalSearchBar">
-                    <div class="search-bar-premium-inner">
-                        <div class="search-icon-wrapper">
-                            <span class="search-icon">🔍</span>
-                        </div>
-                        <input 
-                            type="text" 
-                            id="globalSearchInput" 
-                            placeholder="Cari nama, ID Agent, nomor WhatsApp..." 
-                            class="search-input-premium"
-                            autocomplete="off"
-                        >
-                        <button class="search-clear-btn" id="globalSearchClearBtn" style="display:none;">✕</button>
-                        <div class="search-shortcut">⌘K</div>
-                    </div>
-                    
-                    <!-- HASIL PENCARIAN -->
-                    <div class="search-results-premium" id="globalSearchResults" style="display:none;">
-                        <div class="search-results-header">
-                            <span id="searchResultCount">0</span> hasil ditemukan
-                            <button class="search-results-close" id="searchResultsCloseBtn">✕</button>
-                        </div>
-                        <div class="search-results-list" id="globalSearchResultsList">
-                            <!-- Hasil akan di-render di sini -->
-                        </div>
-                        <div class="search-results-footer">
-                            <kbd>↑</kbd> <kbd>↓</kbd> navigasi · <kbd>Enter</kbd> buka · <kbd>Esc</kbd> tutup
-                        </div>
-                    </div>
-                </div>
-                
                 <!-- DASHBOARD PAGE -->
                 <div id="dashboardPage" class="page-content">
                     <div class="stats-grid">
