@@ -89,37 +89,53 @@
         </div>
 
         <div class="main-content">
-            <div class="topbar">
-                <div class="topbar-left"><button class="toggle-btn" id="toggleSidebarBtn" type="button" aria-label="Toggle Sidebar">☰</button><span class="logo">PROSPEKTA</span></div>
-                <div class="topbar-center" id="topUserName">CS Agent</div>
-                <!-- Di dalam topbar, tambahkan search bar -->
-                <div class="topbar-center" style="flex:1; display:flex; justify-content:center; max-width:600px; margin:0 auto;">
-                    <div class="global-search-wrapper">
-                        <div class="global-search-container">
-                            <span class="search-icon">🔍</span>
-                            <input type="text" id="globalSearchInput" placeholder="Cari data... (Nama, ID Agent, No. HP)" class="global-search-input">
-                            <!-- Tambahkan title attribute -->
-                            <input type="text" id="globalSearchInput" placeholder="Cari data... (Ctrl+K)" class="global-search-input" title="Tekan Ctrl+K untuk fokus ke pencarian">
-                            <button class="search-clear-btn" id="globalSearchClear" style="display:none;">✕</button>
-                            <kbd class="search-shortcut">Ctrl+K</kbd>
+        <!-- TOPBAR -->
+        <div class="topbar">
+            <div class="topbar-left">
+                <button class="toggle-btn" id="toggleSidebarBtn" type="button" aria-label="Toggle Sidebar">☰</button>
+                <!-- ===== LOGO DENGAN ANIMASI FLIP ===== -->
+                <div class="logo-flip-container" id="logoFlipContainer">
+                    <div class="logo-flip-inner">
+                        <!-- Sisi Depan: PROSPEKTA -->
+                        <div class="logo-flip-front">
+                            <span class="logo-text">PROSPEKTA</span>
+                            <span class="logo-badge">✦</span>
                         </div>
-                        <!-- Dropdown Hasil Pencarian -->
-                        <div class="global-search-results" id="globalSearchResults">
-                            <div class="search-results-empty">
-                                <span>🔍</span>
-                                <p>Ketik untuk mencari data</p>
-                                <small>Cari di Followup, Prospek, Closing, dan Database</small>
-                            </div>
+                        <!-- Sisi Belakang: Nama User -->
+                        <div class="logo-flip-back">
+                            <span class="logo-user-name" id="logoUserName">👤 CS Agent</span>
+                            <span class="logo-user-role" id="logoUserRole">CS</span>
                         </div>
                     </div>
                 </div>
-                <div class="topbar-right">
-                    <div class="notif-icon" id="infoBtn">⚠️</div>
-                    <div class="notif-icon" id="deadlineNotifBtn">📅<span class="badge badge-zero" id="deadlineCount">0</span></div>
-                    <div class="notif-icon" id="pesanNotifBtn">💬<span class="badge badge-zero" id="pesanCount">0</span></div>
-                    <img class="profile-img" id="profileImg" src="https://i.pravatar.cc/40" alt="Profile">
+            </div>
+            
+            <!-- ===== SEARCH BAR (CENTRAL) ===== -->
+            <div class="topbar-center">
+                <div class="global-search-wrapper">
+                    <div class="global-search-container">
+                        <span class="search-icon">🔍</span>
+                        <input type="text" id="globalSearchInput" placeholder="Cari data... (Ctrl+K)" class="global-search-input">
+                        <button class="search-clear-btn" id="globalSearchClear" style="display:none;">✕</button>
+                        <kbd class="search-shortcut">Ctrl+K</kbd>
+                    </div>
+                    <div class="global-search-results" id="globalSearchResults">
+                        <div class="search-results-empty">
+                            <span>🔍</span>
+                            <p>Ketik untuk mencari data</p>
+                            <small>Cari di semua database</small>
+                        </div>
+                    </div>
                 </div>
             </div>
+            
+            <div class="topbar-right">
+                <div class="notif-icon" id="infoBtn">⚠️</div>
+                <div class="notif-icon" id="deadlineNotifBtn">📅<span class="badge badge-zero" id="deadlineCount">0</span></div>
+                <div class="notif-icon" id="pesanNotifBtn">💬<span class="badge badge-zero" id="pesanCount">0</span></div>
+                <img class="profile-img" id="profileImg" src="https://i.pravatar.cc/40" alt="Profile">
+            </div>
+        </div>
 
             <div class="content-area">
                 <!-- DASHBOARD PAGE -->
