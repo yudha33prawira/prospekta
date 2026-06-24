@@ -4188,7 +4188,7 @@ async function addCustomer(agentId, nama, hp, apk, uplineName, deadline) {
     }
 }
 
-async function addProspek(nama, hp, deadline) {
+async function addProspek(nama, hp, deadline, tipeAgent = 'AGENT') {
     // ===== PERBAIKAN: Cegah multiple submit =====
     if (isAddingProspek) {
         showNotifTop('⏳ Data sedang diproses, harap tunggu...', true);
@@ -4230,6 +4230,7 @@ async function addProspek(nama, hp, deadline) {
             hp: hp || '',
             deadline: deadline,
             status: 'Baru',
+            tipe_agent: tipeAgent || 'AGENT', // <-- TAMBAHKAN INI
             user_id: currentUser.id,
             created_at: new Date().toISOString(),
             updated_at: new Date().toISOString()
@@ -4462,6 +4463,15 @@ function confirmTertarikToDB(prospekId) {
         
         const penawaranDariNegosiasi = prospekData.negosiasi_data?.penawaran || '';
         
+        // ===== TIPE AGENT DARI PROSPEK =====
+        const tipeAgent = prospekData.tipe_agent || 'AGENT';
+        const agentTypeMap = {
+            'AGENT': 'AGENT',
+            'CA': 'CollectingAgent (CA)',
+            'Koordinator': 'Koordinator Wilayah (KORWIL)'
+        };
+        const agentType = agentTypeMap[tipeAgent] || 'AGENT';
+        
         const modal = document.createElement('div');
         modal.className = 'modal';
         modal.style.display = 'flex';
@@ -4494,6 +4504,9 @@ function confirmTertarikToDB(prospekId) {
                     Tertarik: ${escapeHtml(prospekData.negosiasi_data?.tertarik || '-')}<br>
                     <strong>Penawaran: ${escapeHtml(penawaranDariNegosiasi || '-')}</strong></p>
                 </div>
+                <div style="background: #d1fae5; padding: 12px; border-radius: 10px; margin: 0 20px 10px 20px; border-left: 4px solid #10b981;">
+                    <p style="font-size: 12px; color: #065f46; margin: 0;">🏷️ <strong>Tipe Agent:</strong> ${agentType}</p>
+                </div>
                 <div style="padding: 0 20px 20px 20px;">
                     <div class="form-group">
                         <label>ID Agent <span class="required">*</span></label>
@@ -4508,6 +4521,15 @@ function confirmTertarikToDB(prospekId) {
                             <option value="BSB" ${prospekData.negosiasi_data?.aplikasi === 'BSB' ? 'selected' : ''}>BSB</option>
                             <option value="BTN" ${prospekData.negosiasi_data?.aplikasi === 'BTN' ? 'selected' : ''}>BTN</option>
                         </select>
+                    </div>
+                    <div class="form-group">
+                        <label>Tipe Agent <span class="required">*</span></label>
+                        <select id="commitmentTipeAgent" style="width:100%; padding: 10px; border-radius: 10px; border: 1px solid #e5e7eb;">
+                            <option value="AGENT" ${tipeAgent === 'AGENT' ? 'selected' : ''}>👤 Agent</option>
+                            <option value="CA" ${tipeAgent === 'CA' ? 'selected' : ''}>🏦 Collecting Agent (CA)</option>
+                            <option value="Koordinator" ${tipeAgent === 'Koordinator' ? 'selected' : ''}>👥 Koordinator</option>
+                        </select>
+                        <small>Pilih tipe agent untuk perhitungan target KPI</small>
                     </div>
                     <div class="form-group">
                         <label>Upline / Atasan</label>
@@ -4542,9 +4564,11 @@ function confirmTertarikToDB(prospekId) {
         document.body.classList.add('modal-open');
         document.body.style.overflow = 'hidden';
         
+        // ===== TOMBOL KONFIRMASI =====
         document.getElementById('confirmTertarikToDBBtn').onclick = async () => {
             const agentId = document.getElementById('commitmentAgentId').value;
             const aplikasi = document.getElementById('commitmentAplikasi').value;
+            const tipeAgentSelected = document.getElementById('commitmentTipeAgent').value;
             const uplineName = document.getElementById('commitmentUplineName').value;
             let uplinePhone = document.getElementById('commitmentUplinePhone').value;
             const note = document.getElementById('commitmentNote').value;
@@ -4566,6 +4590,7 @@ function confirmTertarikToDB(prospekId) {
             const data = prospekData;
             const formattedAgentId = agentId.toUpperCase();
             
+            // ===== CEK DUPLIKAT DI FOLLOWUP =====
             const { data: existingCustomer } = await window.db
                 .from('customers')
                 .select('id')
@@ -4577,12 +4602,32 @@ function confirmTertarikToDB(prospekId) {
                 return;
             }
             
+            // ===== CEK DUPLIKAT DI DB_AGENT =====
+            const { data: existingAgent } = await window.db
+                .from('db_agent')
+                .select('id')
+                .eq('agent_id', formattedAgentId)
+                .maybeSingle();
+            
+            if (existingAgent) {
+                showNotifTop(`⚠️ ID Agent "${formattedAgentId}" sudah terdaftar di Database Agent!`, true);
+                return;
+            }
+            
             let followupDateValue = followupDateInput;
             if (!followupDateValue) {
                 const nextMonth = new Date();
                 nextMonth.setMonth(nextMonth.getMonth() + 1);
                 followupDateValue = nextMonth.toISOString().split('T')[0];
             }
+            
+            // ===== MAP TIPE AGENT =====
+            const agentTypeMap = {
+                'AGENT': 'AGENT',
+                'CA': 'CollectingAgent (CA)',
+                'Koordinator': 'Koordinator Wilayah (KORWIL)'
+            };
+            const agentTypeDisplay = agentTypeMap[tipeAgentSelected] || 'AGENT';
             
             // Siapkan data dihubungi yang lengkap
             const dihubungiData = data.dihubungi_data ? {
@@ -4594,7 +4639,29 @@ function confirmTertarikToDB(prospekId) {
             } : null;
             
             try {
-                // Simpan ke DB Commitment dengan semua data
+                // ===== 1. SIMPAN KE DB AGENT =====
+                const { error: agentError } = await window.db.from('db_agent').insert({
+                    agent_id: formattedAgentId,
+                    nama: data.nama,
+                    hp: data.hp,
+                    apk: aplikasi,
+                    agent_type: agentTypeDisplay,
+                    upline: uplineName || null,
+                    upline_phone: formattedUplinePhone || null,
+                    user_id: data.user_id || currentUser.id,
+                    created_at: new Date().toISOString(),
+                    updated_at: new Date().toISOString()
+                });
+                
+                if (agentError) {
+                    console.error('Error simpan ke db_agent:', agentError);
+                    showNotifTop('❌ Gagal menyimpan ke Database Agent: ' + agentError.message, true);
+                    return;
+                }
+                
+                console.log('✅ Berhasil simpan ke db_agent dengan tipe:', agentTypeDisplay);
+                
+                // ===== 2. SIMPAN KE DB COMMITMENT =====
                 const { error: commitError } = await window.db.from('db_commitment').insert({
                     nama: data.nama,
                     hp: data.hp,
@@ -4606,7 +4673,7 @@ function confirmTertarikToDB(prospekId) {
                     commitment_note: note || null,
                     committed_at: new Date().toISOString(),
                     followup_date: followupDateValue,
-                    user_id: data.user_id,
+                    user_id: data.user_id || currentUser.id,
                     original_prospek_id: prospekId,
                     pesan_terkirim: data.pesan_terkirim || null,
                     balasan_diterima: data.balasan_diterima || null,
@@ -4632,7 +4699,7 @@ function confirmTertarikToDB(prospekId) {
                 
                 console.log('✅ Berhasil simpan ke db_commitment dengan pesan dihubungi:', dihubungiData?.pesan);
                 
-                // Pindahkan ke Followup Agen
+                // ===== 3. PINDAHKAN KE FOLLOWUP AGEN =====
                 const followupDate = getTodayDate();
                 await window.db.from('customers').insert({
                     agent_id: formattedAgentId,
@@ -4643,24 +4710,27 @@ function confirmTertarikToDB(prospekId) {
                     upline_phone: formattedUplinePhone || '',
                     tanggal: followupDate,
                     status: 'baru',
-                    user_id: data.user_id,
+                    user_id: data.user_id || currentUser.id,
                     created_at: new Date().toISOString(),
                     updated_at: new Date().toISOString(),
                     pesan_terkirim: data.pesan_terkirim || null,
                     balasan_diterima: data.balasan_diterima || null
                 });
                 
-                // Hapus dari Prospek
+                // ===== 4. HAPUS DARI PROSPEK =====
                 await window.db.from('prospek').delete().eq('id', prospekId);
                 
-                showNotifTop('✅ Berhasil! Member baru telah ditambahkan ke Followup Agen dan tersimpan di Database Commitment');
+                showNotifTop(`✅ Berhasil! Member baru (${agentTypeDisplay}) telah ditambahkan ke Followup Agen, Database Agent, dan tersimpan di Database Commitment`);
                 modal.remove();
                 document.body.classList.remove('modal-open');
                 document.body.style.overflow = '';
                 
+                // ===== 5. RELOAD SEMUA DATA =====
                 await loadCustomers();
                 await loadProspek();
                 await loadDBCommitment();
+                await loadDatabaseAgent();
+                await updateTargetDisplay();
                 closeModal('detailModal');
                 
             } catch (err) {
@@ -4682,6 +4752,10 @@ function confirmTertarikToDB(prospekId) {
                 document.body.style.overflow = '';
             }
         };
+        
+        // ===== APPLY DARK MODE =====
+        applyDarkModeToModal(modal);
+        
     }).catch(err => {
         console.error('Error:', err);
         showNotifTop('❌ Gagal memuat data prospek: ' + err.message, true);
@@ -5504,7 +5578,11 @@ function getProspekActionButtonForStatus(status, id, item, canProceed, disabledR
         buttonHtml = `<button class="${buttonClass}" onclick="event.stopPropagation(); ${!isComplete ? 'return false;' : onClickAction}" ${disabledAttr} ${titleAttr} style="margin-top: 8px; width: 100%; padding: 4px 8px; font-size: 10px; border-radius: 6px; border: none; cursor: ${!isComplete ? 'not-allowed' : 'pointer'}; background: ${!isComplete ? '#9ca3af' : '#10b981'}; color: white; opacity: ${!isComplete ? '0.6' : '1'};">${buttonText}</button>
                         <button class="action-btn negosiasi-btn" onclick="event.stopPropagation(); openProspekNegosiasiModal('${id}')" style="margin-top: 4px; width: 100%; padding: 4px 8px; font-size: 10px; border-radius: 6px; border: none; cursor: pointer; background: #f59e0b; color: white;">📝 Kelola Negosiasi</button>`;
     } else if (status === 'Tertarik') {
-        buttonText = '📁 Pindah ke DB Commitment';
+        // ===== TAMPILKAN TIPE AGENT DI TOMBOL =====
+        const tipeAgent = item.tipe_agent || 'AGENT';
+        const tipeLabel = tipeAgent === 'CA' ? '🏦 CA' : 
+                         tipeAgent === 'Koordinator' ? '👥 Koor' : '👤 Agent';
+        buttonText = `📁 Jadikan Member (${tipeLabel})`;
         buttonClass = 'action-btn commitment-db-btn';
         onClickAction = `confirmTertarikToDB('${id}')`;
         buttonHtml = `<button class="${buttonClass}" onclick="event.stopPropagation(); ${onClickAction}" style="margin-top: 8px; width: 100%; padding: 4px 8px; font-size: 10px; border-radius: 6px; border: none; cursor: pointer; background: #8b5cf6; color: white;">${buttonText}</button>`;
@@ -8171,47 +8249,96 @@ async function deleteDBItem(collection, id) {
 async function loadTargetData() {
     if (!currentUser) return;
     
+    // ===== AMBIL TARGET DARI SETTINGS =====
     const { data, error } = await window.db.from('settings').select('*').eq('key', 'targetKPI').maybeSingle();
     if (data && data.value) {
         targetData = data.value;
     } else {
         targetData = { agent: 10, ca: 20, koordinator: 5, transaksi: 100, monthlyTargets: [] };
     }
-    await updateTargetDisplay();
-}
-
-async function updateTargetDisplay() {
-    const currentAgent = agentsData.filter(a => a.agent_type === 'AGENT').length;
-    const currentKoor = agentsData.filter(a => a.agent_type === 'Koordinator Wilayah (KORWIL)' || a.agent_type === 'SUB KORWIL').length;
-    const currentCA = agentsData.filter(a => a.agent_type === 'CollectingAgent (CA)' || a.agent_type === 'SUB CA').length;
     
+    // ===== AMBIL DATA DARI DB_AGENT =====
+    let query = window.db.from('db_agent').select('*');
+    if (currentUserRole !== 'owner') {
+        query = query.eq('user_id', currentUser.id);
+    }
+    const { data: agents, error: agentError } = await query;
+    
+    if (agentError) {
+        console.error('Error loading agents for target:', agentError);
+        return;
+    }
+    
+    // ===== HITUNG BERDASARKAN AGENT_TYPE =====
+    let currentAgent = 0;
+    let currentKoor = 0;
+    let currentCA = 0;
+    
+    if (agents) {
+        agents.forEach(agent => {
+            const type = agent.agent_type || '';
+            if (type === 'AGENT' || type === 'Agent') {
+                currentAgent++;
+            } else if (type.includes('KORWIL') || type === 'Koordinator Wilayah (KORWIL)') {
+                currentKoor++;
+            } else if (type.includes('CA') || type === 'CollectingAgent (CA)') {
+                currentCA++;
+            }
+        });
+    }
+    
+    // ===== HITUNG TRANSAKSI DARI DB_TRANSAKSI =====
     let currentTransaksi = 0;
-    transaksiData.forEach(t => {
-        if (t.progres_jenis === 'naik') currentTransaksi += Math.abs(t.progres_jumlah || 0);
-        else if (t.progres_jenis === 'turun') currentTransaksi -= Math.abs(t.progres_jumlah || 0);
-        else currentTransaksi += (t.progres_jumlah || 0);
-    });
+    if (transaksiData && transaksiData.length > 0) {
+        transaksiData.forEach(t => {
+            if (t.progres_jenis === 'naik') {
+                currentTransaksi += Math.abs(t.progres_jumlah || 0);
+            } else if (t.progres_jenis === 'turun') {
+                currentTransaksi -= Math.abs(t.progres_jumlah || 0);
+            } else {
+                currentTransaksi += (t.progres_jumlah || 0);
+            }
+        });
+    }
     
-    document.getElementById('targetAgentValue').innerText = targetData.agent || 0;
-    document.getElementById('targetKoorValue').innerText = targetData.koordinator || 0;
-    document.getElementById('targetCAValue').innerText = targetData.ca || 0;
-    document.getElementById('targetTransaksiValue').innerText = (targetData.transaksi || 0).toLocaleString();
+    // ===== UPDATE DISPLAY =====
+    const targetAgentEl = document.getElementById('targetAgentValue');
+    const targetKoorEl = document.getElementById('targetKoorValue');
+    const targetCAEl = document.getElementById('targetCAValue');
+    const targetTransaksiEl = document.getElementById('targetTransaksiValue');
     
-    document.getElementById('targetAgentReached').innerText = currentAgent;
-    document.getElementById('targetKoorReached').innerText = currentKoor;
-    document.getElementById('targetCAReached').innerText = currentCA;
-    document.getElementById('targetTransaksiReached').innerText = currentTransaksi.toLocaleString();
+    const reachedAgentEl = document.getElementById('targetAgentReached');
+    const reachedKoorEl = document.getElementById('targetKoorReached');
+    const reachedCAEl = document.getElementById('targetCAReached');
+    const reachedTransaksiEl = document.getElementById('targetTransaksiReached');
     
+    const progressAgent = document.getElementById('targetAgentProgress');
+    const progressKoor = document.getElementById('targetKoorProgress');
+    const progressCA = document.getElementById('targetCAProgress');
+    const progressTransaksi = document.getElementById('targetTransaksiProgress');
+    
+    if (targetAgentEl) targetAgentEl.innerText = targetData.agent || 0;
+    if (targetKoorEl) targetKoorEl.innerText = targetData.koordinator || 0;
+    if (targetCAEl) targetCAEl.innerText = targetData.ca || 0;
+    if (targetTransaksiEl) targetTransaksiEl.innerText = (targetData.transaksi || 0).toLocaleString();
+    
+    if (reachedAgentEl) reachedAgentEl.innerText = currentAgent;
+    if (reachedKoorEl) reachedKoorEl.innerText = currentKoor;
+    if (reachedCAEl) reachedCAEl.innerText = currentCA;
+    if (reachedTransaksiEl) reachedTransaksiEl.innerText = currentTransaksi.toLocaleString();
+    
+    // ===== HITUNG PERSENTASE =====
     const agentPercent = targetData.agent ? Math.min((currentAgent / targetData.agent) * 100, 100) : 0;
     const koorPercent = targetData.koordinator ? Math.min((currentKoor / targetData.koordinator) * 100, 100) : 0;
     const caPercent = targetData.ca ? Math.min((currentCA / targetData.ca) * 100, 100) : 0;
     const transaksiPercent = targetData.transaksi ? Math.min((currentTransaksi / targetData.transaksi) * 100, 100) : 0;
     
-    document.getElementById('targetAgentProgress').style.width = agentPercent + '%';
-    document.getElementById('targetKoorProgress').style.width = koorPercent + '%';
-    document.getElementById('targetCAProgress').style.width = caPercent + '%';
-    document.getElementById('targetTransaksiProgress').style.width = transaksiPercent + '%';
+    if (progressAgent) progressAgent.style.width = agentPercent + '%';
+    if (progressKoor) progressKoor.style.width = koorPercent + '%';
+    if (progressCA) progressCA.style.width = caPercent + '%';
+    if (progressTransaksi) progressTransaksi.style.width = transaksiPercent + '%';
     
+    // ===== UPDATE CHART =====
     updateTargetChart([agentPercent, koorPercent, caPercent, transaksiPercent]);
     updateTrendChart();
 }
@@ -8261,38 +8388,178 @@ function updateTrendChart() {
     
     if (trendChart) trendChart.destroy();
     
-    const months = ['Jan', 'Feb', 'Mar', 'Apr', 'Mei', 'Jun', 'Jul', 'Ags', 'Sep', 'Okt', 'Nov', 'Des'];
-    const currentMonth = new Date().getMonth();
+    // ===== AMBIL DATA DARI RIWAYAT TRANSAKSI =====
+    const riwayatData = window._riwayatData || [];
     
-    const agentData = [];
-    const caData = [];
-    const koorData = [];
-    
-    for (let i = 0; i <= currentMonth; i++) {
-        const monthlyTarget = targetData.monthlyTargets?.find(m => parseInt(m.month?.split('-')[1]) === i + 1);
-        agentData.push(monthlyTarget?.target_agent || Math.floor(Math.random() * 10) + 1);
-        caData.push(monthlyTarget?.target_ca || Math.floor(Math.random() * 20) + 5);
-        koorData.push(monthlyTarget?.target_koor || Math.floor(Math.random() * 5) + 1);
+    if (riwayatData.length === 0) {
+        // Tampilkan pesan kosong
+        trendChart = new Chart(ctx, {
+            type: 'line',
+            data: {
+                labels: ['Belum ada data'],
+                datasets: [
+                    { label: 'Naik', data: [0], borderColor: '#10b981', backgroundColor: 'transparent' },
+                    { label: 'Normal', data: [0], borderColor: '#3b82f6', backgroundColor: 'transparent' },
+                    { label: 'Turun', data: [0], borderColor: '#f59e0b', backgroundColor: 'transparent' },
+                    { label: 'Tidak Transaksi', data: [0], borderColor: '#ef4444', backgroundColor: 'transparent' }
+                ]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: true,
+                plugins: {
+                    legend: { position: 'top', labels: { font: { size: 10 } } }
+                }
+            }
+        });
+        return;
     }
     
+    // ===== URUTKAN DATA BERDASARKAN TAHUN & BULAN =====
+    const sortedData = [...riwayatData].sort((a, b) => {
+        if (a.tahun !== b.tahun) return a.tahun - b.tahun;
+        return a.bulan_index - b.bulan_index;
+    });
+    
+    // ===== BUAT LABEL =====
+    const labels = sortedData.map(item => item.bulan || `${item.bulan_index}/${item.tahun}`);
+    
+    // ===== DATASET =====
+    const naikData = sortedData.map(item => item.total_naik || 0);
+    const normalData = sortedData.map(item => item.total_normal || 0);
+    const turunData = sortedData.map(item => item.total_turun || 0);
+    const tidakData = sortedData.map(item => item.total_tidak_transaksi || 0);
+    
+    // ===== BUAT CHART =====
     trendChart = new Chart(ctx, {
         type: 'line',
         data: {
-            labels: months.slice(0, currentMonth + 1),
+            labels: labels,
             datasets: [
-                { label: 'Target Agent', data: agentData, borderColor: '#667eea', backgroundColor: 'transparent', tension: 0.4, fill: false },
-                { label: 'Target CA', data: caData, borderColor: '#f093fb', backgroundColor: 'transparent', tension: 0.4, fill: false },
-                { label: 'Target Koordinator', data: koorData, borderColor: '#4facfe', backgroundColor: 'transparent', tension: 0.4, fill: false }
+                { 
+                    label: '📈 Naik', 
+                    data: naikData, 
+                    borderColor: '#10b981', 
+                    backgroundColor: 'rgba(16, 185, 129, 0.1)',
+                    tension: 0.4, 
+                    fill: true,
+                    pointBackgroundColor: '#10b981',
+                    pointRadius: 4
+                },
+                { 
+                    label: '⚖️ Normal', 
+                    data: normalData, 
+                    borderColor: '#3b82f6', 
+                    backgroundColor: 'rgba(59, 130, 246, 0.1)',
+                    tension: 0.4, 
+                    fill: true,
+                    pointBackgroundColor: '#3b82f6',
+                    pointRadius: 4
+                },
+                { 
+                    label: '📉 Turun', 
+                    data: turunData, 
+                    borderColor: '#f59e0b', 
+                    backgroundColor: 'rgba(245, 158, 11, 0.1)',
+                    tension: 0.4, 
+                    fill: true,
+                    pointBackgroundColor: '#f59e0b',
+                    pointRadius: 4
+                },
+                { 
+                    label: '🚫 Tidak Transaksi', 
+                    data: tidakData, 
+                    borderColor: '#ef4444', 
+                    backgroundColor: 'rgba(239, 68, 68, 0.1)',
+                    tension: 0.4, 
+                    fill: true,
+                    pointBackgroundColor: '#ef4444',
+                    pointRadius: 4
+                }
             ]
         },
         options: {
             responsive: true,
             maintainAspectRatio: true,
             plugins: {
-                legend: { position: 'top', labels: { font: { size: 10 } } }
+                legend: { 
+                    position: 'top', 
+                    labels: { 
+                        font: { size: 10 },
+                        usePointStyle: true,
+                        padding: 12
+                    } 
+                },
+                tooltip: {
+                    callbacks: {
+                        label: function(context) {
+                            return `${context.dataset.label}: ${context.raw} agent`;
+                        }
+                    }
+                }
+            },
+            scales: {
+                y: {
+                    beginAtZero: true,
+                    title: { 
+                        display: true, 
+                        text: 'Jumlah Agent',
+                        font: { size: 11 }
+                    },
+                    ticks: { font: { size: 10 } }
+                },
+                x: {
+                    ticks: { 
+                        font: { size: 10 },
+                        maxRotation: 45,
+                        minRotation: 30
+                    }
+                }
+            },
+            interaction: {
+                intersect: false,
+                mode: 'index'
             }
         }
     });
+}
+
+// ===== SIMPAN DATA RIWAYAT UNTUK CHART =====
+function updateRiwayatDataForChart(data) {
+    window._riwayatData = data || [];
+    updateTrendChart();
+}
+
+// ===== PANGGIL DI LOAD RIWAYAT =====
+async function loadRiwayatTransaksi() {
+    if (!currentUser) {
+        console.warn('loadRiwayatTransaksi: No user');
+        return;
+    }
+    
+    try {
+        const { data, error } = await window.db
+            .from('riwayat_transaksi_bulanan')
+            .select('*')
+            .eq('user_id', currentUser.id)
+            .order('tahun', { ascending: true })
+            .order('bulan_index', { ascending: true });
+        
+        if (error) {
+            console.error('❌ Gagal load riwayat:', error);
+            showNotifTop('❌ Gagal memuat riwayat: ' + error.message, true);
+            return;
+        }
+        
+        // ===== SIMPAN UNTUK CHART =====
+        updateRiwayatDataForChart(data || []);
+        
+        renderRiwayatTransaksi(data || []);
+        
+    } catch (err) {
+        console.error('❌ Error load riwayat:', err);
+        showNotifTop('❌ Error: ' + err.message, true);
+    }
 }
 
 async function saveTargetData() {
@@ -12656,43 +12923,45 @@ function initEventListeners() {
         showModal('prospekModal');
     });
     
-    document.getElementById('saveProspekBtn')?.addEventListener('click', async function(e) {
-        if (this.disabled) {
-            showNotifTop('⏳ Mohon tunggu, data sedang diproses...', true);
+document.getElementById('saveProspekBtn')?.addEventListener('click', async function(e) {
+    if (this.disabled) {
+        showNotifTop('⏳ Mohon tunggu, data sedang diproses...', true);
+        return;
+    }
+    
+    this.disabled = true;
+    const originalText = this.textContent;
+    this.textContent = '⏳ Menyimpan...';
+    
+    try {
+        const nama = document.getElementById('prospekName').value;
+        let hp = document.getElementById('prospekPhone').value;
+        const deadline = document.getElementById('prospekDeadline').value;
+        const tipeAgent = document.getElementById('prospekTipe').value; // <-- AMBIL NILAI
+        
+        if (!nama) {
+            showNotifTop('⚠️ Nama wajib diisi!', true);
             return;
         }
         
-        this.disabled = true;
-        const originalText = this.textContent;
-        this.textContent = '⏳ Menyimpan...';
+        hp = hp.replace(/[^\d]/g, '');
+        if (hp.startsWith('0')) hp = hp.substring(1);
         
-        try {
-            const nama = document.getElementById('prospekName').value;
-            let hp = document.getElementById('prospekPhone').value;
-            const deadline = document.getElementById('prospekDeadline').value;
-            
-            if (!nama) {
-                showNotifTop('⚠️ Nama wajib diisi!', true);
-                return;
-            }
-            
-            hp = hp.replace(/[^\d]/g, '');
-            if (hp.startsWith('0')) hp = hp.substring(1);
-            
-            const success = await addProspek(nama, hp, deadline);
-            if (success) {
-                closeModal('prospekModal');
-                document.getElementById('prospekName').value = '';
-                document.getElementById('prospekPhone').value = '';
-            }
-        } catch (err) {
-            console.error('Error:', err);
-            showNotifTop('❌ Gagal: ' + err.message, true);
-        } finally {
-            this.disabled = false;
-            this.textContent = originalText;
+        const success = await addProspek(nama, hp, deadline, tipeAgent);
+        if (success) {
+            closeModal('prospekModal');
+            document.getElementById('prospekName').value = '';
+            document.getElementById('prospekPhone').value = '';
+            document.getElementById('prospekTipe').value = 'AGENT';
         }
-    });
+    } catch (err) {
+        console.error('Error:', err);
+        showNotifTop('❌ Gagal: ' + err.message, true);
+    } finally {
+        this.disabled = false;
+        this.textContent = originalText;
+    }
+});
     
     // Reminder
     document.getElementById('addReminderBtn')?.addEventListener('click', () => {
