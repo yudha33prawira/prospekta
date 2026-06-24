@@ -793,6 +793,108 @@ function initDarkMode() {
     console.log('✅ Dark mode initialized');
 }
 
+// ========== UPDATE TARGET DISPLAY ==========
+async function updateTargetDisplay() {
+    if (!currentUser) return;
+    
+    try {
+        // ===== AMBIL TARGET DARI SETTINGS =====
+        const { data, error } = await window.db.from('settings').select('*').eq('key', 'targetKPI').maybeSingle();
+        if (data && data.value) {
+            targetData = data.value;
+        } else {
+            targetData = { agent: 10, ca: 20, koordinator: 5, transaksi: 100, monthlyTargets: [] };
+        }
+        
+        // ===== AMBIL DATA DARI DB_AGENT =====
+        let query = window.db.from('db_agent').select('*');
+        if (currentUserRole !== 'owner') {
+            query = query.eq('user_id', currentUser.id);
+        }
+        const { data: agents, error: agentError } = await query;
+        
+        if (agentError) {
+            console.error('Error loading agents for target:', agentError);
+            return;
+        }
+        
+        // ===== HITUNG BERDASARKAN AGENT_TYPE =====
+        let currentAgent = 0;
+        let currentKoor = 0;
+        let currentCA = 0;
+        
+        if (agents && agents.length > 0) {
+            agents.forEach(agent => {
+                const type = agent.agent_type || '';
+                if (type === 'AGENT' || type === 'Agent') {
+                    currentAgent++;
+                } else if (type.includes('KORWIL') || type === 'Koordinator Wilayah (KORWIL)') {
+                    currentKoor++;
+                } else if (type.includes('CA') || type === 'CollectingAgent (CA)') {
+                    currentCA++;
+                }
+            });
+        }
+        
+        // ===== HITUNG TRANSAKSI DARI DB_TRANSAKSI =====
+        let currentTransaksi = 0;
+        const transaksiDataLocal = window.transaksiData || transaksiData || [];
+        if (transaksiDataLocal.length > 0) {
+            transaksiDataLocal.forEach(t => {
+                if (t.progres_jenis === 'naik') {
+                    currentTransaksi += Math.abs(t.progres_jumlah || 0);
+                } else if (t.progres_jenis === 'turun') {
+                    currentTransaksi -= Math.abs(t.progres_jumlah || 0);
+                } else {
+                    currentTransaksi += (t.progres_jumlah || 0);
+                }
+            });
+        }
+        
+        // ===== UPDATE ELEMEN DOM =====
+        const elements = {
+            targetAgentValue: targetData.agent || 0,
+            targetKoorValue: targetData.koordinator || 0,
+            targetCAValue: targetData.ca || 0,
+            targetTransaksiValue: (targetData.transaksi || 0).toLocaleString(),
+            targetAgentReached: currentAgent,
+            targetKoorReached: currentKoor,
+            targetCAReached: currentCA,
+            targetTransaksiReached: currentTransaksi.toLocaleString()
+        };
+        
+        for (const [id, value] of Object.entries(elements)) {
+            const el = document.getElementById(id);
+            if (el) el.innerText = value;
+        }
+        
+        // ===== HITUNG PERSENTASE =====
+        const agentPercent = targetData.agent ? Math.min((currentAgent / targetData.agent) * 100, 100) : 0;
+        const koorPercent = targetData.koordinator ? Math.min((currentKoor / targetData.koordinator) * 100, 100) : 0;
+        const caPercent = targetData.ca ? Math.min((currentCA / targetData.ca) * 100, 100) : 0;
+        const transaksiPercent = targetData.transaksi ? Math.min((currentTransaksi / targetData.transaksi) * 100, 100) : 0;
+        
+        const progressElements = {
+            targetAgentProgress: agentPercent,
+            targetKoorProgress: koorPercent,
+            targetCAProgress: caPercent,
+            targetTransaksiProgress: transaksiPercent
+        };
+        
+        for (const [id, value] of Object.entries(progressElements)) {
+            const el = document.getElementById(id);
+            if (el) el.style.width = value + '%';
+        }
+        
+        // ===== UPDATE CHART =====
+        updateTargetChart([agentPercent, koorPercent, caPercent, transaksiPercent]);
+        updateTrendChart();
+        
+    } catch (err) {
+        console.error('Error updating target display:', err);
+    }
+}
+
 // ========== UPDATE CHARTS ==========
 function updateChartsForDarkMode() {
     const isDark = document.body.classList.contains('dark-mode');
@@ -4993,7 +5095,6 @@ async function loadCustomers() {
     updateStats();
     updateChartCustomer();
     updateDeadlineBadge();
-    updateTargetDisplay();
 }
 
 async function loadProspek() {
@@ -5033,7 +5134,7 @@ async function loadDatabaseAgent() {
     
     agentsData = data || [];
     renderAgentList(agentsData);
-    updateTargetDisplay();
+    await updateTargetDisplay();
 }
 
 async function loadProduk() {
@@ -5150,7 +5251,7 @@ async function loadDbTransaksi() {
         updateTransaksiStats(transaksiData);
         updateSelectAllTransaksiButton();
         updateTransaksiSelectionCount();
-        updateTargetDisplay();
+        await updateTargetDisplay();
         
         const totalAllSpan = document.getElementById('transaksiTotalAll');
         if (totalAllSpan) {
@@ -8349,13 +8450,16 @@ function updateTargetChart(percentages) {
     
     if (targetChart) targetChart.destroy();
     
+    const isDark = document.body.classList.contains('dark-mode');
+    const textColor = isDark ? '#f1f5f9' : '#1e293b';
+    
     targetChart = new Chart(ctx, {
         type: 'bar',
         data: {
             labels: ['Agent', 'Koordinator', 'CA', 'Transaksi'],
             datasets: [{
                 label: 'Pencapaian Target (%)',
-                data: percentages,
+                data: percentages || [0, 0, 0, 0],
                 backgroundColor: ['#667eea', '#4facfe', '#f093fb', '#fa709a'],
                 borderRadius: 8,
                 barPercentage: 0.6
@@ -8364,18 +8468,20 @@ function updateTargetChart(percentages) {
         options: {
             responsive: true,
             maintainAspectRatio: true,
+            plugins: {
+                legend: {
+                    labels: { color: textColor }
+                }
+            },
             scales: {
                 y: {
                     beginAtZero: true,
                     max: 100,
-                    title: { display: true, text: 'Persentase (%)' }
-                }
-            },
-            plugins: {
-                tooltip: {
-                    callbacks: {
-                        label: (context) => `${context.raw.toFixed(1)}%`
-                    }
+                    title: { display: true, text: 'Persentase (%)', color: textColor },
+                    ticks: { color: textColor }
+                },
+                x: {
+                    ticks: { color: textColor }
                 }
             }
         }
@@ -8388,96 +8494,69 @@ function updateTrendChart() {
     
     if (trendChart) trendChart.destroy();
     
-    // ===== AMBIL DATA DARI RIWAYAT TRANSAKSI =====
+    // ===== GUNAKAN DATA DARI RIWAYAT TRANSAKSI =====
     const riwayatData = window._riwayatData || [];
     
+    const isDark = document.body.classList.contains('dark-mode');
+    const textColor = isDark ? '#f1f5f9' : '#1e293b';
+    
     if (riwayatData.length === 0) {
-        // Tampilkan pesan kosong
+        // Tampilkan data dummy atau kosong
         trendChart = new Chart(ctx, {
             type: 'line',
             data: {
                 labels: ['Belum ada data'],
                 datasets: [
-                    { label: 'Naik', data: [0], borderColor: '#10b981', backgroundColor: 'transparent' },
-                    { label: 'Normal', data: [0], borderColor: '#3b82f6', backgroundColor: 'transparent' },
-                    { label: 'Turun', data: [0], borderColor: '#f59e0b', backgroundColor: 'transparent' },
-                    { label: 'Tidak Transaksi', data: [0], borderColor: '#ef4444', backgroundColor: 'transparent' }
+                    { label: '📈 Naik', data: [0], borderColor: '#10b981', backgroundColor: 'transparent' },
+                    { label: '⚖️ Normal', data: [0], borderColor: '#3b82f6', backgroundColor: 'transparent' },
+                    { label: '📉 Turun', data: [0], borderColor: '#f59e0b', backgroundColor: 'transparent' },
+                    { label: '🚫 Tidak Transaksi', data: [0], borderColor: '#ef4444', backgroundColor: 'transparent' }
                 ]
             },
             options: {
                 responsive: true,
                 maintainAspectRatio: true,
                 plugins: {
-                    legend: { position: 'top', labels: { font: { size: 10 } } }
+                    legend: { 
+                        position: 'top', 
+                        labels: { 
+                            font: { size: 10 },
+                            color: textColor
+                        } 
+                    }
+                },
+                scales: {
+                    y: {
+                        beginAtZero: true,
+                        ticks: { color: textColor }
+                    },
+                    x: {
+                        ticks: { color: textColor }
+                    }
                 }
             }
         });
         return;
     }
     
-    // ===== URUTKAN DATA BERDASARKAN TAHUN & BULAN =====
+    // ===== URUTKAN DATA =====
     const sortedData = [...riwayatData].sort((a, b) => {
         if (a.tahun !== b.tahun) return a.tahun - b.tahun;
         return a.bulan_index - b.bulan_index;
     });
     
-    // ===== BUAT LABEL =====
     const labels = sortedData.map(item => item.bulan || `${item.bulan_index}/${item.tahun}`);
     
-    // ===== DATASET =====
-    const naikData = sortedData.map(item => item.total_naik || 0);
-    const normalData = sortedData.map(item => item.total_normal || 0);
-    const turunData = sortedData.map(item => item.total_turun || 0);
-    const tidakData = sortedData.map(item => item.total_tidak_transaksi || 0);
+    const datasets = [
+        { label: '📈 Naik', data: sortedData.map(item => item.total_naik || 0), borderColor: '#10b981', backgroundColor: 'rgba(16, 185, 129, 0.1)', tension: 0.4, fill: true, pointRadius: 4 },
+        { label: '⚖️ Normal', data: sortedData.map(item => item.total_normal || 0), borderColor: '#3b82f6', backgroundColor: 'rgba(59, 130, 246, 0.1)', tension: 0.4, fill: true, pointRadius: 4 },
+        { label: '📉 Turun', data: sortedData.map(item => item.total_turun || 0), borderColor: '#f59e0b', backgroundColor: 'rgba(245, 158, 11, 0.1)', tension: 0.4, fill: true, pointRadius: 4 },
+        { label: '🚫 Tidak Transaksi', data: sortedData.map(item => item.total_tidak_transaksi || 0), borderColor: '#ef4444', backgroundColor: 'rgba(239, 68, 68, 0.1)', tension: 0.4, fill: true, pointRadius: 4 }
+    ];
     
-    // ===== BUAT CHART =====
     trendChart = new Chart(ctx, {
         type: 'line',
-        data: {
-            labels: labels,
-            datasets: [
-                { 
-                    label: '📈 Naik', 
-                    data: naikData, 
-                    borderColor: '#10b981', 
-                    backgroundColor: 'rgba(16, 185, 129, 0.1)',
-                    tension: 0.4, 
-                    fill: true,
-                    pointBackgroundColor: '#10b981',
-                    pointRadius: 4
-                },
-                { 
-                    label: '⚖️ Normal', 
-                    data: normalData, 
-                    borderColor: '#3b82f6', 
-                    backgroundColor: 'rgba(59, 130, 246, 0.1)',
-                    tension: 0.4, 
-                    fill: true,
-                    pointBackgroundColor: '#3b82f6',
-                    pointRadius: 4
-                },
-                { 
-                    label: '📉 Turun', 
-                    data: turunData, 
-                    borderColor: '#f59e0b', 
-                    backgroundColor: 'rgba(245, 158, 11, 0.1)',
-                    tension: 0.4, 
-                    fill: true,
-                    pointBackgroundColor: '#f59e0b',
-                    pointRadius: 4
-                },
-                { 
-                    label: '🚫 Tidak Transaksi', 
-                    data: tidakData, 
-                    borderColor: '#ef4444', 
-                    backgroundColor: 'rgba(239, 68, 68, 0.1)',
-                    tension: 0.4, 
-                    fill: true,
-                    pointBackgroundColor: '#ef4444',
-                    pointRadius: 4
-                }
-            ]
-        },
+        data: { labels, datasets },
         options: {
             responsive: true,
             maintainAspectRatio: true,
@@ -8486,6 +8565,7 @@ function updateTrendChart() {
                     position: 'top', 
                     labels: { 
                         font: { size: 10 },
+                        color: textColor,
                         usePointStyle: true,
                         padding: 12
                     } 
@@ -8501,19 +8581,11 @@ function updateTrendChart() {
             scales: {
                 y: {
                     beginAtZero: true,
-                    title: { 
-                        display: true, 
-                        text: 'Jumlah Agent',
-                        font: { size: 11 }
-                    },
-                    ticks: { font: { size: 10 } }
+                    title: { display: true, text: 'Jumlah Agent', color: textColor, font: { size: 11 } },
+                    ticks: { color: textColor, font: { size: 10 } }
                 },
                 x: {
-                    ticks: { 
-                        font: { size: 10 },
-                        maxRotation: 45,
-                        minRotation: 30
-                    }
+                    ticks: { color: textColor, font: { size: 10 }, maxRotation: 45, minRotation: 30 }
                 }
             },
             interaction: {
@@ -10638,38 +10710,45 @@ async function checkAuth() {
                 
                 // ===== CEK APAKAH DATA SUDAH DIMUAT =====
                 if (!isAppInitialized) {
-                    // Load semua data
-                    await withLoading(loadCustomers(), 4);
-                    updateLoadingStep(5);
-                    await withLoading(loadProspek(), 6);
-                    updateLoadingStep(7);
-                    await withLoading(loadDatabaseAgent(), 8);
-                    updateLoadingStep(9);
-                    await withLoading(loadProduk(), 10);
-                    updateLoadingStep(11);
-                    await withLoading(loadDbTransaksi(), 12);
-                    updateLoadingStep(13);
-                    await withLoading(loadDBClosing(), 14);
-                    updateLoadingStep(15);
-                    await withLoading(loadDBTidak(), 16);
-                    updateLoadingStep(17);
-                    await withLoading(loadDBNomorSalah(), 18);
-                    updateLoadingStep(19);
-                    await withLoading(loadDBCommitment(), 20);
-                    updateLoadingStep(21);
-                    await withLoading(loadReminders(), 22);
-                    updateLoadingStep(23);
-                    await withLoading(loadMessages(), 24);
-                    updateLoadingStep(25);
-                    await withLoading(loadUsersList(), 26);
-                    updateLoadingStep(27);
-                    await withLoading(loadTarifAdmin(), 28);
-                    updateLoadingStep(29);
-                    await withLoading(loadTargetData(), 30);
-                    updateLoadingStep(31);
-                    await withLoading(loadTransaksiGlobal(), 32);
-                    
-                    isAppInitialized = true; // <-- TANDAI SUDAH DIINIT
+                // Load data secara berurutan
+                await withLoading(loadCustomers(), 4);
+                updateLoadingStep(5);
+                await withLoading(loadProspek(), 6);
+                updateLoadingStep(7);
+                await withLoading(loadDatabaseAgent(), 8); // Ini akan update target
+                updateLoadingStep(9);
+                await withLoading(loadProduk(), 10);
+                updateLoadingStep(11);
+                await withLoading(loadDbTransaksi(), 12); // Ini juga update target
+                updateLoadingStep(13);
+                await withLoading(loadDBClosing(), 14);
+                updateLoadingStep(15);
+                await withLoading(loadDBTidak(), 16);
+                updateLoadingStep(17);
+                await withLoading(loadDBNomorSalah(), 18);
+                updateLoadingStep(19);
+                await withLoading(loadDBCommitment(), 20);
+                updateLoadingStep(21);
+                await withLoading(loadReminders(), 22);
+                updateLoadingStep(23);
+                await withLoading(loadMessages(), 24);
+                updateLoadingStep(25);
+                await withLoading(loadUsersList(), 26);
+                updateLoadingStep(27);
+                await withLoading(loadTarifAdmin(), 28);
+                updateLoadingStep(29);
+                await withLoading(loadTransaksiGlobal(), 30);
+                
+                // Panggil sekali lagi untuk memastikan target terupdate
+                await updateTargetDisplay();
+                updateLoadingStep(31);
+                
+                isAppInitialized = true;
+                } catch (err) {
+                    console.error('Error loading data:', err);
+                    hideLoading();
+                    showNotifTop('❌ Gagal memuat data: ' + err.message, true);
+                }
                 } else {
                     console.log('✅ Data sudah dimuat, skip loading data');
                 }
