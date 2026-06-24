@@ -6854,7 +6854,7 @@ body.dark-mode .logo-with-user .logo-subtitle .user-name {
 }
 
 /* ================================================================ */
-/* ========== SEARCH RIGHT - BERGESER KE KIRI ========== */
+/* ========== SEARCH RIGHT - HOVER AUTO EXPAND ========== */
 /* ================================================================ */
 
 .search-right-wrapper {
@@ -6863,7 +6863,7 @@ body.dark-mode .logo-with-user .logo-subtitle .user-name {
     align-items: center;
 }
 
-/* ===== TRIGGER (Icon + Label) ===== */
+/* ===== TRIGGER ===== */
 .search-right-trigger {
     display: flex;
     align-items: center;
@@ -6915,7 +6915,7 @@ body.dark-mode .logo-with-user .logo-subtitle .user-name {
     color: #4f46e5;
 }
 
-/* ===== EXPANDED SEARCH (Bergeser ke kiri) ===== */
+/* ===== EXPANDED SEARCH - HOVER AUTO ===== */
 .search-right-expanded {
     position: fixed;
     top: 0;
@@ -6938,6 +6938,15 @@ body.dark-mode .logo-with-user .logo-subtitle .user-name {
     align-items: center;
 }
 
+/* ===== HOVER TRIGGER - Langsung geser ===== */
+.search-right-wrapper:hover .search-right-expanded {
+    transform: translateX(0);
+    opacity: 1;
+    visibility: visible;
+    pointer-events: auto;
+}
+
+/* ===== FOCUS STATE (tetap terbuka saat input aktif) ===== */
 .search-right-expanded.active {
     transform: translateX(0);
     opacity: 1;
@@ -6945,6 +6954,7 @@ body.dark-mode .logo-with-user .logo-subtitle .user-name {
     pointer-events: auto;
 }
 
+/* ===== INNER ===== */
 .search-right-inner {
     display: flex;
     align-items: center;
@@ -7200,7 +7210,10 @@ body.dark-mode .logo-with-user .logo-subtitle .user-name {
     font-size: 13px;
 }
 
-/* ===== DARK MODE ===== */
+/* ================================================================ */
+/* ========== DARK MODE ========== */
+/* ================================================================ */
+
 body.dark-mode .search-right-trigger {
     background: rgba(30, 41, 59, 0.8);
 }
@@ -7293,7 +7306,10 @@ body.dark-mode .search-right-results-footer kbd {
     color: #94a3b8;
 }
 
-/* ===== RESPONSIVE ===== */
+/* ================================================================ */
+/* ========== RESPONSIVE ========== */
+/* ================================================================ */
+
 @media (max-width: 768px) {
     .search-right-trigger .search-right-label {
         display: none;
