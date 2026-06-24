@@ -1199,94 +1199,123 @@ function closeDeadlinePopup() {
 }
 
 // ================================================================
-// ========== GLOBAL SEARCH PREMIUM ==========
+// ========== SEARCH GOOGLE STYLE ==========
 // ================================================================
 
-let globalSearchResults = [];
-let selectedSearchIndex = -1;
-let searchDebounceTimer = null;
+let searchGoogleResults = [];
+let searchGoogleIndex = -1;
+let searchGoogleTimer = null;
+let searchGoogleOpen = false;
 
-function initGlobalSearch() {
-    const searchInput = document.getElementById('globalSearchInput');
-    const resultsContainer = document.getElementById('globalSearchResults');
-    const resultsList = document.getElementById('globalSearchResultsList');
-    const clearBtn = document.getElementById('globalSearchClearBtn');
-    const closeBtn = document.getElementById('searchResultsCloseBtn');
-    const resultCount = document.getElementById('searchResultCount');
+function initSearchGoogle() {
+    const trigger = document.getElementById('searchGoogleTrigger');
+    const wrapper = document.getElementById('searchGoogleWrapper');
+    const expanded = document.getElementById('searchGoogleExpanded');
+    const input = document.getElementById('searchGoogleInput');
+    const results = document.getElementById('searchGoogleResults');
+    const resultsList = document.getElementById('searchGoogleResultsList');
+    const clearBtn = document.getElementById('searchGoogleClear');
+    const closeBtn = document.getElementById('searchGoogleClose');
+    const countEl = document.getElementById('searchGoogleCount');
     
-    if (!searchInput) return;
+    if (!trigger || !wrapper || !expanded) return;
+    
+    // ===== OPEN SEARCH =====
+    function openSearch() {
+        expanded.classList.add('active');
+        searchGoogleOpen = true;
+        setTimeout(() => {
+            input.focus();
+            input.select();
+        }, 150);
+    }
+    
+    function closeSearch() {
+        expanded.classList.remove('active');
+        results.style.display = 'none';
+        searchGoogleOpen = false;
+        input.value = '';
+        clearBtn.style.display = 'none';
+        input.blur();
+    }
+    
+    // ===== TRIGGER CLICK =====
+    trigger.addEventListener('click', function(e) {
+        e.stopPropagation();
+        if (searchGoogleOpen) {
+            closeSearch();
+        } else {
+            openSearch();
+        }
+    });
     
     // ===== INPUT EVENT =====
-    searchInput.addEventListener('input', function(e) {
+    input.addEventListener('input', function(e) {
         const query = this.value.trim();
         
-        // Toggle clear button
         if (query.length > 0) {
             clearBtn.style.display = 'block';
         } else {
             clearBtn.style.display = 'none';
-            resultsContainer.style.display = 'none';
+            results.style.display = 'none';
             return;
         }
         
-        // Debounce search
-        clearTimeout(searchDebounceTimer);
-        searchDebounceTimer = setTimeout(() => {
-            performGlobalSearch(query);
+        clearTimeout(searchGoogleTimer);
+        searchGoogleTimer = setTimeout(() => {
+            performSearchGoogle(query);
         }, 300);
     });
     
-    // ===== FOCUS EVENT =====
-    searchInput.addEventListener('focus', function() {
+    // ===== FOCUS =====
+    input.addEventListener('focus', function() {
         if (this.value.trim().length > 0) {
-            resultsContainer.style.display = 'block';
+            results.style.display = 'block';
         }
     });
     
     // ===== KEYBOARD NAVIGATION =====
-    searchInput.addEventListener('keydown', function(e) {
-        const items = resultsList.querySelectorAll('.search-result-premium-item');
+    input.addEventListener('keydown', function(e) {
+        const items = resultsList.querySelectorAll('.search-google-result-item');
         
         if (e.key === 'ArrowDown') {
             e.preventDefault();
-            selectedSearchIndex = Math.min(selectedSearchIndex + 1, items.length - 1);
-            highlightSearchItem(items);
+            searchGoogleIndex = Math.min(searchGoogleIndex + 1, items.length - 1);
+            highlightSearchGoogleItem(items);
         } else if (e.key === 'ArrowUp') {
             e.preventDefault();
-            selectedSearchIndex = Math.max(selectedSearchIndex - 1, -1);
-            highlightSearchItem(items);
+            searchGoogleIndex = Math.max(searchGoogleIndex - 1, -1);
+            highlightSearchGoogleItem(items);
         } else if (e.key === 'Enter') {
             e.preventDefault();
-            if (selectedSearchIndex >= 0 && items[selectedSearchIndex]) {
-                items[selectedSearchIndex].click();
+            if (searchGoogleIndex >= 0 && items[searchGoogleIndex]) {
+                items[searchGoogleIndex].click();
             } else if (items.length > 0) {
                 items[0].click();
             }
         } else if (e.key === 'Escape') {
-            resultsContainer.style.display = 'none';
-            this.blur();
+            closeSearch();
         }
     });
     
-    // ===== CLEAR BUTTON =====
+    // ===== CLEAR =====
     clearBtn.addEventListener('click', function() {
-        searchInput.value = '';
-        resultsContainer.style.display = 'none';
+        input.value = '';
+        results.style.display = 'none';
         clearBtn.style.display = 'none';
-        searchInput.focus();
+        input.focus();
     });
     
-    // ===== CLOSE BUTTON =====
-    closeBtn.addEventListener('click', function() {
-        resultsContainer.style.display = 'none';
-        searchInput.blur();
+    // ===== CLOSE =====
+    closeBtn.addEventListener('click', function(e) {
+        e.stopPropagation();
+        closeSearch();
     });
     
     // ===== CLICK OUTSIDE =====
     document.addEventListener('click', function(e) {
-        const searchBar = document.getElementById('globalSearchBar');
-        if (searchBar && !searchBar.contains(e.target)) {
-            resultsContainer.style.display = 'none';
+        if (wrapper && !wrapper.contains(e.target)) {
+            closeSearch();
         }
     });
     
@@ -1294,15 +1323,18 @@ function initGlobalSearch() {
     document.addEventListener('keydown', function(e) {
         if ((e.ctrlKey || e.metaKey) && e.key === 'k') {
             e.preventDefault();
-            searchInput.focus();
-            searchInput.select();
+            if (searchGoogleOpen) {
+                closeSearch();
+            } else {
+                openSearch();
+            }
         }
     });
 }
 
-function highlightSearchItem(items) {
+function highlightSearchGoogleItem(items) {
     items.forEach((item, index) => {
-        if (index === selectedSearchIndex) {
+        if (index === searchGoogleIndex) {
             item.classList.add('active');
             item.scrollIntoView({ block: 'nearest' });
         } else {
@@ -1311,191 +1343,98 @@ function highlightSearchItem(items) {
     });
 }
 
-async function performGlobalSearch(query) {
-    const resultsContainer = document.getElementById('globalSearchResults');
-    const resultsList = document.getElementById('globalSearchResultsList');
-    const resultCount = document.getElementById('searchResultCount');
+async function performSearchGoogle(query) {
+    const results = document.getElementById('searchGoogleResults');
+    const resultsList = document.getElementById('searchGoogleResultsList');
+    const countEl = document.getElementById('searchGoogleCount');
     
     if (!query || query.length < 2) {
-        resultsContainer.style.display = 'none';
+        results.style.display = 'none';
         return;
     }
     
     // Show loading
     resultsList.innerHTML = `
-        <div class="search-loading">
-            <div class="spinner"></div>
-            <span>Mencari...</span>
+        <div class="search-google-empty">
+            <div class="empty-icon">⏳</div>
+            <div class="empty-title">Mencari...</div>
         </div>
     `;
-    resultsContainer.style.display = 'block';
+    results.style.display = 'block';
     
     const q = query.toLowerCase().trim();
-    const results = [];
+    const resultItems = [];
     
-    // ===== SEARCH ALL SOURCES =====
-    // 1. Customers (Followup Agen)
+    // ===== SEARCH CUSTOMERS =====
     customersData.forEach(item => {
         if (item.nama?.toLowerCase().includes(q) || 
             item.hp?.includes(q) || 
             item.agent_id?.toLowerCase().includes(q)) {
-            results.push({
+            resultItems.push({
                 id: item.id,
                 type: 'customer',
                 title: item.nama || 'Tidak ada nama',
                 subtitle: `📱 ${item.hp || '-'} · 🆔 ${item.agent_id || '-'}`,
                 icon: '📞',
-                badge: 'Followup Agen',
-                badgeClass: 'badge-customer',
-                status: item.status || 'baru'
+                badge: 'Followup',
+                badgeClass: 'badge-customer'
             });
         }
     });
     
-    // 2. Prospek
+    // ===== SEARCH PROSPEK =====
     prospekData.forEach(item => {
         if (item.nama?.toLowerCase().includes(q) || 
             item.hp?.includes(q)) {
-            results.push({
+            resultItems.push({
                 id: item.id,
                 type: 'prospek',
                 title: item.nama || 'Tidak ada nama',
                 subtitle: `📱 ${item.hp || '-'} · ${item.status || 'Baru'}`,
                 icon: '🎯',
-                badge: 'Prospek Agen',
-                badgeClass: 'badge-prospek',
-                status: item.status || 'Baru'
+                badge: 'Prospek',
+                badgeClass: 'badge-prospek'
             });
         }
     });
     
-    // 3. DB Transaksi (jika ada)
+    // ===== SEARCH TRANSAKSI =====
     if (transaksiData && transaksiData.length > 0) {
         transaksiData.forEach(item => {
             if (item.nama?.toLowerCase().includes(q) || 
                 item.agent_id?.toLowerCase().includes(q) ||
                 item.hp?.includes(q)) {
-                results.push({
+                resultItems.push({
                     id: item.id,
                     type: 'transaksi',
                     title: item.nama || item.agent_id || 'Tidak ada nama',
-                    subtitle: `📱 ${item.hp || '-'} · 🆔 ${item.agent_id || '-'} · 💰 ${(item.transaksi_bulan_ini || 0).toLocaleString()}`,
+                    subtitle: `📱 ${item.hp || '-'} · 💰 ${(item.transaksi_bulan_ini || 0).toLocaleString()}`,
                     icon: '📊',
-                    badge: 'DB Transaksi',
-                    badgeClass: 'badge-transaksi',
-                    status: item.status || 'pending'
+                    badge: 'Transaksi',
+                    badgeClass: 'badge-transaksi'
                 });
             }
         });
     }
     
-    // 4. Database Closing
-    const { data: closingData } = await window.db
-        .from('db_closing')
-        .select('*')
-        .or(`nama.ilike.%${query}%,hp.ilike.%${query}%,agent_id.ilike.%${query}%`)
-        .limit(10);
+    // ===== LIMIT =====
+    const limited = resultItems.slice(0, 20);
+    searchGoogleResults = limited;
+    searchGoogleIndex = -1;
     
-    if (closingData && closingData.length > 0) {
-        closingData.forEach(item => {
-            results.push({
-                id: item.id,
-                type: 'closing',
-                title: item.nama || 'Tidak ada nama',
-                subtitle: `📱 ${item.hp || '-'} · ${item.closing_date ? formatDateDDMMYYYY(item.closing_date) : '-'}`,
-                icon: '📁',
-                badge: 'DB Closing',
-                badgeClass: 'badge-closing',
-                status: 'closing'
-            });
-        });
-    }
+    countEl.textContent = limited.length;
     
-    // 5. Database Tidak Tertarik
-    const { data: tidakData } = await window.db
-        .from('db_tidak_tertarik')
-        .select('*')
-        .or(`nama.ilike.%${query}%,hp.ilike.%${query}%`)
-        .limit(10);
-    
-    if (tidakData && tidakData.length > 0) {
-        tidakData.forEach(item => {
-            results.push({
-                id: item.id,
-                type: 'tidak',
-                title: item.nama || 'Tidak ada nama',
-                subtitle: `📱 ${item.hp || '-'} · ❌ ${item.alasan || 'Tidak tertarik'}`,
-                icon: '❌',
-                badge: 'DB Tidak Tertarik',
-                badgeClass: 'badge-tidak',
-                status: 'tidak'
-            });
-        });
-    }
-    
-    // 6. Database Nomor Salah
-    const { data: nomorData } = await window.db
-        .from('nomor_salah')
-        .select('*')
-        .or(`nama.ilike.%${query}%,hp.ilike.%${query}%`)
-        .limit(10);
-    
-    if (nomorData && nomorData.length > 0) {
-        nomorData.forEach(item => {
-            results.push({
-                id: item.id,
-                type: 'nomor_salah',
-                title: item.nama || 'Tidak ada nama',
-                subtitle: `📱 ${item.hp || '-'} · 📵 ${item.alasan || 'Nomor salah'}`,
-                icon: '📵',
-                badge: 'DB Nomor Salah',
-                badgeClass: 'badge-nomor-salah',
-                status: 'nomor_salah'
-            });
-        });
-    }
-    
-    // 7. Database Commitment
-    const { data: commitData } = await window.db
-        .from('db_commitment')
-        .select('*')
-        .or(`nama.ilike.%${query}%,hp.ilike.%${query}%,agent_id.ilike.%${query}%`)
-        .limit(10);
-    
-    if (commitData && commitData.length > 0) {
-        commitData.forEach(item => {
-            results.push({
-                id: item.id,
-                type: 'commitment',
-                title: item.nama || 'Tidak ada nama',
-                subtitle: `📱 ${item.hp || '-'} · 🆔 ${item.agent_id || '-'}`,
-                icon: '🤝',
-                badge: 'DB Commitment',
-                badgeClass: 'badge-commitment',
-                status: 'commitment'
-            });
-        });
-    }
-    
-    // ===== LIMIT RESULTS =====
-    const limitedResults = results.slice(0, 30);
-    globalSearchResults = limitedResults;
-    selectedSearchIndex = -1;
-    
-    // ===== RENDER RESULTS =====
-    resultCount.textContent = limitedResults.length;
-    
-    if (limitedResults.length === 0) {
+    if (limited.length === 0) {
         resultsList.innerHTML = `
-            <div class="search-empty-state">
+            <div class="search-google-empty">
                 <div class="empty-icon">🔍</div>
                 <div class="empty-title">Tidak ditemukan</div>
                 <div class="empty-sub">Coba dengan kata kunci lain</div>
             </div>
         `;
     } else {
-        resultsList.innerHTML = limitedResults.map((item, index) => `
-            <div class="search-result-premium-item" data-index="${index}" data-id="${item.id}" data-type="${item.type}">
+        resultsList.innerHTML = limited.map((item, index) => `
+            <div class="search-google-result-item" data-index="${index}" data-id="${item.id}" data-type="${item.type}">
                 <span class="result-icon">${item.icon}</span>
                 <div class="result-info">
                     <div class="result-title">${escapeHtml(item.title)}</div>
@@ -1506,19 +1445,32 @@ async function performGlobalSearch(query) {
         `).join('');
         
         // ===== CLICK HANDLER =====
-        resultsList.querySelectorAll('.search-result-premium-item').forEach(el => {
+        resultsList.querySelectorAll('.search-google-result-item').forEach(el => {
             el.addEventListener('click', function() {
                 const id = this.dataset.id;
                 const type = this.dataset.type;
-                const resultsContainer = document.getElementById('globalSearchResults');
-                resultsContainer.style.display = 'none';
-                openSearchResult(id, type);
+                closeSearchGoogle();
+                openSearchResultGoogle(id, type);
             });
         });
     }
 }
 
-function openSearchResult(id, type) {
+function closeSearchGoogle() {
+    const expanded = document.getElementById('searchGoogleExpanded');
+    const results = document.getElementById('searchGoogleResults');
+    const input = document.getElementById('searchGoogleInput');
+    const clearBtn = document.getElementById('searchGoogleClear');
+    
+    expanded.classList.remove('active');
+    results.style.display = 'none';
+    searchGoogleOpen = false;
+    input.value = '';
+    clearBtn.style.display = 'none';
+    input.blur();
+}
+
+function openSearchResultGoogle(id, type) {
     switch(type) {
         case 'customer':
             openDetailCustomer(id);
@@ -1528,18 +1480,6 @@ function openSearchResult(id, type) {
             break;
         case 'transaksi':
             openDetailTransaksi(id);
-            break;
-        case 'closing':
-            openDBDetailModal(id, 'closing');
-            break;
-        case 'tidak':
-            openDBDetailModal(id, 'tidak');
-            break;
-        case 'nomor_salah':
-            openDBDetailModal(id, 'nomor_salah');
-            break;
-        case 'commitment':
-            openDBDetailModal(id, 'commitment');
             break;
         default:
             showNotifTop('⚠️ Data tidak ditemukan', true);
@@ -10240,8 +10180,8 @@ document.addEventListener('DOMContentLoaded', function() {
     // ===== CHECK AUTHENTICATION =====
     checkAuth();
 
-    // ===== INISIALISASI GLOBAL SEARCH =====
-    initGlobalSearch(); // <-- LETAKKAN DI SINI
+    // ===== INISIALISASI SEARCH GOOGLE =====
+    initSearchGoogle();
     
     // ===== ANIMASI LOGO BERULANG =====
     setInterval(function() {
@@ -10254,19 +10194,6 @@ document.addEventListener('DOMContentLoaded', function() {
     }, 5000); // Animasi ulang setiap 5 detik
     
     console.log('✅ PROSPEKTA loaded successfully');
-
-    // Inisialisasi Global Search
-initGlobalSearch();
-
-// Trigger animasi logo
-setInterval(() => {
-    const logo = document.getElementById('logoWrapper');
-    if (logo) {
-        logo.classList.remove('animate');
-        void logo.offsetWidth; // Force reflow
-        logo.classList.add('animate');
-    }
-}, 5000); // Animasi ulang setiap 5 detik
 });
 
 // ========== GLOBAL FUNCTIONS ==========
