@@ -7725,11 +7725,17 @@ const DEFAULT_TEMPLATES = {
     }
 };
 
-// ===== KEY UNTUK STORAGE HISTORY =====
+// ================================================================
+// ========== KEY UNTUK STORAGE HISTORY ==========
+// ================================================================
+
 const BROADCAST_HISTORY_KEY = 'broadcast_history';
 const UPLINE_BROADCAST_HISTORY_KEY = 'upline_broadcast_history';
 
-// ===== LOAD TEMPLATES =====
+// ================================================================
+// ========== LOAD TEMPLATES ==========
+// ================================================================
+
 function loadBroadcastTemplates() {
     const select = document.getElementById('templateSelect');
     if (!select) return;
@@ -7762,7 +7768,10 @@ function loadUplineTemplates() {
     }
 }
 
-// ===== SAVE TEMPLATE =====
+// ================================================================
+// ========== SAVE & DELETE TEMPLATE ==========
+// ================================================================
+
 function saveBroadcastTemplate() {
     const message = document.getElementById('broadcastMessage').value;
     const templateName = document.getElementById('templateSelect').value;
@@ -7831,7 +7840,6 @@ function saveUplineTemplate() {
     showNotifTop(`✅ Template Upline "${name}" berhasil disimpan!`);
 }
 
-// ===== DELETE TEMPLATE =====
 function deleteBroadcastTemplate() {
     const templateName = document.getElementById('templateSelect').value;
     if (!templateName || templateName === '') {
@@ -7874,7 +7882,10 @@ function deleteUplineTemplate() {
     showNotifTop(`🗑️ Template Upline berhasil dihapus!`);
 }
 
-// ===== LOAD TEMPLATE =====
+// ================================================================
+// ========== LOAD TEMPLATE ==========
+// ================================================================
+
 function loadBroadcastTemplate() {
     const templateName = document.getElementById('templateSelect').value;
     if (!templateName) {
@@ -7915,11 +7926,14 @@ function saveBroadcastHistory(isUpline = false) {
     const key = isUpline ? UPLINE_BROADCAST_HISTORY_KEY : BROADCAST_HISTORY_KEY;
     const data = isUpline ? uplineBroadcastHistory : broadcastHistory;
     
-    // Filter hanya data yang belum diproses
+    // Filter hanya data yang belum diproses (pending)
     const pendingData = data.filter(item => item.status === 'success' && item.id && !item.processed);
     
-    // Simpan ke localStorage (hanya data terakhir, akan menimpa yang lama)
+    // Simpan ke localStorage (hanya data pending, akan menimpa yang lama)
     localStorage.setItem(key, JSON.stringify(pendingData));
+    
+    // Update indicator
+    updateBroadcastHistoryIndicator();
 }
 
 function loadBroadcastHistory(isUpline = false) {
@@ -7931,22 +7945,84 @@ function loadBroadcastHistory(isUpline = false) {
             const parsedData = JSON.parse(savedData);
             if (Array.isArray(parsedData) && parsedData.length > 0) {
                 if (isUpline) {
-                    uplineBroadcastHistory = parsedData;
+                    // Gabungkan dengan data yang sudah ada (jika ada)
+                    const existingIds = new Set(uplineBroadcastHistory.map(item => item.id));
+                    const newItems = parsedData.filter(item => !existingIds.has(item.id));
+                    uplineBroadcastHistory = [...uplineBroadcastHistory, ...newItems];
                 } else {
-                    broadcastHistory = parsedData;
+                    const existingIds = new Set(broadcastHistory.map(item => item.id));
+                    const newItems = parsedData.filter(item => !existingIds.has(item.id));
+                    broadcastHistory = [...broadcastHistory, ...newItems];
                 }
+                updateBroadcastHistoryIndicator();
                 return true;
             }
         } catch (e) {
             console.error('Error loading history:', e);
         }
     }
+    updateBroadcastHistoryIndicator();
     return false;
 }
 
 function clearBroadcastHistory(isUpline = false) {
     const key = isUpline ? UPLINE_BROADCAST_HISTORY_KEY : BROADCAST_HISTORY_KEY;
     localStorage.removeItem(key);
+    if (isUpline) {
+        uplineBroadcastHistory = uplineBroadcastHistory.filter(item => item.processed);
+    } else {
+        broadcastHistory = broadcastHistory.filter(item => item.processed);
+    }
+    updateBroadcastHistoryIndicator();
+}
+
+// ================================================================
+// ========== UPDATE BROADCAST HISTORY INDICATOR ==========
+// ================================================================
+
+function updateBroadcastHistoryIndicator() {
+    // ===== BROADCAST WHATSAPP =====
+    const indicator = document.getElementById('broadcastHistoryIndicator');
+    const badge = document.getElementById('broadcastPendingBadge');
+    const pendingData = broadcastHistory.filter(item => item.status === 'success' && item.id && !item.processed);
+    const pendingCount = pendingData.length;
+    
+    if (pendingCount > 0) {
+        if (indicator) {
+            indicator.style.display = 'inline-flex';
+            indicator.style.alignItems = 'center';
+        }
+        if (badge) badge.textContent = pendingCount;
+    } else {
+        if (indicator) indicator.style.display = 'none';
+    }
+    
+    // ===== BROADCAST UPLINE =====
+    const uplineIndicator = document.getElementById('uplineBroadcastHistoryIndicator');
+    const uplineBadge = document.getElementById('uplineBroadcastPendingBadge');
+    const uplinePendingData = uplineBroadcastHistory.filter(item => item.status === 'success' && item.id && !item.processed);
+    const uplinePendingCount = uplinePendingData.length;
+    
+    if (uplinePendingCount > 0) {
+        if (uplineIndicator) {
+            uplineIndicator.style.display = 'inline-flex';
+            uplineIndicator.style.alignItems = 'center';
+        }
+        if (uplineBadge) uplineBadge.textContent = uplinePendingCount;
+    } else {
+        if (uplineIndicator) uplineIndicator.style.display = 'none';
+    }
+}
+
+// ================================================================
+// ========== CLOSE BROADCAST HISTORY ==========
+// ================================================================
+
+function closeBroadcastHistory() {
+    // Simpan history sebelum ditutup
+    saveBroadcastHistory(false);
+    saveBroadcastHistory(true);
+    closeModal('broadcastHistoryModal');
 }
 
 // ================================================================
@@ -8107,14 +8183,6 @@ function showContinueModal(item, current, total) {
     });
 }
 
-// ===== CLOSE BROADCAST HISTORY =====
-function closeBroadcastHistory() {
-    // Simpan history sebelum ditutup
-    saveBroadcastHistory(false);
-    saveBroadcastHistory(true);
-    closeModal('broadcastHistoryModal');
-}
-
 // ================================================================
 // ========== SHOW BROADCAST HISTORY ==========
 // ================================================================
@@ -8177,10 +8245,6 @@ function showBroadcastHistory(isUpline = false) {
             const isProspekItem = item.source === 'prospek';
             const statusAwal = item.status_awal || '';
             
-            const isNew = (isCustomer && statusAwal === 'baru') || (isProspekItem && statusAwal === 'Baru');
-            const isFollowup = (isCustomer && (statusAwal === 'followup' || statusAwal === 'pending' || statusAwal === 'closing'));
-            const isDihubungi = (isProspekItem && (statusAwal === 'Dihubungi' || statusAwal === 'Negosiasi' || statusAwal === 'Tertarik'));
-            
             let actionLabel = '';
             let actionIcon = '';
             let actionId = '';
@@ -8195,7 +8259,6 @@ function showBroadcastHistory(isUpline = false) {
                 actionId = 'open_dihubungi';
             }
             
-            // Jika tidak ada tombol
             if (!actionId) {
                 return `
                 <div style="display:flex;align-items:center;gap:8px;padding:8px 12px;margin-bottom:4px;border-radius:8px;background:#f0fdf4;border-left:3px solid #10b981;flex-wrap:wrap;">
@@ -8236,7 +8299,10 @@ function showBroadcastHistory(isUpline = false) {
     });
 }
 
-// ===== HANDLE TOMBOL TINDAKAN DIKLIK =====
+// ================================================================
+// ========== HANDLE TOMBOL TINDAKAN DIKLIK ==========
+// ================================================================
+
 async function handleActionClick(e) {
     e.preventDefault();
     e.stopPropagation();
@@ -8259,7 +8325,6 @@ async function handleActionClick(e) {
         return;
     }
     
-    // Cek apakah sudah diproses
     if (item.processed) {
         showNotifTop('⏳ Data sudah diproses sebelumnya!', true);
         return;
@@ -8271,18 +8336,15 @@ async function handleActionClick(e) {
     btn.style.cursor = 'not-allowed';
     
     try {
-        // ===== BUKA POPUP SESUAI TINDAKAN =====
         if (action === 'open_followup') {
             await openFollowupPopup(item.id);
         } else if (action === 'open_dihubungi') {
             await openDihubungiPopup(item.id);
         }
         
-        // Tandai sudah diproses
         item.processed = true;
         item.processed_at = new Date().toISOString();
         
-        // Simpan history ke localStorage
         saveBroadcastHistory(isUpline);
         
         showNotifTop(`✅ ${item.nama} berhasil diproses!`);
@@ -8299,7 +8361,7 @@ async function handleActionClick(e) {
 }
 
 // ================================================================
-// ========== OPEN POPUP FOLLOWUP (SAMA DENGAN MENU) ==========
+// ========== OPEN POPUP FOLLOWUP ==========
 // ================================================================
 
 async function openFollowupPopup(id) {
@@ -8317,7 +8379,6 @@ async function openFollowupPopup(id) {
     const status = customer.status || 'baru';
     
     if (status === 'baru') {
-        // ===== BARU: LANGSUNG PINDAH KE FOLLOWUP =====
         const newDeadline = addDaysFromToday(1);
         const followupHistory = customer.followup_history || [];
         
@@ -8350,13 +8411,9 @@ async function openFollowupPopup(id) {
         await loadCustomers();
         
     } else if (status === 'followup' || status === 'pending' || status === 'closing') {
-        // ===== FOLLOWUP/PENDING/CLOSING: BUKA POPUP KONFIRMASI FOLLOWUP =====
         if (typeof openFollowupConfirm === 'function') {
-            // Tutup modal history dulu
             closeModal('broadcastHistoryModal');
-            // Buka popup followup confirm
             await openFollowupConfirm(id);
-            // Setelah selesai, refresh history
             setTimeout(() => {
                 showBroadcastHistory(false);
             }, 500);
@@ -8367,7 +8424,7 @@ async function openFollowupPopup(id) {
 }
 
 // ================================================================
-// ========== OPEN POPUP DIHUBUNGI (SAMA DENGAN MENU) ==========
+// ========== OPEN POPUP DIHUBUNGI ==========
 // ================================================================
 
 async function openDihubungiPopup(id) {
@@ -8385,7 +8442,6 @@ async function openDihubungiPopup(id) {
     const status = prospek.status || 'Baru';
     
     if (status === 'Baru') {
-        // ===== BARU: LANGSUNG PINDAH KE DIHUBUNGI =====
         const newDeadline = addDaysFromToday(1);
         const dihubungiHistory = prospek.dihubungi_history || [];
         
@@ -8418,7 +8474,6 @@ async function openDihubungiPopup(id) {
         await loadProspek();
         
     } else if (status === 'Dihubungi' || status === 'Negosiasi' || status === 'Tertarik') {
-        // ===== DIHUBUNGI/NEGOSIASI/TERTARIK: BUKA POPUP KONFIRMASI DIHUBUNGI =====
         if (typeof openProspekDihubungiConfirm === 'function') {
             closeModal('broadcastHistoryModal');
             await openProspekDihubungiConfirm(id);
@@ -8597,8 +8652,9 @@ async function sendBroadcast() {
     isBroadcasting = false;
     setTimeout(() => progress.hide(), 1000);
     
-    // Simpan history ke localStorage
+    // Simpan history
     saveBroadcastHistory(false);
+    updateBroadcastHistoryIndicator();
     
     showBroadcastHistory(false);
     
@@ -8883,8 +8939,8 @@ async function sendUplineBroadcast() {
     isUplineBroadcasting = false;
     setTimeout(() => progress.hide(), 1000);
     
-    // Simpan history ke localStorage
     saveBroadcastHistory(true);
+    updateBroadcastHistoryIndicator();
     
     showBroadcastHistory(true);
     
@@ -8897,11 +8953,8 @@ async function sendUplineBroadcast() {
 function initUplineBroadcast() {
     console.log('initUplineBroadcast dipanggil');
     
-    // Load history dari localStorage
-    const hasHistory = loadBroadcastHistory(true);
-    if (hasHistory) {
-        console.log('📂 Loaded upline broadcast history from localStorage');
-    }
+    loadBroadcastHistory(true);
+    updateBroadcastHistoryIndicator();
     
     const radioButtons = document.querySelectorAll('input[name="uplineSourceType"]');
     radioButtons.forEach(radio => {
@@ -8955,13 +9008,21 @@ function loadAllTemplates() {
     loadBroadcastTemplates();
     loadUplineTemplates();
     
-    // Load history dari localStorage
-    const hasBroadcastHistory = loadBroadcastHistory(false);
-    const hasUplineHistory = loadBroadcastHistory(true);
-    
-    if (hasBroadcastHistory || hasUplineHistory) {
-        console.log('📂 Loaded broadcast history from localStorage');
-    }
+    loadBroadcastHistory(false);
+    loadBroadcastHistory(true);
+    updateBroadcastHistoryIndicator();
+}
+
+// ================================================================
+// ========== INIT BROADCAST PAGE ==========
+// ================================================================
+
+function initBroadcastPage() {
+    loadBroadcastHistory(false);
+    loadBroadcastHistory(true);
+    updateBroadcastHistoryIndicator();
+    loadBroadcastTemplates();
+    loadUplineTemplates();
 }
 
 // ========== SEARCH FUNCTIONS ==========
@@ -10049,16 +10110,34 @@ async function handleLogout() {
 
 // ========== PAGE NAVIGATION ==========
 function navigateTo(page) {
-    const pages = ['dashboardPage', 'followupFullPage', 'prospekFullPage', 'dbAgentPage', 'dbTransaksiPage', 
-                   'dbClosingPage', 'dbTidakPage', 'dbNomorSalahPage', 'dbCommitmentPage', 'produkPage', 
-                   'reminderPage', 'pesanPage', 'broadcastPage', 'broadcastUplinePage', 'searchPage', 
-                   'manageUsersPage', 'importPage'];
+    // Daftar semua halaman
+    const pages = [
+        'dashboardPage', 
+        'followupFullPage', 
+        'prospekFullPage', 
+        'dbAgentPage', 
+        'dbTransaksiPage', 
+        'dbClosingPage', 
+        'dbTidakPage', 
+        'dbNomorSalahPage', 
+        'dbCommitmentPage', 
+        'produkPage', 
+        'reminderPage', 
+        'pesanPage', 
+        'broadcastPage', 
+        'broadcastUplinePage', 
+        'searchPage', 
+        'manageUsersPage', 
+        'importPage'
+    ];
     
+    // Sembunyikan semua halaman
     pages.forEach(p => {
         const el = document.getElementById(p);
         if (el) el.style.display = 'none';
     });
     
+    // Map page ke ID
     const pageMap = {
         'dashboard': 'dashboardPage',
         'followupFull': 'followupFullPage',
@@ -10079,23 +10158,169 @@ function navigateTo(page) {
         'import': 'importPage'
     };
     
+    // Tampilkan halaman yang dipilih
     const target = pageMap[page];
     if (target) {
-        document.getElementById(target).style.display = 'block';
+        const el = document.getElementById(target);
+        if (el) el.style.display = 'block';
     }
     
-    // Inisialisasi broadcast upline jika halaman broadcastUpline
-    if (page === 'broadcastUpline') {
-        setTimeout(() => {
-            if (typeof initUplineBroadcast === 'function') {
-                initUplineBroadcast();
-            }
-        }, 100);
-    }
+    // ===== INISIALISASI PER HALAMAN =====
+    setTimeout(() => {
+        switch(page) {
+            case 'broadcast':
+                // Init Broadcast WhatsApp
+                if (typeof loadBroadcastNumbers === 'function') {
+                    loadBroadcastNumbers();
+                }
+                if (typeof loadBroadcastTemplates === 'function') {
+                    loadBroadcastTemplates();
+                }
+                if (typeof loadBroadcastHistory === 'function') {
+                    loadBroadcastHistory(false);
+                }
+                if (typeof updateBroadcastHistoryIndicator === 'function') {
+                    updateBroadcastHistoryIndicator();
+                }
+                break;
+                
+            case 'broadcastUpline':
+                // Init Broadcast Upline
+                if (typeof initUplineBroadcast === 'function') {
+                    initUplineBroadcast();
+                }
+                if (typeof loadUplineTemplates === 'function') {
+                    loadUplineTemplates();
+                }
+                if (typeof loadBroadcastHistory === 'function') {
+                    loadBroadcastHistory(true);
+                }
+                if (typeof updateBroadcastHistoryIndicator === 'function') {
+                    updateBroadcastHistoryIndicator();
+                }
+                break;
+                
+            case 'dashboard':
+                // Refresh dashboard data
+                if (typeof updateStats === 'function') {
+                    updateStats();
+                }
+                if (typeof updateChartCustomer === 'function') {
+                    updateChartCustomer();
+                }
+                if (typeof updateChartProspek === 'function') {
+                    updateChartProspek();
+                }
+                if (typeof updateTargetDisplay === 'function') {
+                    updateTargetDisplay();
+                }
+                if (typeof updateDeadlineBadge === 'function') {
+                    updateDeadlineBadge();
+                }
+                break;
+                
+            case 'followupFull':
+                if (typeof renderFullFollowupKanban === 'function') {
+                    renderFullFollowupKanban();
+                }
+                break;
+                
+            case 'prospekFull':
+                if (typeof renderFullProspekKanban === 'function') {
+                    renderFullProspekKanban();
+                }
+                break;
+                
+            case 'dbAgent':
+                if (typeof loadDatabaseAgent === 'function') {
+                    loadDatabaseAgent();
+                }
+                break;
+                
+            case 'dbTransaksi':
+                if (typeof loadDbTransaksi === 'function') {
+                    loadDbTransaksi();
+                }
+                break;
+                
+            case 'dbClosing':
+                if (typeof loadDBClosing === 'function') {
+                    loadDBClosing();
+                }
+                break;
+                
+            case 'dbTidak':
+                if (typeof loadDBTidak === 'function') {
+                    loadDBTidak();
+                }
+                break;
+                
+            case 'dbNomorSalah':
+                if (typeof loadDBNomorSalah === 'function') {
+                    loadDBNomorSalah();
+                }
+                break;
+                
+            case 'dbCommitment':
+                if (typeof loadDBCommitment === 'function') {
+                    loadDBCommitment();
+                }
+                break;
+                
+            case 'produk':
+                if (typeof loadProduk === 'function') {
+                    loadProduk();
+                }
+                break;
+                
+            case 'reminder':
+                if (typeof loadReminders === 'function') {
+                    loadReminders();
+                }
+                break;
+                
+            case 'pesan':
+                if (typeof loadMessages === 'function') {
+                    loadMessages();
+                }
+                if (typeof updatePesanBadge === 'function') {
+                    updatePesanBadge();
+                }
+                break;
+                
+            case 'search':
+                // Reset search
+                if (typeof clearSearch === 'function') {
+                    clearSearch();
+                }
+                break;
+                
+            case 'manageUsers':
+                if (typeof loadUsersList === 'function') {
+                    loadUsersList();
+                }
+                break;
+                
+            case 'import':
+                // Nothing to init
+                break;
+                
+            default:
+                break;
+        }
+    }, 150);
     
+    // ===== UPDATE MENU AKTIF =====
     document.querySelectorAll('.menu-item').forEach(m => m.classList.remove('active'));
     const activeMenu = document.querySelector(`.menu-item[data-page="${page}"]`);
     if (activeMenu) activeMenu.classList.add('active');
+    
+    // ===== TUTUP SIDEBAR DI MOBILE =====
+    if (isMobile()) {
+        const sidebar = document.getElementById('sidebar');
+        if (sidebar) sidebar.classList.remove('active');
+        updateSidebarBodyClass();
+    }
 }
 
 // ========== SETUP IMPORT EXCEL ==========
@@ -12034,6 +12259,7 @@ document.getElementById('sendUplineBroadcastBtn')?.addEventListener('click', sen
 // ========== LOAD ALL TEMPLATES & HISTORY ==========
 // ================================================================
 
+// Panggil saat halaman dimuat
 loadAllTemplates();
 
 // Jika ada history tersimpan, tampilkan notifikasi
