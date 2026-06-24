@@ -114,41 +114,53 @@
                 <div class="topbar-center" id="topbarCenter">
                 <!-- Hidden element untuk kompatibilitas -->
                 <span id="topUserName" style="display:none;"></span>
-                <!-- SEARCH BAR DINAMIS - GOOGLE CHROME STYLE -->
-                <div class="search-dinamis-wrapper" id="searchDinamisWrapper">
-                    <div class="search-dinamis-container" id="searchDinamisContainer">
-                        <span class="search-dinamis-icon">🔍</span>
-                        <input 
-                            type="text" 
-                            id="searchDinamisInput" 
-                            placeholder="Cari..." 
-                            class="search-dinamis-input"
-                            autocomplete="off"
-                        >
-                        <button class="search-dinamis-clear" id="searchDinamisClear" style="display:none;">✕</button>
+                <!-- ===== SEARCH BAR DI KANAN (BERGESER KE KIRI) ===== -->
+                <div class="topbar-right">
+                <!-- Search Icon (Trigger) -->
+                <div class="search-right-wrapper" id="searchRightWrapper">
+                    <div class="search-right-trigger" id="searchRightTrigger">
+                        <span class="search-right-icon">🔍</span>
+                        <span class="search-right-label">Cari...</span>
+                        <span class="search-right-shortcut">⌘K</span>
                     </div>
                     
-                    <!-- HASIL PENCARIAN -->
-                    <div class="search-dinamis-results" id="searchDinamisResults" style="display:none;">
-                        <div class="search-dinamis-results-header">
-                            <span id="searchDinamisCount">0</span> hasil ditemukan
+                    <!-- Search Expanded (Bergeser ke kiri) -->
+                    <div class="search-right-expanded" id="searchRightExpanded">
+                        <div class="search-right-inner">
+                            <span class="search-right-icon-expanded">🔍</span>
+                            <input 
+                                type="text" 
+                                id="searchRightInput" 
+                                placeholder="Cari nama, ID Agent, nomor WhatsApp..." 
+                                class="search-right-input"
+                                autocomplete="off"
+                            >
+                            <button class="search-right-clear" id="searchRightClear" style="display:none;">✕</button>
+                            <button class="search-right-close" id="searchRightClose">✕</button>
                         </div>
-                        <div class="search-dinamis-results-list" id="searchDinamisResultsList">
-                            <!-- Hasil akan di-render di sini -->
-                        </div>
-                        <div class="search-dinamis-results-footer">
-                            <kbd>↑</kbd> <kbd>↓</kbd> · <kbd>Enter</kbd> buka · <kbd>Esc</kbd> tutup
+                        
+                        <!-- HASIL PENCARIAN -->
+                        <div class="search-right-results" id="searchRightResults" style="display:none;">
+                            <div class="search-right-results-header">
+                                <span id="searchRightCount">0</span> hasil ditemukan
+                            </div>
+                            <div class="search-right-results-list" id="searchRightResultsList">
+                                <!-- Hasil akan di-render di sini -->
+                            </div>
+                            <div class="search-right-results-footer">
+                                <kbd>↑</kbd> <kbd>↓</kbd> · <kbd>Enter</kbd> buka · <kbd>Esc</kbd> tutup
+                            </div>
                         </div>
                     </div>
                 </div>
+                
+                <!-- Icon Notifikasi & Profile -->
+                <div class="notif-icon" id="infoBtn">⚠️</div>
+                <div class="notif-icon" id="deadlineNotifBtn">📅<span class="badge badge-zero" id="deadlineCount">0</span></div>
+                <div class="notif-icon" id="pesanNotifBtn">💬<span class="badge badge-zero" id="pesanCount">0</span></div>
+                <img class="profile-img" id="profileImg" src="https://i.pravatar.cc/40" alt="Profile">
             </div>
-                <div class="topbar-right">
-                    <div class="notif-icon" id="infoBtn">⚠️</div>
-                    <div class="notif-icon" id="deadlineNotifBtn">📅<span class="badge badge-zero" id="deadlineCount">0</span></div>
-                    <div class="notif-icon" id="pesanNotifBtn">💬<span class="badge badge-zero" id="pesanCount">0</span></div>
-                    <img class="profile-img" id="profileImg" src="https://i.pravatar.cc/40" alt="Profile">
-                </div>
-            </div>
+        </div>
 
             <div class="content-area">
                 <!-- DASHBOARD PAGE -->
