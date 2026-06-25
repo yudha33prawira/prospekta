@@ -799,11 +799,17 @@ async function updateTargetDisplay() {
     
     try {
         // ===== AMBIL TARGET DARI SETTINGS =====
-        const { data, error } = await window.db.from('settings').select('*').eq('key', 'targetKPI').maybeSingle();
+        const { data, error } = await window.db
+            .from('settings')
+            .select('*')
+            .eq('key', 'targetKPI')
+            .eq('user_id', currentUser.id)
+            .maybeSingle();
+        
         if (data && data.value) {
             targetData = data.value;
         } else {
-            targetData = { agent: 10, ca: 20, koordinator: 5, transaksi: 100, monthlyTargets: [] };
+            targetData = { agent: 10, ca: 20, koordinator: 5, transaksi: 100, selisih: 50, monthlyTargets: [] };
         }
         
         // ===== AMBIL DATA DARI DB_AGENT =====
@@ -837,23 +843,22 @@ async function updateTargetDisplay() {
         }
         
         // ===== HITUNG TRANSAKSI DARI DB_TRANSAKSI =====
-        let currentTransaksi = 0;
         const transaksiDataLocal = window.transaksiData || transaksiData || [];
+        let currentTransaksi = 0;
+        let totalBulanLalu = 0;
+        let validCount = 0;
+        
         if (transaksiDataLocal.length > 0) {
             transaksiDataLocal.forEach(t => {
                 // Hanya hitung yang statusnya bukan 'tidak_transaksi'
-                if (t.progres_jenis === 'naik') {
-                    currentTransaksi += Math.abs(t.progres_jumlah || 0);
-                } else if (t.progres_jenis === 'turun') {
-                    // Untuk turun, kurangi
-                    currentTransaksi -= Math.abs(t.progres_jumlah || 0);
-                } else if (t.progres_jenis === 'normal') {
-                    // Normal: tambahkan nilai (bisa positif atau negatif)
-                    currentTransaksi += (t.progres_jumlah || 0);
+                if (t.progres_jenis !== 'tidak_transaksi') {
+                    validCount++;
+                    currentTransaksi += (t.transaksi_bulan_ini || 0);
+                    totalBulanLalu += (t.transaksi_bulan_lalu || 0);
                 }
-                // Tidak transaksi: abaikan (tidak dihitung)
             });
         }
+        const currentSelisih = currentTransaksi - totalBulanLalu;
         
         // ===== UPDATE ELEMEN DOM =====
         const elements = {
@@ -861,7 +866,7 @@ async function updateTargetDisplay() {
             targetKoorValue: targetData.koordinator || 0,
             targetCAValue: targetData.ca || 0,
             targetTransaksiValue: (targetData.transaksi || 0).toLocaleString(),
-            targetAgentReached: currentAgent,
+            targetAgentReached: validCount,
             targetKoorReached: currentKoor,
             targetCAReached: currentCA,
             targetTransaksiReached: currentTransaksi.toLocaleString()
@@ -873,7 +878,7 @@ async function updateTargetDisplay() {
         }
         
         // ===== HITUNG PERSENTASE =====
-        const agentPercent = targetData.agent ? Math.min((currentAgent / targetData.agent) * 100, 100) : 0;
+        const agentPercent = targetData.agent ? Math.min((validCount / targetData.agent) * 100, 100) : 0;
         const koorPercent = targetData.koordinator ? Math.min((currentKoor / targetData.koordinator) * 100, 100) : 0;
         const caPercent = targetData.ca ? Math.min((currentCA / targetData.ca) * 100, 100) : 0;
         const transaksiPercent = targetData.transaksi ? Math.min((currentTransaksi / targetData.transaksi) * 100, 100) : 0;
@@ -890,8 +895,45 @@ async function updateTargetDisplay() {
             if (el) el.style.width = value + '%';
         }
         
+        // ===== CEK APAKAH TARGET TERCAPAI =====
+        const allTargetsMet = agentPercent >= 100 && koorPercent >= 100 && caPercent >= 100 && transaksiPercent >= 100;
+        const headerTarget = document.querySelector('.target-kpi-section .target-header h3');
+        const targetSection = document.querySelector('.target-kpi-section');
+        
+        if (headerTarget) {
+            if (allTargetsMet) {
+                headerTarget.innerHTML = '🥳🎉 SELAMAT! Semua Target Tercapai! 🎉🥳';
+                headerTarget.style.color = '#10b981';
+                headerTarget.style.animation = 'pulseTarget 1.5s ease-in-out infinite';
+                
+                if (targetSection) {
+                    targetSection.classList.remove('target-celebrate');
+                    void targetSection.offsetWidth;
+                    targetSection.classList.add('target-celebrate');
+                    setTimeout(() => {
+                        targetSection.classList.remove('target-celebrate');
+                    }, 5000);
+                }
+                
+                showNotifTop('🥳🎉 SELAMAT! Semua target KPI telah tercapai! 🎉🥳');
+            } else {
+                headerTarget.innerHTML = '🎯 Target & KPI Prospek Agent';
+                headerTarget.style.color = '';
+                headerTarget.style.animation = '';
+                if (targetSection) {
+                    targetSection.classList.remove('target-celebrate');
+                }
+            }
+        }
+        
         // ===== UPDATE CHART =====
-        updateTargetChart([agentPercent, koorPercent, caPercent, transaksiPercent]);
+        const chartData = [
+            agentPercent || 0,
+            koorPercent || 0,
+            caPercent || 0,
+            transaksiPercent || 0
+        ];
+        updateTargetChart(chartData);
         updateTrendChart();
         
     } catch (err) {
@@ -8466,7 +8508,7 @@ async function loadTargetData() {
         if (progressTransaksi) progressTransaksi.style.width = transaksiPercent + '%';
         if (progressSelisih) progressSelisih.style.width = selisihPercent + '%';
         
-        // ===== CEK APAKAH TARGET TERCAPAI =====
+        // ===== CEK APAKAH TARGET TERCAPAI (Agent, Upline, Transaksi) =====
         const allTargetsMet = agentPercent >= 100 && uplinePercent >= 100 && transaksiPercent >= 100;
         const headerTarget = document.querySelector('.target-kpi-section .target-header h3');
         const targetSection = document.querySelector('.target-kpi-section');
@@ -8479,7 +8521,13 @@ async function loadTargetData() {
                 
                 // ===== FLIP CARD ANIMATION =====
                 if (targetSection) {
+                    // Hapus class dulu untuk reset animasi
+                    targetSection.classList.remove('target-celebrate');
+                    // Force reflow
+                    void targetSection.offsetWidth;
+                    // Tambahkan class untuk trigger animasi
                     targetSection.classList.add('target-celebrate');
+                    
                     // Hapus class setelah 5 detik agar bisa diulang
                     setTimeout(() => {
                         targetSection.classList.remove('target-celebrate');
@@ -8499,7 +8547,14 @@ async function loadTargetData() {
         }
         
         // ===== UPDATE CHART (HANYA 3 DATA: Agent, Upline, Transaksi) =====
-        updateTargetChart([agentPercent, uplinePercent, transaksiPercent]);
+        // Pastikan data untuk grafik tidak undefined
+        const chartData = [
+            agentPercent || 0,
+            uplinePercent || 0,
+            transaksiPercent || 0
+        ];
+        console.log('📊 Chart data:', chartData);
+        updateTargetChart(chartData);
         
         // ===== UPDATE TREND CHART =====
         updateTrendChart();
@@ -8520,6 +8575,8 @@ flipStyle.textContent = `
     .target-kpi-section {
         transition: all 0.6s cubic-bezier(0.34, 1.2, 0.64, 1);
         perspective: 1000px;
+        position: relative;
+        overflow: hidden;
     }
     
     .target-kpi-section.target-celebrate {
@@ -8560,6 +8617,7 @@ flipStyle.textContent = `
         opacity: 0.8;
         letter-spacing: 8px;
         white-space: nowrap;
+        z-index: 10;
     }
     
     @keyframes confettiDrop {
@@ -8636,7 +8694,11 @@ flipStyle.textContent = `
         color: #fcd34d !important;
     }
 `;
-document.head.appendChild(flipStyle);
+// Cek apakah style sudah ada
+if (!document.querySelector('#targetCelebrateStyle')) {
+    flipStyle.id = 'targetCelebrateStyle';
+    document.head.appendChild(flipStyle);
+}
 
 // ========== PERBAIKAN: FUNGSI UPDATE TARGET DISPLAY ==========
 
@@ -9031,17 +9093,22 @@ function generateDemoData() {
 // ========== FUNGSI UPDATE TARGET CHART ==========
 function updateTargetChart(percentages) {
     const ctx = document.getElementById('targetChart');
-    if (!ctx) return;
+    if (!ctx) {
+        console.warn('targetChart canvas not found');
+        return;
+    }
     
     if (targetChart) targetChart.destroy();
     
     const isDark = document.body.classList.contains('dark-mode');
     const textColor = isDark ? '#f1f5f9' : '#1e293b';
     
-    // ===== HANYA 3 DATA: Agent, Upline, Transaksi (Tanpa Selisih) =====
-    const data = percentages || [0, 0, 0];
+    // ===== PASTIKAN DATA VALID =====
+    const data = percentages && percentages.length === 3 ? percentages : [0, 0, 0];
     const labels = ['👤 Agent', '👥 Upline', '📊 Transaksi'];
     const colors = ['#667eea', '#4facfe', '#f093fb'];
+    
+    console.log('📊 Rendering chart with data:', data);
     
     targetChart = new Chart(ctx, {
         type: 'bar',
