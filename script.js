@@ -8350,98 +8350,110 @@ async function deleteDBItem(collection, id) {
 async function loadTargetData() {
     if (!currentUser) return;
     
-    // ===== AMBIL TARGET DARI SETTINGS =====
-    const { data, error } = await window.db.from('settings').select('*').eq('key', 'targetKPI').maybeSingle();
-    if (data && data.value) {
-        targetData = data.value;
-    } else {
-        targetData = { agent: 10, ca: 20, koordinator: 5, transaksi: 100, monthlyTargets: [] };
+    try {
+        // ===== AMBIL TARGET DARI SETTINGS =====
+        const { data, error } = await window.db
+            .from('settings')
+            .select('*')
+            .eq('key', 'targetKPI')
+            .eq('user_id', currentUser.id) // <-- TAMBAHKAN INI
+            .maybeSingle();
+        
+        if (data && data.value) {
+            targetData = data.value;
+        } else {
+            targetData = { agent: 10, ca: 20, koordinator: 5, transaksi: 100, monthlyTargets: [] };
+        }
+        
+        // ===== AMBIL DATA DARI DB_AGENT =====
+        let query = window.db.from('db_agent').select('*');
+        if (currentUserRole !== 'owner') {
+            query = query.eq('user_id', currentUser.id);
+        }
+        const { data: agents, error: agentError } = await query;
+        
+        if (agentError) {
+            console.error('Error loading agents for target:', agentError);
+            return;
+        }
+        
+        // ===== HITUNG BERDASARKAN AGENT_TYPE =====
+        let currentAgent = 0;
+        let currentKoor = 0;
+        let currentCA = 0;
+        
+        if (agents) {
+            agents.forEach(agent => {
+                const type = agent.agent_type || '';
+                if (type === 'AGENT' || type === 'Agent') {
+                    currentAgent++;
+                } else if (type.includes('KORWIL') || type === 'Koordinator Wilayah (KORWIL)') {
+                    currentKoor++;
+                } else if (type.includes('CA') || type === 'CollectingAgent (CA)') {
+                    currentCA++;
+                }
+            });
+        }
+        
+        // ===== HITUNG TRANSAKSI DARI DB_TRANSAKSI =====
+        let currentTransaksi = 0;
+        if (transaksiData && transaksiData.length > 0) {
+            transaksiData.forEach(t => {
+                if (t.progres_jenis === 'naik') {
+                    currentTransaksi += Math.abs(t.progres_jumlah || 0);
+                } else if (t.progres_jenis === 'turun') {
+                    currentTransaksi -= Math.abs(t.progres_jumlah || 0);
+                } else {
+                    currentTransaksi += (t.progres_jumlah || 0);
+                }
+            });
+        }
+        
+        // ===== UPDATE DISPLAY =====
+        const targetAgentEl = document.getElementById('targetAgentValue');
+        const targetKoorEl = document.getElementById('targetKoorValue');
+        const targetCAEl = document.getElementById('targetCAValue');
+        const targetTransaksiEl = document.getElementById('targetTransaksiValue');
+        
+        const reachedAgentEl = document.getElementById('targetAgentReached');
+        const reachedKoorEl = document.getElementById('targetKoorReached');
+        const reachedCAEl = document.getElementById('targetCAReached');
+        const reachedTransaksiEl = document.getElementById('targetTransaksiReached');
+        
+        const progressAgent = document.getElementById('targetAgentProgress');
+        const progressKoor = document.getElementById('targetKoorProgress');
+        const progressCA = document.getElementById('targetCAProgress');
+        const progressTransaksi = document.getElementById('targetTransaksiProgress');
+        
+        if (targetAgentEl) targetAgentEl.innerText = targetData.agent || 0;
+        if (targetKoorEl) targetKoorEl.innerText = targetData.koordinator || 0;
+        if (targetCAEl) targetCAEl.innerText = targetData.ca || 0;
+        if (targetTransaksiEl) targetTransaksiEl.innerText = (targetData.transaksi || 0).toLocaleString();
+        
+        if (reachedAgentEl) reachedAgentEl.innerText = currentAgent;
+        if (reachedKoorEl) reachedKoorEl.innerText = currentKoor;
+        if (reachedCAEl) reachedCAEl.innerText = currentCA;
+        if (reachedTransaksiEl) reachedTransaksiEl.innerText = currentTransaksi.toLocaleString();
+        
+        // ===== HITUNG PERSENTASE =====
+        const agentPercent = targetData.agent ? Math.min((currentAgent / targetData.agent) * 100, 100) : 0;
+        const koorPercent = targetData.koordinator ? Math.min((currentKoor / targetData.koordinator) * 100, 100) : 0;
+        const caPercent = targetData.ca ? Math.min((currentCA / targetData.ca) * 100, 100) : 0;
+        const transaksiPercent = targetData.transaksi ? Math.min((currentTransaksi / targetData.transaksi) * 100, 100) : 0;
+        
+        if (progressAgent) progressAgent.style.width = agentPercent + '%';
+        if (progressKoor) progressKoor.style.width = koorPercent + '%';
+        if (progressCA) progressCA.style.width = caPercent + '%';
+        if (progressTransaksi) progressTransaksi.style.width = transaksiPercent + '%';
+        
+        // ===== UPDATE CHART =====
+        updateTargetChart([agentPercent, koorPercent, caPercent, transaksiPercent]);
+        updateTrendChart();
+        
+    } catch (err) {
+        console.error('Error loading target data:', err);
+        showNotifTop('❌ Gagal memuat target: ' + err.message, true);
     }
-    
-    // ===== AMBIL DATA DARI DB_AGENT =====
-    let query = window.db.from('db_agent').select('*');
-    if (currentUserRole !== 'owner') {
-        query = query.eq('user_id', currentUser.id);
-    }
-    const { data: agents, error: agentError } = await query;
-    
-    if (agentError) {
-        console.error('Error loading agents for target:', agentError);
-        return;
-    }
-    
-    // ===== HITUNG BERDASARKAN AGENT_TYPE =====
-    let currentAgent = 0;
-    let currentKoor = 0;
-    let currentCA = 0;
-    
-    if (agents) {
-        agents.forEach(agent => {
-            const type = agent.agent_type || '';
-            if (type === 'AGENT' || type === 'Agent') {
-                currentAgent++;
-            } else if (type.includes('KORWIL') || type === 'Koordinator Wilayah (KORWIL)') {
-                currentKoor++;
-            } else if (type.includes('CA') || type === 'CollectingAgent (CA)') {
-                currentCA++;
-            }
-        });
-    }
-    
-    // ===== HITUNG TRANSAKSI DARI DB_TRANSAKSI =====
-    let currentTransaksi = 0;
-    if (transaksiData && transaksiData.length > 0) {
-        transaksiData.forEach(t => {
-            if (t.progres_jenis === 'naik') {
-                currentTransaksi += Math.abs(t.progres_jumlah || 0);
-            } else if (t.progres_jenis === 'turun') {
-                currentTransaksi -= Math.abs(t.progres_jumlah || 0);
-            } else {
-                currentTransaksi += (t.progres_jumlah || 0);
-            }
-        });
-    }
-    
-    // ===== UPDATE DISPLAY =====
-    const targetAgentEl = document.getElementById('targetAgentValue');
-    const targetKoorEl = document.getElementById('targetKoorValue');
-    const targetCAEl = document.getElementById('targetCAValue');
-    const targetTransaksiEl = document.getElementById('targetTransaksiValue');
-    
-    const reachedAgentEl = document.getElementById('targetAgentReached');
-    const reachedKoorEl = document.getElementById('targetKoorReached');
-    const reachedCAEl = document.getElementById('targetCAReached');
-    const reachedTransaksiEl = document.getElementById('targetTransaksiReached');
-    
-    const progressAgent = document.getElementById('targetAgentProgress');
-    const progressKoor = document.getElementById('targetKoorProgress');
-    const progressCA = document.getElementById('targetCAProgress');
-    const progressTransaksi = document.getElementById('targetTransaksiProgress');
-    
-    if (targetAgentEl) targetAgentEl.innerText = targetData.agent || 0;
-    if (targetKoorEl) targetKoorEl.innerText = targetData.koordinator || 0;
-    if (targetCAEl) targetCAEl.innerText = targetData.ca || 0;
-    if (targetTransaksiEl) targetTransaksiEl.innerText = (targetData.transaksi || 0).toLocaleString();
-    
-    if (reachedAgentEl) reachedAgentEl.innerText = currentAgent;
-    if (reachedKoorEl) reachedKoorEl.innerText = currentKoor;
-    if (reachedCAEl) reachedCAEl.innerText = currentCA;
-    if (reachedTransaksiEl) reachedTransaksiEl.innerText = currentTransaksi.toLocaleString();
-    
-    // ===== HITUNG PERSENTASE =====
-    const agentPercent = targetData.agent ? Math.min((currentAgent / targetData.agent) * 100, 100) : 0;
-    const koorPercent = targetData.koordinator ? Math.min((currentKoor / targetData.koordinator) * 100, 100) : 0;
-    const caPercent = targetData.ca ? Math.min((currentCA / targetData.ca) * 100, 100) : 0;
-    const transaksiPercent = targetData.transaksi ? Math.min((currentTransaksi / targetData.transaksi) * 100, 100) : 0;
-    
-    if (progressAgent) progressAgent.style.width = agentPercent + '%';
-    if (progressKoor) progressKoor.style.width = koorPercent + '%';
-    if (progressCA) progressCA.style.width = caPercent + '%';
-    if (progressTransaksi) progressTransaksi.style.width = transaksiPercent + '%';
-    
-    // ===== UPDATE CHART =====
-    updateTargetChart([agentPercent, koorPercent, caPercent, transaksiPercent]);
-    updateTrendChart();
 }
 
 function updateTargetChart(percentages) {
@@ -8649,21 +8661,59 @@ async function saveTargetData() {
         updated_at: new Date().toISOString()
     };
     
-    const { error } = await window.db.from('settings').upsert({
-        key: 'targetKPI',
-        value: newTarget,
-        updated_at: new Date().toISOString()
-    });
-    
-    if (error) {
+    try {
+        // ===== CEK APAKAH DATA SUDAH ADA =====
+        const { data: existingData, error: checkError } = await window.db
+            .from('settings')
+            .select('id, user_id')
+            .eq('key', 'targetKPI')
+            .maybeSingle();
+        
+        if (checkError && checkError.code !== 'PGRST116') {
+            throw checkError;
+        }
+        
+        let result;
+        
+        if (existingData) {
+            // ===== UPDATE DATA YANG SUDAH ADA =====
+            const { data, error } = await window.db
+                .from('settings')
+                .update({
+                    value: newTarget,
+                    updated_at: new Date().toISOString()
+                })
+                .eq('id', existingData.id)
+                .select();
+            
+            if (error) throw error;
+            result = data;
+        } else {
+            // ===== INSERT DATA BARU DENGAN USER_ID =====
+            const { data, error } = await window.db
+                .from('settings')
+                .insert({
+                    key: 'targetKPI',
+                    value: newTarget,
+                    user_id: currentUser.id, // <-- INI PENTING!
+                    created_at: new Date().toISOString(),
+                    updated_at: new Date().toISOString()
+                })
+                .select();
+            
+            if (error) throw error;
+            result = data;
+        }
+        
+        targetData = newTarget;
+        showNotifTop('✅ Target berhasil disimpan!');
+        closeModal('manageTargetModal');
+        await updateTargetDisplay();
+        
+    } catch (error) {
+        console.error('Error saving target:', error);
         showNotifTop('❌ Gagal menyimpan target: ' + error.message, true);
-        return;
     }
-    
-    targetData = newTarget;
-    showNotifTop('✅ Target berhasil disimpan!');
-    closeModal('manageTargetModal');
-    await updateTargetDisplay();
 }
 
 // ================================================================
