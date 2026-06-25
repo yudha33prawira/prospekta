@@ -8492,45 +8492,32 @@ async function loadTargetData() {
     }
 }
 
-// ========== TAMBAHKAN CSS UNTUK FLIP ANIMATION ==========
+const existingStyle = document.querySelector('#targetCelebrateStyle');
+if (existingStyle) {
+    existingStyle.remove();
+}
 
-const flipStyle = document.createElement('style');
-flipStyle.textContent = `
-    /* ===== TARGET CELEBRATE - FLIP ANIMATION ===== */
-    .target-kpi-section {
-        transition: all 0.6s cubic-bezier(0.34, 1.2, 0.64, 1);
-        perspective: 1000px;
-        position: relative;
-        overflow: hidden;
+// Tambahkan style baru tanpa flip animation
+const newStyle = document.createElement('style');
+newStyle.id = 'targetCelebrateStyle';
+newStyle.textContent = `
+    /* ===== PULSE TARGET HEADER ===== */
+    @keyframes pulseTarget {
+        0% { transform: scale(1); }
+        50% { transform: scale(1.03); }
+        100% { transform: scale(1); }
     }
     
-    .target-kpi-section.target-celebrate {
-        animation: celebrateFlip 0.8s ease-in-out;
+    /* ===== CELEBRATE BACKGROUND (tanpa flip) ===== */
+    .target-kpi-section.celebrate {
         background: linear-gradient(135deg, #fef3c7, #fde68a, #fcd34d) !important;
         border-color: #f59e0b !important;
         box-shadow: 0 0 40px rgba(245, 158, 11, 0.3) !important;
-    }
-    
-    @keyframes celebrateFlip {
-        0% {
-            transform: rotateY(0deg) scale(1);
-        }
-        25% {
-            transform: rotateY(90deg) scale(1.05);
-        }
-        50% {
-            transform: rotateY(180deg) scale(1.1);
-        }
-        75% {
-            transform: rotateY(270deg) scale(1.05);
-        }
-        100% {
-            transform: rotateY(360deg) scale(1);
-        }
+        transition: all 0.6s ease !important;
     }
     
     /* ===== CELEBRATE CONFETTI EFFECT ===== */
-    .target-kpi-section.target-celebrate::before {
+    .target-kpi-section.celebrate::before {
         content: '🎉🥳🎉🥳🎉🥳🎉🥳';
         position: absolute;
         top: -20px;
@@ -8546,271 +8533,241 @@ flipStyle.textContent = `
     }
     
     @keyframes confettiDrop {
-        0% {
-            transform: translateX(-50%) translateY(-20px) rotate(0deg);
-            opacity: 0;
-        }
-        20% {
-            opacity: 1;
-        }
-        80% {
-            opacity: 1;
-        }
-        100% {
-            transform: translateX(-50%) translateY(10px) rotate(360deg);
-            opacity: 0;
-        }
+        0% { transform: translateX(-50%) translateY(-20px) rotate(0deg); opacity: 0; }
+        20% { opacity: 1; }
+        80% { opacity: 1; }
+        100% { transform: translateX(-50%) translateY(10px) rotate(360deg); opacity: 0; }
     }
     
-    /* ===== PULSE TARGET HEADER ===== */
-    @keyframes pulseTarget {
-        0% { transform: scale(1); }
-        50% { transform: scale(1.03); }
-        100% { transform: scale(1); }
-    }
-    
-    /* ===== KARTU TARGET CELEBRATE ===== */
-    .target-kpi-section.target-celebrate .target-card {
+    /* ===== KARTU TARGET CELEBRATE (tanpa flip) ===== */
+    .target-kpi-section.celebrate .target-card {
         animation: cardCelebrate 0.8s ease-in-out;
     }
     
-    .target-kpi-section.target-celebrate .target-card:nth-child(1) { animation-delay: 0.0s; }
-    .target-kpi-section.target-celebrate .target-card:nth-child(2) { animation-delay: 0.1s; }
-    .target-kpi-section.target-celebrate .target-card:nth-child(3) { animation-delay: 0.2s; }
-    .target-kpi-section.target-celebrate .target-card:nth-child(4) { animation-delay: 0.3s; }
+    .target-kpi-section.celebrate .target-card:nth-child(1) { animation-delay: 0.0s; }
+    .target-kpi-section.celebrate .target-card:nth-child(2) { animation-delay: 0.1s; }
+    .target-kpi-section.celebrate .target-card:nth-child(3) { animation-delay: 0.2s; }
+    .target-kpi-section.celebrate .target-card:nth-child(4) { animation-delay: 0.3s; }
     
     @keyframes cardCelebrate {
-        0% {
-            transform: scale(1) rotate(0deg);
-        }
-        25% {
-            transform: scale(1.05) rotate(-3deg);
-        }
-        50% {
-            transform: scale(1.1) rotate(3deg);
-        }
-        75% {
-            transform: scale(1.05) rotate(-2deg);
-        }
-        100% {
-            transform: scale(1) rotate(0deg);
-        }
-    }
-    
-    /* ===== HOVER KEMBALI NORMAL ===== */
-    .target-kpi-section.target-celebrate:hover {
-        animation: none !important;
-        transform: none !important;
-        background: linear-gradient(135deg, #fef3c7, #fde68a, #fcd34d) !important;
-    }
-    
-    .target-kpi-section.target-celebrate:hover .target-card {
-        animation: none !important;
-        transform: none !important;
+        0% { transform: scale(1); }
+        25% { transform: scale(1.05); }
+        50% { transform: scale(1.08); }
+        75% { transform: scale(1.05); }
+        100% { transform: scale(1); }
     }
     
     /* ===== DARK MODE ===== */
-    body.dark-mode .target-kpi-section.target-celebrate {
+    body.dark-mode .target-kpi-section.celebrate {
         background: linear-gradient(135deg, #451a03, #78350f, #92400e) !important;
         border-color: #f59e0b !important;
     }
     
-    body.dark-mode .target-kpi-section.target-celebrate .target-header h3 {
+    body.dark-mode .target-kpi-section.celebrate .target-header h3 {
         color: #fcd34d !important;
     }
+    
+    /* ===== TARGET CARD CLICKABLE ===== */
+    .target-card {
+        cursor: pointer !important;
+        transition: all 0.3s ease !important;
+    }
+    
+    .target-card:hover {
+        transform: translateY(-6px) !important;
+        box-shadow: 0 20px 30px -12px rgba(0, 0, 0, 0.3) !important;
+    }
+    
+    .target-card:active {
+        transform: translateY(-2px) !important;
+    }
 `;
-// Cek apakah style sudah ada
-if (!document.querySelector('#targetCelebrateStyle')) {
-    const flipStyle = document.createElement('style');
-    flipStyle.id = 'targetCelebrateStyle';
-    flipStyle.textContent = `
-        /* ===== TARGET CELEBRATE - FLIP ANIMATION ===== */
-        .target-kpi-section {
-            transition: all 0.6s cubic-bezier(0.34, 1.2, 0.64, 1);
-            perspective: 1000px;
-            position: relative;
-            overflow: hidden;
-        }
-        
-        .target-kpi-section.target-celebrate {
-            animation: celebrateFlip 0.8s ease-in-out;
-            background: linear-gradient(135deg, #fef3c7, #fde68a, #fcd34d) !important;
-            border-color: #f59e0b !important;
-            box-shadow: 0 0 40px rgba(245, 158, 11, 0.3) !important;
-        }
-        
-        @keyframes celebrateFlip {
-            0% { transform: rotateY(0deg) scale(1); }
-            25% { transform: rotateY(90deg) scale(1.05); }
-            50% { transform: rotateY(180deg) scale(1.1); }
-            75% { transform: rotateY(270deg) scale(1.05); }
-            100% { transform: rotateY(360deg) scale(1); }
-        }
-        
-        /* ===== CELEBRATE CONFETTI EFFECT ===== */
-        .target-kpi-section.target-celebrate::before {
-            content: '🎉🥳🎉🥳🎉🥳🎉🥳';
-            position: absolute;
-            top: -20px;
-            left: 50%;
-            transform: translateX(-50%);
-            font-size: 32px;
-            animation: confettiDrop 1.5s ease-in-out infinite;
-            pointer-events: none;
-            opacity: 0.8;
-            letter-spacing: 8px;
-            white-space: nowrap;
-            z-index: 10;
-        }
-        
-        @keyframes confettiDrop {
-            0% { transform: translateX(-50%) translateY(-20px) rotate(0deg); opacity: 0; }
-            20% { opacity: 1; }
-            80% { opacity: 1; }
-            100% { transform: translateX(-50%) translateY(10px) rotate(360deg); opacity: 0; }
-        }
-        
-        /* ===== PULSE TARGET HEADER ===== */
-        @keyframes pulseTarget {
-            0% { transform: scale(1); }
-            50% { transform: scale(1.03); }
-            100% { transform: scale(1); }
-        }
-        
-        /* ===== KARTU TARGET CELEBRATE ===== */
-        .target-kpi-section.target-celebrate .target-card {
-            animation: cardCelebrate 0.8s ease-in-out;
-        }
-        
-        .target-kpi-section.target-celebrate .target-card:nth-child(1) { animation-delay: 0.0s; }
-        .target-kpi-section.target-celebrate .target-card:nth-child(2) { animation-delay: 0.1s; }
-        .target-kpi-section.target-celebrate .target-card:nth-child(3) { animation-delay: 0.2s; }
-        .target-kpi-section.target-celebrate .target-card:nth-child(4) { animation-delay: 0.3s; }
-        
-        @keyframes cardCelebrate {
-            0% { transform: scale(1) rotate(0deg); }
-            25% { transform: scale(1.05) rotate(-3deg); }
-            50% { transform: scale(1.1) rotate(3deg); }
-            75% { transform: scale(1.05) rotate(-2deg); }
-            100% { transform: scale(1) rotate(0deg); }
-        }
-        
-        /* ===== HOVER KEMBALI NORMAL ===== */
-        .target-kpi-section.target-celebrate:hover {
-            animation: none !important;
-            transform: none !important;
-        }
-        
-        .target-kpi-section.target-celebrate:hover .target-card {
-            animation: none !important;
-            transform: none !important;
-        }
-        
-        /* ===== DARK MODE ===== */
-        body.dark-mode .target-kpi-section.target-celebrate {
-            background: linear-gradient(135deg, #451a03, #78350f, #92400e) !important;
-            border-color: #f59e0b !important;
-        }
-        
-        body.dark-mode .target-kpi-section.target-celebrate .target-header h3 {
-            color: #fcd34d !important;
-        }
-        
-        /* ===== TARGET CARD CLICKABLE ===== */
-        .target-card {
-            cursor: pointer !important;
-            transition: all 0.3s ease !important;
-        }
-        
-        .target-card:hover {
-            transform: translateY(-6px) !important;
-            box-shadow: 0 20px 30px -12px rgba(0, 0, 0, 0.3) !important;
-        }
-        
-        .target-card:active {
-            transform: translateY(-2px) !important;
-        }
-    `;
-    document.head.appendChild(flipStyle);
-}
+document.head.appendChild(newStyle);
 
-// ========== 5. TAMBAHKAN EVENT CLICK PADA TARGET CARD ==========
+// ================================================================
+// ========== UPDATE FUNGSI INIT TARGET CARD CLICK ==========
+// ================================================================
 
 function initTargetCardClick() {
+    console.log('🔄 Inisialisasi click target card...');
+    
     const targetCards = document.querySelectorAll('.target-card');
+    console.log(`📊 Ditemukan ${targetCards.length} target card`);
+    
     targetCards.forEach((card, index) => {
-        // Hapus listener lama
+        // Hapus listener lama dengan clone
         const newCard = card.cloneNode(true);
         card.parentNode.replaceChild(newCard, card);
         
-        newCard.addEventListener('click', function() {
-            const labels = ['Agent', 'Upline', 'Transaksi', 'Selisih'];
-            const label = labels[index] || 'Target';
+        const freshCard = document.querySelectorAll('.target-card')[index];
+        if (freshCard) {
+            freshCard.style.cursor = 'pointer';
+            freshCard.style.transition = 'all 0.3s ease';
             
-            // Ambil nilai dari card
-            const valueEl = this.querySelector('.target-card-value');
-            const reachedEl = this.querySelector('.target-card-sub span');
-            const progressEl = this.querySelector('.progress-bar div');
+            freshCard.addEventListener('click', function(e) {
+                e.preventDefault();
+                e.stopPropagation();
+                
+                console.log(`🖱️ Target card ${index} diklik`);
+                
+                const labels = ['Agent', 'Upline', 'Transaksi', 'Selisih'];
+                const label = labels[index] || 'Target';
+                
+                const valueEl = this.querySelector('.target-card-value');
+                const reachedEl = this.querySelector('.target-card-sub span');
+                const progressEl = this.querySelector('.progress-bar div');
+                
+                const targetValue = valueEl ? valueEl.innerText : '0';
+                const reachedValue = reachedEl ? reachedEl.innerText : '0';
+                const progressWidth = progressEl ? progressEl.style.width : '0%';
+                
+                console.log(`📊 ${label}: Target=${targetValue}, Tercapai=${reachedValue}, Progress=${progressWidth}`);
+                
+                showTargetDetailModal(label, targetValue, reachedValue, progressWidth);
+            });
             
-            const targetValue = valueEl ? valueEl.innerText : '0';
-            const reachedValue = reachedEl ? reachedEl.innerText : '0';
-            const progressWidth = progressEl ? progressEl.style.width : '0%';
+            freshCard.addEventListener('mouseenter', function() {
+                this.style.transform = 'translateY(-8px) scale(1.02)';
+                this.style.boxShadow = '0 20px 40px -12px rgba(0,0,0,0.25)';
+            });
             
-            showTargetDetailModal(label, targetValue, reachedValue, progressWidth);
-        });
+            freshCard.addEventListener('mouseleave', function() {
+                this.style.transform = '';
+                this.style.boxShadow = '';
+            });
+        }
     });
 }
 
 // ========== 6. FUNGSI SHOW TARGET DETAIL MODAL ==========
 
+// ================================================================
+// ========== UPDATE FUNGSI SHOW TARGET DETAIL MODAL ==========
+// ================================================================
+
 function showTargetDetailModal(label, targetValue, reachedValue, progressWidth) {
-    const isComplete = progressWidth === '100%' || parseFloat(progressWidth) >= 100;
+    // Parse progress width untuk mendapatkan persentase
+    let percent = 0;
+    if (typeof progressWidth === 'string') {
+        percent = parseFloat(progressWidth) || 0;
+    } else if (typeof progressWidth === 'number') {
+        percent = progressWidth;
+    }
     
+    const isComplete = percent >= 100;
+    const targetNum = parseInt(String(targetValue).replace(/[^0-9]/g, '')) || 0;
+    const reachedNum = parseInt(String(reachedValue).replace(/[^0-9]/g, '')) || 0;
+    
+    // Pilih emoji berdasarkan label
+    let emoji = '🎯';
+    let color = '#4f46e5';
+    if (label === 'Agent') { emoji = '👤'; color = '#667eea'; }
+    else if (label === 'Upline') { emoji = '👥'; color = '#4facfe'; }
+    else if (label === 'Transaksi') { emoji = '📊'; color = '#f093fb'; }
+    else if (label === 'Selisih') { emoji = '📈'; color = '#fa709a'; }
+    
+    // HTML untuk modal
     const modalHtml = `
-        <div class="modal-content" style="max-width: 400px;">
-            <h3>🎯 Detail Target ${label}</h3>
-            <div class="modal-subtitle">Informasi lengkap target</div>
-            <div style="padding: 0 20px 20px;">
-                <div style="background: #f9fafb; border-radius: 14px; padding: 16px;">
-                    <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 12px;">
-                        <div style="text-align: center; background: #eef2ff; border-radius: 10px; padding: 12px;">
-                            <div style="font-size: 11px; color: #6b7280;">🎯 Target</div>
-                            <div style="font-size: 24px; font-weight: 800; color: #4f46e5;">${targetValue}</div>
-                        </div>
-                        <div style="text-align: center; background: #d1fae5; border-radius: 10px; padding: 12px;">
-                            <div style="font-size: 11px; color: #6b7280;">✅ Tercapai</div>
-                            <div style="font-size: 24px; font-weight: 800; color: #10b981;">${reachedValue}</div>
-                        </div>
+        <div class="modal-content" style="max-width: 420px; border-radius: 24px; overflow: hidden; background: #fff;">
+            <!-- Header dengan gradient -->
+            <div style="background: linear-gradient(135deg, ${color}, ${color}dd); padding: 24px 24px 20px; color: white;">
+                <div style="display: flex; align-items: center; gap: 12px;">
+                    <span style="font-size: 32px;">${emoji}</span>
+                    <div>
+                        <h3 style="font-size: 20px; font-weight: 700; margin: 0; color: white;">Detail Target ${label}</h3>
+                        <p style="font-size: 13px; opacity: 0.9; margin: 4px 0 0;">Informasi lengkap pencapaian target</p>
                     </div>
-                    <div style="margin-top: 12px;">
-                        <div style="display: flex; justify-content: space-between; font-size: 13px; color: #6b7280; margin-bottom: 4px;">
-                            <span>Progress</span>
-                            <span>${progressWidth}</span>
-                        </div>
-                        <div style="background: #e5e7eb; border-radius: 10px; height: 8px; overflow: hidden;">
-                            <div style="width: ${progressWidth}; height: 100%; background: linear-gradient(135deg, #4f46e5, #8b5cf6); border-radius: 10px;"></div>
-                        </div>
-                    </div>
-                    ${isComplete ? `
-                        <div style="margin-top: 12px; text-align: center; padding: 10px; background: #fef3c7; border-radius: 10px; border-left: 4px solid #f59e0b;">
-                            <span style="font-size: 16px;">🥳🎉 Target ${label} TERCAPAI! 🎉🥳</span>
-                        </div>
-                    ` : `
-                        <div style="margin-top: 12px; text-align: center; padding: 10px; background: #f3f4f6; border-radius: 10px;">
-                            <span style="font-size: 13px; color: #6b7280;">Terus semangat mencapai target! 💪</span>
-                        </div>
-                    `}
                 </div>
             </div>
-            <div class="modal-buttons">
-                <button onclick="closeModal('detailModal')" class="btn-primary" style="width: 100%;">Tutup</button>
+            
+            <!-- Body -->
+            <div style="padding: 24px;">
+                <!-- Statistik Utama -->
+                <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 16px; margin-bottom: 20px;">
+                    <div style="background: #f1f5f9; border-radius: 14px; padding: 16px; text-align: center; border-left: 4px solid ${color};">
+                        <div style="font-size: 11px; color: #6b7280; font-weight: 600; text-transform: uppercase; letter-spacing: 0.5px;">🎯 Target</div>
+                        <div style="font-size: 28px; font-weight: 800; color: ${color}; margin-top: 4px;">${targetNum.toLocaleString()}</div>
+                    </div>
+                    <div style="background: ${isComplete ? '#d1fae5' : '#f1f5f9'}; border-radius: 14px; padding: 16px; text-align: center; border-left: 4px solid ${isComplete ? '#10b981' : '#9ca3af'};">
+                        <div style="font-size: 11px; color: #6b7280; font-weight: 600; text-transform: uppercase; letter-spacing: 0.5px;">✅ Tercapai</div>
+                        <div style="font-size: 28px; font-weight: 800; color: ${isComplete ? '#10b981' : '#6b7280'}; margin-top: 4px;">${reachedNum.toLocaleString()}</div>
+                    </div>
+                </div>
+                
+                <!-- Progress Bar -->
+                <div style="margin-bottom: 16px;">
+                    <div style="display: flex; justify-content: space-between; font-size: 13px; color: #6b7280; margin-bottom: 6px;">
+                        <span>📊 Progress</span>
+                        <span style="font-weight: 700; color: ${color};">${Math.round(percent)}%</span>
+                    </div>
+                    <div style="background: #e5e7eb; border-radius: 10px; height: 10px; overflow: hidden; position: relative;">
+                        <div style="width: ${Math.min(percent, 100)}%; height: 100%; background: linear-gradient(90deg, ${color}, ${color}dd); border-radius: 10px; transition: width 0.6s ease;"></div>
+                    </div>
+                </div>
+                
+                <!-- Status -->
+                ${isComplete ? `
+                    <div style="background: linear-gradient(135deg, #fef3c7, #fde68a); border-radius: 14px; padding: 16px 20px; text-align: center; border: 2px solid #f59e0b; animation: pulseCelebrate 1.5s ease-in-out infinite;">
+                        <div style="font-size: 28px; margin-bottom: 4px;">🥳🎉</div>
+                        <div style="font-size: 18px; font-weight: 800; color: #92400e;">Target ${label} TERCAPAI!</div>
+                        <div style="font-size: 13px; color: #78350f; margin-top: 4px;">Selamat! Target telah berhasil dicapai 🎊</div>
+                    </div>
+                ` : `
+                    <div style="background: #f3f4f6; border-radius: 14px; padding: 16px 20px; text-align: center;">
+                        <div style="font-size: 24px; margin-bottom: 4px;">💪</div>
+                        <div style="font-size: 15px; font-weight: 600; color: #374151;">Terus Semangat!</div>
+                        <div style="font-size: 13px; color: #6b7280; margin-top: 4px;">${Math.round(100 - percent)}% lagi menuju target</div>
+                    </div>
+                `}
+            </div>
+            
+            <!-- Footer -->
+            <div style="padding: 16px 24px 24px; border-top: 1px solid #e5e7eb;">
+                <button onclick="closeTargetDetailModal()" class="btn-primary" style="width: 100%; padding: 12px; border: none; border-radius: 14px; font-weight: 600; cursor: pointer; background: linear-gradient(135deg, #4f46e5, #6366f1); color: white; transition: all 0.3s;">
+                    Tutup
+                </button>
             </div>
         </div>
     `;
     
-    document.getElementById('detailContent').innerHTML = modalHtml;
-    showModal('detailModal');
-    applyDarkModeToModal(document.getElementById('detailModal'));
+    // ===== BUAT MODAL KHUSUS =====
+    const existingModal = document.getElementById('targetDetailModal');
+    if (existingModal) {
+        existingModal.remove();
+    }
+    
+    const modal = document.createElement('div');
+    modal.id = 'targetDetailModal';
+    modal.className = 'modal';
+    modal.style.cssText = `
+        position: fixed !important;
+        top: 0 !important;
+        left: 0 !important;
+        width: 100% !important;
+        height: 100% !important;
+        background: rgba(0, 0, 0, 0.7) !important;
+        display: flex !important;
+        justify-content: center !important;
+        align-items: center !important;
+        z-index: 999999999 !important;
+        backdrop-filter: blur(5px) !important;
+        pointer-events: auto !important;
+    `;
+    modal.innerHTML = modalHtml;
+    
+    document.body.appendChild(modal);
+    document.body.classList.add('modal-open');
+    document.body.style.overflow = 'hidden';
+    
+    modal.addEventListener('click', function(e) {
+        if (e.target === this) {
+            closeTargetDetailModal();
+        }
+    });
+    
+    if (document.body.classList.contains('dark-mode')) {
+        applyDarkModeToModal(modal);
+    }
 }
 
 // ========== PERBAIKAN: FUNGSI UPDATE TARGET DISPLAY ==========
@@ -9257,19 +9214,14 @@ function updateTargetUI(targetAgent, targetUpline, targetTransaksi, targetSelisi
             headerTarget.style.color = '#10b981';
             headerTarget.style.animation = 'pulseTarget 1.5s ease-in-out infinite';
             
-            // ===== FLIP CARD ANIMATION =====
+            // ===== HAPUS FLIP CARD ANIMATION =====
+            // Hanya ganti background, tanpa animasi flip
             if (targetSection) {
-                // Reset animation
+                targetSection.style.background = 'linear-gradient(135deg, #fef3c7, #fde68a, #fcd34d)';
+                targetSection.style.borderColor = '#f59e0b';
+                targetSection.style.boxShadow = '0 0 40px rgba(245, 158, 11, 0.3)';
+                // Hapus class target-celebrate jika ada
                 targetSection.classList.remove('target-celebrate');
-                // Force reflow
-                void targetSection.offsetWidth;
-                // Trigger animation
-                targetSection.classList.add('target-celebrate');
-                
-                // Remove after 6 seconds so it can be triggered again
-                setTimeout(() => {
-                    targetSection.classList.remove('target-celebrate');
-                }, 6000);
             }
             
             showNotifTop('🥳🎉 SELAMAT! Semua target KPI telah tercapai! 🎉🥳');
@@ -9279,6 +9231,9 @@ function updateTargetUI(targetAgent, targetUpline, targetTransaksi, targetSelisi
             headerTarget.style.color = '';
             headerTarget.style.animation = '';
             if (targetSection) {
+                targetSection.style.background = '';
+                targetSection.style.borderColor = '';
+                targetSection.style.boxShadow = '';
                 targetSection.classList.remove('target-celebrate');
             }
         }
@@ -9379,13 +9334,8 @@ function updateTargetChart(percentages) {
                     grid: { display: false }
                 }
             },
-            onClick: function(event, elements) {
-                if (elements.length > 0) {
-                    const index = elements[0].index;
-                    const label = this.data.labels[index];
-                    showDetailPerBulanChart(label);
-                }
-            }
+            // ===== HAPUS onClick =====
+            // onClick: function(event, elements) { ... }  // <-- DIHAPUS
         }
     });
     
