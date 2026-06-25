@@ -22,9 +22,9 @@ let messagesData = [];
 let transaksiGlobalList = [];
 let targetData = {
     agent: 0,
-    ca: 0,
-    koordinator: 0,
+    upline: 0,
     transaksi: 0,
+    selisih: 0,
     monthlyTargets: []
 };
 
@@ -8360,98 +8360,93 @@ async function loadTargetData() {
             .from('settings')
             .select('*')
             .eq('key', 'targetKPI')
-            .eq('user_id', currentUser.id) // <-- TAMBAHKAN INI
+            .eq('user_id', currentUser.id)
             .maybeSingle();
         
         if (data && data.value) {
             targetData = data.value;
         } else {
-            targetData = { agent: 10, ca: 20, koordinator: 5, transaksi: 100, monthlyTargets: [] };
+            targetData = { 
+                agent: 10, 
+                upline: 5, 
+                transaksi: 100, 
+                selisih: 50, 
+                monthlyTargets: [] 
+            };
         }
         
-        // ===== AMBIL DATA DARI DB_AGENT =====
-        let query = window.db.from('db_agent').select('*');
-        if (currentUserRole !== 'owner') {
-            query = query.eq('user_id', currentUser.id);
-        }
-        const { data: agents, error: agentError } = await query;
+        // ===== HITUNG DARI DB_TRANSAKSI =====
+        const transaksiDataLocal = window.transaksiData || transaksiData || [];
         
-        if (agentError) {
-            console.error('Error loading agents for target:', agentError);
-            return;
-        }
+        // Hitung jumlah AGENT UNIK (tanpa tidak_transaksi)
+        const agentSet = new Set();
+        const uplineSet = new Set();
+        let totalTransaksi = 0;
+        let totalSelisih = 0;
         
-        // ===== HITUNG BERDASARKAN AGENT_TYPE =====
-        let currentAgent = 0;
-        let currentKoor = 0;
-        let currentCA = 0;
+        transaksiDataLocal.forEach(t => {
+            // Skip yang tidak transaksi
+            if (t.progres_jenis === 'tidak_transaksi') return;
+            
+            // Agent: hitung agent_id unik
+            if (t.agent_id) {
+                agentSet.add(t.agent_id);
+            }
+            
+            // Upline: hitung upline unik
+            if (t.upline_name && t.upline_name.trim() !== '' && t.upline_name !== '-') {
+                uplineSet.add(t.upline_name);
+            }
+            
+            // Total transaksi periode ini
+            totalTransaksi += (t.transaksi_bulan_ini || 0);
+            
+            // Total selisih (perubahan)
+            totalSelisih += (t.progres_jumlah || 0);
+        });
         
-        if (agents) {
-            agents.forEach(agent => {
-                const type = agent.agent_type || '';
-                if (type === 'AGENT' || type === 'Agent') {
-                    currentAgent++;
-                } else if (type.includes('KORWIL') || type === 'Koordinator Wilayah (KORWIL)') {
-                    currentKoor++;
-                } else if (type.includes('CA') || type === 'CollectingAgent (CA)') {
-                    currentCA++;
-                }
-            });
-        }
-        
-        // ===== HITUNG TRANSAKSI DARI DB_TRANSAKSI =====
-        let currentTransaksi = 0;
-        if (transaksiData && transaksiData.length > 0) {
-            transaksiData.forEach(t => {
-                if (t.progres_jenis === 'naik') {
-                    currentTransaksi += Math.abs(t.progres_jumlah || 0);
-                } else if (t.progres_jenis === 'turun') {
-                    currentTransaksi -= Math.abs(t.progres_jumlah || 0);
-                } else {
-                    currentTransaksi += (t.progres_jumlah || 0);
-                }
-            });
-        }
+        const currentAgent = agentSet.size;
+        const currentUpline = uplineSet.size;
+        const currentTransaksi = totalTransaksi;
+        const currentSelisih = totalSelisih;
         
         // ===== UPDATE DISPLAY =====
-        const targetAgentEl = document.getElementById('targetAgentValue');
-        const targetKoorEl = document.getElementById('targetKoorValue');
-        const targetCAEl = document.getElementById('targetCAValue');
-        const targetTransaksiEl = document.getElementById('targetTransaksiValue');
+        const elements = {
+            targetAgentValue: targetData.agent || 0,
+            targetUplineValue: targetData.upline || 0,
+            targetTransaksiValue: (targetData.transaksi || 0).toLocaleString(),
+            targetSelisihValue: (targetData.selisih || 0).toLocaleString(),
+            targetAgentReached: currentAgent,
+            targetUplineReached: currentUpline,
+            targetTransaksiReached: currentTransaksi.toLocaleString(),
+            targetSelisihReached: currentSelisih.toLocaleString()
+        };
         
-        const reachedAgentEl = document.getElementById('targetAgentReached');
-        const reachedKoorEl = document.getElementById('targetKoorReached');
-        const reachedCAEl = document.getElementById('targetCAReached');
-        const reachedTransaksiEl = document.getElementById('targetTransaksiReached');
-        
-        const progressAgent = document.getElementById('targetAgentProgress');
-        const progressKoor = document.getElementById('targetKoorProgress');
-        const progressCA = document.getElementById('targetCAProgress');
-        const progressTransaksi = document.getElementById('targetTransaksiProgress');
-        
-        if (targetAgentEl) targetAgentEl.innerText = targetData.agent || 0;
-        if (targetKoorEl) targetKoorEl.innerText = targetData.koordinator || 0;
-        if (targetCAEl) targetCAEl.innerText = targetData.ca || 0;
-        if (targetTransaksiEl) targetTransaksiEl.innerText = (targetData.transaksi || 0).toLocaleString();
-        
-        if (reachedAgentEl) reachedAgentEl.innerText = currentAgent;
-        if (reachedKoorEl) reachedKoorEl.innerText = currentKoor;
-        if (reachedCAEl) reachedCAEl.innerText = currentCA;
-        if (reachedTransaksiEl) reachedTransaksiEl.innerText = currentTransaksi.toLocaleString();
+        for (const [id, value] of Object.entries(elements)) {
+            const el = document.getElementById(id);
+            if (el) el.innerText = value;
+        }
         
         // ===== HITUNG PERSENTASE =====
         const agentPercent = targetData.agent ? Math.min((currentAgent / targetData.agent) * 100, 100) : 0;
-        const koorPercent = targetData.koordinator ? Math.min((currentKoor / targetData.koordinator) * 100, 100) : 0;
-        const caPercent = targetData.ca ? Math.min((currentCA / targetData.ca) * 100, 100) : 0;
+        const uplinePercent = targetData.upline ? Math.min((currentUpline / targetData.upline) * 100, 100) : 0;
         const transaksiPercent = targetData.transaksi ? Math.min((currentTransaksi / targetData.transaksi) * 100, 100) : 0;
+        const selisihPercent = targetData.selisih ? Math.min((currentSelisih / targetData.selisih) * 100, 100) : 0;
         
-        if (progressAgent) progressAgent.style.width = agentPercent + '%';
-        if (progressKoor) progressKoor.style.width = koorPercent + '%';
-        if (progressCA) progressCA.style.width = caPercent + '%';
-        if (progressTransaksi) progressTransaksi.style.width = transaksiPercent + '%';
+        const progressElements = {
+            targetAgentProgress: agentPercent,
+            targetUplineProgress: uplinePercent,
+            targetTransaksiProgress: transaksiPercent,
+            targetSelisihProgress: selisihPercent
+        };
+        
+        for (const [id, value] of Object.entries(progressElements)) {
+            const el = document.getElementById(id);
+            if (el) el.style.width = value + '%';
+        }
         
         // ===== UPDATE CHART =====
-        updateTargetChart([agentPercent, koorPercent, caPercent, transaksiPercent]);
+        updateTargetChart([agentPercent, uplinePercent, transaksiPercent, selisihPercent]);
         updateTrendChart();
         
     } catch (err) {
@@ -8472,7 +8467,7 @@ function updateTargetChart(percentages) {
     targetChart = new Chart(ctx, {
         type: 'bar',
         data: {
-            labels: ['Agent', 'Koordinator', 'CA', 'Transaksi'],
+            labels: ['Agent', 'Upline', 'Transaksi', 'Selisih'],
             datasets: [{
                 label: 'Pencapaian Target (%)',
                 data: percentages || [0, 0, 0, 0],
@@ -8511,13 +8506,11 @@ function updateTrendChart() {
     if (trendChart) trendChart.destroy();
     
     // ===== GUNAKAN DATA DARI RIWAYAT TRANSAKSI =====
-    const riwayatData = window._riwayatData || [];
+    let riwayatData = window._riwayatData || [];
     
     const isDark = document.body.classList.contains('dark-mode');
     const textColor = isDark ? '#f1f5f9' : '#1e293b';
     
-    // ===== AMBIL DATA ATAU BUAT DATA RANDOM =====
-    let sortedData = [];
     let labels = [];
     let naikData = [];
     let turunData = [];
@@ -8525,24 +8518,27 @@ function updateTrendChart() {
     
     if (riwayatData.length > 0) {
         // ===== URUTKAN DATA =====
-        sortedData = [...riwayatData].sort((a, b) => {
+        const sortedData = [...riwayatData].sort((a, b) => {
             if (a.tahun !== b.tahun) return a.tahun - b.tahun;
             return a.bulan_index - b.bulan_index;
         });
         
-        labels = sortedData.map(item => item.bulan || `${item.bulan_index}/${item.tahun}`);
-        naikData = sortedData.map(item => item.total_naik || 0);
-        turunData = sortedData.map(item => item.total_turun || 0);
-        tidakData = sortedData.map(item => item.total_tidak_transaksi || 0);
+        // ===== AMBIL DATA TERAKHIR (6 BULAN) =====
+        const last6 = sortedData.slice(-6);
+        
+        labels = last6.map(item => item.bulan || `${item.bulan_index}/${item.tahun}`);
+        naikData = last6.map(item => item.total_naik || 0);
+        turunData = last6.map(item => item.total_turun || 0);
+        tidakData = last6.map(item => item.total_tidak_transaksi || 0);
         
     } else {
-        // ===== BUAT DATA RANDOM UNTUK 6 BULAN TERAKHIR =====
+        // ===== BUAT DATA DEMO BERDASARKAN BULAN SAAT INI =====
         const months = ['Jan', 'Feb', 'Mar', 'Apr', 'Mei', 'Jun', 'Jul', 'Ags', 'Sep', 'Okt', 'Nov', 'Des'];
         const currentMonth = new Date().getMonth();
         const currentYear = new Date().getFullYear();
         
-        // Ambil 6 bulan terakhir
-        const last6Months = [];
+        // Buat data untuk 6 bulan terakhir (dari bulan sekarang ke belakang)
+        const demoData = [];
         for (let i = 5; i >= 0; i--) {
             let monthIndex = currentMonth - i;
             let year = currentYear;
@@ -8550,23 +8546,18 @@ function updateTrendChart() {
                 monthIndex += 12;
                 year--;
             }
-            last6Months.push({
+            demoData.push({
                 label: `${months[monthIndex]} ${year}`,
-                month: monthIndex,
-                year: year
+                naik: Math.floor(Math.random() * 15) + 5,
+                turun: Math.floor(Math.random() * 8) + 2,
+                tidak: Math.floor(Math.random() * 4) + 1
             });
         }
         
-        labels = last6Months.map(m => m.label);
-        
-        // Generate random data untuk Naik (5-20)
-        naikData = last6Months.map(() => Math.floor(Math.random() * 15) + 5);
-        
-        // Generate random data untuk Turun (2-10)
-        turunData = last6Months.map(() => Math.floor(Math.random() * 8) + 2);
-        
-        // Generate random data untuk Tidak Transaksi (1-5)
-        tidakData = last6Months.map(() => Math.floor(Math.random() * 4) + 1);
+        labels = demoData.map(d => d.label);
+        naikData = demoData.map(d => d.naik);
+        turunData = demoData.map(d => d.turun);
+        tidakData = demoData.map(d => d.tidak);
     }
     
     // ===== DATASET HANYA: Naik, Turun, Tidak Transaksi =====
@@ -8606,7 +8597,7 @@ function updateTrendChart() {
             pointBorderColor: '#6b7280',
             pointRadius: 5,
             pointHoverRadius: 7,
-            borderDash: [5, 5] // Garis putus-putus untuk membedakan
+            borderDash: [5, 5]
         }
     ];
     
@@ -8713,18 +8704,23 @@ async function loadRiwayatTransaksi() {
         
         if (error) {
             console.error('❌ Gagal load riwayat:', error);
-            showNotifTop('❌ Gagal memuat riwayat: ' + error.message, true);
+            // Data demo akan dibuat oleh updateTrendChart
+            window._riwayatData = [];
+            updateTrendChart();
+            renderRiwayatTransaksi([]);
             return;
         }
         
         // ===== SIMPAN UNTUK CHART =====
-        updateRiwayatDataForChart(data || []);
-        
+        window._riwayatData = data || [];
+        updateTrendChart();
         renderRiwayatTransaksi(data || []);
         
     } catch (err) {
         console.error('❌ Error load riwayat:', err);
-        showNotifTop('❌ Error: ' + err.message, true);
+        window._riwayatData = [];
+        updateTrendChart();
+        showNotifTop('⚠️ Gagal memuat riwayat', true);
     }
 }
 
@@ -8806,15 +8802,15 @@ async function loadRiwayatTransaksi() {
 
 async function saveTargetData() {
     const agentVal = parseInt(document.getElementById('targetAgentInput')?.value) || 0;
-    const koorVal = parseInt(document.getElementById('targetKoorInput')?.value) || 0;
-    const caVal = parseInt(document.getElementById('targetCAInput')?.value) || 0;
+    const uplineVal = parseInt(document.getElementById('targetUplineInput')?.value) || 0;
     const transaksiVal = parseInt(document.getElementById('targetTransaksiInput')?.value) || 0;
+    const selisihVal = parseInt(document.getElementById('targetSelisihInput')?.value) || 0;
     
     const newTarget = {
         agent: agentVal,
-        koordinator: koorVal,
-        ca: caVal,
+        upline: uplineVal,
         transaksi: transaksiVal,
+        selisih: selisihVal,
         monthlyTargets: targetData.monthlyTargets || [],
         updated_at: new Date().toISOString()
     };
@@ -8832,25 +8828,18 @@ async function saveTargetData() {
             throw checkError;
         }
         
-        let result;
-        
         if (existingData) {
-            // ===== UPDATE DATA YANG SUDAH ADA =====
-            const { data, error } = await window.db
+            const { error } = await window.db
                 .from('settings')
                 .update({
                     value: newTarget,
                     updated_at: new Date().toISOString()
                 })
-                .eq('id', existingData.id)
-                .select();
+                .eq('id', existingData.id);
             
             if (error) throw error;
-            result = data;
-            showNotifTop('✅ Target berhasil diperbarui!');
         } else {
-            // ===== INSERT DATA BARU =====
-            const { data, error } = await window.db
+            const { error } = await window.db
                 .from('settings')
                 .insert({
                     key: 'targetKPI',
@@ -8858,57 +8847,19 @@ async function saveTargetData() {
                     user_id: currentUser.id,
                     created_at: new Date().toISOString(),
                     updated_at: new Date().toISOString()
-                })
-                .select();
+                });
             
             if (error) throw error;
-            result = data;
-            showNotifTop('✅ Target berhasil disimpan!');
         }
         
         targetData = newTarget;
+        showNotifTop('✅ Target berhasil disimpan!');
         closeModal('manageTargetModal');
         await updateTargetDisplay();
         
     } catch (error) {
         console.error('Error saving target:', error);
-        
-        // ===== TANGANI ERROR DUPLIKAT =====
-        if (error.code === '23505') {
-            // Coba lagi dengan pendekatan berbeda - hapus dulu lalu insert
-            try {
-                await window.db
-                    .from('settings')
-                    .delete()
-                    .eq('key', 'targetKPI')
-                    .eq('user_id', currentUser.id);
-                
-                const { data, error: insertError } = await window.db
-                    .from('settings')
-                    .insert({
-                        key: 'targetKPI',
-                        value: newTarget,
-                        user_id: currentUser.id,
-                        created_at: new Date().toISOString(),
-                        updated_at: new Date().toISOString()
-                    })
-                    .select();
-                
-                if (insertError) throw insertError;
-                
-                targetData = newTarget;
-                showNotifTop('✅ Target berhasil disimpan (force)!');
-                closeModal('manageTargetModal');
-                await updateTargetDisplay();
-                return;
-                
-            } catch (retryError) {
-                console.error('Retry error:', retryError);
-                showNotifTop('❌ Gagal menyimpan target: ' + retryError.message, true);
-            }
-        } else {
-            showNotifTop('❌ Gagal menyimpan target: ' + error.message, true);
-        }
+        showNotifTop('❌ Gagal menyimpan target: ' + error.message, true);
     }
 }
 
@@ -13337,9 +13288,9 @@ document.getElementById('saveProspekBtn')?.addEventListener('click', async funct
     // ===== TARGET MANAGEMENT EVENT LISTENERS =====
     document.getElementById('manageTargetBtn')?.addEventListener('click', () => {
         document.getElementById('targetAgentInput').value = targetData.agent || 0;
-        document.getElementById('targetKoorInput').value = targetData.koordinator || 0;
-        document.getElementById('targetCAInput').value = targetData.ca || 0;
+        document.getElementById('targetUplineInput').value = targetData.upline || 0;
         document.getElementById('targetTransaksiInput').value = targetData.transaksi || 0;
+        document.getElementById('targetSelisihInput').value = targetData.selisih || 0;
         showModal('manageTargetModal');
     });
     
