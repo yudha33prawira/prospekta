@@ -8354,9 +8354,14 @@ async function deleteDBItem(collection, id) {
 
 // ========== TARGET KPI FUNCTIONS ==========
 async function loadTargetData() {
-    if (!currentUser) return;
+    if (!currentUser) {
+        console.warn('loadTargetData: No user');
+        return;
+    }
     
     try {
+        console.log('📊 Memuat target data...');
+        
         // ===== AMBIL TARGET DARI SETTINGS =====
         const { data, error } = await window.db
             .from('settings')
@@ -8377,16 +8382,21 @@ async function loadTargetData() {
             };
         }
         
+        console.log('📊 Target dari settings:', targetData);
+        
         // ===== HITUNG DARI DB_TRANSAKSI =====
         const transaksiDataLocal = window.transaksiData || transaksiData || [];
+        console.log('📊 Total transaksi data:', transaksiDataLocal.length);
         
-        // Filter: exclude tidak_transaksi
+        // ===== VALID DATA: EXCLUDE tidak_transaksi =====
         const validData = transaksiDataLocal.filter(t => t.progres_jenis !== 'tidak_transaksi');
+        console.log('📊 Valid data (exclude tidak_transaksi):', validData.length);
         
-        // 1. Target Agent = TOTAL DATA (semua data yang valid)
+        // 1. TARGET AGENT = TOTAL SEMUA DATA VALID
         const currentAgent = validData.length;
+        console.log('📊 Target Agent (total data valid):', currentAgent);
         
-        // 2. Target Upline = jumlah upline UNIK dari data valid
+        // 2. TARGET UPLINE = JUMLAH UPLINE UNIK dari data valid
         const uplineSet = new Set();
         validData.forEach(t => {
             if (t.upline_name && t.upline_name.trim() !== '' && t.upline_name !== '-') {
@@ -8394,15 +8404,18 @@ async function loadTargetData() {
             }
         });
         const currentUpline = uplineSet.size;
+        console.log('📊 Target Upline (upline unik):', currentUpline);
+        console.log('📊 Daftar upline:', Array.from(uplineSet));
         
-        // 3. Target Transaksi = TOTAL transaksi_bulan_ini (BUKAN selisih)
+        // 3. TARGET TRANSAKSI = TOTAL transaksi_bulan_ini dari data valid
         let totalTransaksiBulanIni = 0;
         validData.forEach(t => {
             totalTransaksiBulanIni += (t.transaksi_bulan_ini || 0);
         });
         const currentTransaksi = totalTransaksiBulanIni;
+        console.log('📊 Target Transaksi (total transaksi bulan ini):', currentTransaksi);
         
-        // 4. Selisih Transaksi = TOTAL transaksi_bulan_ini - TOTAL transaksi_bulan_lalu
+        // 4. SELISIH TRANSAKSI = TOTAL transaksi_bulan_ini - TOTAL transaksi_bulan_lalu
         let totalBulanLalu = 0;
         let totalBulanIni = 0;
         validData.forEach(t => {
@@ -8410,17 +8423,34 @@ async function loadTargetData() {
             totalBulanIni += (t.transaksi_bulan_ini || 0);
         });
         const currentSelisih = totalBulanIni - totalBulanLalu;
+        console.log('📊 Selisih Transaksi:', currentSelisih);
         
-        // ===== UPDATE DISPLAY =====
-        document.getElementById('targetAgentValue').innerText = targetData.agent || 0;
-        document.getElementById('targetUplineValue').innerText = targetData.upline || 0;
-        document.getElementById('targetTransaksiValue').innerText = (targetData.transaksi || 0).toLocaleString();
-        document.getElementById('targetSelisihValue').innerText = (targetData.selisih || 0).toLocaleString();
+        // ===== UPDATE ELEMEN TARGET =====
+        // Target Value (dari settings)
+        const targetValues = {
+            targetAgentValue: targetData.agent || 0,
+            targetUplineValue: targetData.upline || 0,
+            targetTransaksiValue: (targetData.transaksi || 0).toLocaleString(),
+            targetSelisihValue: (targetData.selisih || 0).toLocaleString()
+        };
         
-        document.getElementById('targetAgentReached').innerText = currentAgent;
-        document.getElementById('targetUplineReached').innerText = currentUpline;
-        document.getElementById('targetTransaksiReached').innerText = currentTransaksi.toLocaleString();
-        document.getElementById('targetSelisihReached').innerText = currentSelisih.toLocaleString();
+        for (const [id, value] of Object.entries(targetValues)) {
+            const el = document.getElementById(id);
+            if (el) el.innerText = value;
+        }
+        
+        // Target Reached (dari perhitungan)
+        const reachedValues = {
+            targetAgentReached: currentAgent,
+            targetUplineReached: currentUpline,
+            targetTransaksiReached: currentTransaksi.toLocaleString(),
+            targetSelisihReached: currentSelisih.toLocaleString()
+        };
+        
+        for (const [id, value] of Object.entries(reachedValues)) {
+            const el = document.getElementById(id);
+            if (el) el.innerText = value;
+        }
         
         // ===== HITUNG PERSENTASE =====
         const agentPercent = targetData.agent ? Math.min((currentAgent / targetData.agent) * 100, 100) : 0;
@@ -8428,13 +8458,30 @@ async function loadTargetData() {
         const transaksiPercent = targetData.transaksi ? Math.min((currentTransaksi / targetData.transaksi) * 100, 100) : 0;
         const selisihPercent = targetData.selisih ? Math.min((currentSelisih / targetData.selisih) * 100, 100) : 0;
         
-        document.getElementById('targetAgentProgress').style.width = agentPercent + '%';
-        document.getElementById('targetUplineProgress').style.width = uplinePercent + '%';
-        document.getElementById('targetTransaksiProgress').style.width = transaksiPercent + '%';
-        document.getElementById('targetSelisihProgress').style.width = selisihPercent + '%';
+        console.log('📊 Persentase:', {
+            agent: agentPercent + '%',
+            upline: uplinePercent + '%',
+            transaksi: transaksiPercent + '%',
+            selisih: selisihPercent + '%'
+        });
+        
+        // Update progress bars
+        const progressElements = {
+            targetAgentProgress: agentPercent,
+            targetUplineProgress: uplinePercent,
+            targetTransaksiProgress: transaksiPercent,
+            targetSelisihProgress: selisihPercent
+        };
+        
+        for (const [id, value] of Object.entries(progressElements)) {
+            const el = document.getElementById(id);
+            if (el) el.style.width = value + '%';
+        }
         
         // ===== UPDATE CHART =====
         updateTargetChart([agentPercent, uplinePercent, transaksiPercent, selisihPercent]);
+        
+        console.log('✅ Target data loaded successfully');
         
     } catch (err) {
         console.error('Error loading target data:', err);
@@ -8531,51 +8578,51 @@ function updateTrendChart() {
     let turunData = [];
     let tidakData = [];
     
-    // ===== AMBIL DATA LANGSUNG DARI TRANSAKSI =====
+    // ===== AMBIL DATA DARI TRANSAKSI =====
     const transaksiLocal = window.transaksiData || transaksiData || [];
     
-    // Kelompokkan berdasarkan periode_bulan_ini
-    const periodMap = new Map();
-    transaksiLocal.forEach(t => {
-        const periode = t.periode_bulan_ini || 'Unknown';
-        if (!periodMap.has(periode)) {
-            periodMap.set(periode, { naik: 0, turun: 0, tidak: 0 });
-        }
-        const stats = periodMap.get(periode);
-        if (t.progres_jenis === 'naik') stats.naik++;
-        else if (t.progres_jenis === 'turun') stats.turun++;
-        else if (t.progres_jenis === 'tidak_transaksi') stats.tidak++;
-    });
-    
-    // Urutkan periode berdasarkan waktu
-    const sortedPeriods = Array.from(periodMap.keys()).sort((a, b) => {
-        if (a === 'Unknown') return 1;
-        if (b === 'Unknown') return -1;
+    if (transaksiLocal.length > 0) {
+        // Kelompokkan berdasarkan periode_bulan_ini
+        const periodMap = new Map();
+        transaksiLocal.forEach(t => {
+            const periode = t.periode_bulan_ini || 'Unknown';
+            if (!periodMap.has(periode)) {
+                periodMap.set(periode, { naik: 0, turun: 0, tidak: 0 });
+            }
+            const stats = periodMap.get(periode);
+            if (t.progres_jenis === 'naik') stats.naik++;
+            else if (t.progres_jenis === 'turun') stats.turun++;
+            else if (t.progres_jenis === 'tidak_transaksi') stats.tidak++;
+        });
         
-        // Parse bulan dan tahun
-        const [bulanA, tahunA] = a.split(' ');
-        const [bulanB, tahunB] = b.split(' ');
-        const bulanIndexA = getBulanIndex(bulanA) || 0;
-        const bulanIndexB = getBulanIndex(bulanB) || 0;
+        // Urutkan periode
+        const sortedPeriods = Array.from(periodMap.keys()).sort((a, b) => {
+            if (a === 'Unknown') return 1;
+            if (b === 'Unknown') return -1;
+            
+            const [bulanA, tahunA] = a.split(' ');
+            const [bulanB, tahunB] = b.split(' ');
+            const idxA = getBulanIndex(bulanA) || 0;
+            const idxB = getBulanIndex(bulanB) || 0;
+            
+            if (tahunA !== tahunB) return parseInt(tahunA) - parseInt(tahunB);
+            return idxA - idxB;
+        });
         
-        if (tahunA !== tahunB) return parseInt(tahunA) - parseInt(tahunB);
-        return bulanIndexA - bulanIndexB;
-    });
-    
-    // Hanya ambil 6 periode terakhir
-    const last6Periods = sortedPeriods.slice(-6);
-    
-    if (last6Periods.length > 0) {
-        // ===== GUNAKAN DATA DARI TRANSAKSI =====
-        last6Periods.forEach(periode => {
+        // Ambil 6 periode terakhir
+        const last6 = sortedPeriods.slice(-6);
+        
+        last6.forEach(periode => {
             const stats = periodMap.get(periode);
             labels.push(periode);
             naikData.push(stats.naik || 0);
             turunData.push(stats.turun || 0);
             tidakData.push(stats.tidak || 0);
         });
-    } else {
-        // ===== DATA DEMO (jika belum ada data transaksi) =====
+    }
+    
+    // Jika tidak ada data, buat demo
+    if (labels.length === 0) {
         const months = ['Jan', 'Feb', 'Mar', 'Apr', 'Mei', 'Jun', 'Jul', 'Ags', 'Sep', 'Okt', 'Nov', 'Des'];
         const currentMonth = new Date().getMonth();
         const currentYear = new Date().getFullYear();
@@ -8594,7 +8641,7 @@ function updateTrendChart() {
         }
     }
     
-    // ===== HITUNG MIN & MAX UNTUK Y-AXIS =====
+    // ===== HITUNG MIN & MAX =====
     const allData = [...naikData, ...turunData, ...tidakData];
     const minValue = allData.length > 0 ? Math.min(...allData) : 0;
     const maxValue = allData.length > 0 ? Math.max(...allData) : 10;
@@ -8610,8 +8657,7 @@ function updateTrendChart() {
             backgroundColor: 'rgba(16, 185, 129, 0.1)',
             tension: 0.4, 
             fill: true,
-            pointRadius: 4,
-            pointBackgroundColor: '#10b981'
+            pointRadius: 4
         },
         { 
             label: '📉 Turun', 
@@ -8620,8 +8666,7 @@ function updateTrendChart() {
             backgroundColor: 'rgba(239, 68, 68, 0.1)',
             tension: 0.4, 
             fill: true,
-            pointRadius: 4,
-            pointBackgroundColor: '#ef4444'
+            pointRadius: 4
         },
         { 
             label: '🚫 Tidak Transaksi', 
@@ -8631,7 +8676,6 @@ function updateTrendChart() {
             tension: 0.4, 
             fill: true,
             pointRadius: 4,
-            pointBackgroundColor: '#6b7280',
             borderDash: [5, 5]
         }
     ];
@@ -8651,15 +8695,6 @@ function updateTrendChart() {
                         usePointStyle: true,
                         padding: 12
                     } 
-                },
-                tooltip: {
-                    backgroundColor: isDark ? '#1e293b' : '#ffffff',
-                    titleColor: isDark ? '#f1f5f9' : '#1f2937',
-                    bodyColor: isDark ? '#cbd5e1' : '#374151',
-                    borderColor: isDark ? '#334155' : '#e5e7eb',
-                    borderWidth: 1,
-                    cornerRadius: 8,
-                    padding: 10
                 }
             },
             scales: {
@@ -8671,13 +8706,8 @@ function updateTrendChart() {
                     grid: { color: isDark ? 'rgba(255,255,255,0.05)' : 'rgba(0,0,0,0.06)' }
                 },
                 x: {
-                    ticks: { color: textColor, font: { size: 10 }, maxRotation: 30 },
-                    grid: { display: false }
+                    ticks: { color: textColor, font: { size: 10 }, maxRotation: 30 }
                 }
-            },
-            interaction: {
-                intersect: false,
-                mode: 'index'
             }
         }
     });
@@ -11324,24 +11354,14 @@ function navigateTo(page) {
                 break;
                 
             case 'dashboard':
-                // Refresh dashboard data
-                if (typeof updateStats === 'function') {
-                    updateStats();
-                }
-                if (typeof updateChartCustomer === 'function') {
-                    updateChartCustomer();
-                }
-                if (typeof updateChartProspek === 'function') {
-                    updateChartProspek();
-                }
-                if (typeof updateTargetDisplay === 'function') {
-                    updateTargetDisplay();
-                }
-                if (typeof updateDeadlineBadge === 'function') {
-                    updateDeadlineBadge();
-                }
+                if (typeof updateStats === 'function') updateStats();
+                if (typeof updateChartCustomer === 'function') updateChartCustomer();
+                if (typeof updateChartProspek === 'function') updateChartProspek();
+                if (typeof updateTargetDisplay === 'function') updateTargetDisplay();
+                if (typeof loadTargetData === 'function') loadTargetData();
+                if (typeof updateDeadlineBadge === 'function') updateDeadlineBadge();
                 break;
-                
+                            
             case 'followupFull':
                 if (typeof renderFullFollowupKanban === 'function') {
                     renderFullFollowupKanban();
@@ -13728,6 +13748,7 @@ document.getElementById('loginBtn')?.addEventListener('click', async function(e)
             await loadTarifAdmin();
             updateLoadingStep(16);
             await loadTargetData();
+            updateTrendChart();
             updateLoadingStep(17);
             await loadTransaksiGlobal();
             await updateTargetDisplay();
