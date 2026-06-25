@@ -8378,11 +8378,15 @@ async function loadTargetData() {
         // ===== HITUNG DARI DB_TRANSAKSI =====
         const transaksiDataLocal = window.transaksiData || transaksiData || [];
         
-        // Target Agent = TOTAL SEMUA DATA di db_transaksi (tanpa tidak_transaksi)
+        console.log('📊 Total data transaksi:', transaksiDataLocal.length);
+        
+        // ===== TARGET AGENT = TOTAL SEMUA DATA di db_transaksi (tanpa tidak_transaksi) =====
         const agentData = transaksiDataLocal.filter(t => t.progres_jenis !== 'tidak_transaksi');
         const currentAgent = agentData.length;
         
-        // Target Upline = jumlah upline UNIK (tanpa tidak_transaksi)
+        console.log('📊 Agent data (tanpa tidak_transaksi):', currentAgent);
+        
+        // ===== TARGET UPLINE = jumlah upline UNIK (tanpa tidak_transaksi) =====
         const uplineSet = new Set();
         agentData.forEach(t => {
             if (t.upline_name && t.upline_name.trim() !== '' && t.upline_name !== '-') {
@@ -8391,14 +8395,18 @@ async function loadTargetData() {
         });
         const currentUpline = uplineSet.size;
         
-        // Target Transaksi = TOTAL transaksi_bulan_ini (tanpa tidak_transaksi)
+        console.log('📊 Upline unik:', currentUpline);
+        
+        // ===== TARGET TRANSAKSI = TOTAL transaksi_bulan_ini (tanpa tidak_transaksi) =====
         let totalTransaksi = 0;
         agentData.forEach(t => {
             totalTransaksi += (t.transaksi_bulan_ini || 0);
         });
         const currentTransaksi = totalTransaksi;
         
-        // Selisih Transaksi = TOTAL transaksi_bulan_ini - TOTAL transaksi_bulan_lalu
+        console.log('📊 Total transaksi bulan ini:', currentTransaksi);
+        
+        // ===== SELISIH TRANSAKSI = TOTAL transaksi_bulan_ini - TOTAL transaksi_bulan_lalu =====
         let totalBulanLalu = 0;
         let totalBulanIni = 0;
         agentData.forEach(t => {
@@ -8406,6 +8414,8 @@ async function loadTargetData() {
             totalBulanIni += (t.transaksi_bulan_ini || 0);
         });
         const currentSelisih = totalBulanIni - totalBulanLalu;
+        
+        console.log('📊 Selisih transaksi:', currentSelisih);
         
         // ===== UPDATE DISPLAY =====
         const elements = {
@@ -8544,103 +8554,100 @@ function updateTrendChart() {
     let turunData = [];
     let tidakData = [];
     
-    if (riwayatData.length > 0) {
-        // ===== URUTKAN DATA =====
+    // ===== AMBIL DATA DARI TRANSAKSI UNTUK MEMBUAT DEMO =====
+    const transaksiLocal = window.transaksiData || transaksiData || [];
+    
+    // Cari semua periode yang ada di data transaksi
+    const periodMap = new Map();
+    transaksiLocal.forEach(t => {
+        if (t.periode_bulan_ini && t.progres_jenis !== 'tidak_transaksi') {
+            const periode = t.periode_bulan_ini;
+            if (!periodMap.has(periode)) {
+                periodMap.set(periode, { naik: 0, turun: 0, tidak: 0 });
+            }
+            const stats = periodMap.get(periode);
+            if (t.progres_jenis === 'naik') stats.naik++;
+            else if (t.progres_jenis === 'turun') stats.turun++;
+            else if (t.progres_jenis === 'tidak_transaksi') stats.tidak++;
+        }
+    });
+    
+    // Urutkan periode
+    const sortedPeriods = Array.from(periodMap.keys()).sort((a, b) => {
+        // Parse bulan dan tahun
+        const [bulanA, tahunA] = a.split(' ');
+        const [bulanB, tahunB] = b.split(' ');
+        const bulanIndexA = getBulanIndex(bulanA) || 0;
+        const bulanIndexB = getBulanIndex(bulanB) || 0;
+        if (tahunA !== tahunB) return parseInt(tahunA) - parseInt(tahunB);
+        return bulanIndexA - bulanIndexB;
+    });
+    
+    if (sortedPeriods.length > 0) {
+        // ===== GUNAKAN DATA DARI TRANSAKSI =====
+        sortedPeriods.forEach(periode => {
+            const stats = periodMap.get(periode);
+            labels.push(periode);
+            naikData.push(stats.naik || 0);
+            turunData.push(stats.turun || 0);
+            tidakData.push(stats.tidak || 0);
+        });
+        
+        // Simpan ke riwayatData untuk digunakan nanti
+        window._riwayatData = sortedPeriods.map((periode, index) => ({
+            bulan: periode,
+            total_naik: naikData[index],
+            total_turun: turunData[index],
+            total_tidak_transaksi: tidakData[index]
+        }));
+        
+    } else if (riwayatData.length > 0) {
+        // ===== GUNAKAN DATA RIWAYAT =====
         const sortedData = [...riwayatData].sort((a, b) => {
             if (a.tahun !== b.tahun) return a.tahun - b.tahun;
             return a.bulan_index - b.bulan_index;
         });
         
-        // ===== AMBIL SEMUA DATA =====
-        labels = sortedData.map(item => item.bulan || `${item.bulan_index}/${item.tahun}`);
+        labels = sortedData.map(item => item.bulan);
         naikData = sortedData.map(item => item.total_naik || 0);
         turunData = sortedData.map(item => item.total_turun || 0);
         tidakData = sortedData.map(item => item.total_tidak_transaksi || 0);
         
     } else {
-        // ===== BUAT DATA DEMO =====
-        // Ambil data dari transaksiData untuk membuat demo yang realistis
-        const transaksiLocal = window.transaksiData || transaksiData || [];
+        // ===== FALLBACK: Data demo =====
+        const months = ['Jan', 'Feb', 'Mar', 'Apr', 'Mei', 'Jun', 'Jul', 'Ags', 'Sep', 'Okt', 'Nov', 'Des'];
+        const currentMonth = new Date().getMonth();
+        const currentYear = new Date().getFullYear();
         
-        // Cari periode yang ada di data transaksi
-        const periods = new Set();
-        transaksiLocal.forEach(t => {
-            if (t.periode_bulan_ini) {
-                periods.add(t.periode_bulan_ini);
+        // Buat data untuk 6 bulan terakhir
+        const demoData = [];
+        for (let i = 5; i >= 0; i--) {
+            let monthIndex = currentMonth - i;
+            let year = currentYear;
+            if (monthIndex < 0) {
+                monthIndex += 12;
+                year--;
             }
-        });
-        
-        const sortedPeriods = Array.from(periods).sort();
-        
-        if (sortedPeriods.length > 0) {
-            // Gunakan periode dari data transaksi
-            sortedPeriods.forEach(periode => {
-                // Hitung statistik untuk periode ini
-                let naik = 0, turun = 0, tidak = 0;
-                transaksiLocal.forEach(t => {
-                    if (t.periode_bulan_ini === periode) {
-                        if (t.progres_jenis === 'naik') naik++;
-                        else if (t.progres_jenis === 'turun') turun++;
-                        else if (t.progres_jenis === 'tidak_transaksi') tidak++;
-                    }
-                });
-                
-                // Parse periode untuk mendapatkan bulan dan tahun
-                const [bulan, tahun] = periode.split(' ');
-                const bulanIndex = getBulanIndex(bulan);
-                
-                riwayatData.push({
-                    bulan: periode,
-                    bulan_index: bulanIndex,
-                    tahun: parseInt(tahun),
-                    total_naik: naik,
-                    total_turun: turun,
-                    total_tidak_transaksi: tidak,
-                    total_data: naik + turun + tidak
-                });
+            demoData.push({
+                label: `${months[monthIndex]} ${year}`,
+                naik: Math.floor(Math.random() * 15) + 5,
+                turun: Math.floor(Math.random() * 8) + 2,
+                tidak: Math.floor(Math.random() * 4) + 1
             });
-            
-            // Urutkan
-            riwayatData.sort((a, b) => {
-                if (a.tahun !== b.tahun) return a.tahun - b.tahun;
-                return a.bulan_index - b.bulan_index;
-            });
-            
-            window._riwayatData = riwayatData;
-            
-            labels = riwayatData.map(item => item.bulan);
-            naikData = riwayatData.map(item => item.total_naik || 0);
-            turunData = riwayatData.map(item => item.total_turun || 0);
-            tidakData = riwayatData.map(item => item.total_tidak_transaksi || 0);
-            
-        } else {
-            // ===== FALLBACK: Data demo random =====
-            const months = ['Jan', 'Feb', 'Mar', 'Apr', 'Mei', 'Jun', 'Jul', 'Ags', 'Sep', 'Okt', 'Nov', 'Des'];
-            const currentMonth = new Date().getMonth();
-            const currentYear = new Date().getFullYear();
-            
-            const demoData = [];
-            for (let i = 5; i >= 0; i--) {
-                let monthIndex = currentMonth - i;
-                let year = currentYear;
-                if (monthIndex < 0) {
-                    monthIndex += 12;
-                    year--;
-                }
-                demoData.push({
-                    label: `${months[monthIndex]} ${year}`,
-                    naik: Math.floor(Math.random() * 15) + 5,
-                    turun: Math.floor(Math.random() * 8) + 2,
-                    tidak: Math.floor(Math.random() * 4) + 1
-                });
-            }
-            
-            labels = demoData.map(d => d.label);
-            naikData = demoData.map(d => d.naik);
-            turunData = demoData.map(d => d.turun);
-            tidakData = demoData.map(d => d.tidak);
         }
+        
+        labels = demoData.map(d => d.label);
+        naikData = demoData.map(d => d.naik);
+        turunData = demoData.map(d => d.turun);
+        tidakData = demoData.map(d => d.tidak);
     }
+    
+    // ===== HITUNG MIN VALUE UNTUK Y-AXIS =====
+    const allData = [...naikData, ...turunData, ...tidakData];
+    const minValue = Math.min(...allData);
+    const maxValue = Math.max(...allData);
+    const yMin = Math.max(0, minValue - 2); // Mulai dari nilai terendah - 2
+    const yMax = maxValue + 3;
     
     // ===== DATASET HANYA: Naik, Turun, Tidak Transaksi =====
     const datasets = [
@@ -8722,7 +8729,9 @@ function updateTrendChart() {
             },
             scales: {
                 y: {
-                    beginAtZero: true,
+                    beginAtZero: false, // <-- TIDAK MULAI DARI 0
+                    min: yMin, // <-- MULAI DARI NILAI TERENDAH
+                    max: yMax,
                     title: { 
                         display: true, 
                         text: 'Jumlah Agent',
@@ -8786,22 +8795,20 @@ async function loadRiwayatTransaksi() {
         
         if (error) {
             console.error('❌ Gagal load riwayat:', error);
-            // Data demo akan dibuat oleh updateTrendChart
-            window._riwayatData = [];
-            updateTrendChart();
+            updateTrendChart(); // <-- PASTIKAN DIPANGGIL
             renderRiwayatTransaksi([]);
             return;
         }
         
         // ===== SIMPAN UNTUK CHART =====
         window._riwayatData = data || [];
-        updateTrendChart();
+        updateTrendChart(); // <-- PASTIKAN DIPANGGIL
         renderRiwayatTransaksi(data || []);
         
     } catch (err) {
         console.error('❌ Error load riwayat:', err);
         window._riwayatData = [];
-        updateTrendChart();
+        updateTrendChart(); // <-- PASTIKAN DIPANGGIL
         showNotifTop('⚠️ Gagal memuat riwayat', true);
     }
 }
@@ -10843,6 +10850,7 @@ function initAuthListener() {
                     await loadUsersList();
                     await loadTarifAdmin();
                     await loadTargetData();
+                    await updateTargetDisplay();
                     await loadTransaksiGlobal();
                     isAppInitialized = true;
                     navigateTo('dashboard');
