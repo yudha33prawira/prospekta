@@ -841,13 +841,17 @@ async function updateTargetDisplay() {
         const transaksiDataLocal = window.transaksiData || transaksiData || [];
         if (transaksiDataLocal.length > 0) {
             transaksiDataLocal.forEach(t => {
+                // Hanya hitung yang statusnya bukan 'tidak_transaksi'
                 if (t.progres_jenis === 'naik') {
                     currentTransaksi += Math.abs(t.progres_jumlah || 0);
                 } else if (t.progres_jenis === 'turun') {
+                    // Untuk turun, kurangi
                     currentTransaksi -= Math.abs(t.progres_jumlah || 0);
-                } else {
+                } else if (t.progres_jenis === 'normal') {
+                    // Normal: tambahkan nilai (bisa positif atau negatif)
                     currentTransaksi += (t.progres_jumlah || 0);
                 }
+                // Tidak transaksi: abaikan (tidak dihitung)
             });
         }
         
@@ -13190,7 +13194,6 @@ document.getElementById('saveProspekBtn')?.addEventListener('click', async funct
     document.getElementById('cancelTargetBtn')?.addEventListener('click', () => closeModal('manageTargetModal'));
     
     // Transaksi
-    document.getElementById('targetTransaksiCard')?.addEventListener('click', showInputTransaksiModal);
     document.getElementById('saveTransaksiBtn')?.addEventListener('click', async () => {
         const nominal = document.getElementById('transaksiNominal').value;
         const keterangan = document.getElementById('transaksiKeterangan').value;
