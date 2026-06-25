@@ -8667,6 +8667,7 @@ async function saveTargetData() {
             .from('settings')
             .select('id, user_id')
             .eq('key', 'targetKPI')
+            .eq('user_id', currentUser.id)
             .maybeSingle();
         
         if (checkError && checkError.code !== 'PGRST116') {
@@ -8688,14 +8689,15 @@ async function saveTargetData() {
             
             if (error) throw error;
             result = data;
+            showNotifTop('✅ Target berhasil diperbarui!');
         } else {
-            // ===== INSERT DATA BARU DENGAN USER_ID =====
+            // ===== INSERT DATA BARU =====
             const { data, error } = await window.db
                 .from('settings')
                 .insert({
                     key: 'targetKPI',
                     value: newTarget,
-                    user_id: currentUser.id, // <-- INI PENTING!
+                    user_id: currentUser.id,
                     created_at: new Date().toISOString(),
                     updated_at: new Date().toISOString()
                 })
@@ -8703,16 +8705,52 @@ async function saveTargetData() {
             
             if (error) throw error;
             result = data;
+            showNotifTop('✅ Target berhasil disimpan!');
         }
         
         targetData = newTarget;
-        showNotifTop('✅ Target berhasil disimpan!');
         closeModal('manageTargetModal');
         await updateTargetDisplay();
         
     } catch (error) {
         console.error('Error saving target:', error);
-        showNotifTop('❌ Gagal menyimpan target: ' + error.message, true);
+        
+        // ===== TANGANI ERROR DUPLIKAT =====
+        if (error.code === '23505') {
+            // Coba lagi dengan pendekatan berbeda - hapus dulu lalu insert
+            try {
+                await window.db
+                    .from('settings')
+                    .delete()
+                    .eq('key', 'targetKPI')
+                    .eq('user_id', currentUser.id);
+                
+                const { data, error: insertError } = await window.db
+                    .from('settings')
+                    .insert({
+                        key: 'targetKPI',
+                        value: newTarget,
+                        user_id: currentUser.id,
+                        created_at: new Date().toISOString(),
+                        updated_at: new Date().toISOString()
+                    })
+                    .select();
+                
+                if (insertError) throw insertError;
+                
+                targetData = newTarget;
+                showNotifTop('✅ Target berhasil disimpan (force)!');
+                closeModal('manageTargetModal');
+                await updateTargetDisplay();
+                return;
+                
+            } catch (retryError) {
+                console.error('Retry error:', retryError);
+                showNotifTop('❌ Gagal menyimpan target: ' + retryError.message, true);
+            }
+        } else {
+            showNotifTop('❌ Gagal menyimpan target: ' + error.message, true);
+        }
     }
 }
 
@@ -13138,7 +13176,7 @@ document.getElementById('saveProspekBtn')?.addEventListener('click', async funct
         document.getElementById('pesanMessage').value = '';
     });
     
-    // Target management
+    // ===== TARGET MANAGEMENT EVENT LISTENERS =====
     document.getElementById('manageTargetBtn')?.addEventListener('click', () => {
         document.getElementById('targetAgentInput').value = targetData.agent || 0;
         document.getElementById('targetKoorInput').value = targetData.koordinator || 0;
@@ -13146,7 +13184,9 @@ document.getElementById('saveProspekBtn')?.addEventListener('click', async funct
         document.getElementById('targetTransaksiInput').value = targetData.transaksi || 0;
         showModal('manageTargetModal');
     });
+    
     document.getElementById('saveTargetBtn')?.addEventListener('click', saveTargetData);
+    
     document.getElementById('cancelTargetBtn')?.addEventListener('click', () => closeModal('manageTargetModal'));
     
     // Transaksi
