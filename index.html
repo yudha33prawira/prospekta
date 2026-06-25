@@ -183,11 +183,32 @@
                             <h3>🎯 Target & KPI Prospek Agent</h3>
                             <button id="manageTargetBtn" class="add-btn">⚙️ Kelola Target</button>
                         </div>
-                        <div class="target-grid">
-                            <div class="target-card"><div class="target-card-title">👤 Target Agent</div><div class="target-card-value" id="targetAgentValue">0</div><div class="target-card-sub">Tercapai: <span id="targetAgentReached">0</span></div><div class="progress-bar"><div id="targetAgentProgress" style="width: 0%;"></div></div></div>
-                            <div class="target-card"><div class="target-card-title">👥 Target Koordinator</div><div class="target-card-value" id="targetKoorValue">0</div><div class="target-card-sub">Tercapai: <span id="targetKoorReached">0</span></div><div class="progress-bar"><div id="targetKoorProgress" style="width: 0%;"></div></div></div>
-                            <div class="target-card"><div class="target-card-title">🏦 Target CA</div><div class="target-card-value" id="targetCAValue">0</div><div class="target-card-sub">Tercapai: <span id="targetCAReached">0</span></div><div class="progress-bar"><div id="targetCAProgress" style="width: 0%;"></div></div></div>
-                            <div class="target-card" style="cursor: default;"><div class="target-card-title">📊 Target Transaksi/Bulan</div><div class="target-card-value" id="targetTransaksiValue">0</div><div class="target-card-sub">Tercapai: <span id="targetTransaksiReached">0</span></div><div class="progress-bar"><div id="targetTransaksiProgress" style="width: 0%;"></div></div><div style="font-size: 9px; opacity: 0.6; margin-top: 8px; border-top: 1px solid rgba(255,255,255,0.2); padding-top: 6px;">📊 Data dari DB Transaksi</div></div></div>
+                    <div class="target-grid">
+                        <div class="target-card">
+                            <div class="target-card-title">👤 Target Agent</div>
+                            <div class="target-card-value" id="targetAgentValue">0</div>
+                            <div class="target-card-sub">Tercapai: <span id="targetAgentReached">0</span></div>
+                            <div class="progress-bar"><div id="targetAgentProgress" style="width: 0%;"></div></div>
+                        </div>
+                        <div class="target-card">
+                            <div class="target-card-title">👥 Target Upline</div>
+                            <div class="target-card-value" id="targetUplineValue">0</div>
+                            <div class="target-card-sub">Tercapai: <span id="targetUplineReached">0</span></div>
+                            <div class="progress-bar"><div id="targetUplineProgress" style="width: 0%;"></div></div>
+                        </div>
+                        <div class="target-card">
+                            <div class="target-card-title">📊 Target Transaksi</div>
+                            <div class="target-card-value" id="targetTransaksiValue">0</div>
+                            <div class="target-card-sub">Tercapai: <span id="targetTransaksiReached">0</span></div>
+                            <div class="progress-bar"><div id="targetTransaksiProgress" style="width: 0%;"></div></div>
+                        </div>
+                        <div class="target-card">
+                            <div class="target-card-title">📊 Selisih Transaksi</div>
+                            <div class="target-card-value" id="targetSelisihValue">0</div>
+                            <div class="target-card-sub">Perubahan: <span id="targetSelisihReached">0</span></div>
+                            <div class="progress-bar"><div id="targetSelisihProgress" style="width: 0%;"></div></div>
+                        </div>
+                    </div>
                         <div class="chart-target-wrapper">
                             <div class="chart-card"><h3>📈 Pencapaian Target</h3><canvas id="targetChart"></canvas></div>
                             <div class="chart-card"><h3>📊 Trend Pencapaian per Bulan</h3><canvas id="trendChart"></canvas></div>
@@ -632,7 +653,36 @@
 
                 <div class="modal" id="pesanModal"><div class="modal-content"><h3>💬 Kirim Pesan</h3><div class="modal-subtitle">Kirim pesan ke CS lain</div><div class="form-group"><label>Kepada <span class="required">*</span></label><select id="pesanTo"><option value="">Pilih CS Tujuan</option></select></div><div class="form-group"><label>Pesan <span class="required">*</span></label><textarea id="pesanMessage" rows="4" placeholder="Tulis pesan..."></textarea></div><div class="modal-buttons"><button id="savePesanBtn" class="btn-primary">Kirim</button><button class="closeModalBtn" data-modal="pesanModal">Batal</button></div></div></div>
 
-                <div class="modal" id="manageTargetModal"><div class="modal-content"><h3>⚙️ Kelola Target</h3><div class="modal-subtitle">Atur target untuk periode berjalan</div><div class="form-group"><label>👤 Target Agent (orang)</label><input type="number" id="targetAgentInput" placeholder="Jumlah target agent"></div><div class="form-group"><label>👥 Target Koordinator (orang)</label><input type="number" id="targetKoorInput" placeholder="Jumlah target koordinator"></div><div class="form-group"><label>🏦 Target CA (orang)</label><input type="number" id="targetCAInput" placeholder="Jumlah target CA"></div><div class="form-group"><label>📊 Target Transaksi per Bulan (jumlah)</label><input type="number" id="targetTransaksiInput" placeholder="Jumlah target transaksi"></div><div class="modal-buttons"><button id="saveTargetBtn" class="btn-primary">💾 Simpan</button><button id="cancelTargetBtn" class="btn-outline">Batal</button></div></div></div>
+                <div class="modal" id="manageTargetModal">
+                    <div class="modal-content">
+                        <h3>⚙️ Kelola Target</h3>
+                        <div class="modal-subtitle">Atur target untuk periode berjalan</div>
+                        <div class="form-group">
+                            <label>👤 Target Agent (jumlah agent unik)</label>
+                            <input type="number" id="targetAgentInput" placeholder="Jumlah target agent">
+                            <small>Berdasarkan jumlah agent di DB Transaksi (tanpa tidak transaksi)</small>
+                        </div>
+                        <div class="form-group">
+                            <label>👥 Target Upline (jumlah upline unik)</label>
+                            <input type="number" id="targetUplineInput" placeholder="Jumlah target upline">
+                            <small>Berdasarkan jumlah upline di DB Transaksi (tanpa tidak transaksi)</small>
+                        </div>
+                        <div class="form-group">
+                            <label>📊 Target Transaksi (total transaksi)</label>
+                            <input type="number" id="targetTransaksiInput" placeholder="Jumlah target transaksi">
+                            <small>Total transaksi periode ini dari DB Transaksi</small>
+                        </div>
+                        <div class="form-group">
+                            <label>📊 Target Selisih Transaksi</label>
+                            <input type="number" id="targetSelisihInput" placeholder="Jumlah target selisih">
+                            <small>Target perubahan transaksi (naik/turun)</small>
+                        </div>
+                        <div class="modal-buttons">
+                            <button id="saveTargetBtn" class="btn-primary">💾 Simpan</button>
+                            <button id="cancelTargetBtn" class="btn-outline">Batal</button>
+                        </div>
+                    </div>
+                </div>
 
                 <div class="modal" id="inputTransaksiModal"><div class="modal-content"><h3>📊 Input Transaksi</h3><div class="modal-subtitle">Catat penambahan atau perubahan transaksi</div><div class="form-group"><label>Jumlah Transaksi <span class="required">*</span></label><input type="number" id="transaksiNominal" placeholder="Masukkan jumlah transaksi"></div><div class="form-group"><label>Keterangan</label><textarea id="transaksiKeterangan" rows="2" placeholder="Contoh: Penjualan produk A"></textarea></div><div class="form-group"><label>Tanggal Transaksi</label><input type="date" id="transaksiTanggal"></div><div class="modal-buttons"><button id="saveTransaksiBtn" class="btn-primary">✅ Simpan</button><button id="cancelTransaksiBtn" class="btn-outline">Batal</button></div></div></div>
 
