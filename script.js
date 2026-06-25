@@ -3,10 +3,17 @@ const SUPABASE_URL = 'https://haylblhjzfavrfiyaicq.supabase.co';
 const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImhheWxibGhqemZhdnJmaXlhaWNxIiwicm9sZSI6ImFub24iLCJpYXQiOjE3Nzk3MzgyMDIsImV4cCI6MjA5NTMxNDIwMn0.j4yQa1ZttP5_Zg0ye5lK2OLecq39QhG3tPyv5PZ3r78';
 
 // Inisialisasi Supabase client
-const _supabase = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
-window.db = _supabase;
+const _supabase = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY, {
+    cookieOptions: {
+        domain: window.location.hostname,
+        secure: true,
+        sameSite: 'lax'
+    }
+});
 
 // ========== GLOBAL VARIABLES ==========
+let isTargetDataLoading = false;
+let isDataLoaded = false;
 let currentUser = null;
 let currentUserRole = 'cs';
 let currentUserName = '';
@@ -5346,19 +5353,19 @@ async function loadDbTransaksi() {
     }
     
     // ===== CEK APAKAH SEDANG LOADING =====
-    if (window._isLoadingTransaksi) {
+    if (isTransaksiDataLoading) {
         console.log('⏳ Data transaksi sedang dimuat, skip...');
         return;
     }
     
     // ===== CEK APAKAH DATA SUDAH ADA =====
-    if (transaksiData && transaksiData.length > 0 && isAppInitialized) {
+    if (transaksiData && transaksiData.length > 0 && isTransaksiDataLoaded) {
         console.log('✅ Data transaksi sudah ada, skip loading');
         return;
     }
     
     try {
-        window._isLoadingTransaksi = true;
+        isTransaksiDataLoading = true;
         
         console.log('📊 Memuat semua data transaksi...');
         
@@ -5390,7 +5397,7 @@ async function loadDbTransaksi() {
                 console.error('❌ Error loading transaksi page:', error);
                 progress.hide();
                 showNotifTop('❌ Gagal memuat data: ' + error.message, true);
-                window._isLoadingTransaksi = false;
+                isTransaksiDataLoading = false;
                 return;
             }
             
@@ -5431,6 +5438,7 @@ async function loadDbTransaksi() {
         
         window.transaksiData = allData;
         transaksiData = allData;
+        isTransaksiDataLoaded = true;
         
         console.log(`✅ Loaded ${transaksiData.length} transaksi dari ${totalCount} total`);
         console.log('📊 Sample data (5 pertama):', transaksiData.slice(0, 5));
@@ -5441,6 +5449,8 @@ async function loadDbTransaksi() {
         updateTransaksiSelectionCount();
         
         // ===== UPDATE TARGET & KPI SETELAH DATA TRANSAKSI DIMUAT =====
+        // Reset flag agar loadTargetData bisa dijalankan
+        isDataLoaded = false;
         await loadTargetData();
         await updateTargetDisplay();
         updateTrendChart();
@@ -5472,7 +5482,7 @@ async function loadDbTransaksi() {
         console.error('❌ Error loadDbTransaksi:', err);
         showNotifTop('❌ Gagal memuat data: ' + err.message, true);
     } finally {
-        window._isLoadingTransaksi = false;
+        isTransaksiDataLoading = false;
     }
 }
 
@@ -8655,12 +8665,25 @@ async function deleteDBItem(collection, id) {
 
 // ========== TARGET KPI FUNCTIONS ==========
 async function loadTargetData() {
+    // ===== CEK APAKAH SEDANG LOADING =====
+    if (isTargetDataLoading) {
+        console.log('⏳ Target data sedang dimuat, skip...');
+        return;
+    }
+    
+    // ===== CEK APAKAH DATA SUDAH DIMUAT =====
+    if (isDataLoaded && currentUser) {
+        console.log('✅ Target data sudah dimuat, skip loading');
+        return;
+    }
+    
     if (!currentUser) {
         console.warn('loadTargetData: No user');
         return;
     }
     
     try {
+        isTargetDataLoading = true;
         console.log('📊 Memuat target data...');
         
         // ===== AMBIL TARGET DARI SETTINGS =====
@@ -8691,8 +8714,9 @@ async function loadTargetData() {
         
         if (transaksiDataLocal.length === 0) {
             console.warn('⚠️ Tidak ada data transaksi, gunakan default');
-            // Update dengan data default
-            updateTargetUI(0, 0, 0, 0, 0, 0, 0);
+            updateTargetUI(0, 0, 0, 0, 0, 0, 0, 0);
+            isDataLoaded = true;
+            isTargetDataLoading = false;
             return;
         }
         
@@ -8741,11 +8765,14 @@ async function loadTargetData() {
             currentSelisih
         );
         
+        isDataLoaded = true;
         console.log('✅ Target data loaded successfully');
         
     } catch (err) {
         console.error('Error loading target data:', err);
         showNotifTop('❌ Gagal memuat target: ' + err.message, true);
+    } finally {
+        isTargetDataLoading = false;
     }
 }
 
@@ -12226,68 +12253,78 @@ async function updatePesanBadge() {
 
 // ========== AUTH STATE CHANGE LISTENER ==========
 function initAuthListener() {
-    window.db.auth.onAuthStateChange((event, session) => {
-        console.log('Auth state change:', event, session?.user?.email);
-        
-        if (event === 'SIGNED_IN' && session) {
-            // ===== CEK APAKAH SUDAH LOGIN =====
-            if (currentUser && currentUser.id === session.user.id) {
-                console.log('⏳ User sudah login, skip reload');
-                return;
-            }
-            
-            currentUser = session.user;
-            document.getElementById('loginPage').style.display = 'none';
-            document.getElementById('app').style.display = 'block';
-            showNotifTop('✅ Login berhasil!');
-            
-            // ===== RESET FLAG =====
-            isAppInitialized = false;
-            
-            // Reload data (hanya jika belum dimuat)
-            setTimeout(async () => {
-                try {
-                    await loadUserProfile();
-                    await loadCustomers();
-                    await loadProspek();
-                    await loadDatabaseAgent();
-                    await loadProduk();
-                    await loadDbTransaksi();
-                    await loadDBClosing();
-                    await loadDBTidak();
-                    await loadDBNomorSalah();
-                    await loadDBCommitment();
-                    await loadReminders();
-                    await loadMessages();
-                    await loadUsersList();
-                    await loadTarifAdmin();
-                    await loadTargetData();
-                    await updateTargetDisplay();
-                    await loadTransaksiGlobal();
-                    isAppInitialized = true;
-                    navigateTo('dashboard');
-                } catch (err) {
-                    console.error('Error reload data:', err);
-                }
-            }, 500);
-            
-        } else if (event === 'SIGNED_OUT') {
-            currentUser = null;
-            isAppInitialized = false;
-            document.getElementById('loginPage').style.display = 'flex';
-            document.getElementById('app').style.display = 'none';
-            showNotifTop('👋 Anda telah logout');
-        } else if (event === 'TOKEN_REFRESHED') {
-            console.log('Token refreshed successfully');
-        } else if (event === 'USER_UPDATED') {
-            console.log('User updated');
-            // Refresh user data
-            if (currentUser) {
-                loadUserProfile();
-            }
+// ===== BAGIAN AUTH STATE CHANGE =====
+window.db.auth.onAuthStateChange((event, session) => {
+    console.log('Auth state change:', event, session?.user?.email);
+    
+    if (event === 'SIGNED_IN' && session) {
+        // ===== CEK APAKAH SUDAH LOGIN =====
+        if (currentUser && currentUser.id === session.user.id) {
+            console.log('⏳ User sudah login, skip reload');
+            return;
         }
-    });
-}
+        
+        // ===== RESET FLAG =====
+        isAppInitialized = false;
+        isDataLoaded = false;
+        isTargetDataLoading = false;
+        isTransaksiDataLoaded = false;
+        isTransaksiDataLoading = false;
+        
+        currentUser = session.user;
+        document.getElementById('loginPage').style.display = 'none';
+        document.getElementById('app').style.display = 'block';
+        showNotifTop('✅ Login berhasil!');
+        
+        // Reload data (hanya jika belum dimuat)
+        setTimeout(async () => {
+            try {
+                await loadUserProfile();
+                await loadCustomers();
+                await loadProspek();
+                await loadDatabaseAgent();
+                await loadProduk();
+                await loadDbTransaksi();
+                await loadDBClosing();
+                await loadDBTidak();
+                await loadDBNomorSalah();
+                await loadDBCommitment();
+                await loadReminders();
+                await loadMessages();
+                await loadUsersList();
+                await loadTarifAdmin();
+                await loadTargetData();
+                await updateTargetDisplay();
+                await loadTransaksiGlobal();
+                isAppInitialized = true;
+                navigateTo('dashboard');
+            } catch (err) {
+                console.error('Error reload data:', err);
+            }
+        }, 500);
+        
+    } else if (event === 'SIGNED_OUT') {
+        // ===== RESET FLAG =====
+        isDataLoaded = false;
+        isTargetDataLoading = false;
+        isTransaksiDataLoaded = false;
+        isTransaksiDataLoading = false;
+        isAppInitialized = false;
+        
+        currentUser = null;
+        document.getElementById('loginPage').style.display = 'flex';
+        document.getElementById('app').style.display = 'none';
+        showNotifTop('👋 Anda telah logout');
+        
+    } else if (event === 'TOKEN_REFRESHED') {
+        console.log('Token refreshed successfully');
+    } else if (event === 'USER_UPDATED') {
+        console.log('User updated');
+        if (currentUser) {
+            loadUserProfile();
+        }
+    }
+});
 
 // ========== CHECK AUTH & START ==========
 async function checkAuth() {
@@ -12469,6 +12506,12 @@ document.addEventListener('DOMContentLoaded', function() {
     }
     document._domReadyExecuted = true;
     
+    // ===== RESET FLAG GLOBAL =====
+    isDataLoaded = false;
+    isTargetDataLoading = false;
+    isTransaksiDataLoaded = false;
+    isTransaksiDataLoading = false;
+    
     // ===== INISIALISASI AUTH LISTENER =====
     initAuthListener();
     
@@ -12486,13 +12529,19 @@ document.addEventListener('DOMContentLoaded', function() {
         const logo = document.getElementById('logoWrapper');
         if (logo) {
             logo.classList.remove('animate');
-            void logo.offsetWidth; // Force reflow untuk restart animasi
+            void logo.offsetWidth;
             logo.classList.add('animate');
         }
-    }, 5000); // Animasi ulang setiap 5 detik
+    }, 5000);
+    
+    // ===== HAPUS DUPLIKASI EVENT LISTENER DASHBOARD =====
+    // Event listener untuk dashboard sudah dihandle di navigateTo
+    
+    console.log('✅ PROSPEKTA loaded successfully');
+});
 
     // ================================================================
-    // ========== POIN 9: FORCE LOAD DATA SAAT DASHBOARD DIBUKA ==========
+    // ========== LOAD DATA SAAT DASHBOARD DIBUKA ==========
     // ================================================================
     
     // ===== LISTENER KHUSUS UNTUK MENU DASHBOARD =====
@@ -12907,10 +12956,29 @@ async function handleLogin(email, password) {
 }
 
 async function handleLogout() {
+    // ===== RESET SEMUA FLAG =====
+    isDataLoaded = false;
+    isTargetDataLoading = false;
+    isTransaksiDataLoaded = false;
+    isTransaksiDataLoading = false;
+    isAppInitialized = false;
+    
+    // ===== RESET DATA =====
+    customersData = [];
+    prospekData = [];
+    agentsData = [];
+    transaksiData = [];
+    window.transaksiData = [];
+    produkData = [];
+    targetData = { agent: 0, upline: 0, transaksi: 0, selisih: 0, monthlyTargets: [] };
+    
+    // ===== LOGOUT =====
     await window.db.auth.signOut();
     currentUser = null;
     document.getElementById('loginPage').style.display = 'flex';
     document.getElementById('app').style.display = 'none';
+    
+    showNotifTop('👋 Anda telah logout');
 }
 
 // ========== PAGE NAVIGATION ==========
@@ -12982,31 +13050,45 @@ function navigateTo(page) {
                 if (typeof updateChartProspek === 'function') updateChartProspek();
                 if (typeof updateDeadlineBadge === 'function') updateDeadlineBadge();
                 
-                // ===== LOAD TARGET DATA =====
+                // ===== LOAD TARGET DATA (HANYA 1 KALI) =====
                 if (typeof loadTargetData === 'function') {
                     // Cek apakah data transaksi sudah ada
                     if (window.transaksiData && window.transaksiData.length > 0) {
                         console.log('📊 Data transaksi sudah ada, memuat target...');
-                        loadTargetData();
+                        // Reset flag isDataLoaded agar bisa dimuat ulang
+                        // (hanya jika data transaksi baru saja dimuat)
+                        if (!isDataLoaded) {
+                            loadTargetData();
+                        } else {
+                            console.log('✅ Target data sudah dimuat sebelumnya');
+                        }
                     } else {
                         console.log('⏳ Data transaksi belum siap, mencoba memuat...');
                         // Coba load data transaksi dulu
                         if (typeof loadDbTransaksi === 'function') {
-                            loadDbTransaksi().then(() => {
-                                loadTargetData();
-                            }).catch(() => {
-                                // Jika gagal, coba lagi dengan delay
-                                setTimeout(() => {
-                                    if (window.transaksiData && window.transaksiData.length > 0) {
+                            // Cek apakah transaksi sedang loading
+                            if (!isTransaksiDataLoading) {
+                                loadDbTransaksi().then(() => {
+                                    // Setelah transaksi dimuat, load target
+                                    if (!isDataLoaded) {
                                         loadTargetData();
-                                    } else {
-                                        console.warn('⚠️ Gagal memuat data transaksi');
                                     }
-                                }, 1000);
-                            });
+                                }).catch(() => {
+                                    // Jika gagal, coba lagi dengan delay
+                                    setTimeout(() => {
+                                        if (window.transaksiData && window.transaksiData.length > 0 && !isDataLoaded) {
+                                            loadTargetData();
+                                        } else {
+                                            console.warn('⚠️ Gagal memuat data transaksi');
+                                        }
+                                    }, 1000);
+                                });
+                            }
                         } else {
                             // Fallback: coba langsung load target
-                            loadTargetData();
+                            if (!isDataLoaded) {
+                                loadTargetData();
+                            }
                         }
                     }
                 }
@@ -14794,45 +14876,45 @@ function initEventListeners() {
         showModal('prospekModal');
     });
     
-document.getElementById('saveProspekBtn')?.addEventListener('click', async function(e) {
-    if (this.disabled) {
-        showNotifTop('⏳ Mohon tunggu, data sedang diproses...', true);
-        return;
-    }
-    
-    this.disabled = true;
-    const originalText = this.textContent;
-    this.textContent = '⏳ Menyimpan...';
-    
-    try {
-        const nama = document.getElementById('prospekName').value;
-        let hp = document.getElementById('prospekPhone').value;
-        const deadline = document.getElementById('prospekDeadline').value;
-        const tipeAgent = document.getElementById('prospekTipe').value; // <-- AMBIL NILAI
-        
-        if (!nama) {
-            showNotifTop('⚠️ Nama wajib diisi!', true);
+    document.getElementById('saveProspekBtn')?.addEventListener('click', async function(e) {
+        if (this.disabled) {
+            showNotifTop('⏳ Mohon tunggu, data sedang diproses...', true);
             return;
         }
         
-        hp = hp.replace(/[^\d]/g, '');
-        if (hp.startsWith('0')) hp = hp.substring(1);
+        this.disabled = true;
+        const originalText = this.textContent;
+        this.textContent = '⏳ Menyimpan...';
         
-        const success = await addProspek(nama, hp, deadline, tipeAgent);
-        if (success) {
-            closeModal('prospekModal');
-            document.getElementById('prospekName').value = '';
-            document.getElementById('prospekPhone').value = '';
-            document.getElementById('prospekTipe').value = 'AGENT';
+        try {
+            const nama = document.getElementById('prospekName').value;
+            let hp = document.getElementById('prospekPhone').value;
+            const deadline = document.getElementById('prospekDeadline').value;
+            const tipeAgent = document.getElementById('prospekTipe').value;
+            
+            if (!nama) {
+                showNotifTop('⚠️ Nama wajib diisi!', true);
+                return;
+            }
+            
+            hp = hp.replace(/[^\d]/g, '');
+            if (hp.startsWith('0')) hp = hp.substring(1);
+            
+            const success = await addProspek(nama, hp, deadline, tipeAgent);
+            if (success) {
+                closeModal('prospekModal');
+                document.getElementById('prospekName').value = '';
+                document.getElementById('prospekPhone').value = '';
+                document.getElementById('prospekTipe').value = 'AGENT';
+            }
+        } catch (err) {
+            console.error('Error:', err);
+            showNotifTop('❌ Gagal: ' + err.message, true);
+        } finally {
+            this.disabled = false;
+            this.textContent = originalText;
         }
-    } catch (err) {
-        console.error('Error:', err);
-        showNotifTop('❌ Gagal: ' + err.message, true);
-    } finally {
-        this.disabled = false;
-        this.textContent = originalText;
-    }
-});
+    });
     
     // Reminder
     document.getElementById('addReminderBtn')?.addEventListener('click', () => {
@@ -14895,7 +14977,6 @@ document.getElementById('saveProspekBtn')?.addEventListener('click', async funct
     });
     
     document.getElementById('saveTargetBtn')?.addEventListener('click', saveTargetData);
-    
     document.getElementById('cancelTargetBtn')?.addEventListener('click', () => closeModal('manageTargetModal'));
     
     // Transaksi
@@ -14950,13 +15031,23 @@ document.getElementById('saveProspekBtn')?.addEventListener('click', async funct
     // Logout
     document.getElementById('logoutBtn')?.addEventListener('click', handleLogout);
     
-    // Navigation menu
+    // ===== NAVIGATION MENU (HANYA 1 LISTENER) =====
     document.querySelectorAll('.menu-item[data-page]').forEach(item => {
-        item.addEventListener('click', () => {
-            navigateTo(item.dataset.page);
-            if (isMobile()) document.getElementById('sidebar')?.classList.remove('active');
-            updateSidebarBodyClass();
-        });
+        // Hapus listener lama dengan clone
+        const newItem = item.cloneNode(true);
+        item.parentNode.replaceChild(newItem, item);
+        
+        const freshItem = document.querySelector(`.menu-item[data-page="${item.dataset.page}"]`);
+        if (freshItem) {
+            freshItem.addEventListener('click', function(e) {
+                e.preventDefault();
+                e.stopPropagation();
+                const page = this.dataset.page;
+                navigateTo(page);
+                if (isMobile()) document.getElementById('sidebar')?.classList.remove('active');
+                updateSidebarBodyClass();
+            });
+        }
     });
     
     // Password toggle
@@ -14999,76 +15090,70 @@ document.getElementById('saveProspekBtn')?.addEventListener('click', async funct
                     'followupConfirmModal', 'prospekDihubungiModal', 'prospekNegosiasiModal', 'convertModal'];
     modals.forEach(id => setupModalClickOutside(id));
     
-// ================================================================
-// ========== BROADCAST EVENT LISTENERS ==========
-// ================================================================
-
-// Source type change
-document.querySelectorAll('input[name="sourceType"]').forEach(radio => {
-    radio.addEventListener('change', loadBroadcastNumbers);
-});
-
-// Customer filter checkboxes
-document.querySelectorAll('#customerFilterCard input').forEach(cb => {
-    cb.addEventListener('change', loadBroadcastNumbers);
-});
-
-// Prospek filter checkboxes
-document.querySelectorAll('#prospekFilterCard input').forEach(cb => {
-    cb.addEventListener('change', loadBroadcastNumbers);
-});
-
-// Custom numbers input
-document.getElementById('customNumbers')?.addEventListener('input', loadBroadcastNumbers);
-
-// Refresh numbers
-document.getElementById('refreshNumbersBtn')?.addEventListener('click', loadBroadcastNumbers);
-
-// Template functions
-document.getElementById('templateSelect')?.addEventListener('change', loadBroadcastTemplate);
-document.getElementById('saveTemplateBtn')?.addEventListener('click', saveBroadcastTemplate);
-document.getElementById('deleteTemplateBtn')?.addEventListener('click', deleteBroadcastTemplate);
-
-// Send broadcast
-document.getElementById('sendBroadcastBtn')?.addEventListener('click', sendBroadcast);
-
-// ================================================================
-// ========== BROADCAST UPLINE EVENT LISTENERS ==========
-// ================================================================
-
-document.querySelectorAll('input[name="uplineSourceType"]').forEach(radio => {
-    radio.addEventListener('change', loadUplineNumbers);
-});
-
-document.querySelectorAll('#uplineCustomerFilter input').forEach(cb => {
-    cb.addEventListener('change', loadUplineNumbers);
-});
-
-document.getElementById('uplineCustomNumbers')?.addEventListener('input', loadUplineNumbers);
-
-document.getElementById('refreshUplineBtn')?.addEventListener('click', loadUplineNumbers);
-
-document.getElementById('uplineTemplateSelect')?.addEventListener('change', loadUplineTemplate);
-document.getElementById('uplineSaveTemplateBtn')?.addEventListener('click', saveUplineTemplate);
-document.getElementById('uplineDeleteTemplateBtn')?.addEventListener('click', deleteUplineTemplate);
-
-document.getElementById('sendUplineBroadcastBtn')?.addEventListener('click', sendUplineBroadcast);
-
-// ================================================================
-// ========== LOAD ALL TEMPLATES & HISTORY ==========
-// ================================================================
-
-// Panggil saat halaman dimuat
-loadAllTemplates();
-
-// Jika ada history tersimpan, tampilkan notifikasi
-setTimeout(() => {
-    const hasBroadcast = loadBroadcastHistory(false);
-    const hasUpline = loadBroadcastHistory(true);
-    if (hasBroadcast || hasUpline) {
-        showNotifTop('📂 Ada history broadcast yang belum selesai. Buka halaman Broadcast untuk melanjutkan.');
-    }
-}, 2000);
+    // ================================================================
+    // ========== BROADCAST EVENT LISTENERS ==========
+    // ================================================================
+    
+    // Source type change
+    document.querySelectorAll('input[name="sourceType"]').forEach(radio => {
+        radio.addEventListener('change', loadBroadcastNumbers);
+    });
+    
+    // Customer filter checkboxes
+    document.querySelectorAll('#customerFilterCard input').forEach(cb => {
+        cb.addEventListener('change', loadBroadcastNumbers);
+    });
+    
+    // Prospek filter checkboxes
+    document.querySelectorAll('#prospekFilterCard input').forEach(cb => {
+        cb.addEventListener('change', loadBroadcastNumbers);
+    });
+    
+    // Custom numbers input
+    document.getElementById('customNumbers')?.addEventListener('input', loadBroadcastNumbers);
+    
+    // Refresh numbers
+    document.getElementById('refreshNumbersBtn')?.addEventListener('click', loadBroadcastNumbers);
+    
+    // Template functions
+    document.getElementById('templateSelect')?.addEventListener('change', loadBroadcastTemplate);
+    document.getElementById('saveTemplateBtn')?.addEventListener('click', saveBroadcastTemplate);
+    document.getElementById('deleteTemplateBtn')?.addEventListener('click', deleteBroadcastTemplate);
+    
+    // Send broadcast
+    document.getElementById('sendBroadcastBtn')?.addEventListener('click', sendBroadcast);
+    
+    // ================================================================
+    // ========== BROADCAST UPLINE EVENT LISTENERS ==========
+    // ================================================================
+    
+    document.querySelectorAll('input[name="uplineSourceType"]').forEach(radio => {
+        radio.addEventListener('change', loadUplineNumbers);
+    });
+    
+    document.querySelectorAll('#uplineCustomerFilter input').forEach(cb => {
+        cb.addEventListener('change', loadUplineNumbers);
+    });
+    
+    document.getElementById('uplineCustomNumbers')?.addEventListener('input', loadUplineNumbers);
+    
+    document.getElementById('refreshUplineBtn')?.addEventListener('click', loadUplineNumbers);
+    
+    document.getElementById('uplineTemplateSelect')?.addEventListener('change', loadUplineTemplate);
+    document.getElementById('uplineSaveTemplateBtn')?.addEventListener('click', saveUplineTemplate);
+    document.getElementById('uplineDeleteTemplateBtn')?.addEventListener('click', deleteUplineTemplate);
+    
+    document.getElementById('sendUplineBroadcastBtn')?.addEventListener('click', sendUplineBroadcast);
+    
+    // ================================================================
+    // ========== LOAD ALL TEMPLATES & HISTORY ==========
+    // ================================================================
+    
+    loadAllTemplates();
+    
+    // ================================================================
+    // ========== KODE LAINNYA (DATABASE BUTTONS, ETC) ==========
+    // ================================================================
     
     // ===== DATABASE BUTTONS =====
     // Select All buttons
@@ -15079,7 +15164,7 @@ setTimeout(() => {
     setupSelectAll('selectAllAgent', '#dbAgentList', selectedAgentIds);
     setupSelectAll('selectAllProduk', '#produkList', selectedProdukIds);
     
-    // ===== DELETE BUTTONS (HANYA 1 LISTENER MASING-MASING) =====
+    // ===== DELETE BUTTONS =====
     document.getElementById('deleteSelectedClosing')?.addEventListener('click', function(e) {
         e.preventDefault();
         e.stopPropagation();
@@ -15147,22 +15232,17 @@ setTimeout(() => {
     });
     
     // ===== TRANSAKSI BUTTONS =====
-    // Hapus Terpilih - menggunakan fungsi yang sudah diperbaiki
     document.getElementById('deleteSelectedTransaksi')?.addEventListener('click', function(e) {
         e.preventDefault();
         e.stopPropagation();
         deleteSelectedTransaksi();
     });
     
-    // Hapus Semua - DISEMBUNYIKAN (tidak digunakan)
+    // Hapus Semua - DISEMBUNYIKAN
     const deleteAllTransaksiBtn = document.getElementById('deleteAllTransaksiBtn');
     if (deleteAllTransaksiBtn) {
         deleteAllTransaksiBtn.style.display = 'none';
     }
-    
-    // Move Selected - sudah dihandle di atas, tapi kita tambahkan guard
-    // untuk mencegah duplikasi, kita HAPUS event listener yang duplikat
-    // dengan cara tidak memasang lagi di sini
     
     // Import
     setupImportExcel();
@@ -15310,6 +15390,7 @@ setTimeout(() => {
             beradminFields.style.display = 'block';
         }
     });
+}
 
 // ===== LOGIN =====
 document.getElementById('loginBtn')?.addEventListener('click', async function(e) {
