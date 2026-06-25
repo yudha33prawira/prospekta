@@ -8388,15 +8388,12 @@ async function loadTargetData() {
         const transaksiDataLocal = window.transaksiData || transaksiData || [];
         console.log('📊 Total transaksi data:', transaksiDataLocal.length);
         
-        // ===== VALID DATA: EXCLUDE tidak_transaksi =====
+        // ===== 1. TARGET AGENT: TOTAL DATA - TIDAK_TRANSAKSI =====
         const validData = transaksiDataLocal.filter(t => t.progres_jenis !== 'tidak_transaksi');
-        console.log('📊 Valid data (exclude tidak_transaksi):', validData.length);
-        
-        // 1. TARGET AGENT = TOTAL SEMUA DATA VALID
         const currentAgent = validData.length;
         console.log('📊 Target Agent (total data valid):', currentAgent);
         
-        // 2. TARGET UPLINE = JUMLAH UPLINE UNIK dari data valid
+        // ===== 2. TARGET UPLINE: UPLINE UNIK dari data valid =====
         const uplineSet = new Set();
         validData.forEach(t => {
             if (t.upline_name && t.upline_name.trim() !== '' && t.upline_name !== '-') {
@@ -8406,7 +8403,7 @@ async function loadTargetData() {
         const currentUpline = uplineSet.size;
         console.log('📊 Target Upline (upline unik):', currentUpline);
         
-        // 3. TARGET TRANSAKSI = TOTAL transaksi_bulan_ini (BUKAN SELISIH!)
+        // ===== 3. TARGET TRANSAKSI: TOTAL transaksi_bulan_ini =====
         let totalTransaksiBulanIni = 0;
         validData.forEach(t => {
             totalTransaksiBulanIni += (t.transaksi_bulan_ini || 0);
@@ -8414,7 +8411,7 @@ async function loadTargetData() {
         const currentTransaksi = totalTransaksiBulanIni;
         console.log('📊 Target Transaksi (total transaksi bulan ini):', currentTransaksi);
         
-        // 4. SELISIH TRANSAKSI = TOTAL transaksi_bulan_ini - TOTAL transaksi_bulan_lalu
+        // ===== 4. SELISIH TRANSAKSI: transaksi_bulan_ini - transaksi_bulan_lalu =====
         let totalBulanLalu = 0;
         validData.forEach(t => {
             totalBulanLalu += (t.transaksi_bulan_lalu || 0);
@@ -8424,16 +8421,26 @@ async function loadTargetData() {
         
         // ===== UPDATE ELEMEN =====
         // Target Values (dari settings)
-        document.getElementById('targetAgentValue').innerText = targetData.agent || 0;
-        document.getElementById('targetUplineValue').innerText = targetData.upline || 0;
-        document.getElementById('targetTransaksiValue').innerText = (targetData.transaksi || 0).toLocaleString();
-        document.getElementById('targetSelisihValue').innerText = (targetData.selisih || 0).toLocaleString();
+        const targetAgentEl = document.getElementById('targetAgentValue');
+        const targetUplineEl = document.getElementById('targetUplineValue');
+        const targetTransaksiEl = document.getElementById('targetTransaksiValue');
+        const targetSelisihEl = document.getElementById('targetSelisihValue');
+        
+        if (targetAgentEl) targetAgentEl.innerText = targetData.agent || 0;
+        if (targetUplineEl) targetUplineEl.innerText = targetData.upline || 0;
+        if (targetTransaksiEl) targetTransaksiEl.innerText = (targetData.transaksi || 0).toLocaleString();
+        if (targetSelisihEl) targetSelisihEl.innerText = (targetData.selisih || 0).toLocaleString();
         
         // Target Reached (dari perhitungan)
-        document.getElementById('targetAgentReached').innerText = currentAgent;
-        document.getElementById('targetUplineReached').innerText = currentUpline;
-        document.getElementById('targetTransaksiReached').innerText = currentTransaksi.toLocaleString();
-        document.getElementById('targetSelisihReached').innerText = currentSelisih.toLocaleString();
+        const reachedAgentEl = document.getElementById('targetAgentReached');
+        const reachedUplineEl = document.getElementById('targetUplineReached');
+        const reachedTransaksiEl = document.getElementById('targetTransaksiReached');
+        const reachedSelisihEl = document.getElementById('targetSelisihReached');
+        
+        if (reachedAgentEl) reachedAgentEl.innerText = currentAgent;
+        if (reachedUplineEl) reachedUplineEl.innerText = currentUpline;
+        if (reachedTransaksiEl) reachedTransaksiEl.innerText = currentTransaksi.toLocaleString();
+        if (reachedSelisihEl) reachedSelisihEl.innerText = currentSelisih.toLocaleString();
         
         // ===== HITUNG PERSENTASE =====
         const agentPercent = targetData.agent ? Math.min((currentAgent / targetData.agent) * 100, 100) : 0;
@@ -8449,21 +8456,410 @@ async function loadTargetData() {
         });
         
         // Update progress bars
-        document.getElementById('targetAgentProgress').style.width = agentPercent + '%';
-        document.getElementById('targetUplineProgress').style.width = uplinePercent + '%';
-        document.getElementById('targetTransaksiProgress').style.width = transaksiPercent + '%';
-        document.getElementById('targetSelisihProgress').style.width = selisihPercent + '%';
+        const progressAgent = document.getElementById('targetAgentProgress');
+        const progressUpline = document.getElementById('targetUplineProgress');
+        const progressTransaksi = document.getElementById('targetTransaksiProgress');
+        const progressSelisih = document.getElementById('targetSelisihProgress');
+        
+        if (progressAgent) progressAgent.style.width = agentPercent + '%';
+        if (progressUpline) progressUpline.style.width = uplinePercent + '%';
+        if (progressTransaksi) progressTransaksi.style.width = transaksiPercent + '%';
+        if (progressSelisih) progressSelisih.style.width = selisihPercent + '%';
+        
+        // ===== CEK APAKAH TARGET TERCAPAI =====
+        const allTargetsMet = agentPercent >= 100 && uplinePercent >= 100 && 
+                              transaksiPercent >= 100 && selisihPercent >= 100;
+        
+        const targetCard = document.querySelector('.target-kpi-section .target-header h3');
+        if (targetCard) {
+            if (allTargetsMet) {
+                targetCard.innerHTML = '🎉🥳 Selamat! Semua Target Tercapai! 🎉🥳';
+                targetCard.style.color = '#10b981';
+                targetCard.style.animation = 'pulseTarget 1s infinite';
+            } else {
+                targetCard.innerHTML = '🎯 Target & KPI Prospek Agent';
+                targetCard.style.color = '';
+                targetCard.style.animation = '';
+            }
+        }
         
         // ===== UPDATE CHART =====
         updateTargetChart([agentPercent, uplinePercent, transaksiPercent, selisihPercent]);
         
+        // ===== UPDATE TREND CHART =====
+        updateTrendChart();
+        
         console.log('✅ Target data loaded successfully');
+        
+        // ===== TAMPILKAN NOTIFIKASI JIKA SEMUA TARGET TERCAPAI =====
+        if (allTargetsMet) {
+            showNotifTop('🥳🎉 SELAMAT! Semua target KPI telah tercapai! 🎉🥳');
+        }
         
     } catch (err) {
         console.error('Error loading target data:', err);
         showNotifTop('❌ Gagal memuat target: ' + err.message, true);
     }
 }
+
+// ========== PERBAIKAN: FUNGSI UPDATE TARGET DISPLAY ==========
+
+async function updateTargetDisplay() {
+    if (!currentUser) return;
+    
+    try {
+        // ===== AMBIL TARGET DARI SETTINGS =====
+        const { data, error } = await window.db
+            .from('settings')
+            .select('*')
+            .eq('key', 'targetKPI')
+            .eq('user_id', currentUser.id)
+            .maybeSingle();
+        
+        if (data && data.value) {
+            targetData = data.value;
+        } else {
+            targetData = { agent: 10, ca: 20, koordinator: 5, transaksi: 100, selisih: 50, monthlyTargets: [] };
+        }
+        
+        // ===== AMBIL DATA DARI DB_AGENT =====
+        let query = window.db.from('db_agent').select('*');
+        if (currentUserRole !== 'owner') {
+            query = query.eq('user_id', currentUser.id);
+        }
+        const { data: agents, error: agentError } = await query;
+        
+        if (agentError) {
+            console.error('Error loading agents for target:', agentError);
+            return;
+        }
+        
+        // ===== HITUNG BERDASARKAN AGENT_TYPE =====
+        let currentAgent = 0;
+        let currentKoor = 0;
+        let currentCA = 0;
+        
+        if (agents && agents.length > 0) {
+            agents.forEach(agent => {
+                const type = agent.agent_type || '';
+                if (type === 'AGENT' || type === 'Agent') {
+                    currentAgent++;
+                } else if (type.includes('KORWIL') || type === 'Koordinator Wilayah (KORWIL)') {
+                    currentKoor++;
+                } else if (type.includes('CA') || type === 'CollectingAgent (CA)') {
+                    currentCA++;
+                }
+            });
+        }
+        
+        // ===== HITUNG TRANSAKSI DARI DB_TRANSAKSI =====
+        const transaksiDataLocal = window.transaksiData || transaksiData || [];
+        let currentTransaksi = 0;
+        let totalBulanLalu = 0;
+        let validCount = 0;
+        
+        if (transaksiDataLocal.length > 0) {
+            transaksiDataLocal.forEach(t => {
+                // Hanya hitung yang statusnya bukan 'tidak_transaksi'
+                if (t.progres_jenis !== 'tidak_transaksi') {
+                    validCount++;
+                    currentTransaksi += (t.transaksi_bulan_ini || 0);
+                    totalBulanLalu += (t.transaksi_bulan_lalu || 0);
+                }
+            });
+        }
+        const currentSelisih = currentTransaksi - totalBulanLalu;
+        
+        // ===== UPDATE ELEMEN DOM =====
+        const elements = {
+            targetAgentValue: targetData.agent || 0,
+            targetKoorValue: targetData.koordinator || 0,
+            targetCAValue: targetData.ca || 0,
+            targetTransaksiValue: (targetData.transaksi || 0).toLocaleString(),
+            targetAgentReached: validCount,
+            targetKoorReached: currentKoor,
+            targetCAReached: currentCA,
+            targetTransaksiReached: currentTransaksi.toLocaleString()
+        };
+        
+        for (const [id, value] of Object.entries(elements)) {
+            const el = document.getElementById(id);
+            if (el) el.innerText = value;
+        }
+        
+        // ===== HITUNG PERSENTASE =====
+        const agentPercent = targetData.agent ? Math.min((validCount / targetData.agent) * 100, 100) : 0;
+        const koorPercent = targetData.koordinator ? Math.min((currentKoor / targetData.koordinator) * 100, 100) : 0;
+        const caPercent = targetData.ca ? Math.min((currentCA / targetData.ca) * 100, 100) : 0;
+        const transaksiPercent = targetData.transaksi ? Math.min((currentTransaksi / targetData.transaksi) * 100, 100) : 0;
+        
+        const progressElements = {
+            targetAgentProgress: agentPercent,
+            targetKoorProgress: koorPercent,
+            targetCAProgress: caPercent,
+            targetTransaksiProgress: transaksiPercent
+        };
+        
+        for (const [id, value] of Object.entries(progressElements)) {
+            const el = document.getElementById(id);
+            if (el) el.style.width = value + '%';
+        }
+        
+        // ===== UPDATE CHART =====
+        updateTargetChart([agentPercent, koorPercent, caPercent, transaksiPercent]);
+        updateTrendChart();
+        
+    } catch (err) {
+        console.error('Error updating target display:', err);
+    }
+}
+
+// ========== FUNGSI UPDATE TREND CHART DENGAN KLIK ==========
+
+function updateTrendChart() {
+    const ctx = document.getElementById('trendChart');
+    if (!ctx) return;
+    
+    if (trendChart) trendChart.destroy();
+    
+    const isDark = document.body.classList.contains('dark-mode');
+    const textColor = isDark ? '#f1f5f9' : '#1e293b';
+    
+    let labels = [];
+    let naikData = [];
+    let turunData = [];
+    let tidakData = [];
+    let totalData = [];
+    
+    // ===== AMBIL DATA DARI TRANSAKSI =====
+    const transaksiLocal = window.transaksiData || transaksiData || [];
+    
+    if (transaksiLocal.length > 0) {
+        // Kelompokkan berdasarkan periode_bulan_ini
+        const periodMap = new Map();
+        transaksiLocal.forEach(t => {
+            const periode = t.periode_bulan_ini || 'Unknown';
+            if (!periodMap.has(periode)) {
+                periodMap.set(periode, { naik: 0, turun: 0, tidak: 0, total: 0 });
+            }
+            const stats = periodMap.get(periode);
+            if (t.progres_jenis === 'naik') stats.naik++;
+            else if (t.progres_jenis === 'turun') stats.turun++;
+            else if (t.progres_jenis === 'tidak_transaksi') stats.tidak++;
+            stats.total++;
+        });
+        
+        // Urutkan periode
+        const sortedPeriods = Array.from(periodMap.keys()).sort((a, b) => {
+            if (a === 'Unknown') return 1;
+            if (b === 'Unknown') return -1;
+            
+            const [bulanA, tahunA] = a.split(' ');
+            const [bulanB, tahunB] = b.split(' ');
+            const idxA = getBulanIndex(bulanA) || 0;
+            const idxB = getBulanIndex(bulanB) || 0;
+            
+            if (tahunA !== tahunB) return parseInt(tahunA) - parseInt(tahunB);
+            return idxA - idxB;
+        });
+        
+        // Ambil semua periode yang ada
+        sortedPeriods.forEach(periode => {
+            const stats = periodMap.get(periode);
+            labels.push(periode);
+            naikData.push(stats.naik || 0);
+            turunData.push(stats.turun || 0);
+            tidakData.push(stats.tidak || 0);
+            totalData.push(stats.total || 0);
+        });
+    }
+    
+    // Jika masih tidak ada data, buat demo
+    if (labels.length === 0) {
+        const months = ['Jan', 'Feb', 'Mar', 'Apr', 'Mei', 'Jun', 'Jul', 'Ags', 'Sep', 'Okt', 'Nov', 'Des'];
+        const currentMonth = new Date().getMonth();
+        const currentYear = new Date().getFullYear();
+        
+        for (let i = 5; i >= 0; i--) {
+            let monthIndex = currentMonth - i;
+            let year = currentYear;
+            if (monthIndex < 0) {
+                monthIndex += 12;
+                year--;
+            }
+            labels.push(`${months[monthIndex]} ${year}`);
+            naikData.push(Math.floor(Math.random() * 10) + 3);
+            turunData.push(Math.floor(Math.random() * 5) + 1);
+            tidakData.push(Math.floor(Math.random() * 3) + 1);
+            totalData.push(naikData[naikData.length-1] + turunData[turunData.length-1] + tidakData[tidakData.length-1]);
+        }
+    }
+    
+    // ===== HITUNG MIN & MAX =====
+    const allData = [...naikData, ...turunData, ...tidakData];
+    const minValue = allData.length > 0 ? Math.min(...allData) : 0;
+    const maxValue = allData.length > 0 ? Math.max(...allData) : 10;
+    const yMin = Math.max(0, minValue - 2);
+    const yMax = maxValue + 3;
+    
+    // ===== DATASET =====
+    const datasets = [
+        { 
+            label: '📈 Naik', 
+            data: naikData, 
+            borderColor: '#10b981', 
+            backgroundColor: 'rgba(16, 185, 129, 0.1)',
+            tension: 0.4, 
+            fill: true,
+            pointRadius: 4,
+            pointBackgroundColor: '#10b981'
+        },
+        { 
+            label: '📉 Turun', 
+            data: turunData, 
+            borderColor: '#ef4444', 
+            backgroundColor: 'rgba(239, 68, 68, 0.1)',
+            tension: 0.4, 
+            fill: true,
+            pointRadius: 4,
+            pointBackgroundColor: '#ef4444'
+        },
+        { 
+            label: '🚫 Tidak Transaksi', 
+            data: tidakData, 
+            borderColor: '#6b7280', 
+            backgroundColor: 'rgba(107, 114, 128, 0.1)',
+            tension: 0.4, 
+            fill: true,
+            pointRadius: 4,
+            pointBackgroundColor: '#6b7280',
+            borderDash: [5, 5]
+        }
+    ];
+    
+    trendChart = new Chart(ctx, {
+        type: 'line',
+        data: { labels, datasets },
+        options: {
+            responsive: true,
+            maintainAspectRatio: true,
+            plugins: {
+                legend: { 
+                    position: 'top', 
+                    labels: { 
+                        font: { size: 10 },
+                        color: textColor,
+                        usePointStyle: true,
+                        padding: 12
+                    } 
+                },
+                tooltip: {
+                    backgroundColor: isDark ? '#1e293b' : '#ffffff',
+                    titleColor: isDark ? '#f1f5f9' : '#1f2937',
+                    bodyColor: isDark ? '#cbd5e1' : '#374151',
+                    borderColor: isDark ? '#334155' : '#e5e7eb',
+                    borderWidth: 1,
+                    cornerRadius: 8,
+                    padding: 10,
+                    callbacks: {
+                        afterBody: function(context) {
+                            const dataIndex = context[0].dataIndex;
+                            const total = totalData[dataIndex] || 0;
+                            return `📊 Total: ${total} data`;
+                        }
+                    }
+                }
+            },
+            scales: {
+                y: {
+                    beginAtZero: false,
+                    min: yMin,
+                    max: yMax,
+                    ticks: { color: textColor, font: { size: 10 } },
+                    grid: { color: isDark ? 'rgba(255,255,255,0.05)' : 'rgba(0,0,0,0.06)' }
+                },
+                x: {
+                    ticks: { color: textColor, font: { size: 10 }, maxRotation: 30 },
+                    grid: { display: false }
+                }
+            },
+            interaction: {
+                intersect: false,
+                mode: 'index'
+            },
+            // ===== KLIK CHART UNTUK LIHAT DETAIL =====
+            onClick: function(event, elements) {
+                if (elements.length > 0) {
+                    const index = elements[0].index;
+                    const periode = labels[index];
+                    const dataPeriode = {
+                        periode: periode,
+                        naik: naikData[index] || 0,
+                        turun: turunData[index] || 0,
+                        tidak: tidakData[index] || 0,
+                        total: totalData[index] || 0
+                    };
+                    showDetailPerBulan(dataPeriode);
+                }
+            }
+        }
+    });
+}
+
+// ========== FUNGSI SHOW DETAIL PER BULAN ==========
+
+function showDetailPerBulan(data) {
+    const modalHtml = `
+        <div class="modal-content" style="max-width: 400px;">
+            <h3>📊 Detail Bulanan</h3>
+            <div class="modal-subtitle">${data.periode}</div>
+            <div style="padding: 0 20px 20px;">
+                <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 12px;">
+                    <div style="background: #d1fae5; border-radius: 12px; padding: 16px; text-align: center; border-left: 4px solid #10b981;">
+                        <div style="font-size: 10px; color: #6b7280;">📈 Naik</div>
+                        <div style="font-size: 28px; font-weight: 800; color: #10b981;">${data.naik}</div>
+                    </div>
+                    <div style="background: #fee2e2; border-radius: 12px; padding: 16px; text-align: center; border-left: 4px solid #ef4444;">
+                        <div style="font-size: 10px; color: #6b7280;">📉 Turun</div>
+                        <div style="font-size: 28px; font-weight: 800; color: #ef4444;">${data.turun}</div>
+                    </div>
+                    <div style="background: #e5e7eb; border-radius: 12px; padding: 16px; text-align: center; border-left: 4px solid #6b7280;">
+                        <div style="font-size: 10px; color: #6b7280;">🚫 Tidak Transaksi</div>
+                        <div style="font-size: 28px; font-weight: 800; color: #6b7280;">${data.tidak}</div>
+                    </div>
+                    <div style="background: #eef2ff; border-radius: 12px; padding: 16px; text-align: center; border-left: 4px solid #4f46e5;">
+                        <div style="font-size: 10px; color: #6b7280;">📊 Total</div>
+                        <div style="font-size: 28px; font-weight: 800; color: #4f46e5;">${data.total}</div>
+                    </div>
+                </div>
+            </div>
+            <div class="modal-buttons">
+                <button onclick="closeModal('detailModal')" class="btn-primary" style="width: 100%;">Tutup</button>
+            </div>
+        </div>
+    `;
+    
+    document.getElementById('detailContent').innerHTML = modalHtml;
+    showModal('detailModal');
+    applyDarkModeToModal(document.getElementById('detailModal'));
+}
+
+// ========== TAMBAHKAN CSS ANIMASI ==========
+
+// Tambahkan ke style.css atau inject via JS
+const targetAnimationStyle = document.createElement('style');
+targetAnimationStyle.textContent = `
+    @keyframes pulseTarget {
+        0% { transform: scale(1); }
+        50% { transform: scale(1.02); }
+        100% { transform: scale(1); }
+    }
+    
+    .target-header h3[style*="color: #10b981"] {
+        animation: pulseTarget 1s infinite !important;
+    }
+`;
+document.head.appendChild(targetAnimationStyle);
 
 // ===== GENERATE DEMO DATA UNTUK CHART =====
 function generateDemoData() {
@@ -8803,6 +9199,8 @@ async function loadRiwayatTransaksi() {
     }
 }
 
+// ========== UPDATE FUNGSI SAVE TARGET ==========
+
 async function saveTargetData() {
     const agentVal = parseInt(document.getElementById('targetAgentInput')?.value) || 0;
     const uplineVal = parseInt(document.getElementById('targetUplineInput')?.value) || 0;
@@ -8858,6 +9256,7 @@ async function saveTargetData() {
         targetData = newTarget;
         showNotifTop('✅ Target berhasil disimpan!');
         closeModal('manageTargetModal');
+        await loadTargetData();
         await updateTargetDisplay();
         
     } catch (error) {
