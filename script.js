@@ -8516,63 +8516,106 @@ function updateTrendChart() {
     const isDark = document.body.classList.contains('dark-mode');
     const textColor = isDark ? '#f1f5f9' : '#1e293b';
     
-    if (riwayatData.length === 0) {
-        // Tampilkan data dummy atau kosong
-        trendChart = new Chart(ctx, {
-            type: 'line',
-            data: {
-                labels: ['Belum ada data'],
-                datasets: [
-                    { label: '📈 Naik', data: [0], borderColor: '#10b981', backgroundColor: 'transparent' },
-                    { label: '⚖️ Normal', data: [0], borderColor: '#3b82f6', backgroundColor: 'transparent' },
-                    { label: '📉 Turun', data: [0], borderColor: '#f59e0b', backgroundColor: 'transparent' },
-                    { label: '🚫 Tidak Transaksi', data: [0], borderColor: '#ef4444', backgroundColor: 'transparent' }
-                ]
-            },
-            options: {
-                responsive: true,
-                maintainAspectRatio: true,
-                plugins: {
-                    legend: { 
-                        position: 'top', 
-                        labels: { 
-                            font: { size: 10 },
-                            color: textColor
-                        } 
-                    }
-                },
-                scales: {
-                    y: {
-                        beginAtZero: true,
-                        ticks: { color: textColor }
-                    },
-                    x: {
-                        ticks: { color: textColor }
-                    }
-                }
-            }
+    // ===== AMBIL DATA ATAU BUAT DATA RANDOM =====
+    let sortedData = [];
+    let labels = [];
+    let naikData = [];
+    let turunData = [];
+    let tidakData = [];
+    
+    if (riwayatData.length > 0) {
+        // ===== URUTKAN DATA =====
+        sortedData = [...riwayatData].sort((a, b) => {
+            if (a.tahun !== b.tahun) return a.tahun - b.tahun;
+            return a.bulan_index - b.bulan_index;
         });
-        return;
+        
+        labels = sortedData.map(item => item.bulan || `${item.bulan_index}/${item.tahun}`);
+        naikData = sortedData.map(item => item.total_naik || 0);
+        turunData = sortedData.map(item => item.total_turun || 0);
+        tidakData = sortedData.map(item => item.total_tidak_transaksi || 0);
+        
+    } else {
+        // ===== BUAT DATA RANDOM UNTUK 6 BULAN TERAKHIR =====
+        const months = ['Jan', 'Feb', 'Mar', 'Apr', 'Mei', 'Jun', 'Jul', 'Ags', 'Sep', 'Okt', 'Nov', 'Des'];
+        const currentMonth = new Date().getMonth();
+        const currentYear = new Date().getFullYear();
+        
+        // Ambil 6 bulan terakhir
+        const last6Months = [];
+        for (let i = 5; i >= 0; i--) {
+            let monthIndex = currentMonth - i;
+            let year = currentYear;
+            if (monthIndex < 0) {
+                monthIndex += 12;
+                year--;
+            }
+            last6Months.push({
+                label: `${months[monthIndex]} ${year}`,
+                month: monthIndex,
+                year: year
+            });
+        }
+        
+        labels = last6Months.map(m => m.label);
+        
+        // Generate random data untuk Naik (5-20)
+        naikData = last6Months.map(() => Math.floor(Math.random() * 15) + 5);
+        
+        // Generate random data untuk Turun (2-10)
+        turunData = last6Months.map(() => Math.floor(Math.random() * 8) + 2);
+        
+        // Generate random data untuk Tidak Transaksi (1-5)
+        tidakData = last6Months.map(() => Math.floor(Math.random() * 4) + 1);
     }
     
-    // ===== URUTKAN DATA =====
-    const sortedData = [...riwayatData].sort((a, b) => {
-        if (a.tahun !== b.tahun) return a.tahun - b.tahun;
-        return a.bulan_index - b.bulan_index;
-    });
-    
-    const labels = sortedData.map(item => item.bulan || `${item.bulan_index}/${item.tahun}`);
-    
+    // ===== DATASET HANYA: Naik, Turun, Tidak Transaksi =====
     const datasets = [
-        { label: '📈 Naik', data: sortedData.map(item => item.total_naik || 0), borderColor: '#10b981', backgroundColor: 'rgba(16, 185, 129, 0.1)', tension: 0.4, fill: true, pointRadius: 4 },
-        { label: '⚖️ Normal', data: sortedData.map(item => item.total_normal || 0), borderColor: '#3b82f6', backgroundColor: 'rgba(59, 130, 246, 0.1)', tension: 0.4, fill: true, pointRadius: 4 },
-        { label: '📉 Turun', data: sortedData.map(item => item.total_turun || 0), borderColor: '#f59e0b', backgroundColor: 'rgba(245, 158, 11, 0.1)', tension: 0.4, fill: true, pointRadius: 4 },
-        { label: '🚫 Tidak Transaksi', data: sortedData.map(item => item.total_tidak_transaksi || 0), borderColor: '#ef4444', backgroundColor: 'rgba(239, 68, 68, 0.1)', tension: 0.4, fill: true, pointRadius: 4 }
+        { 
+            label: '📈 Naik', 
+            data: naikData, 
+            borderColor: '#10b981', 
+            backgroundColor: 'rgba(16, 185, 129, 0.15)',
+            tension: 0.4, 
+            fill: true,
+            pointBackgroundColor: '#10b981',
+            pointBorderColor: '#10b981',
+            pointRadius: 5,
+            pointHoverRadius: 7
+        },
+        { 
+            label: '📉 Turun', 
+            data: turunData, 
+            borderColor: '#ef4444', 
+            backgroundColor: 'rgba(239, 68, 68, 0.15)',
+            tension: 0.4, 
+            fill: true,
+            pointBackgroundColor: '#ef4444',
+            pointBorderColor: '#ef4444',
+            pointRadius: 5,
+            pointHoverRadius: 7
+        },
+        { 
+            label: '🚫 Tidak Transaksi', 
+            data: tidakData, 
+            borderColor: '#6b7280', 
+            backgroundColor: 'rgba(107, 114, 128, 0.15)',
+            tension: 0.4, 
+            fill: true,
+            pointBackgroundColor: '#6b7280',
+            pointBorderColor: '#6b7280',
+            pointRadius: 5,
+            pointHoverRadius: 7,
+            borderDash: [5, 5] // Garis putus-putus untuk membedakan
+        }
     ];
     
     trendChart = new Chart(ctx, {
         type: 'line',
-        data: { labels, datasets },
+        data: { 
+            labels: labels, 
+            datasets: datasets 
+        },
         options: {
             responsive: true,
             maintainAspectRatio: true,
@@ -8580,16 +8623,26 @@ function updateTrendChart() {
                 legend: { 
                     position: 'top', 
                     labels: { 
-                        font: { size: 10 },
+                        font: { size: 11, weight: '600' },
                         color: textColor,
                         usePointStyle: true,
-                        padding: 12
+                        padding: 16,
+                        boxWidth: 12
                     } 
                 },
                 tooltip: {
+                    backgroundColor: isDark ? '#1e293b' : '#ffffff',
+                    titleColor: isDark ? '#f1f5f9' : '#1f2937',
+                    bodyColor: isDark ? '#cbd5e1' : '#374151',
+                    borderColor: isDark ? '#334155' : '#e5e7eb',
+                    borderWidth: 1,
+                    cornerRadius: 8,
+                    padding: 12,
                     callbacks: {
                         label: function(context) {
-                            return `${context.dataset.label}: ${context.raw} agent`;
+                            const label = context.dataset.label || '';
+                            const value = context.raw || 0;
+                            return `${label}: ${value} agent`;
                         }
                     }
                 }
@@ -8597,16 +8650,41 @@ function updateTrendChart() {
             scales: {
                 y: {
                     beginAtZero: true,
-                    title: { display: true, text: 'Jumlah Agent', color: textColor, font: { size: 11 } },
-                    ticks: { color: textColor, font: { size: 10 } }
+                    title: { 
+                        display: true, 
+                        text: 'Jumlah Agent',
+                        color: textColor,
+                        font: { size: 11, weight: '500' }
+                    },
+                    ticks: { 
+                        color: textColor, 
+                        font: { size: 10 },
+                        stepSize: 1
+                    },
+                    grid: {
+                        color: isDark ? 'rgba(255,255,255,0.05)' : 'rgba(0,0,0,0.06)'
+                    }
                 },
                 x: {
-                    ticks: { color: textColor, font: { size: 10 }, maxRotation: 45, minRotation: 30 }
+                    ticks: { 
+                        color: textColor, 
+                        font: { size: 10 },
+                        maxRotation: 30,
+                        minRotation: 0
+                    },
+                    grid: {
+                        display: false
+                    }
                 }
             },
             interaction: {
                 intersect: false,
                 mode: 'index'
+            },
+            elements: {
+                line: {
+                    borderWidth: 2.5
+                }
             }
         }
     });
@@ -8647,6 +8725,82 @@ async function loadRiwayatTransaksi() {
     } catch (err) {
         console.error('❌ Error load riwayat:', err);
         showNotifTop('❌ Error: ' + err.message, true);
+    }
+}
+
+// ===== GENERATE DEMO DATA UNTUK CHART =====
+function generateDemoData() {
+    const months = ['Jan', 'Feb', 'Mar', 'Apr', 'Mei', 'Jun', 'Jul', 'Ags', 'Sep', 'Okt', 'Nov', 'Des'];
+    const currentMonth = new Date().getMonth();
+    const currentYear = new Date().getFullYear();
+    
+    const demoData = [];
+    
+    // Generate data untuk 6 bulan terakhir
+    for (let i = 5; i >= 0; i--) {
+        let monthIndex = currentMonth - i;
+        let year = currentYear;
+        if (monthIndex < 0) {
+            monthIndex += 12;
+            year--;
+        }
+        
+        demoData.push({
+            bulan: `${months[monthIndex]} ${year}`,
+            bulan_index: monthIndex + 1,
+            tahun: year,
+            total_naik: Math.floor(Math.random() * 15) + 5,
+            total_turun: Math.floor(Math.random() * 8) + 2,
+            total_normal: Math.floor(Math.random() * 20) + 10,
+            total_tidak_transaksi: Math.floor(Math.random() * 4) + 1,
+            total_data: Math.floor(Math.random() * 30) + 15
+        });
+    }
+    
+    return demoData;
+}
+
+// Panggil di loadRiwayatTransaksi jika data kosong
+async function loadRiwayatTransaksi() {
+    if (!currentUser) {
+        console.warn('loadRiwayatTransaksi: No user');
+        return;
+    }
+    
+    try {
+        const { data, error } = await window.db
+            .from('riwayat_transaksi_bulanan')
+            .select('*')
+            .eq('user_id', currentUser.id)
+            .order('tahun', { ascending: true })
+            .order('bulan_index', { ascending: true });
+        
+        if (error) {
+            console.error('❌ Gagal load riwayat:', error);
+            // Jika error, gunakan demo data
+            const demoData = generateDemoData();
+            updateRiwayatDataForChart(demoData);
+            renderRiwayatTransaksi([]);
+            return;
+        }
+        
+        // ===== SIMPAN UNTUK CHART =====
+        if (data && data.length > 0) {
+            updateRiwayatDataForChart(data);
+        } else {
+            // Jika tidak ada data, gunakan demo data
+            const demoData = generateDemoData();
+            updateRiwayatDataForChart(demoData);
+        }
+        
+        renderRiwayatTransaksi(data || []);
+        
+    } catch (err) {
+        console.error('❌ Error load riwayat:', err);
+        // Gunakan demo data jika error
+        const demoData = generateDemoData();
+        updateRiwayatDataForChart(demoData);
+        showNotifTop('⚠️ Menggunakan data demo untuk grafik', true);
     }
 }
 
