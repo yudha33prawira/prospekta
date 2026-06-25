@@ -5528,6 +5528,12 @@ function renderFollowupKanban() {
     const renderColumn = (containerId, items, columnType) => {
         const container = document.getElementById(containerId);
         if (!container) return;
+        
+        if (items.length === 0) {
+            container.innerHTML = `<div class="empty-column" style="text-align:center;padding:12px 0;color:#9ca3af;font-size:11px;">📭 Kosong</div>`;
+            return;
+        }
+        
         container.innerHTML = items.map(item => {
             const isOverdue = item.tanggal && item.tanggal < today;
             const isToday = item.tanggal === today;
@@ -5535,31 +5541,22 @@ function renderFollowupKanban() {
             if (isOverdue) deadlineClass = 'deadline-overdue';
             else if (isToday) deadlineClass = 'deadline-today';
             
-            // Validasi untuk tombol berdasarkan status
             let canProceed = true;
             let disabledReason = '';
             
             if (columnType === 'followup') {
-                // Untuk tombol Konfirmasi Follow Up, perlu checklist
                 canProceed = item.followup_data && item.followup_data.terkirim && item.followup_data.dibalas;
                 disabledReason = 'Harap lengkapi data follow up terlebih dahulu';
             } else if (columnType === 'pending') {
-                // Untuk tombol Selesai & Closing, perlu semua pending items terisi dan tercentang
                 const pendingData = item.pending_data || [];
                 canProceed = pendingData.length > 0 && pendingData.every(p => p.checked === true && p.text && p.text.trim() !== '');
                 disabledReason = 'Harap isi semua balasan pending dan centang';
-            } else if (columnType === 'closing') {
-                // Untuk tombol Pindah ke DB Closing, selalu bisa
-                canProceed = true;
-            } else {
-                canProceed = true;
             }
             
             const actionButton = getActionButtonForStatus(item.status, item.id, canProceed, disabledReason);
             
-            // ===== PERBAIKAN: Tambahkan style inline untuk dark mode =====
             return `<div class="card-item ${deadlineClass}" data-id="${item.id}">
-                <div class="card-id" style="background: #eef2ff; padding: 3px 8px; border-radius: 20px; margin-bottom: 6px; display: inline-block; font-weight: 600; font-size: 10px; color: #4f46e5; max-width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">🆔 ${escapeHtml(item.agent_id || '-')}</div>
+                <div class="card-id">🆔 ${escapeHtml(item.agent_id || '-')}</div>
                 <div class="card-name" title="${escapeHtml(item.nama)}">${escapeHtml(item.nama)}</div>
                 <div class="card-phone">
                     <span title="${item.hp}">${escapeHtml(item.hp)}</span>
@@ -5760,6 +5757,12 @@ function renderProspekKanban() {
     const renderColumn = (containerId, items, columnType) => {
         const container = document.getElementById(containerId);
         if (!container) return;
+        
+        if (items.length === 0) {
+            container.innerHTML = `<div class="empty-column" style="text-align:center;padding:12px 0;color:#9ca3af;font-size:11px;">📭 Kosong</div>`;
+            return;
+        }
+        
         container.innerHTML = items.map(item => {
             const isOverdue = item.deadline && item.deadline < today;
             const isToday = item.deadline === today;
@@ -5767,24 +5770,15 @@ function renderProspekKanban() {
             if (isOverdue) deadlineClass = 'deadline-overdue';
             else if (isToday) deadlineClass = 'deadline-today';
             
-            // Validasi untuk tombol berdasarkan status
             let canProceed = true;
             let disabledReason = '';
             
             if (columnType === 'dihubungi') {
-                // Untuk tombol Konfirmasi Dihubungi, perlu checklist
                 canProceed = item.dihubungi_data && item.dihubungi_data.terkirim && item.dihubungi_data.dibalas;
                 disabledReason = 'Harap lengkapi data dihubungi terlebih dahulu';
             } else if (columnType === 'negosiasi') {
-                // Untuk tombol Kelola Negosiasi, selalu bisa diklik
-                canProceed = true;
-                // Untuk tombol Tertarik, perlu data negosiasi lengkap
                 const negosiasiComplete = item.negosiasi_data && item.negosiasi_data.is_complete;
                 disabledReason = 'Harap lengkapi data kuesioner negosiasi terlebih dahulu';
-            } else if (columnType === 'tertarik') {
-                canProceed = true;
-            } else {
-                canProceed = true;
             }
             
             const actionButton = getProspekActionButtonForStatus(item.status, item.id, item, canProceed, disabledReason);
