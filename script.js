@@ -5297,8 +5297,10 @@ async function loadDbTransaksi() {
         updateTransaksiStats(transaksiData);
         updateSelectAllTransaksiButton();
         updateTransaksiSelectionCount();
-        await updateTargetDisplay();
+        
+        // ===== UPDATE TARGET & KPI SETELAH DATA TRANSAKSI DIMUAT =====
         await loadTargetData();
+        await updateTargetDisplay();
         updateTrendChart();
         
         const totalAllSpan = document.getElementById('transaksiTotalAll');
@@ -8426,7 +8428,7 @@ async function loadTargetData() {
         
         console.log('📊 Target dari settings:', targetData);
         
-        // ===== HITUNG DARI DB_TRANSAKSI =====
+        // ===== AMBIL DATA DARI DB_TRANSAKSI =====
         const transaksiDataLocal = window.transaksiData || transaksiData || [];
         console.log('📊 Total transaksi data:', transaksiDataLocal.length);
         
@@ -8521,17 +8523,12 @@ async function loadTargetData() {
                 
                 // ===== FLIP CARD ANIMATION =====
                 if (targetSection) {
-                    // Hapus class dulu untuk reset animasi
                     targetSection.classList.remove('target-celebrate');
-                    // Force reflow
                     void targetSection.offsetWidth;
-                    // Tambahkan class untuk trigger animasi
                     targetSection.classList.add('target-celebrate');
-                    
-                    // Hapus class setelah 5 detik agar bisa diulang
                     setTimeout(() => {
                         targetSection.classList.remove('target-celebrate');
-                    }, 5000);
+                    }, 6000);
                 }
                 
                 showNotifTop('🥳🎉 SELAMAT! Semua target KPI telah tercapai! 🎉🥳');
@@ -8547,7 +8544,6 @@ async function loadTargetData() {
         }
         
         // ===== UPDATE CHART (HANYA 3 DATA: Agent, Upline, Transaksi) =====
-        // Pastikan data untuk grafik tidak undefined
         const chartData = [
             agentPercent || 0,
             uplinePercent || 0,
@@ -9094,7 +9090,7 @@ function generateDemoData() {
 function updateTargetChart(percentages) {
     const ctx = document.getElementById('targetChart');
     if (!ctx) {
-        console.warn('targetChart canvas not found');
+        console.warn('⚠️ targetChart canvas not found');
         return;
     }
     
@@ -9104,7 +9100,13 @@ function updateTargetChart(percentages) {
     const textColor = isDark ? '#f1f5f9' : '#1e293b';
     
     // ===== PASTIKAN DATA VALID =====
-    const data = percentages && percentages.length === 3 ? percentages : [0, 0, 0];
+    let data = [0, 0, 0];
+    if (percentages && percentages.length >= 3) {
+        data = percentages.slice(0, 3);
+        // Pastikan semua nilai adalah angka
+        data = data.map(v => typeof v === 'number' && !isNaN(v) ? v : 0);
+    }
+    
     const labels = ['👤 Agent', '👥 Upline', '📊 Transaksi'];
     const colors = ['#667eea', '#4facfe', '#f093fb'];
     
@@ -9176,6 +9178,9 @@ function updateTargetChart(percentages) {
             }
         }
     });
+    
+    // ===== FORCE UPDATE CHART =====
+    targetChart.update();
 }
 
 // ========== FUNGSI SHOW DETAIL PER BULAN (DARI CHART TARGET) ==========
@@ -12171,7 +12176,25 @@ function navigateTo(page) {
                 if (typeof updateChartCustomer === 'function') updateChartCustomer();
                 if (typeof updateChartProspek === 'function') updateChartProspek();
                 if (typeof updateTargetDisplay === 'function') updateTargetDisplay();
-                if (typeof loadTargetData === 'function') loadTargetData();
+                if (typeof loadTargetData === 'function') {
+                    // ===== PASTIKAN DATA TRANSAKSI SUDAH ADA =====
+                    if (window.transaksiData && window.transaksiData.length > 0) {
+                        loadTargetData();
+                    } else {
+                        // Tunggu sebentar lalu coba lagi
+                        setTimeout(() => {
+                            if (window.transaksiData && window.transaksiData.length > 0) {
+                                loadTargetData();
+                            } else {
+                                console.log('⏳ Data transaksi belum siap, coba lagi...');
+                                // Coba load data transaksi
+                                loadDbTransaksi().then(() => {
+                                    loadTargetData();
+                                });
+                            }
+                        }, 500);
+                    }
+                }
                 if (typeof updateDeadlineBadge === 'function') updateDeadlineBadge();
                 break;
                             
