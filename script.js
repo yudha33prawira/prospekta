@@ -2405,10 +2405,13 @@ function openWAById(customerId) {
     if (prospek && prospek.hp) openWA(prospek.hp);
 }
 
-// ========== OPEN DETAIL FUNCTIONS ==========
+// ========== OPEN DETAIL CUSTOMER ==========
 async function openDetailCustomer(id) {
     const customer = customersData.find(c => c.id === id);
-    if (!customer) return;
+    if (!customer) {
+        showNotifTop('❌ Data tidak ditemukan!', true);
+        return;
+    }
     
     // ===== AMBIL DATA DARI DB TRANSAKSI =====
     let dataTransaksi = null;
@@ -2481,33 +2484,67 @@ async function openDetailCustomer(id) {
         } catch(e) { console.error(e); }
     }
     
+    // ===== STATUS BADGE HTML =====
+    const statusBadge = `<span class="status-badge ${statusClass}">${escapeHtml(statusText)}</span>`;
+    
     // ===== BUILD HTML =====
     const modalHtml = `
-        <div class="modal-content detail-popup" style="max-width: 550px; max-height: 85vh; overflow-y: auto; background: #fff; border-radius: 24px; position: relative; padding: 0;">
+        <div class="modal-content detail-popup">
             <!-- HEADER -->
-            <div class="popup-header" style="padding: 20px 24px 0; display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid #f0f0f0; position: sticky; top: 0; background: #fff; z-index: 10; border-radius: 24px 24px 0 0;">
+            <div class="popup-header">
                 <div>
-                    <h3 style="font-size: 20px; margin: 0; color: #1f2937;">📊 Detail Transaksi</h3>
-                    <div style="font-size: 13px; color: #6b7280; margin-top: 4px; padding-bottom: 12px;">Informasi lengkap data transaksi</div>
+                    <h3>📊 Detail Transaksi</h3>
+                    <div class="popup-subtitle">Informasi lengkap data transaksi</div>
                 </div>
-                <button onclick="closeModal('detailModal')" style="background: none; border: none; font-size: 28px; cursor: pointer; color: #6b7280; padding: 0 4px; line-height: 1; transition: all 0.2s;" onmouseover="this.style.color='#ef4444'" onmouseout="this.style.color='#6b7280'">✕</button>
+                <button class="popup-close" onclick="closeModal('detailModal')">✕</button>
             </div>
             
-            <!-- CONTENT -->
-            <div style="padding: 20px 24px 16px;">
+            <!-- BODY -->
+            <div class="popup-body">
                 <!-- INFO UTAMA -->
                 <div class="info-grid">
-                    <div class="info-row"><span class="label">🆔 ID Agent</span><span class="value">${escapeHtml(customer.agent_id || '-')}</span></div>
-                    <div class="info-row"><span class="label">👤 Nama</span><span class="value">${escapeHtml(customer.nama)}</span></div>
-                    <div class="info-row"><span class="label">📱 Nomor HP</span><span class="value">${escapeHtml(customer.hp)}</span></div>
-                    <div class="info-row"><span class="label">📱 Aplikasi</span><span class="value">${escapeHtml(customer.apk || '-')}</span></div>
-                    <div class="info-row"><span class="label">👤 Upline</span><span class="value">${escapeHtml(customer.upline_name || '-')}</span></div>
-                    <div class="info-row"><span class="label">📞 HP Upline</span><span class="value">${escapeHtml(customer.upline_phone || '-')}</span></div>
+                    <div class="info-row">
+                        <span class="label">🆔 ID Agent</span>
+                        <span class="value">${escapeHtml(customer.agent_id || '-')}</span>
+                    </div>
+                    <div class="info-row">
+                        <span class="label">👤 Nama</span>
+                        <span class="value">${escapeHtml(customer.nama)}</span>
+                    </div>
+                    <div class="info-row">
+                        <span class="label">📱 Nomor HP</span>
+                        <span class="value">${escapeHtml(customer.hp)}</span>
+                    </div>
+                    <div class="info-row">
+                        <span class="label">📱 Aplikasi</span>
+                        <span class="value">${escapeHtml(customer.apk || '-')}</span>
+                    </div>
+                    <div class="info-row">
+                        <span class="label">👤 Upline</span>
+                        <span class="value">${escapeHtml(customer.upline_name || '-')}</span>
+                    </div>
+                    <div class="info-row">
+                        <span class="label">📞 HP Upline</span>
+                        <span class="value">${escapeHtml(customer.upline_phone || '-')}</span>
+                    </div>
+                    <div class="info-row">
+                        <span class="label">📊 Status</span>
+                        <span class="value">${statusBadge}</span>
+                    </div>
                     ${dataTransaksi ? `
-                        <div class="info-row"><span class="label">📊 Jenis Progres</span><span class="value" style="color: ${dataTransaksi.jenis_color}; font-weight: 600;">${dataTransaksi.jenis_text}</span></div>
-                        <div class="info-row" style="border-bottom: none;"><span class="label">📊 Selisih</span><span class="value" style="color: ${dataTransaksi.jenis_color}; font-weight: 700; font-size: 18px;">${dataTransaksi.display_value}</span></div>
+                        <div class="info-row">
+                            <span class="label">📊 Jenis Progres</span>
+                            <span class="value" style="color: ${dataTransaksi.jenis_color}; font-weight: 600;">${dataTransaksi.jenis_text}</span>
+                        </div>
+                        <div class="info-row" style="border-bottom: none;">
+                            <span class="label">📊 Selisih</span>
+                            <span class="value" style="color: ${dataTransaksi.jenis_color}; font-weight: 700; font-size: 18px;">${dataTransaksi.display_value}</span>
+                        </div>
                     ` : `
-                        <div class="info-row" style="border-bottom: none;"><span class="label">📊 Data Transaksi</span><span class="value" style="color: #9ca3af;">Belum ada data</span></div>
+                        <div class="info-row" style="border-bottom: none;">
+                            <span class="label">📊 Data Transaksi</span>
+                            <span class="value" style="color: #9ca3af;">Belum ada data</span>
+                        </div>
                     `}
                 </div>
                 
@@ -2537,10 +2574,22 @@ async function openDetailCustomer(id) {
                 ${customer.followup_data ? `
                     <div class="detail-section">
                         <div class="section-title">✅ Follow Up</div>
-                        <div class="info-row"><span class="label">Terkirim</span><span class="value">${customer.followup_data.terkirim ? '✅ Ya' : '❌ Tidak'}</span></div>
-                        <div class="info-row"><span class="label">Dibalas</span><span class="value">${customer.followup_data.dibalas ? '✅ Ya' : '❌ Tidak'}</span></div>
-                        <div class="info-row"><span class="label">Pesan</span><span class="value" style="font-size: 12px;">${escapeHtml(customer.followup_data.pesan || '-')}</span></div>
-                        <div class="info-row" style="border-bottom: none;"><span class="label">Balasan</span><span class="value" style="font-size: 12px;">${escapeHtml(customer.followup_data.balasan || '-')}</span></div>
+                        <div class="info-row">
+                            <span class="label">Terkirim</span>
+                            <span class="value">${customer.followup_data.terkirim ? '✅ Ya' : '❌ Tidak'}</span>
+                        </div>
+                        <div class="info-row">
+                            <span class="label">Dibalas</span>
+                            <span class="value">${customer.followup_data.dibalas ? '✅ Ya' : '❌ Tidak'}</span>
+                        </div>
+                        <div class="info-row">
+                            <span class="label">Pesan</span>
+                            <span class="value" style="font-size: 12px;">${escapeHtml(customer.followup_data.pesan || '-')}</span>
+                        </div>
+                        <div class="info-row" style="border-bottom: none;">
+                            <span class="label">Balasan</span>
+                            <span class="value" style="font-size: 12px;">${escapeHtml(customer.followup_data.balasan || '-')}</span>
+                        </div>
                     </div>
                 ` : ''}
                 
@@ -2565,35 +2614,42 @@ async function openDetailCustomer(id) {
                         ${customer.pending_data.map(item => `
                             <div class="pending-item">
                                 <span>${item.checked ? '✅' : '⭕'}</span>
-                                <span>${escapeHtml(item.text || '(kosong)')}</span>
+                                <span class="pending-text">${escapeHtml(item.text || '(kosong)')}</span>
                             </div>
                         `).join('')}
                     </div>
                 ` : ''}
                 
                 <!-- DEADLINE & OWNER -->
-                <div class="info-row" style="border-bottom: none; padding-top: 8px;">
-                    <span class="label">📅 Deadline</span>
-                    <span class="value">${customer.tanggal || '-'} <button class="edit-deadline-btn" onclick="openEditDeadlineModal('${id}','customer','${customer.tanggal || ''}')" style="background: #f59e0b; color: white; border: none; border-radius: 6px; padding: 2px 8px; font-size: 11px; cursor: pointer;">✏️ Edit</button></span>
+                <div class="info-grid" style="margin-top: 4px;">
+                    <div class="info-row" style="border-bottom: none;">
+                        <span class="label">📅 Deadline</span>
+                        <span class="value">
+                            ${customer.tanggal || '-'}
+                            <button class="edit-deadline-btn" onclick="openEditDeadlineModal('${id}','customer','${customer.tanggal || ''}')">✏️ Edit</button>
+                        </span>
+                    </div>
+                    ${ownerInfo}
                 </div>
-                ${ownerInfo}
-            </div>
-            
-            <!-- ACTION BUTTONS -->
-            <div style="padding: 0 24px 16px;">
+                
+                <!-- ACTION BUTTONS -->
                 <div class="action-grid">
-                    <button class="btn-success" onclick="openWA('${customer.hp}')" style="padding: 10px; border: none; border-radius: 12px; font-weight: 600; cursor: pointer; background: #25D366; color: white;">💬 WhatsApp</button>
-                    ${customer.status === 'baru' ? `<button class="btn-primary" onclick="updateCustomerStatus('${id}', 'followup')" style="padding: 10px; border: none; border-radius: 12px; font-weight: 600; cursor: pointer; background: #4f46e5; color: white;">📞 Lanjut Follow Up</button>` : ''}
-                    ${customer.status === 'followup' ? `<button class="btn-primary" onclick="openFollowupConfirm('${id}')" style="padding: 10px; border: none; border-radius: 12px; font-weight: 600; cursor: pointer; background: #4f46e5; color: white;">✅ Konfirmasi Follow Up</button>` : ''}
-                    ${customer.status === 'pending' ? `<button class="btn-primary" onclick="openPendingModal('${id}')" style="padding: 10px; border: none; border-radius: 12px; font-weight: 600; cursor: pointer; background: #4f46e5; color: white;">📝 Kelola Pending</button>` : ''}
-                    ${customer.status === 'closing' ? `<button class="btn-primary" onclick="confirmClosingToDB('${id}')" style="padding: 10px; border: none; border-radius: 12px; font-weight: 600; cursor: pointer; background: #8b5cf6; color: white;">📁 Pindah ke DB Closing</button>` : ''}
+                    <button class="btn-success" onclick="openWA('${customer.hp}')">💬 WhatsApp</button>
+                    ${customer.status === 'baru' ? 
+                        `<button class="btn-primary" onclick="updateCustomerStatus('${id}', 'followup')">📞 Lanjut Follow Up</button>` : ''}
+                    ${customer.status === 'followup' ? 
+                        `<button class="btn-primary" onclick="openFollowupConfirm('${id}')">✅ Konfirmasi Follow Up</button>` : ''}
+                    ${customer.status === 'pending' ? 
+                        `<button class="btn-primary" onclick="openPendingModal('${id}')">📝 Kelola Pending</button>` : ''}
+                    ${customer.status === 'closing' ? 
+                        `<button class="btn-primary" onclick="confirmClosingToDB('${id}')">📁 Pindah ke DB Closing</button>` : ''}
                 </div>
             </div>
             
             <!-- FOOTER -->
-            <div class="popup-footer" style="display: flex; gap: 12px; padding: 16px 24px 24px; border-top: 1px solid #e5e7eb;">
-                <button class="btn-outline" onclick="closeModal('detailModal')" style="flex: 1; padding: 12px; border: none; border-radius: 14px; font-weight: 600; cursor: pointer; background: #f3f4f6; color: #374151;">Tutup</button>
-                <button class="btn-danger" onclick="deleteCustomer('${id}')" style="flex: 1; padding: 12px; border: none; border-radius: 14px; font-weight: 600; cursor: pointer; background: linear-gradient(135deg, #ef4444, #dc2626); color: white;">🗑️ Hapus</button>
+            <div class="popup-footer">
+                <button class="btn-outline" onclick="closeModal('detailModal')">Tutup</button>
+                <button class="btn-danger" onclick="deleteCustomer('${id}')">🗑️ Hapus</button>
             </div>
         </div>
     `;
@@ -2604,10 +2660,51 @@ async function openDetailCustomer(id) {
     fixModalScrollbar(document.getElementById('detailModal'));
 }
 
-// ========== FUNGSI OPEN DETAIL PROSPEK ==========
+// ========== FIX MODAL SCROLLBAR ==========
+function fixModalScrollbar(modal) {
+    if (!modal) return;
+    
+    // Cari semua elemen dengan overflow di dalam modal
+    const scrollableElements = modal.querySelectorAll('.popup-body, .modal-content, .detail-popup');
+    scrollableElements.forEach(el => {
+        // Set scrollbar styling
+        el.style.scrollbarWidth = 'thin';
+        el.style.scrollbarColor = '#d1d5db transparent';
+        
+        // Webkit scrollbar
+        const style = document.createElement('style');
+        style.textContent = `
+            .detail-popup .popup-body::-webkit-scrollbar {
+                width: 4px !important;
+            }
+            .detail-popup .popup-body::-webkit-scrollbar-track {
+                background: transparent !important;
+            }
+            .detail-popup .popup-body::-webkit-scrollbar-thumb {
+                background: #d1d5db !important;
+                border-radius: 4px !important;
+            }
+            .detail-popup .popup-body::-webkit-scrollbar-thumb:hover {
+                background: #9ca3af !important;
+            }
+            body.dark-mode .detail-popup .popup-body::-webkit-scrollbar-thumb {
+                background: #334155 !important;
+            }
+            body.dark-mode .detail-popup .popup-body::-webkit-scrollbar-thumb:hover {
+                background: #475569 !important;
+            }
+        `;
+        document.head.appendChild(style);
+    });
+}
+
+// ========== OPEN DETAIL PROSPEK ==========
 async function openDetailProspek(id) {
     const prospek = prospekData.find(p => p.id === id);
-    if (!prospek) return;
+    if (!prospek) {
+        showNotifTop('❌ Data tidak ditemukan!', true);
+        return;
+    }
     
     let ownerInfo = '';
     if (currentUserRole === 'owner' && prospek.user_id !== currentUser.id) {
@@ -2618,6 +2715,17 @@ async function openDetailProspek(id) {
         } catch(e) { console.error(e); }
     }
     
+    // ===== STATUS BADGE =====
+    const statusMap = {
+        'Baru': 'status-baru',
+        'Dihubungi': 'status-dihubungi',
+        'Negosiasi': 'status-negosiasi',
+        'Tertarik': 'status-tertarik'
+    };
+    const statusClass = statusMap[prospek.status] || 'status-baru';
+    const statusBadge = `<span class="status-badge ${statusClass}">${escapeHtml(prospek.status || 'Baru')}</span>`;
+    
+    // ===== NEGOSIASI INFO =====
     let negosiasiInfo = '';
     if (prospek.negosiasi_data) {
         const nd = prospek.negosiasi_data;
@@ -2634,6 +2742,7 @@ async function openDetailProspek(id) {
         `;
     }
     
+    // ===== DIHUBUNGI INFO =====
     let dihubungiInfo = '';
     if (prospek.dihubungi_data) {
         dihubungiInfo = `
@@ -2664,32 +2773,58 @@ async function openDetailProspek(id) {
         `;
     }
     
-    const statusClass = prospek.status === 'Baru' ? 'status-baru' : 
-                        prospek.status === 'Dihubungi' ? 'status-dihubungi' : 
-                        prospek.status === 'Negosiasi' ? 'status-negosiasi' : 'status-tertarik';
+    // ===== TIPE AGENT =====
+    const tipeAgent = prospek.tipe_agent || 'AGENT';
+    const tipeLabel = tipeAgent === 'CA' ? '🏦 Collecting Agent (CA)' : 
+                     tipeAgent === 'Koordinator' ? '👥 Koordinator Wilayah (KORWIL)' : '👤 Agent';
     
     // ===== BUILD HTML =====
     const modalHtml = `
-        <div class="modal-content detail-popup" style="max-width: 550px; max-height: 85vh; overflow-y: auto; background: #fff; border-radius: 24px; position: relative; padding: 0;">
+        <div class="modal-content detail-popup">
             <!-- HEADER -->
-            <div class="popup-header" style="padding: 20px 24px 0; display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid #f0f0f0; position: sticky; top: 0; background: #fff; z-index: 10; border-radius: 24px 24px 0 0;">
+            <div class="popup-header">
                 <div>
-                    <h3 style="font-size: 20px; margin: 0; color: #1f2937;">🎯 Detail Prospek</h3>
-                    <div style="font-size: 13px; color: #6b7280; margin-top: 4px; padding-bottom: 12px;">Informasi lengkap data prospek</div>
+                    <h3>🎯 Detail Prospek</h3>
+                    <div class="popup-subtitle">Informasi lengkap data prospek</div>
                 </div>
-                <button onclick="closeModal('detailModal')" style="background: none; border: none; font-size: 28px; cursor: pointer; color: #6b7280; padding: 0 4px; line-height: 1; transition: all 0.2s;" onmouseover="this.style.color='#ef4444'" onmouseout="this.style.color='#6b7280'">✕</button>
+                <button class="popup-close" onclick="closeModal('detailModal')">✕</button>
             </div>
             
-            <!-- CONTENT -->
-            <div style="padding: 20px 24px 16px;">
+            <!-- BODY -->
+            <div class="popup-body">
                 <!-- INFO UTAMA -->
                 <div class="info-grid">
-                    <div class="info-row"><span class="label">👤 Nama</span><span class="value">${escapeHtml(prospek.nama)}</span></div>
-                    <div class="info-row"><span class="label">📱 Nomor HP</span><span class="value">${escapeHtml(prospek.hp)}</span></div>
-                    <div class="info-row"><span class="label">👤 Upline</span><span class="value">${escapeHtml(prospek.upline_name || '-')}</span></div>
-                    <div class="info-row"><span class="label">📞 HP Upline</span><span class="value">${escapeHtml(prospek.upline_phone || '-')}</span></div>
-                    <div class="info-row"><span class="label">📊 Status</span><span class="value"><span class="status-badge ${statusClass}">${prospek.status || 'Baru'}</span></span></div>
-                    <div class="info-row" style="border-bottom: none;"><span class="label">📅 Deadline</span><span class="value">${prospek.deadline || '-'} <button class="edit-deadline-btn" onclick="openEditDeadlineModal('${id}','prospek','${prospek.deadline || ''}')" style="background: #f59e0b; color: white; border: none; border-radius: 6px; padding: 2px 8px; font-size: 11px; cursor: pointer;">✏️ Edit</button></span></div>
+                    <div class="info-row">
+                        <span class="label">👤 Nama</span>
+                        <span class="value">${escapeHtml(prospek.nama)}</span>
+                    </div>
+                    <div class="info-row">
+                        <span class="label">📱 Nomor HP</span>
+                        <span class="value">${escapeHtml(prospek.hp)}</span>
+                    </div>
+                    <div class="info-row">
+                        <span class="label">👤 Upline</span>
+                        <span class="value">${escapeHtml(prospek.upline_name || '-')}</span>
+                    </div>
+                    <div class="info-row">
+                        <span class="label">📞 HP Upline</span>
+                        <span class="value">${escapeHtml(prospek.upline_phone || '-')}</span>
+                    </div>
+                    <div class="info-row">
+                        <span class="label">🏷️ Tipe Agent</span>
+                        <span class="value">${escapeHtml(tipeLabel)}</span>
+                    </div>
+                    <div class="info-row">
+                        <span class="label">📊 Status</span>
+                        <span class="value">${statusBadge}</span>
+                    </div>
+                    <div class="info-row" style="border-bottom: none;">
+                        <span class="label">📅 Deadline</span>
+                        <span class="value">
+                            ${prospek.deadline || '-'}
+                            <button class="edit-deadline-btn" onclick="openEditDeadlineModal('${id}','prospek','${prospek.deadline || ''}')">✏️ Edit</button>
+                        </span>
+                    </div>
                 </div>
                 
                 <!-- DIHUBUNGI DATA -->
@@ -2702,25 +2837,32 @@ async function openDetailProspek(id) {
                 ${negosiasiInfo}
                 
                 <!-- OWNER -->
-                ${ownerInfo}
-            </div>
-            
-            <!-- ACTION BUTTONS -->
-            <div style="padding: 0 24px 16px;">
+                ${ownerInfo ? `
+                    <div class="info-grid" style="margin-top: 4px;">
+                        ${ownerInfo}
+                    </div>
+                ` : ''}
+                
+                <!-- ACTION BUTTONS -->
                 <div class="action-grid">
-                    <button class="btn-success" onclick="openWA('${prospek.hp}')" style="padding: 10px; border: none; border-radius: 12px; font-weight: 600; cursor: pointer; background: #25D366; color: white;">💬 WhatsApp</button>
-                    ${prospek.status === 'Baru' ? `<button class="btn-primary" onclick="updateProspekStatus('${id}', 'Dihubungi')" style="padding: 10px; border: none; border-radius: 12px; font-weight: 600; cursor: pointer; background: #4f46e5; color: white;">📞 Dihubungi</button>` : ''}
-                    ${prospek.status === 'Dihubungi' ? `<button class="btn-primary" onclick="openProspekDihubungiConfirm('${id}')" style="padding: 10px; border: none; border-radius: 12px; font-weight: 600; cursor: pointer; background: #4f46e5; color: white;">✅ Konfirmasi Dihubungi</button>` : ''}
-                    ${prospek.status === 'Negosiasi' ? `<button class="btn-primary" onclick="openProspekNegosiasiModal('${id}')" style="padding: 10px; border: none; border-radius: 12px; font-weight: 600; cursor: pointer; background: #4f46e5; color: white;">📝 Kelola Negosiasi</button>` : ''}
-                    ${prospek.status === 'Negosiasi' && prospek.negosiasi_data?.is_complete ? `<button class="btn-primary" onclick="updateProspekStatus('${id}', 'Tertarik')" style="padding: 10px; border: none; border-radius: 12px; font-weight: 600; cursor: pointer; background: #10b981; color: white;">⭐ Tertarik</button>` : ''}
-                    ${prospek.status === 'Tertarik' ? `<button class="btn-primary" onclick="confirmTertarikToDB('${id}')" style="padding: 10px; border: none; border-radius: 12px; font-weight: 600; cursor: pointer; background: #8b5cf6; color: white;">⭐ Jadikan Member Baru</button>` : ''}
+                    <button class="btn-success" onclick="openWA('${prospek.hp}')">💬 WhatsApp</button>
+                    ${prospek.status === 'Baru' ? 
+                        `<button class="btn-primary" onclick="updateProspekStatus('${id}', 'Dihubungi')">📞 Dihubungi</button>` : ''}
+                    ${prospek.status === 'Dihubungi' ? 
+                        `<button class="btn-primary" onclick="openProspekDihubungiConfirm('${id}')">✅ Konfirmasi Dihubungi</button>` : ''}
+                    ${prospek.status === 'Negosiasi' ? 
+                        `<button class="btn-primary" onclick="openProspekNegosiasiModal('${id}')">📝 Kelola Negosiasi</button>` : ''}
+                    ${prospek.status === 'Negosiasi' && prospek.negosiasi_data?.is_complete ? 
+                        `<button class="btn-primary" onclick="updateProspekStatus('${id}', 'Tertarik')">⭐ Tertarik</button>` : ''}
+                    ${prospek.status === 'Tertarik' ? 
+                        `<button class="btn-primary" onclick="confirmTertarikToDB('${id}')">⭐ Jadikan Member Baru</button>` : ''}
                 </div>
             </div>
             
             <!-- FOOTER -->
-            <div class="popup-footer" style="display: flex; gap: 12px; padding: 16px 24px 24px; border-top: 1px solid #e5e7eb;">
-                <button class="btn-outline" onclick="closeModal('detailModal')" style="flex: 1; padding: 12px; border: none; border-radius: 14px; font-weight: 600; cursor: pointer; background: #f3f4f6; color: #374151;">Tutup</button>
-                <button class="btn-danger" onclick="deleteProspek('${id}')" style="flex: 1; padding: 12px; border: none; border-radius: 14px; font-weight: 600; cursor: pointer; background: linear-gradient(135deg, #ef4444, #dc2626); color: white;">🗑️ Hapus</button>
+            <div class="popup-footer">
+                <button class="btn-outline" onclick="closeModal('detailModal')">Tutup</button>
+                <button class="btn-danger" onclick="deleteProspek('${id}')">🗑️ Hapus</button>
             </div>
         </div>
     `;
@@ -5528,12 +5670,6 @@ function renderFollowupKanban() {
     const renderColumn = (containerId, items, columnType) => {
         const container = document.getElementById(containerId);
         if (!container) return;
-        
-        if (items.length === 0) {
-            container.innerHTML = `<div class="empty-column" style="text-align:center;padding:12px 0;color:#9ca3af;font-size:11px;">📭 Kosong</div>`;
-            return;
-        }
-        
         container.innerHTML = items.map(item => {
             const isOverdue = item.tanggal && item.tanggal < today;
             const isToday = item.tanggal === today;
@@ -5541,22 +5677,31 @@ function renderFollowupKanban() {
             if (isOverdue) deadlineClass = 'deadline-overdue';
             else if (isToday) deadlineClass = 'deadline-today';
             
+            // Validasi untuk tombol berdasarkan status
             let canProceed = true;
             let disabledReason = '';
             
             if (columnType === 'followup') {
+                // Untuk tombol Konfirmasi Follow Up, perlu checklist
                 canProceed = item.followup_data && item.followup_data.terkirim && item.followup_data.dibalas;
                 disabledReason = 'Harap lengkapi data follow up terlebih dahulu';
             } else if (columnType === 'pending') {
+                // Untuk tombol Selesai & Closing, perlu semua pending items terisi dan tercentang
                 const pendingData = item.pending_data || [];
                 canProceed = pendingData.length > 0 && pendingData.every(p => p.checked === true && p.text && p.text.trim() !== '');
                 disabledReason = 'Harap isi semua balasan pending dan centang';
+            } else if (columnType === 'closing') {
+                // Untuk tombol Pindah ke DB Closing, selalu bisa
+                canProceed = true;
+            } else {
+                canProceed = true;
             }
             
             const actionButton = getActionButtonForStatus(item.status, item.id, canProceed, disabledReason);
             
+            // ===== PERBAIKAN: Tambahkan style inline untuk dark mode =====
             return `<div class="card-item ${deadlineClass}" data-id="${item.id}">
-                <div class="card-id">🆔 ${escapeHtml(item.agent_id || '-')}</div>
+                <div class="card-id" style="background: #eef2ff; padding: 3px 8px; border-radius: 20px; margin-bottom: 6px; display: inline-block; font-weight: 600; font-size: 10px; color: #4f46e5; max-width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">🆔 ${escapeHtml(item.agent_id || '-')}</div>
                 <div class="card-name" title="${escapeHtml(item.nama)}">${escapeHtml(item.nama)}</div>
                 <div class="card-phone">
                     <span title="${item.hp}">${escapeHtml(item.hp)}</span>
@@ -5757,12 +5902,6 @@ function renderProspekKanban() {
     const renderColumn = (containerId, items, columnType) => {
         const container = document.getElementById(containerId);
         if (!container) return;
-        
-        if (items.length === 0) {
-            container.innerHTML = `<div class="empty-column" style="text-align:center;padding:12px 0;color:#9ca3af;font-size:11px;">📭 Kosong</div>`;
-            return;
-        }
-        
         container.innerHTML = items.map(item => {
             const isOverdue = item.deadline && item.deadline < today;
             const isToday = item.deadline === today;
@@ -5770,15 +5909,24 @@ function renderProspekKanban() {
             if (isOverdue) deadlineClass = 'deadline-overdue';
             else if (isToday) deadlineClass = 'deadline-today';
             
+            // Validasi untuk tombol berdasarkan status
             let canProceed = true;
             let disabledReason = '';
             
             if (columnType === 'dihubungi') {
+                // Untuk tombol Konfirmasi Dihubungi, perlu checklist
                 canProceed = item.dihubungi_data && item.dihubungi_data.terkirim && item.dihubungi_data.dibalas;
                 disabledReason = 'Harap lengkapi data dihubungi terlebih dahulu';
             } else if (columnType === 'negosiasi') {
+                // Untuk tombol Kelola Negosiasi, selalu bisa diklik
+                canProceed = true;
+                // Untuk tombol Tertarik, perlu data negosiasi lengkap
                 const negosiasiComplete = item.negosiasi_data && item.negosiasi_data.is_complete;
                 disabledReason = 'Harap lengkapi data kuesioner negosiasi terlebih dahulu';
+            } else if (columnType === 'tertarik') {
+                canProceed = true;
+            } else {
+                canProceed = true;
             }
             
             const actionButton = getProspekActionButtonForStatus(item.status, item.id, item, canProceed, disabledReason);
