@@ -15303,7 +15303,6 @@ document.getElementById('loginBtn')?.addEventListener('click', async function(e)
         return;
     }
     
-    // ===== TAMPILKAN LOADING =====
     showLoading('⏳ Memproses login...', true);
     updateLoadingStep(0);
     
@@ -15312,7 +15311,6 @@ document.getElementById('loginBtn')?.addEventListener('click', async function(e)
     errorEl.textContent = '';
     
     try {
-        // ===== PERBAIKAN: Gunakan signInWithPassword =====
         const { data, error } = await window.db.auth.signInWithPassword({
             email: email,
             password: password
@@ -15327,15 +15325,12 @@ document.getElementById('loginBtn')?.addEventListener('click', async function(e)
         }
         
         if (data.user) {
-            // ===== PERBAIKAN: Session akan otomatis tersimpan =====
             currentUser = data.user;
             updateLoadingStep(1);
             
-            // Sembunyikan login, tampilkan app
             document.getElementById('loginPage').style.display = 'none';
             document.getElementById('app').style.display = 'block';
             
-            // Load user profile
             updateLoadingStep(2);
             const { data: userData } = await window.db
                 .from('users')
@@ -15350,7 +15345,7 @@ document.getElementById('loginBtn')?.addEventListener('click', async function(e)
                 document.getElementById('profileImg').src = userData.foto || 'https://i.pravatar.cc/40';
             }
             
-            // Load semua data dengan progress
+            // Load semua data
             updateLoadingStep(3);
             await loadCustomers();
             updateLoadingStep(4);
@@ -15362,7 +15357,7 @@ document.getElementById('loginBtn')?.addEventListener('click', async function(e)
             updateLoadingStep(7);
             await loadDbTransaksi();
             updateLoadingStep(8);
-            await loadTargetData(); // <-- WAJIB ADA
+            await loadTargetData();
             updateTrendChart();
             updateLoadingStep(9);
             await loadDBClosing();
@@ -15388,7 +15383,6 @@ document.getElementById('loginBtn')?.addEventListener('click', async function(e)
             await updateTargetDisplay();
             updateLoadingStep(19);
             
-            // Set owner menu
             if (currentUserRole === 'owner') {
                 document.getElementById('ownerMenu').style.display = 'block';
                 document.getElementById('menuDbAgent').style.display = 'flex';
@@ -15403,14 +15397,12 @@ document.getElementById('loginBtn')?.addEventListener('click', async function(e)
             
             navigateTo('dashboard');
             
-            // Inisialisasi badges
             setTimeout(function() {
                 initBadges();
                 initDarkMode();
                 initDarkModeObserver();
             }, 100);
             
-            // ===== SEMBUNYIKAN LOADING =====
             setTimeout(function() {
                 hideLoading();
             }, 500);
@@ -15427,15 +15419,21 @@ document.getElementById('loginBtn')?.addEventListener('click', async function(e)
     }
 });
 
-// Enter key untuk login
+// ===== ENTER KEY UNTUK LOGIN =====
 document.getElementById('loginPassword')?.addEventListener('keypress', function(e) {
     if (e.key === 'Enter') {
         document.getElementById('loginBtn').click();
     }
 });
+
 document.getElementById('loginEmail')?.addEventListener('keypress', function(e) {
     if (e.key === 'Enter') {
         document.getElementById('loginPassword').focus();
     }
 });
-}
+
+// ================================================================
+// ========== AKHIR FILE ==========
+// ================================================================
+
+console.log('✅ PROSPEKTA script loaded successfully');
