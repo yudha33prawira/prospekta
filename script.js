@@ -5256,6 +5256,8 @@ async function loadDbTransaksi() {
         updateSelectAllTransaksiButton();
         updateTransaksiSelectionCount();
         await updateTargetDisplay();
+        await loadTargetData();
+        updateTrendChart();
         
         const totalAllSpan = document.getElementById('transaksiTotalAll');
         if (totalAllSpan) {
@@ -8393,12 +8395,12 @@ async function loadTargetData() {
         });
         const currentUpline = uplineSet.size;
         
-        // 3. Target Transaksi = TOTAL transaksi_bulan_ini
-        let totalTransaksi = 0;
+        // 3. Target Transaksi = TOTAL transaksi_bulan_ini (BUKAN selisih)
+        let totalTransaksiBulanIni = 0;
         validData.forEach(t => {
-            totalTransaksi += (t.transaksi_bulan_ini || 0);
+            totalTransaksiBulanIni += (t.transaksi_bulan_ini || 0);
         });
-        const currentTransaksi = totalTransaksi;
+        const currentTransaksi = totalTransaksiBulanIni;
         
         // 4. Selisih Transaksi = TOTAL transaksi_bulan_ini - TOTAL transaksi_bulan_lalu
         let totalBulanLalu = 0;
@@ -8524,28 +8526,56 @@ function updateTrendChart() {
     const isDark = document.body.classList.contains('dark-mode');
     const textColor = isDark ? '#f1f5f9' : '#1e293b';
     
-    // ===== AMBIL DATA DARI RIWAYAT =====
-    let riwayatData = window._riwayatData || [];
-    
     let labels = [];
     let naikData = [];
     let turunData = [];
     let tidakData = [];
     
-    if (riwayatData.length > 0) {
-        // ===== URUTKAN DATA =====
-        const sortedData = [...riwayatData].sort((a, b) => {
-            if (a.tahun !== b.tahun) return a.tahun - b.tahun;
-            return a.bulan_index - b.bulan_index;
+    // ===== AMBIL DATA LANGSUNG DARI TRANSAKSI =====
+    const transaksiLocal = window.transaksiData || transaksiData || [];
+    
+    // Kelompokkan berdasarkan periode_bulan_ini
+    const periodMap = new Map();
+    transaksiLocal.forEach(t => {
+        const periode = t.periode_bulan_ini || 'Unknown';
+        if (!periodMap.has(periode)) {
+            periodMap.set(periode, { naik: 0, turun: 0, tidak: 0 });
+        }
+        const stats = periodMap.get(periode);
+        if (t.progres_jenis === 'naik') stats.naik++;
+        else if (t.progres_jenis === 'turun') stats.turun++;
+        else if (t.progres_jenis === 'tidak_transaksi') stats.tidak++;
+    });
+    
+    // Urutkan periode berdasarkan waktu
+    const sortedPeriods = Array.from(periodMap.keys()).sort((a, b) => {
+        if (a === 'Unknown') return 1;
+        if (b === 'Unknown') return -1;
+        
+        // Parse bulan dan tahun
+        const [bulanA, tahunA] = a.split(' ');
+        const [bulanB, tahunB] = b.split(' ');
+        const bulanIndexA = getBulanIndex(bulanA) || 0;
+        const bulanIndexB = getBulanIndex(bulanB) || 0;
+        
+        if (tahunA !== tahunB) return parseInt(tahunA) - parseInt(tahunB);
+        return bulanIndexA - bulanIndexB;
+    });
+    
+    // Hanya ambil 6 periode terakhir
+    const last6Periods = sortedPeriods.slice(-6);
+    
+    if (last6Periods.length > 0) {
+        // ===== GUNAKAN DATA DARI TRANSAKSI =====
+        last6Periods.forEach(periode => {
+            const stats = periodMap.get(periode);
+            labels.push(periode);
+            naikData.push(stats.naik || 0);
+            turunData.push(stats.turun || 0);
+            tidakData.push(stats.tidak || 0);
         });
-        
-        labels = sortedData.map(item => item.bulan);
-        naikData = sortedData.map(item => item.total_naik || 0);
-        turunData = sortedData.map(item => item.total_turun || 0);
-        tidakData = sortedData.map(item => item.total_tidak_transaksi || 0);
-        
     } else {
-        // ===== DATA DEMO (hanya jika benar-benar tidak ada data) =====
+        // ===== DATA DEMO (jika belum ada data transaksi) =====
         const months = ['Jan', 'Feb', 'Mar', 'Apr', 'Mei', 'Jun', 'Jul', 'Ags', 'Sep', 'Okt', 'Nov', 'Des'];
         const currentMonth = new Date().getMonth();
         const currentYear = new Date().getFullYear();
@@ -8580,7 +8610,8 @@ function updateTrendChart() {
             backgroundColor: 'rgba(16, 185, 129, 0.1)',
             tension: 0.4, 
             fill: true,
-            pointRadius: 4
+            pointRadius: 4,
+            pointBackgroundColor: '#10b981'
         },
         { 
             label: '📉 Turun', 
@@ -8589,7 +8620,8 @@ function updateTrendChart() {
             backgroundColor: 'rgba(239, 68, 68, 0.1)',
             tension: 0.4, 
             fill: true,
-            pointRadius: 4
+            pointRadius: 4,
+            pointBackgroundColor: '#ef4444'
         },
         { 
             label: '🚫 Tidak Transaksi', 
@@ -8599,6 +8631,7 @@ function updateTrendChart() {
             tension: 0.4, 
             fill: true,
             pointRadius: 4,
+            pointBackgroundColor: '#6b7280',
             borderDash: [5, 5]
         }
     ];
@@ -8618,6 +8651,15 @@ function updateTrendChart() {
                         usePointStyle: true,
                         padding: 12
                     } 
+                },
+                tooltip: {
+                    backgroundColor: isDark ? '#1e293b' : '#ffffff',
+                    titleColor: isDark ? '#f1f5f9' : '#1f2937',
+                    bodyColor: isDark ? '#cbd5e1' : '#374151',
+                    borderColor: isDark ? '#334155' : '#e5e7eb',
+                    borderWidth: 1,
+                    cornerRadius: 8,
+                    padding: 10
                 }
             },
             scales: {
@@ -8629,8 +8671,13 @@ function updateTrendChart() {
                     grid: { color: isDark ? 'rgba(255,255,255,0.05)' : 'rgba(0,0,0,0.06)' }
                 },
                 x: {
-                    ticks: { color: textColor, font: { size: 10 }, maxRotation: 30 }
+                    ticks: { color: textColor, font: { size: 10 }, maxRotation: 30 },
+                    grid: { display: false }
                 }
+            },
+            interaction: {
+                intersect: false,
+                mode: 'index'
             }
         }
     });
@@ -8639,6 +8686,7 @@ function updateTrendChart() {
 // ===== SIMPAN DATA RIWAYAT UNTUK CHART =====
 function updateRiwayatDataForChart(data) {
     window._riwayatData = data || [];
+    // Hanya update chart, tidak perlu generate ulang
     updateTrendChart();
 }
 
@@ -10795,6 +10843,7 @@ async function checkAuth() {
                     await withLoading(loadProduk(), 10);
                     updateLoadingStep(11);
                     await withLoading(loadDbTransaksi(), 12);
+                    updateTrendChart();
                     updateLoadingStep(13);
                     await withLoading(loadDBClosing(), 14);
                     updateLoadingStep(15);
