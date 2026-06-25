@@ -5735,95 +5735,6 @@ if (typeof showTargetDetailModal === 'undefined') {
     }
 }
 
-// Definisikan fungsi updateTargetUI jika belum ada
-if (typeof updateTargetUI === 'undefined') {
-    function updateTargetUI(targetAgent, targetUpline, targetTransaksi, targetSelisih, currentAgent, currentUpline, currentTransaksi, currentSelisih) {
-        console.log('📊 Updating UI with:', { targetAgent, targetUpline, targetTransaksi, targetSelisih, currentAgent, currentUpline, currentTransaksi, currentSelisih });
-        
-        // ===== UPDATE ELEMEN =====
-        const elements = {
-            targetAgentValue: targetAgent || 0,
-            targetUplineValue: targetUpline || 0,
-            targetTransaksiValue: (targetTransaksi || 0).toLocaleString(),
-            targetSelisihValue: (targetSelisih || 0).toLocaleString(),
-            targetAgentReached: currentAgent || 0,
-            targetUplineReached: currentUpline || 0,
-            targetTransaksiReached: (currentTransaksi || 0).toLocaleString(),
-            targetSelisihReached: (currentSelisih || 0).toLocaleString()
-        };
-        
-        for (const [id, value] of Object.entries(elements)) {
-            const el = document.getElementById(id);
-            if (el) el.innerText = value;
-        }
-        
-        // ===== HITUNG PERSENTASE =====
-        const agentPercent = targetAgent > 0 ? Math.min((currentAgent / targetAgent) * 100, 100) : 0;
-        const uplinePercent = targetUpline > 0 ? Math.min((currentUpline / targetUpline) * 100, 100) : 0;
-        const transaksiPercent = targetTransaksi > 0 ? Math.min((currentTransaksi / targetTransaksi) * 100, 100) : 0;
-        const selisihPercent = targetSelisih > 0 ? Math.min((currentSelisih / targetSelisih) * 100, 100) : 0;
-        
-        // Update progress bars
-        const progressElements = {
-            targetAgentProgress: agentPercent,
-            targetUplineProgress: uplinePercent,
-            targetTransaksiProgress: transaksiPercent,
-            targetSelisihProgress: selisihPercent
-        };
-        
-        for (const [id, value] of Object.entries(progressElements)) {
-            const el = document.getElementById(id);
-            if (el) el.style.width = Math.min(value, 100) + '%';
-        }
-        
-        // ===== CEK APAKAH TARGET TERCAPAI =====
-        const allTargetsMet = agentPercent >= 100 && uplinePercent >= 100 && transaksiPercent >= 100;
-        const headerTarget = document.querySelector('.target-kpi-section .target-header h3');
-        const targetSection = document.querySelector('.target-kpi-section');
-        
-        if (headerTarget) {
-            if (allTargetsMet) {
-                headerTarget.innerHTML = '🥳🎉 SELAMAT! Semua Target Tercapai! 🎉🥳';
-                headerTarget.style.color = '#10b981';
-                headerTarget.style.animation = 'pulseTarget 1.5s ease-in-out infinite';
-                
-                if (targetSection) {
-                    targetSection.style.background = 'linear-gradient(135deg, #fef3c7, #fde68a, #fcd34d)';
-                    targetSection.style.borderColor = '#f59e0b';
-                    targetSection.style.boxShadow = '0 0 40px rgba(245, 158, 11, 0.3)';
-                    targetSection.classList.remove('target-celebrate');
-                }
-                
-                if (typeof showNotifTop === 'function') {
-                    showNotifTop('🥳🎉 SELAMAT! Semua target KPI telah tercapai! 🎉🥳');
-                }
-                
-            } else {
-                headerTarget.innerHTML = '🎯 Target & KPI Prospek Agent';
-                headerTarget.style.color = '';
-                headerTarget.style.animation = '';
-                if (targetSection) {
-                    targetSection.style.background = '';
-                    targetSection.style.borderColor = '';
-                    targetSection.style.boxShadow = '';
-                    targetSection.classList.remove('target-celebrate');
-                }
-            }
-        }
-        
-        // ===== UPDATE CHART =====
-        const chartData = [
-            Math.round(agentPercent),
-            Math.round(uplinePercent),
-            Math.round(transaksiPercent)
-        ];
-        console.log('📊 Chart data:', chartData);
-        if (typeof updateTargetChart === 'function') {
-            updateTargetChart(chartData);
-        }
-    }
-}
-
 function renderProspekKanban() {
     const today = getTodayDate();
     const lists = { baru: [], dihubungi: [], negosiasi: [], tertarik: [] };
@@ -8843,10 +8754,8 @@ function initTargetCardClick() {
     });
 }
 
-// ========== 6. FUNGSI SHOW TARGET DETAIL MODAL ==========
-
 // ================================================================
-// ========== UPDATE FUNGSI SHOW TARGET DETAIL MODAL ==========
+// ========== PERBAIKAN: FUNGSI SHOW TARGET DETAIL MODAL ==========
 // ================================================================
 
 function showTargetDetailModal(label, targetValue, reachedValue, progressWidth) {
@@ -8865,69 +8774,183 @@ function showTargetDetailModal(label, targetValue, reachedValue, progressWidth) 
     // Pilih emoji berdasarkan label
     let emoji = '🎯';
     let color = '#4f46e5';
-    if (label === 'Agent') { emoji = '👤'; color = '#667eea'; }
-    else if (label === 'Upline') { emoji = '👥'; color = '#4facfe'; }
-    else if (label === 'Transaksi') { emoji = '📊'; color = '#f093fb'; }
-    else if (label === 'Selisih') { emoji = '📈'; color = '#fa709a'; }
+    let labelKey = 'agent';
+    if (label === 'Agent') { emoji = '👤'; color = '#667eea'; labelKey = 'agent'; }
+    else if (label === 'Upline') { emoji = '👥'; color = '#4facfe'; labelKey = 'upline'; }
+    else if (label === 'Transaksi') { emoji = '📊'; color = '#f093fb'; labelKey = 'transaksi'; }
+    else if (label === 'Selisih') { emoji = '📈'; color = '#fa709a'; labelKey = 'selisih'; }
     
-    // HTML untuk modal
+    // ===== AMBIL DATA PER BULAN DARI TRANSAKSI =====
+    const transaksiLocal = window.transaksiData || transaksiData || [];
+    const monthData = [];
+    const periodMap = new Map();
+    
+    transaksiLocal.forEach(t => {
+        // Skip data tidak_transaksi
+        if (t.progres_jenis === 'tidak_transaksi') return;
+        
+        const periode = t.periode_bulan_ini || 'Unknown';
+        if (!periodMap.has(periode)) {
+            periodMap.set(periode, { 
+                count: 0,
+                uplineSet: new Set(),
+                totalTransaksi: 0,
+                agentIds: new Set()
+            });
+        }
+        const stats = periodMap.get(periode);
+        stats.count++;
+        stats.totalTransaksi += (t.transaksi_bulan_ini || 0);
+        if (t.upline_name && t.upline_name.trim() !== '' && t.upline_name !== '-') {
+            stats.uplineSet.add(t.upline_name);
+        }
+        if (t.agent_id) {
+            stats.agentIds.add(t.agent_id);
+        }
+    });
+    
+    // Urutkan periode
+    const sortedPeriods = Array.from(periodMap.keys()).sort((a, b) => {
+        if (a === 'Unknown') return 1;
+        if (b === 'Unknown') return -1;
+        const [bulanA, tahunA] = a.split(' ');
+        const [bulanB, tahunB] = b.split(' ');
+        const idxA = getBulanIndex(bulanA) || 0;
+        const idxB = getBulanIndex(bulanB) || 0;
+        if (tahunA !== tahunB) return parseInt(tahunA) - parseInt(tahunB);
+        return idxA - idxB;
+    });
+    
+    // Ambil 6 bulan terakhir
+    const recentPeriods = sortedPeriods.slice(-6);
+    recentPeriods.forEach(periode => {
+        const stats = periodMap.get(periode);
+        let value = 0;
+        if (labelKey === 'agent') value = stats.agentIds.size;
+        else if (labelKey === 'upline') value = stats.uplineSet.size;
+        else if (labelKey === 'transaksi') value = stats.totalTransaksi;
+        else if (labelKey === 'selisih') {
+            // Untuk selisih, hitung perubahan dari bulan sebelumnya
+            // Kita simpan sebagai data tambahan
+            value = stats.totalTransaksi;
+        }
+        monthData.push({
+            periode: periode,
+            value: value,
+            count: stats.count,
+            upline: stats.uplineSet.size,
+            agent: stats.agentIds.size,
+            totalTransaksi: stats.totalTransaksi
+        });
+    });
+    
+    // ===== BUILD HTML =====
+    let monthRowsHtml = '';
+    if (monthData.length > 0) {
+        monthRowsHtml = monthData.map((item, index) => {
+            const bgColor = index % 2 === 0 ? '#f8fafc' : '#ffffff';
+            let displayValue = item.value;
+            if (labelKey === 'transaksi' || labelKey === 'selisih') {
+                displayValue = item.value.toLocaleString();
+            }
+            return `
+                <tr style="background: ${bgColor}; border-bottom: 1px solid #e5e7eb;">
+                    <td style="padding: 6px 10px; font-weight: 600; color: #1f2937; font-size: 12px;">${escapeHtml(item.periode)}</td>
+                    <td style="padding: 6px 10px; text-align: center; font-weight: 700; color: ${color}; font-size: 13px;">${displayValue}</td>
+                    <td style="padding: 6px 10px; text-align: center; color: #6b7280; font-size: 11px;">${item.agent}</td>
+                    <td style="padding: 6px 10px; text-align: center; color: #6b7280; font-size: 11px;">${item.upline}</td>
+                </tr>
+            `;
+        }).join('');
+    }
+    
+    // ===== HTML MODAL =====
     const modalHtml = `
-        <div class="modal-content" style="max-width: 420px; border-radius: 24px; overflow: hidden; background: #fff;">
+        <div class="modal-content" style="max-width: 480px; border-radius: 24px; overflow: hidden; background: #fff; max-height: 85vh; display: flex; flex-direction: column;">
             <!-- Header dengan gradient -->
-            <div style="background: linear-gradient(135deg, ${color}, ${color}dd); padding: 24px 24px 20px; color: white;">
+            <div style="background: linear-gradient(135deg, ${color}, ${color}dd); padding: 20px 24px 16px; color: white; flex-shrink: 0;">
                 <div style="display: flex; align-items: center; gap: 12px;">
-                    <span style="font-size: 32px;">${emoji}</span>
+                    <span style="font-size: 28px;">${emoji}</span>
                     <div>
-                        <h3 style="font-size: 20px; font-weight: 700; margin: 0; color: white;">Detail Target ${label}</h3>
-                        <p style="font-size: 13px; opacity: 0.9; margin: 4px 0 0;">Informasi lengkap pencapaian target</p>
+                        <h3 style="font-size: 18px; font-weight: 700; margin: 0; color: white;">Detail Target ${label}</h3>
+                        <p style="font-size: 12px; opacity: 0.9; margin: 2px 0 0;">Informasi lengkap pencapaian target</p>
                     </div>
                 </div>
             </div>
             
-            <!-- Body -->
-            <div style="padding: 24px;">
+            <!-- Body - Scrollable -->
+            <div style="padding: 16px 20px; flex: 1; overflow-y: auto;">
                 <!-- Statistik Utama -->
-                <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 16px; margin-bottom: 20px;">
-                    <div style="background: #f1f5f9; border-radius: 14px; padding: 16px; text-align: center; border-left: 4px solid ${color};">
-                        <div style="font-size: 11px; color: #6b7280; font-weight: 600; text-transform: uppercase; letter-spacing: 0.5px;">🎯 Target</div>
-                        <div style="font-size: 28px; font-weight: 800; color: ${color}; margin-top: 4px;">${targetNum.toLocaleString()}</div>
+                <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin-bottom: 16px;">
+                    <div style="background: #f1f5f9; border-radius: 12px; padding: 12px 16px; text-align: center; border-left: 4px solid ${color};">
+                        <div style="font-size: 10px; color: #6b7280; font-weight: 600; text-transform: uppercase; letter-spacing: 0.5px;">🎯 Target</div>
+                        <div style="font-size: 24px; font-weight: 800; color: ${color}; margin-top: 2px;">${targetNum.toLocaleString()}</div>
                     </div>
-                    <div style="background: ${isComplete ? '#d1fae5' : '#f1f5f9'}; border-radius: 14px; padding: 16px; text-align: center; border-left: 4px solid ${isComplete ? '#10b981' : '#9ca3af'};">
-                        <div style="font-size: 11px; color: #6b7280; font-weight: 600; text-transform: uppercase; letter-spacing: 0.5px;">✅ Tercapai</div>
-                        <div style="font-size: 28px; font-weight: 800; color: ${isComplete ? '#10b981' : '#6b7280'}; margin-top: 4px;">${reachedNum.toLocaleString()}</div>
+                    <div style="background: ${isComplete ? '#d1fae5' : '#f1f5f9'}; border-radius: 12px; padding: 12px 16px; text-align: center; border-left: 4px solid ${isComplete ? '#10b981' : '#9ca3af'};">
+                        <div style="font-size: 10px; color: #6b7280; font-weight: 600; text-transform: uppercase; letter-spacing: 0.5px;">✅ Tercapai</div>
+                        <div style="font-size: 24px; font-weight: 800; color: ${isComplete ? '#10b981' : '#6b7280'}; margin-top: 2px;">${reachedNum.toLocaleString()}</div>
                     </div>
                 </div>
                 
                 <!-- Progress Bar -->
                 <div style="margin-bottom: 16px;">
-                    <div style="display: flex; justify-content: space-between; font-size: 13px; color: #6b7280; margin-bottom: 6px;">
+                    <div style="display: flex; justify-content: space-between; font-size: 12px; color: #6b7280; margin-bottom: 4px;">
                         <span>📊 Progress</span>
                         <span style="font-weight: 700; color: ${color};">${Math.round(percent)}%</span>
                     </div>
-                    <div style="background: #e5e7eb; border-radius: 10px; height: 10px; overflow: hidden; position: relative;">
-                        <div style="width: ${Math.min(percent, 100)}%; height: 100%; background: linear-gradient(90deg, ${color}, ${color}dd); border-radius: 10px; transition: width 0.6s ease;"></div>
+                    <div style="background: #e5e7eb; border-radius: 8px; height: 8px; overflow: hidden; position: relative;">
+                        <div style="width: ${Math.min(percent, 100)}%; height: 100%; background: linear-gradient(90deg, ${color}, ${color}dd); border-radius: 8px; transition: width 0.6s ease;"></div>
                     </div>
                 </div>
                 
                 <!-- Status -->
                 ${isComplete ? `
-                    <div style="background: linear-gradient(135deg, #fef3c7, #fde68a); border-radius: 14px; padding: 16px 20px; text-align: center; border: 2px solid #f59e0b; animation: pulseCelebrate 1.5s ease-in-out infinite;">
-                        <div style="font-size: 28px; margin-bottom: 4px;">🥳🎉</div>
-                        <div style="font-size: 18px; font-weight: 800; color: #92400e;">Target ${label} TERCAPAI!</div>
-                        <div style="font-size: 13px; color: #78350f; margin-top: 4px;">Selamat! Target telah berhasil dicapai 🎊</div>
+                    <div style="background: linear-gradient(135deg, #fef3c7, #fde68a); border-radius: 12px; padding: 12px 16px; text-align: center; border: 2px solid #f59e0b; animation: pulseCelebrate 1.5s ease-in-out infinite; margin-bottom: 16px;">
+                        <div style="font-size: 24px; margin-bottom: 2px;">🥳🎉</div>
+                        <div style="font-size: 16px; font-weight: 800; color: #92400e;">Target ${label} TERCAPAI!</div>
+                        <div style="font-size: 12px; color: #78350f; margin-top: 2px;">Selamat! Target telah berhasil dicapai 🎊</div>
                     </div>
                 ` : `
-                    <div style="background: #f3f4f6; border-radius: 14px; padding: 16px 20px; text-align: center;">
-                        <div style="font-size: 24px; margin-bottom: 4px;">💪</div>
-                        <div style="font-size: 15px; font-weight: 600; color: #374151;">Terus Semangat!</div>
-                        <div style="font-size: 13px; color: #6b7280; margin-top: 4px;">${Math.round(100 - percent)}% lagi menuju target</div>
+                    <div style="background: #f3f4f6; border-radius: 12px; padding: 12px 16px; text-align: center; margin-bottom: 16px;">
+                        <div style="font-size: 20px; margin-bottom: 2px;">💪</div>
+                        <div style="font-size: 14px; font-weight: 600; color: #374151;">Terus Semangat!</div>
+                        <div style="font-size: 12px; color: #6b7280; margin-top: 2px;">${Math.round(100 - percent)}% lagi menuju target</div>
+                    </div>
+                `}
+                
+                <!-- Data Per Bulan -->
+                ${monthData.length > 0 ? `
+                    <div style="margin-top: 4px;">
+                        <div style="font-weight: 600; font-size: 13px; color: #1f2937; margin-bottom: 8px;">📅 Data ${label} per Bulan</div>
+                        <div style="overflow-x: auto; border: 1px solid #e5e7eb; border-radius: 10px; max-height: 180px; overflow-y: auto;">
+                            <table style="width: 100%; border-collapse: collapse; font-size: 12px;">
+                                <thead style="position: sticky; top: 0; background: #eef2ff; z-index: 2;">
+                                    <tr>
+                                        <th style="padding: 6px 10px; text-align: left; color: #4f46e5; font-weight: 700; font-size: 11px;">📅 Bulan</th>
+                                        <th style="padding: 6px 10px; text-align: center; color: ${color}; font-weight: 700; font-size: 11px;">${emoji} ${label}</th>
+                                        <th style="padding: 6px 10px; text-align: center; color: #6b7280; font-weight: 700; font-size: 11px;">👤 Agent</th>
+                                        <th style="padding: 6px 10px; text-align: center; color: #6b7280; font-weight: 700; font-size: 11px;">👥 Upline</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    ${monthRowsHtml}
+                                </tbody>
+                            </table>
+                        </div>
+                        <div style="font-size: 10px; color: #9ca3af; margin-top: 4px; text-align: right;">
+                            Menampilkan ${monthData.length} bulan terakhir
+                        </div>
+                    </div>
+                ` : `
+                    <div style="text-align: center; padding: 16px; color: #9ca3af; font-size: 12px;">
+                        Belum ada data transaksi untuk ditampilkan
                     </div>
                 `}
             </div>
             
             <!-- Footer -->
-            <div style="padding: 16px 24px 24px; border-top: 1px solid #e5e7eb;">
-                <button onclick="closeTargetDetailModal()" class="btn-primary" style="width: 100%; padding: 12px; border: none; border-radius: 14px; font-weight: 600; cursor: pointer; background: linear-gradient(135deg, #4f46e5, #6366f1); color: white; transition: all 0.3s;">
+            <div style="padding: 12px 20px 16px; border-top: 1px solid #e5e7eb; flex-shrink: 0;">
+                <button onclick="closeTargetDetailModal()" class="btn-primary" style="width: 100%; padding: 10px; border: none; border-radius: 12px; font-weight: 600; cursor: pointer; background: linear-gradient(135deg, #4f46e5, #6366f1); color: white; transition: all 0.3s; font-size: 14px;">
                     Tutup
                 </button>
             </div>
@@ -8962,17 +8985,140 @@ function showTargetDetailModal(label, targetValue, reachedValue, progressWidth) 
     document.body.appendChild(modal);
     document.body.classList.add('modal-open');
     document.body.style.overflow = 'hidden';
+    document.body.style.pointerEvents = 'auto';
     
+    // ===== KLIK DI LUAR MODAL UNTUK TUTUP =====
     modal.addEventListener('click', function(e) {
         if (e.target === this) {
             closeTargetDetailModal();
         }
     });
     
+    // ===== PASTIKAN TOMBOL TUTUP BEKERJA =====
+    const closeBtn = modal.querySelector('.btn-primary');
+    if (closeBtn) {
+        // Hapus listener lama dengan clone
+        const newCloseBtn = closeBtn.cloneNode(true);
+        closeBtn.parentNode.replaceChild(newCloseBtn, closeBtn);
+        newCloseBtn.addEventListener('click', function(e) {
+            e.preventDefault();
+            e.stopPropagation();
+            closeTargetDetailModal();
+        });
+    }
+    
+    // ===== APPLY DARK MODE =====
     if (document.body.classList.contains('dark-mode')) {
         applyDarkModeToModal(modal);
     }
 }
+
+// ========== FUNGSI CLOSE TARGET DETAIL MODAL ==========
+function closeTargetDetailModal() {
+    const modal = document.getElementById('targetDetailModal');
+    if (modal) {
+        modal.remove();
+    }
+    document.body.classList.remove('modal-open');
+    document.body.style.overflow = '';
+    document.body.style.pointerEvents = '';
+}
+
+// ========== TAMBAHKAN CSS ANIMASI ==========
+const targetModalStyle = document.createElement('style');
+targetModalStyle.textContent = `
+    @keyframes pulseCelebrate {
+        0% { transform: scale(1); }
+        50% { transform: scale(1.02); }
+        100% { transform: scale(1); }
+    }
+    
+    #targetDetailModal .modal-content {
+        animation: modalPopup 0.3s cubic-bezier(0.34, 1.2, 0.64, 1);
+    }
+    
+    @keyframes modalPopup {
+        from {
+            opacity: 0;
+            transform: scale(0.9) translateY(20px);
+        }
+        to {
+            opacity: 1;
+            transform: scale(1) translateY(0);
+        }
+    }
+    
+    /* Dark mode untuk target detail modal */
+    body.dark-mode #targetDetailModal .modal-content {
+        background: #1e293b !important;
+    }
+    
+    body.dark-mode #targetDetailModal .modal-content [style*="background: #f1f5f9"] {
+        background: #0f172a !important;
+    }
+    
+    body.dark-mode #targetDetailModal .modal-content [style*="background: #f3f4f6"] {
+        background: #0f172a !important;
+    }
+    
+    body.dark-mode #targetDetailModal .modal-content [style*="color: #374151"] {
+        color: #f1f5f9 !important;
+    }
+    
+    body.dark-mode #targetDetailModal .modal-content [style*="color: #6b7280"] {
+        color: #94a3b8 !important;
+    }
+    
+    body.dark-mode #targetDetailModal .modal-content [style*="color: #1f2937"] {
+        color: #f1f5f9 !important;
+    }
+    
+    body.dark-mode #targetDetailModal .modal-content [style*="background: #fef3c7"] {
+        background: #451a03 !important;
+        border-color: #78350f !important;
+    }
+    
+    body.dark-mode #targetDetailModal .modal-content [style*="background: #fef3c7"] div {
+        color: #fcd34d !important;
+    }
+    
+    body.dark-mode #targetDetailModal .modal-content [style*="color: #92400e"] {
+        color: #fcd34d !important;
+    }
+    
+    body.dark-mode #targetDetailModal .modal-content [style*="color: #78350f"] {
+        color: #fbbf24 !important;
+    }
+    
+    body.dark-mode #targetDetailModal .modal-content [style*="background: #d1fae5"] {
+        background: #064e3b !important;
+    }
+    
+    body.dark-mode #targetDetailModal .modal-content [style*="color: #10b981"] {
+        color: #34d399 !important;
+    }
+    
+    body.dark-mode #targetDetailModal .modal-content table thead {
+        background: #1e293b !important;
+    }
+    
+    body.dark-mode #targetDetailModal .modal-content table thead th {
+        color: #a5b4fc !important;
+    }
+    
+    body.dark-mode #targetDetailModal .modal-content table tbody tr {
+        background: #0f172a !important;
+    }
+    
+    body.dark-mode #targetDetailModal .modal-content table tbody td {
+        color: #e2e8f0 !important;
+    }
+    
+    body.dark-mode #targetDetailModal .modal-content [style*="background: #eef2ff"] {
+        background: #1e293b !important;
+    }
+`;
+document.head.appendChild(targetModalStyle);
 
 // ========== PERBAIKAN: FUNGSI UPDATE TARGET DISPLAY ==========
 
