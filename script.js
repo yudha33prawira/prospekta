@@ -8378,61 +8378,47 @@ async function loadTargetData() {
         // ===== HITUNG DARI DB_TRANSAKSI =====
         const transaksiDataLocal = window.transaksiData || transaksiData || [];
         
-        console.log('📊 Total data transaksi:', transaksiDataLocal.length);
+        // Filter: exclude tidak_transaksi
+        const validData = transaksiDataLocal.filter(t => t.progres_jenis !== 'tidak_transaksi');
         
-        // ===== TARGET AGENT = TOTAL SEMUA DATA di db_transaksi (tanpa tidak_transaksi) =====
-        const agentData = transaksiDataLocal.filter(t => t.progres_jenis !== 'tidak_transaksi');
-        const currentAgent = agentData.length;
+        // 1. Target Agent = TOTAL DATA (semua data yang valid)
+        const currentAgent = validData.length;
         
-        console.log('📊 Agent data (tanpa tidak_transaksi):', currentAgent);
-        
-        // ===== TARGET UPLINE = jumlah upline UNIK (tanpa tidak_transaksi) =====
+        // 2. Target Upline = jumlah upline UNIK dari data valid
         const uplineSet = new Set();
-        agentData.forEach(t => {
+        validData.forEach(t => {
             if (t.upline_name && t.upline_name.trim() !== '' && t.upline_name !== '-') {
                 uplineSet.add(t.upline_name);
             }
         });
         const currentUpline = uplineSet.size;
         
-        console.log('📊 Upline unik:', currentUpline);
-        
-        // ===== TARGET TRANSAKSI = TOTAL transaksi_bulan_ini (tanpa tidak_transaksi) =====
+        // 3. Target Transaksi = TOTAL transaksi_bulan_ini
         let totalTransaksi = 0;
-        agentData.forEach(t => {
+        validData.forEach(t => {
             totalTransaksi += (t.transaksi_bulan_ini || 0);
         });
         const currentTransaksi = totalTransaksi;
         
-        console.log('📊 Total transaksi bulan ini:', currentTransaksi);
-        
-        // ===== SELISIH TRANSAKSI = TOTAL transaksi_bulan_ini - TOTAL transaksi_bulan_lalu =====
+        // 4. Selisih Transaksi = TOTAL transaksi_bulan_ini - TOTAL transaksi_bulan_lalu
         let totalBulanLalu = 0;
         let totalBulanIni = 0;
-        agentData.forEach(t => {
+        validData.forEach(t => {
             totalBulanLalu += (t.transaksi_bulan_lalu || 0);
             totalBulanIni += (t.transaksi_bulan_ini || 0);
         });
         const currentSelisih = totalBulanIni - totalBulanLalu;
         
-        console.log('📊 Selisih transaksi:', currentSelisih);
-        
         // ===== UPDATE DISPLAY =====
-        const elements = {
-            targetAgentValue: targetData.agent || 0,
-            targetUplineValue: targetData.upline || 0,
-            targetTransaksiValue: (targetData.transaksi || 0).toLocaleString(),
-            targetSelisihValue: (targetData.selisih || 0).toLocaleString(),
-            targetAgentReached: currentAgent,
-            targetUplineReached: currentUpline,
-            targetTransaksiReached: currentTransaksi.toLocaleString(),
-            targetSelisihReached: currentSelisih.toLocaleString()
-        };
+        document.getElementById('targetAgentValue').innerText = targetData.agent || 0;
+        document.getElementById('targetUplineValue').innerText = targetData.upline || 0;
+        document.getElementById('targetTransaksiValue').innerText = (targetData.transaksi || 0).toLocaleString();
+        document.getElementById('targetSelisihValue').innerText = (targetData.selisih || 0).toLocaleString();
         
-        for (const [id, value] of Object.entries(elements)) {
-            const el = document.getElementById(id);
-            if (el) el.innerText = value;
-        }
+        document.getElementById('targetAgentReached').innerText = currentAgent;
+        document.getElementById('targetUplineReached').innerText = currentUpline;
+        document.getElementById('targetTransaksiReached').innerText = currentTransaksi.toLocaleString();
+        document.getElementById('targetSelisihReached').innerText = currentSelisih.toLocaleString();
         
         // ===== HITUNG PERSENTASE =====
         const agentPercent = targetData.agent ? Math.min((currentAgent / targetData.agent) * 100, 100) : 0;
@@ -8440,21 +8426,13 @@ async function loadTargetData() {
         const transaksiPercent = targetData.transaksi ? Math.min((currentTransaksi / targetData.transaksi) * 100, 100) : 0;
         const selisihPercent = targetData.selisih ? Math.min((currentSelisih / targetData.selisih) * 100, 100) : 0;
         
-        const progressElements = {
-            targetAgentProgress: agentPercent,
-            targetUplineProgress: uplinePercent,
-            targetTransaksiProgress: transaksiPercent,
-            targetSelisihProgress: selisihPercent
-        };
-        
-        for (const [id, value] of Object.entries(progressElements)) {
-            const el = document.getElementById(id);
-            if (el) el.style.width = value + '%';
-        }
+        document.getElementById('targetAgentProgress').style.width = agentPercent + '%';
+        document.getElementById('targetUplineProgress').style.width = uplinePercent + '%';
+        document.getElementById('targetTransaksiProgress').style.width = transaksiPercent + '%';
+        document.getElementById('targetSelisihProgress').style.width = selisihPercent + '%';
         
         // ===== UPDATE CHART =====
         updateTargetChart([agentPercent, uplinePercent, transaksiPercent, selisihPercent]);
-        updateTrendChart();
         
     } catch (err) {
         console.error('Error loading target data:', err);
@@ -8543,66 +8521,19 @@ function updateTrendChart() {
     
     if (trendChart) trendChart.destroy();
     
-    // ===== GUNAKAN DATA DARI RIWAYAT TRANSAKSI =====
-    let riwayatData = window._riwayatData || [];
-    
     const isDark = document.body.classList.contains('dark-mode');
     const textColor = isDark ? '#f1f5f9' : '#1e293b';
+    
+    // ===== AMBIL DATA DARI RIWAYAT =====
+    let riwayatData = window._riwayatData || [];
     
     let labels = [];
     let naikData = [];
     let turunData = [];
     let tidakData = [];
     
-    // ===== AMBIL DATA DARI TRANSAKSI UNTUK MEMBUAT DEMO =====
-    const transaksiLocal = window.transaksiData || transaksiData || [];
-    
-    // Cari semua periode yang ada di data transaksi
-    const periodMap = new Map();
-    transaksiLocal.forEach(t => {
-        if (t.periode_bulan_ini && t.progres_jenis !== 'tidak_transaksi') {
-            const periode = t.periode_bulan_ini;
-            if (!periodMap.has(periode)) {
-                periodMap.set(periode, { naik: 0, turun: 0, tidak: 0 });
-            }
-            const stats = periodMap.get(periode);
-            if (t.progres_jenis === 'naik') stats.naik++;
-            else if (t.progres_jenis === 'turun') stats.turun++;
-            else if (t.progres_jenis === 'tidak_transaksi') stats.tidak++;
-        }
-    });
-    
-    // Urutkan periode
-    const sortedPeriods = Array.from(periodMap.keys()).sort((a, b) => {
-        // Parse bulan dan tahun
-        const [bulanA, tahunA] = a.split(' ');
-        const [bulanB, tahunB] = b.split(' ');
-        const bulanIndexA = getBulanIndex(bulanA) || 0;
-        const bulanIndexB = getBulanIndex(bulanB) || 0;
-        if (tahunA !== tahunB) return parseInt(tahunA) - parseInt(tahunB);
-        return bulanIndexA - bulanIndexB;
-    });
-    
-    if (sortedPeriods.length > 0) {
-        // ===== GUNAKAN DATA DARI TRANSAKSI =====
-        sortedPeriods.forEach(periode => {
-            const stats = periodMap.get(periode);
-            labels.push(periode);
-            naikData.push(stats.naik || 0);
-            turunData.push(stats.turun || 0);
-            tidakData.push(stats.tidak || 0);
-        });
-        
-        // Simpan ke riwayatData untuk digunakan nanti
-        window._riwayatData = sortedPeriods.map((periode, index) => ({
-            bulan: periode,
-            total_naik: naikData[index],
-            total_turun: turunData[index],
-            total_tidak_transaksi: tidakData[index]
-        }));
-        
-    } else if (riwayatData.length > 0) {
-        // ===== GUNAKAN DATA RIWAYAT =====
+    if (riwayatData.length > 0) {
+        // ===== URUTKAN DATA =====
         const sortedData = [...riwayatData].sort((a, b) => {
             if (a.tahun !== b.tahun) return a.tahun - b.tahun;
             return a.bulan_index - b.bulan_index;
@@ -8614,13 +8545,11 @@ function updateTrendChart() {
         tidakData = sortedData.map(item => item.total_tidak_transaksi || 0);
         
     } else {
-        // ===== FALLBACK: Data demo =====
+        // ===== DATA DEMO (hanya jika benar-benar tidak ada data) =====
         const months = ['Jan', 'Feb', 'Mar', 'Apr', 'Mei', 'Jun', 'Jul', 'Ags', 'Sep', 'Okt', 'Nov', 'Des'];
         const currentMonth = new Date().getMonth();
         const currentYear = new Date().getFullYear();
         
-        // Buat data untuk 6 bulan terakhir
-        const demoData = [];
         for (let i = 5; i >= 0; i--) {
             let monthIndex = currentMonth - i;
             let year = currentYear;
@@ -8628,74 +8557,55 @@ function updateTrendChart() {
                 monthIndex += 12;
                 year--;
             }
-            demoData.push({
-                label: `${months[monthIndex]} ${year}`,
-                naik: Math.floor(Math.random() * 15) + 5,
-                turun: Math.floor(Math.random() * 8) + 2,
-                tidak: Math.floor(Math.random() * 4) + 1
-            });
+            labels.push(`${months[monthIndex]} ${year}`);
+            naikData.push(Math.floor(Math.random() * 10) + 3);
+            turunData.push(Math.floor(Math.random() * 5) + 1);
+            tidakData.push(Math.floor(Math.random() * 3) + 1);
         }
-        
-        labels = demoData.map(d => d.label);
-        naikData = demoData.map(d => d.naik);
-        turunData = demoData.map(d => d.turun);
-        tidakData = demoData.map(d => d.tidak);
     }
     
-    // ===== HITUNG MIN VALUE UNTUK Y-AXIS =====
+    // ===== HITUNG MIN & MAX UNTUK Y-AXIS =====
     const allData = [...naikData, ...turunData, ...tidakData];
-    const minValue = Math.min(...allData);
-    const maxValue = Math.max(...allData);
-    const yMin = Math.max(0, minValue - 2); // Mulai dari nilai terendah - 2
+    const minValue = allData.length > 0 ? Math.min(...allData) : 0;
+    const maxValue = allData.length > 0 ? Math.max(...allData) : 10;
+    const yMin = Math.max(0, minValue - 2);
     const yMax = maxValue + 3;
     
-    // ===== DATASET HANYA: Naik, Turun, Tidak Transaksi =====
+    // ===== DATASET =====
     const datasets = [
         { 
             label: '📈 Naik', 
             data: naikData, 
             borderColor: '#10b981', 
-            backgroundColor: 'rgba(16, 185, 129, 0.15)',
+            backgroundColor: 'rgba(16, 185, 129, 0.1)',
             tension: 0.4, 
             fill: true,
-            pointBackgroundColor: '#10b981',
-            pointBorderColor: '#10b981',
-            pointRadius: 5,
-            pointHoverRadius: 7
+            pointRadius: 4
         },
         { 
             label: '📉 Turun', 
             data: turunData, 
             borderColor: '#ef4444', 
-            backgroundColor: 'rgba(239, 68, 68, 0.15)',
+            backgroundColor: 'rgba(239, 68, 68, 0.1)',
             tension: 0.4, 
             fill: true,
-            pointBackgroundColor: '#ef4444',
-            pointBorderColor: '#ef4444',
-            pointRadius: 5,
-            pointHoverRadius: 7
+            pointRadius: 4
         },
         { 
             label: '🚫 Tidak Transaksi', 
             data: tidakData, 
             borderColor: '#6b7280', 
-            backgroundColor: 'rgba(107, 114, 128, 0.15)',
+            backgroundColor: 'rgba(107, 114, 128, 0.1)',
             tension: 0.4, 
             fill: true,
-            pointBackgroundColor: '#6b7280',
-            pointBorderColor: '#6b7280',
-            pointRadius: 5,
-            pointHoverRadius: 7,
+            pointRadius: 4,
             borderDash: [5, 5]
         }
     ];
     
     trendChart = new Chart(ctx, {
         type: 'line',
-        data: { 
-            labels: labels, 
-            datasets: datasets 
-        },
+        data: { labels, datasets },
         options: {
             responsive: true,
             maintainAspectRatio: true,
@@ -8703,69 +8613,23 @@ function updateTrendChart() {
                 legend: { 
                     position: 'top', 
                     labels: { 
-                        font: { size: 11, weight: '600' },
+                        font: { size: 10 },
                         color: textColor,
                         usePointStyle: true,
-                        padding: 16,
-                        boxWidth: 12
+                        padding: 12
                     } 
-                },
-                tooltip: {
-                    backgroundColor: isDark ? '#1e293b' : '#ffffff',
-                    titleColor: isDark ? '#f1f5f9' : '#1f2937',
-                    bodyColor: isDark ? '#cbd5e1' : '#374151',
-                    borderColor: isDark ? '#334155' : '#e5e7eb',
-                    borderWidth: 1,
-                    cornerRadius: 8,
-                    padding: 12,
-                    callbacks: {
-                        label: function(context) {
-                            const label = context.dataset.label || '';
-                            const value = context.raw || 0;
-                            return `${label}: ${value} agent`;
-                        }
-                    }
                 }
             },
             scales: {
                 y: {
-                    beginAtZero: false, // <-- TIDAK MULAI DARI 0
-                    min: yMin, // <-- MULAI DARI NILAI TERENDAH
+                    beginAtZero: false,
+                    min: yMin,
                     max: yMax,
-                    title: { 
-                        display: true, 
-                        text: 'Jumlah Agent',
-                        color: textColor,
-                        font: { size: 11, weight: '500' }
-                    },
-                    ticks: { 
-                        color: textColor, 
-                        font: { size: 10 },
-                        stepSize: 1
-                    },
-                    grid: {
-                        color: isDark ? 'rgba(255,255,255,0.05)' : 'rgba(0,0,0,0.06)'
-                    }
+                    ticks: { color: textColor, font: { size: 10 } },
+                    grid: { color: isDark ? 'rgba(255,255,255,0.05)' : 'rgba(0,0,0,0.06)' }
                 },
                 x: {
-                    ticks: { 
-                        color: textColor, 
-                        font: { size: 10 },
-                        maxRotation: 30,
-                        minRotation: 0
-                    },
-                    grid: {
-                        display: false
-                    }
-                }
-            },
-            interaction: {
-                intersect: false,
-                mode: 'index'
-            },
-            elements: {
-                line: {
-                    borderWidth: 2.5
+                    ticks: { color: textColor, font: { size: 10 }, maxRotation: 30 }
                 }
             }
         }
@@ -8795,20 +8659,20 @@ async function loadRiwayatTransaksi() {
         
         if (error) {
             console.error('❌ Gagal load riwayat:', error);
-            updateTrendChart(); // <-- PASTIKAN DIPANGGIL
+            window._riwayatData = [];
+            updateTrendChart();
             renderRiwayatTransaksi([]);
             return;
         }
         
-        // ===== SIMPAN UNTUK CHART =====
         window._riwayatData = data || [];
-        updateTrendChart(); // <-- PASTIKAN DIPANGGIL
+        updateTrendChart();
         renderRiwayatTransaksi(data || []);
         
     } catch (err) {
         console.error('❌ Error load riwayat:', err);
         window._riwayatData = [];
-        updateTrendChart(); // <-- PASTIKAN DIPANGGIL
+        updateTrendChart();
         showNotifTop('⚠️ Gagal memuat riwayat', true);
     }
 }
