@@ -12253,78 +12253,78 @@ async function updatePesanBadge() {
 
 // ========== AUTH STATE CHANGE LISTENER ==========
 function initAuthListener() {
-// ===== BAGIAN AUTH STATE CHANGE =====
-window.db.auth.onAuthStateChange((event, session) => {
-    console.log('Auth state change:', event, session?.user?.email);
-    
-    if (event === 'SIGNED_IN' && session) {
-        // ===== CEK APAKAH SUDAH LOGIN =====
-        if (currentUser && currentUser.id === session.user.id) {
-            console.log('⏳ User sudah login, skip reload');
-            return;
-        }
+    window.db.auth.onAuthStateChange((event, session) => {
+        console.log('Auth state change:', event, session?.user?.email);
         
-        // ===== RESET FLAG =====
-        isAppInitialized = false;
-        isDataLoaded = false;
-        isTargetDataLoading = false;
-        isTransaksiDataLoaded = false;
-        isTransaksiDataLoading = false;
-        
-        currentUser = session.user;
-        document.getElementById('loginPage').style.display = 'none';
-        document.getElementById('app').style.display = 'block';
-        showNotifTop('✅ Login berhasil!');
-        
-        // Reload data (hanya jika belum dimuat)
-        setTimeout(async () => {
-            try {
-                await loadUserProfile();
-                await loadCustomers();
-                await loadProspek();
-                await loadDatabaseAgent();
-                await loadProduk();
-                await loadDbTransaksi();
-                await loadDBClosing();
-                await loadDBTidak();
-                await loadDBNomorSalah();
-                await loadDBCommitment();
-                await loadReminders();
-                await loadMessages();
-                await loadUsersList();
-                await loadTarifAdmin();
-                await loadTargetData();
-                await updateTargetDisplay();
-                await loadTransaksiGlobal();
-                isAppInitialized = true;
-                navigateTo('dashboard');
-            } catch (err) {
-                console.error('Error reload data:', err);
+        if (event === 'SIGNED_IN' && session) {
+            // ===== CEK APAKAH SUDAH LOGIN =====
+            if (currentUser && currentUser.id === session.user.id) {
+                console.log('⏳ User sudah login, skip reload');
+                return;
             }
-        }, 500);
-        
-    } else if (event === 'SIGNED_OUT') {
-        // ===== RESET FLAG =====
-        isDataLoaded = false;
-        isTargetDataLoading = false;
-        isTransaksiDataLoaded = false;
-        isTransaksiDataLoading = false;
-        isAppInitialized = false;
-        
-        currentUser = null;
-        document.getElementById('loginPage').style.display = 'flex';
-        document.getElementById('app').style.display = 'none';
-        showNotifTop('👋 Anda telah logout');
-        
-    } else if (event === 'TOKEN_REFRESHED') {
-        console.log('Token refreshed successfully');
-    } else if (event === 'USER_UPDATED') {
-        console.log('User updated');
-        if (currentUser) {
-            loadUserProfile();
+            
+            // ===== RESET FLAG =====
+            isAppInitialized = false;
+            isDataLoaded = false;
+            isTargetDataLoading = false;
+            isTransaksiDataLoaded = false;
+            isTransaksiDataLoading = false;
+            
+            currentUser = session.user;
+            document.getElementById('loginPage').style.display = 'none';
+            document.getElementById('app').style.display = 'block';
+            showNotifTop('✅ Login berhasil!');
+            
+            // Reload data (hanya jika belum dimuat)
+            setTimeout(async () => {
+                try {
+                    await loadUserProfile();
+                    await loadCustomers();
+                    await loadProspek();
+                    await loadDatabaseAgent();
+                    await loadProduk();
+                    await loadDbTransaksi();
+                    await loadDBClosing();
+                    await loadDBTidak();
+                    await loadDBNomorSalah();
+                    await loadDBCommitment();
+                    await loadReminders();
+                    await loadMessages();
+                    await loadUsersList();
+                    await loadTarifAdmin();
+                    await loadTargetData();
+                    await updateTargetDisplay();
+                    await loadTransaksiGlobal();
+                    isAppInitialized = true;
+                    navigateTo('dashboard');
+                } catch (err) {
+                    console.error('Error reload data:', err);
+                }
+            }, 500);
+            
+        } else if (event === 'SIGNED_OUT') {
+            // ===== RESET FLAG =====
+            isDataLoaded = false;
+            isTargetDataLoading = false;
+            isTransaksiDataLoaded = false;
+            isTransaksiDataLoading = false;
+            isAppInitialized = false;
+            
+            currentUser = null;
+            document.getElementById('loginPage').style.display = 'flex';
+            document.getElementById('app').style.display = 'none';
+            showNotifTop('👋 Anda telah logout');
+            
+        } else if (event === 'TOKEN_REFRESHED') {
+            console.log('Token refreshed successfully');
+        } else if (event === 'USER_UPDATED') {
+            console.log('User updated');
+            if (currentUser) {
+                loadUserProfile();
+            }
         }
-    }
-});
+    });
+}
 
 // ========== CHECK AUTH & START ==========
 async function checkAuth() {
