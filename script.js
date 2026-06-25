@@ -5620,6 +5620,210 @@ function getActionButtonForStatus(status, id, canProceed, disabledReason) {
     return buttonHtml;
 }
 
+// ========== TAMBAHKAN INI DI AWAL FILE ==========
+// Definisikan fungsi initTargetFeatures di awal agar tersedia saat dipanggil
+
+function initTargetFeatures() {
+    console.log('🔄 Inisialisasi fitur target...');
+    
+    // 1. Init target card click
+    if (typeof initTargetCardClick === 'function') {
+        initTargetCardClick();
+    } else {
+        console.warn('⚠️ initTargetCardClick belum didefinisikan');
+    }
+    
+    // 2. Force load target data jika dashboard aktif
+    const dashboardPage = document.getElementById('dashboardPage');
+    if (dashboardPage && dashboardPage.style.display !== 'none') {
+        console.log('📊 Dashboard aktif, memuat target data...');
+        setTimeout(() => {
+            if (typeof loadTargetData === 'function') {
+                loadTargetData();
+            } else {
+                console.warn('⚠️ loadTargetData belum didefinisikan');
+            }
+        }, 500);
+    }
+}
+
+// Definisikan fungsi initTargetCardClick jika belum ada
+if (typeof initTargetCardClick === 'undefined') {
+    function initTargetCardClick() {
+        console.log('🔄 Inisialisasi click target card...');
+        
+        const targetCards = document.querySelectorAll('.target-card');
+        console.log(`📊 Ditemukan ${targetCards.length} target card`);
+        
+        targetCards.forEach((card, index) => {
+            // Hapus listener lama dengan clone
+            const newCard = card.cloneNode(true);
+            card.parentNode.replaceChild(newCard, card);
+            
+            const freshCard = document.querySelectorAll('.target-card')[index];
+            if (freshCard) {
+                freshCard.style.cursor = 'pointer';
+                freshCard.style.transition = 'all 0.3s ease';
+                
+                freshCard.addEventListener('click', function(e) {
+                    e.preventDefault();
+                    e.stopPropagation();
+                    
+                    console.log(`🖱️ Target card ${index} diklik`);
+                    
+                    const labels = ['Agent', 'Upline', 'Transaksi', 'Selisih'];
+                    const label = labels[index] || 'Target';
+                    
+                    const valueEl = this.querySelector('.target-card-value');
+                    const reachedEl = this.querySelector('.target-card-sub span');
+                    const progressEl = this.querySelector('.progress-bar div');
+                    
+                    const targetValue = valueEl ? valueEl.innerText : '0';
+                    const reachedValue = reachedEl ? reachedEl.innerText : '0';
+                    const progressWidth = progressEl ? progressEl.style.width : '0%';
+                    
+                    console.log(`📊 ${label}: Target=${targetValue}, Tercapai=${reachedValue}, Progress=${progressWidth}`);
+                    
+                    if (typeof showTargetDetailModal === 'function') {
+                        showTargetDetailModal(label, targetValue, reachedValue, progressWidth);
+                    } else {
+                        console.warn('⚠️ showTargetDetailModal belum didefinisikan');
+                        alert(`${label}\nTarget: ${targetValue}\nTercapai: ${reachedValue}\nProgress: ${progressWidth}`);
+                    }
+                });
+                
+                freshCard.addEventListener('mouseenter', function() {
+                    this.style.transform = 'translateY(-8px) scale(1.02)';
+                    this.style.boxShadow = '0 20px 40px -12px rgba(0,0,0,0.25)';
+                });
+                
+                freshCard.addEventListener('mouseleave', function() {
+                    this.style.transform = '';
+                    this.style.boxShadow = '';
+                });
+            }
+        });
+    }
+}
+
+// Definisikan fungsi showTargetDetailModal jika belum ada
+if (typeof showTargetDetailModal === 'undefined') {
+    function showTargetDetailModal(label, targetValue, reachedValue, progressWidth) {
+        // Parse progress width untuk mendapatkan persentase
+        let percent = 0;
+        if (typeof progressWidth === 'string') {
+            percent = parseFloat(progressWidth) || 0;
+        } else if (typeof progressWidth === 'number') {
+            percent = progressWidth;
+        }
+        
+        const isComplete = percent >= 100;
+        const targetNum = parseInt(String(targetValue).replace(/[^0-9]/g, '')) || 0;
+        const reachedNum = parseInt(String(reachedValue).replace(/[^0-9]/g, '')) || 0;
+        
+        // Pilih emoji berdasarkan label
+        let emoji = '🎯';
+        let color = '#4f46e5';
+        if (label === 'Agent') { emoji = '👤'; color = '#667eea'; }
+        else if (label === 'Upline') { emoji = '👥'; color = '#4facfe'; }
+        else if (label === 'Transaksi') { emoji = '📊'; color = '#f093fb'; }
+        else if (label === 'Selisih') { emoji = '📈'; color = '#fa709a'; }
+        
+        // HTML untuk modal - gunakan alert sederhana jika modal detail belum siap
+        const msg = `${emoji} Detail Target ${label}\n\n🎯 Target: ${targetNum.toLocaleString()}\n✅ Tercapai: ${reachedNum.toLocaleString()}\n📊 Progress: ${Math.round(percent)}%\n\n${isComplete ? '🥳🎉 TERCAPAI!' : '💪 Terus Semangat!'}`;
+        alert(msg);
+    }
+}
+
+// Definisikan fungsi updateTargetUI jika belum ada
+if (typeof updateTargetUI === 'undefined') {
+    function updateTargetUI(targetAgent, targetUpline, targetTransaksi, targetSelisih, currentAgent, currentUpline, currentTransaksi, currentSelisih) {
+        console.log('📊 Updating UI with:', { targetAgent, targetUpline, targetTransaksi, targetSelisih, currentAgent, currentUpline, currentTransaksi, currentSelisih });
+        
+        // ===== UPDATE ELEMEN =====
+        const elements = {
+            targetAgentValue: targetAgent || 0,
+            targetUplineValue: targetUpline || 0,
+            targetTransaksiValue: (targetTransaksi || 0).toLocaleString(),
+            targetSelisihValue: (targetSelisih || 0).toLocaleString(),
+            targetAgentReached: currentAgent || 0,
+            targetUplineReached: currentUpline || 0,
+            targetTransaksiReached: (currentTransaksi || 0).toLocaleString(),
+            targetSelisihReached: (currentSelisih || 0).toLocaleString()
+        };
+        
+        for (const [id, value] of Object.entries(elements)) {
+            const el = document.getElementById(id);
+            if (el) el.innerText = value;
+        }
+        
+        // ===== HITUNG PERSENTASE =====
+        const agentPercent = targetAgent > 0 ? Math.min((currentAgent / targetAgent) * 100, 100) : 0;
+        const uplinePercent = targetUpline > 0 ? Math.min((currentUpline / targetUpline) * 100, 100) : 0;
+        const transaksiPercent = targetTransaksi > 0 ? Math.min((currentTransaksi / targetTransaksi) * 100, 100) : 0;
+        const selisihPercent = targetSelisih > 0 ? Math.min((currentSelisih / targetSelisih) * 100, 100) : 0;
+        
+        // Update progress bars
+        const progressElements = {
+            targetAgentProgress: agentPercent,
+            targetUplineProgress: uplinePercent,
+            targetTransaksiProgress: transaksiPercent,
+            targetSelisihProgress: selisihPercent
+        };
+        
+        for (const [id, value] of Object.entries(progressElements)) {
+            const el = document.getElementById(id);
+            if (el) el.style.width = Math.min(value, 100) + '%';
+        }
+        
+        // ===== CEK APAKAH TARGET TERCAPAI =====
+        const allTargetsMet = agentPercent >= 100 && uplinePercent >= 100 && transaksiPercent >= 100;
+        const headerTarget = document.querySelector('.target-kpi-section .target-header h3');
+        const targetSection = document.querySelector('.target-kpi-section');
+        
+        if (headerTarget) {
+            if (allTargetsMet) {
+                headerTarget.innerHTML = '🥳🎉 SELAMAT! Semua Target Tercapai! 🎉🥳';
+                headerTarget.style.color = '#10b981';
+                headerTarget.style.animation = 'pulseTarget 1.5s ease-in-out infinite';
+                
+                if (targetSection) {
+                    targetSection.style.background = 'linear-gradient(135deg, #fef3c7, #fde68a, #fcd34d)';
+                    targetSection.style.borderColor = '#f59e0b';
+                    targetSection.style.boxShadow = '0 0 40px rgba(245, 158, 11, 0.3)';
+                    targetSection.classList.remove('target-celebrate');
+                }
+                
+                if (typeof showNotifTop === 'function') {
+                    showNotifTop('🥳🎉 SELAMAT! Semua target KPI telah tercapai! 🎉🥳');
+                }
+                
+            } else {
+                headerTarget.innerHTML = '🎯 Target & KPI Prospek Agent';
+                headerTarget.style.color = '';
+                headerTarget.style.animation = '';
+                if (targetSection) {
+                    targetSection.style.background = '';
+                    targetSection.style.borderColor = '';
+                    targetSection.style.boxShadow = '';
+                    targetSection.classList.remove('target-celebrate');
+                }
+            }
+        }
+        
+        // ===== UPDATE CHART =====
+        const chartData = [
+            Math.round(agentPercent),
+            Math.round(uplinePercent),
+            Math.round(transaksiPercent)
+        ];
+        console.log('📊 Chart data:', chartData);
+        if (typeof updateTargetChart === 'function') {
+            updateTargetChart(chartData);
+        }
+    }
+}
+
 function renderProspekKanban() {
     const today = getTodayDate();
     const lists = { baru: [], dihubungi: [], negosiasi: [], tertarik: [] };
@@ -14968,23 +15172,4 @@ document.getElementById('loginEmail')?.addEventListener('keypress', function(e) 
         document.getElementById('loginPassword').focus();
     }
 });
-
-function initTargetFeatures() {
-    console.log('🔄 Inisialisasi fitur target...');
-    
-    // 1. Init target card click
-    initTargetCardClick();
-    
-    // 2. Force load target data jika dashboard aktif
-    const dashboardPage = document.getElementById('dashboardPage');
-    if (dashboardPage && dashboardPage.style.display !== 'none') {
-        console.log('📊 Dashboard aktif, memuat target data...');
-        setTimeout(() => {
-            if (typeof loadTargetData === 'function') {
-                loadTargetData();
-            }
-        }, 500);
-    }
-}
-    
 }
