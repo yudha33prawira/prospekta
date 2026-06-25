@@ -5,7 +5,7 @@ const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBh
 // ===== INISIALISASI SUPABASE CLIENT =====
 const _supabaseClient = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY, {
     cookieOptions: {
-        domain: window.location.hostname,
+        domain: '.github.io',  // Domain utama
         secure: true,
         sameSite: 'lax'
     }
@@ -861,6 +861,9 @@ async function updateTargetDisplay() {
         let totalBulanLalu = 0;
         let validCount = 0;
         
+        // ===== HITUNG UPLINE UNIK =====
+        const uplineSet = new Set();
+        
         if (transaksiDataLocal.length > 0) {
             transaksiDataLocal.forEach(t => {
                 // Hanya hitung yang statusnya bukan 'tidak_transaksi'
@@ -868,9 +871,15 @@ async function updateTargetDisplay() {
                     validCount++;
                     currentTransaksi += (t.transaksi_bulan_ini || 0);
                     totalBulanLalu += (t.transaksi_bulan_lalu || 0);
+                    
+                    // Kumpulkan upline unik
+                    if (t.upline_name && t.upline_name.trim() !== '' && t.upline_name !== '-') {
+                        uplineSet.add(t.upline_name);
+                    }
                 }
             });
         }
+        const currentUpline = uplineSet.size;
         const currentSelisih = currentTransaksi - totalBulanLalu;
         
         // ===== UPDATE ELEMEN DOM =====
@@ -908,44 +917,14 @@ async function updateTargetDisplay() {
             if (el) el.style.width = value + '%';
         }
         
-        // ===== CEK APAKAH TARGET TERCAPAI =====
-        const allTargetsMet = agentPercent >= 100 && koorPercent >= 100 && caPercent >= 100 && transaksiPercent >= 100;
-        const headerTarget = document.querySelector('.target-kpi-section .target-header h3');
-        const targetSection = document.querySelector('.target-kpi-section');
-        
-        if (headerTarget) {
-            if (allTargetsMet) {
-                headerTarget.innerHTML = '🥳🎉 SELAMAT! Semua Target Tercapai! 🎉🥳';
-                headerTarget.style.color = '#10b981';
-                headerTarget.style.animation = 'pulseTarget 1.5s ease-in-out infinite';
-                
-                if (targetSection) {
-                    targetSection.classList.remove('target-celebrate');
-                    void targetSection.offsetWidth;
-                    targetSection.classList.add('target-celebrate');
-                    setTimeout(() => {
-                        targetSection.classList.remove('target-celebrate');
-                    }, 5000);
-                }
-                
-                showNotifTop('🥳🎉 SELAMAT! Semua target KPI telah tercapai! 🎉🥳');
-            } else {
-                headerTarget.innerHTML = '🎯 Target & KPI Prospek Agent';
-                headerTarget.style.color = '';
-                headerTarget.style.animation = '';
-                if (targetSection) {
-                    targetSection.classList.remove('target-celebrate');
-                }
-            }
-        }
-        
-        // ===== UPDATE CHART =====
+        // ===== UPDATE CHART DENGAN DATA LENGKAP =====
         const chartData = [
-            agentPercent || 0,
-            koorPercent || 0,
-            caPercent || 0,
-            transaksiPercent || 0
+            Math.round(agentPercent),
+            Math.round(caPercent),    // CA = Upline
+            Math.round(transaksiPercent)
         ];
+        
+        console.log('📊 Chart data from updateTargetDisplay:', chartData);
         updateTargetChart(chartData);
         updateTrendChart();
         
@@ -5805,94 +5784,6 @@ function initTargetFeatures() {
     }
 }
 
-// Definisikan fungsi initTargetCardClick jika belum ada
-if (typeof initTargetCardClick === 'undefined') {
-    function initTargetCardClick() {
-        console.log('🔄 Inisialisasi click target card...');
-        
-        const targetCards = document.querySelectorAll('.target-card');
-        console.log(`📊 Ditemukan ${targetCards.length} target card`);
-        
-        targetCards.forEach((card, index) => {
-            // Hapus listener lama dengan clone
-            const newCard = card.cloneNode(true);
-            card.parentNode.replaceChild(newCard, card);
-            
-            const freshCard = document.querySelectorAll('.target-card')[index];
-            if (freshCard) {
-                freshCard.style.cursor = 'pointer';
-                freshCard.style.transition = 'all 0.3s ease';
-                
-                freshCard.addEventListener('click', function(e) {
-                    e.preventDefault();
-                    e.stopPropagation();
-                    
-                    console.log(`🖱️ Target card ${index} diklik`);
-                    
-                    const labels = ['Agent', 'Upline', 'Transaksi', 'Selisih'];
-                    const label = labels[index] || 'Target';
-                    
-                    const valueEl = this.querySelector('.target-card-value');
-                    const reachedEl = this.querySelector('.target-card-sub span');
-                    const progressEl = this.querySelector('.progress-bar div');
-                    
-                    const targetValue = valueEl ? valueEl.innerText : '0';
-                    const reachedValue = reachedEl ? reachedEl.innerText : '0';
-                    const progressWidth = progressEl ? progressEl.style.width : '0%';
-                    
-                    console.log(`📊 ${label}: Target=${targetValue}, Tercapai=${reachedValue}, Progress=${progressWidth}`);
-                    
-                    if (typeof showTargetDetailModal === 'function') {
-                        showTargetDetailModal(label, targetValue, reachedValue, progressWidth);
-                    } else {
-                        console.warn('⚠️ showTargetDetailModal belum didefinisikan');
-                        alert(`${label}\nTarget: ${targetValue}\nTercapai: ${reachedValue}\nProgress: ${progressWidth}`);
-                    }
-                });
-                
-                freshCard.addEventListener('mouseenter', function() {
-                    this.style.transform = 'translateY(-8px) scale(1.02)';
-                    this.style.boxShadow = '0 20px 40px -12px rgba(0,0,0,0.25)';
-                });
-                
-                freshCard.addEventListener('mouseleave', function() {
-                    this.style.transform = '';
-                    this.style.boxShadow = '';
-                });
-            }
-        });
-    }
-}
-
-// Definisikan fungsi showTargetDetailModal jika belum ada
-if (typeof showTargetDetailModal === 'undefined') {
-    function showTargetDetailModal(label, targetValue, reachedValue, progressWidth) {
-        // Parse progress width untuk mendapatkan persentase
-        let percent = 0;
-        if (typeof progressWidth === 'string') {
-            percent = parseFloat(progressWidth) || 0;
-        } else if (typeof progressWidth === 'number') {
-            percent = progressWidth;
-        }
-        
-        const isComplete = percent >= 100;
-        const targetNum = parseInt(String(targetValue).replace(/[^0-9]/g, '')) || 0;
-        const reachedNum = parseInt(String(reachedValue).replace(/[^0-9]/g, '')) || 0;
-        
-        // Pilih emoji berdasarkan label
-        let emoji = '🎯';
-        let color = '#4f46e5';
-        if (label === 'Agent') { emoji = '👤'; color = '#667eea'; }
-        else if (label === 'Upline') { emoji = '👥'; color = '#4facfe'; }
-        else if (label === 'Transaksi') { emoji = '📊'; color = '#f093fb'; }
-        else if (label === 'Selisih') { emoji = '📈'; color = '#fa709a'; }
-        
-        // HTML untuk modal - gunakan alert sederhana jika modal detail belum siap
-        const msg = `${emoji} Detail Target ${label}\n\n🎯 Target: ${targetNum.toLocaleString()}\n✅ Tercapai: ${reachedNum.toLocaleString()}\n📊 Progress: ${Math.round(percent)}%\n\n${isComplete ? '🥳🎉 TERCAPAI!' : '💪 Terus Semangat!'}`;
-        alert(msg);
-    }
-}
-
 function renderProspekKanban() {
     const today = getTodayDate();
     const lists = { baru: [], dihubungi: [], negosiasi: [], tertarik: [] };
@@ -8720,6 +8611,7 @@ async function loadTargetData() {
         
         if (transaksiDataLocal.length === 0) {
             console.warn('⚠️ Tidak ada data transaksi, gunakan default');
+            // Panggil updateTargetUI dengan data default (semua 0)
             updateTargetUI(0, 0, 0, 0, 0, 0, 0, 0);
             isDataLoaded = true;
             isTargetDataLoading = false;
@@ -8740,18 +8632,16 @@ async function loadTargetData() {
         });
         const currentUpline = uplineSet.size;
         console.log('📊 Target Upline (upline unik):', currentUpline);
-        console.log('📊 Daftar Upline:', Array.from(uplineSet));
         
         // ===== 3. TARGET TRANSAKSI: TOTAL transaksi_bulan_ini =====
         let totalTransaksiBulanIni = 0;
         validData.forEach(t => {
-            const val = t.transaksi_bulan_ini || 0;
-            totalTransaksiBulanIni += val;
+            totalTransaksiBulanIni += (t.transaksi_bulan_ini || 0);
         });
         const currentTransaksi = totalTransaksiBulanIni;
         console.log('📊 Target Transaksi (total transaksi bulan ini):', currentTransaksi);
         
-        // ===== 4. SELISIH TRANSAKSI: transaksi_bulan_ini - transaksi_bulan_lalu =====
+        // ===== 4. SELISIH TRANSAKSI =====
         let totalBulanLalu = 0;
         validData.forEach(t => {
             totalBulanLalu += (t.transaksi_bulan_lalu || 0);
@@ -8875,7 +8765,7 @@ newStyle.textContent = `
 document.head.appendChild(newStyle);
 
 // ================================================================
-// ========== UPDATE FUNGSI INIT TARGET CARD CLICK ==========
+// ========== FUNGSI INIT TARGET CARD CLICK ==========
 // ================================================================
 
 function initTargetCardClick() {
@@ -8913,6 +8803,7 @@ function initTargetCardClick() {
                 
                 console.log(`📊 ${label}: Target=${targetValue}, Tercapai=${reachedValue}, Progress=${progressWidth}`);
                 
+                // Panggil showTargetDetailModal dengan data yang benar
                 showTargetDetailModal(label, targetValue, reachedValue, progressWidth);
             });
             
@@ -8930,7 +8821,7 @@ function initTargetCardClick() {
 }
 
 // ================================================================
-// ========== PERBAIKAN: FUNGSI SHOW TARGET DETAIL MODAL ==========
+// ========== FUNGSI SHOW TARGET DETAIL MODAL ==========
 // ================================================================
 
 function showTargetDetailModal(label, targetValue, reachedValue, progressWidth) {
@@ -8946,14 +8837,33 @@ function showTargetDetailModal(label, targetValue, reachedValue, progressWidth) 
     const targetNum = parseInt(String(targetValue).replace(/[^0-9]/g, '')) || 0;
     const reachedNum = parseInt(String(reachedValue).replace(/[^0-9]/g, '')) || 0;
     
-    // Pilih emoji berdasarkan label
+    // Pilih emoji dan warna berdasarkan label
     let emoji = '🎯';
     let color = '#4f46e5';
     let labelKey = 'agent';
-    if (label === 'Agent') { emoji = '👤'; color = '#667eea'; labelKey = 'agent'; }
-    else if (label === 'Upline') { emoji = '👥'; color = '#4facfe'; labelKey = 'upline'; }
-    else if (label === 'Transaksi') { emoji = '📊'; color = '#f093fb'; labelKey = 'transaksi'; }
-    else if (label === 'Selisih') { emoji = '📈'; color = '#fa709a'; labelKey = 'selisih'; }
+    let icon = '👤';
+    
+    if (label === 'Agent') { 
+        emoji = '👤'; 
+        color = '#667eea'; 
+        labelKey = 'agent';
+        icon = '👤';
+    } else if (label === 'Upline') { 
+        emoji = '👥'; 
+        color = '#4facfe'; 
+        labelKey = 'upline';
+        icon = '👥';
+    } else if (label === 'Transaksi') { 
+        emoji = '📊'; 
+        color = '#f093fb'; 
+        labelKey = 'transaksi';
+        icon = '💰';
+    } else if (label === 'Selisih') { 
+        emoji = '📈'; 
+        color = '#fa709a'; 
+        labelKey = 'selisih';
+        icon = '📊';
+    }
     
     // ===== AMBIL DATA PER BULAN DARI TRANSAKSI =====
     const transaksiLocal = window.transaksiData || transaksiData || [];
@@ -8961,7 +8871,6 @@ function showTargetDetailModal(label, targetValue, reachedValue, progressWidth) 
     const periodMap = new Map();
     
     transaksiLocal.forEach(t => {
-        // Skip data tidak_transaksi
         if (t.progres_jenis === 'tidak_transaksi') return;
         
         const periode = t.periode_bulan_ini || 'Unknown';
@@ -9004,11 +8913,7 @@ function showTargetDetailModal(label, targetValue, reachedValue, progressWidth) 
         if (labelKey === 'agent') value = stats.agentIds.size;
         else if (labelKey === 'upline') value = stats.uplineSet.size;
         else if (labelKey === 'transaksi') value = stats.totalTransaksi;
-        else if (labelKey === 'selisih') {
-            // Untuk selisih, hitung perubahan dari bulan sebelumnya
-            // Kita simpan sebagai data tambahan
-            value = stats.totalTransaksi;
-        }
+        else if (labelKey === 'selisih') value = stats.totalTransaksi;
         monthData.push({
             periode: periode,
             value: value,
@@ -9102,7 +9007,7 @@ function showTargetDetailModal(label, targetValue, reachedValue, progressWidth) 
                                 <thead style="position: sticky; top: 0; background: #eef2ff; z-index: 2;">
                                     <tr>
                                         <th style="padding: 6px 10px; text-align: left; color: #4f46e5; font-weight: 700; font-size: 11px;">📅 Bulan</th>
-                                        <th style="padding: 6px 10px; text-align: center; color: ${color}; font-weight: 700; font-size: 11px;">${emoji} ${label}</th>
+                                        <th style="padding: 6px 10px; text-align: center; color: ${color}; font-weight: 700; font-size: 11px;">${icon} ${label}</th>
                                         <th style="padding: 6px 10px; text-align: center; color: #6b7280; font-weight: 700; font-size: 11px;">👤 Agent</th>
                                         <th style="padding: 6px 10px; text-align: center; color: #6b7280; font-weight: 700; font-size: 11px;">👥 Upline</th>
                                     </tr>
@@ -9132,7 +9037,7 @@ function showTargetDetailModal(label, targetValue, reachedValue, progressWidth) 
         </div>
     `;
     
-    // ===== BUAT MODAL KHUSUS =====
+    // ===== BUAT MODAL =====
     const existingModal = document.getElementById('targetDetailModal');
     if (existingModal) {
         existingModal.remove();
@@ -9172,7 +9077,6 @@ function showTargetDetailModal(label, targetValue, reachedValue, progressWidth) 
     // ===== PASTIKAN TOMBOL TUTUP BEKERJA =====
     const closeBtn = modal.querySelector('.btn-primary');
     if (closeBtn) {
-        // Hapus listener lama dengan clone
         const newCloseBtn = closeBtn.cloneNode(true);
         closeBtn.parentNode.replaceChild(newCloseBtn, closeBtn);
         newCloseBtn.addEventListener('click', function(e) {
@@ -9294,118 +9198,6 @@ targetModalStyle.textContent = `
     }
 `;
 document.head.appendChild(targetModalStyle);
-
-// ========== PERBAIKAN: FUNGSI UPDATE TARGET DISPLAY ==========
-
-async function updateTargetDisplay() {
-    if (!currentUser) return;
-    
-    try {
-        // ===== AMBIL TARGET DARI SETTINGS =====
-        const { data, error } = await window.db
-            .from('settings')
-            .select('*')
-            .eq('key', 'targetKPI')
-            .eq('user_id', currentUser.id)
-            .maybeSingle();
-        
-        if (data && data.value) {
-            targetData = data.value;
-        } else {
-            targetData = { agent: 10, ca: 20, koordinator: 5, transaksi: 100, selisih: 50, monthlyTargets: [] };
-        }
-        
-        // ===== AMBIL DATA DARI DB_AGENT =====
-        let query = window.db.from('db_agent').select('*');
-        if (currentUserRole !== 'owner') {
-            query = query.eq('user_id', currentUser.id);
-        }
-        const { data: agents, error: agentError } = await query;
-        
-        if (agentError) {
-            console.error('Error loading agents for target:', agentError);
-            return;
-        }
-        
-        // ===== HITUNG BERDASARKAN AGENT_TYPE =====
-        let currentAgent = 0;
-        let currentKoor = 0;
-        let currentCA = 0;
-        
-        if (agents && agents.length > 0) {
-            agents.forEach(agent => {
-                const type = agent.agent_type || '';
-                if (type === 'AGENT' || type === 'Agent') {
-                    currentAgent++;
-                } else if (type.includes('KORWIL') || type === 'Koordinator Wilayah (KORWIL)') {
-                    currentKoor++;
-                } else if (type.includes('CA') || type === 'CollectingAgent (CA)') {
-                    currentCA++;
-                }
-            });
-        }
-        
-        // ===== HITUNG TRANSAKSI DARI DB_TRANSAKSI =====
-        const transaksiDataLocal = window.transaksiData || transaksiData || [];
-        let currentTransaksi = 0;
-        let totalBulanLalu = 0;
-        let validCount = 0;
-        
-        if (transaksiDataLocal.length > 0) {
-            transaksiDataLocal.forEach(t => {
-                // Hanya hitung yang statusnya bukan 'tidak_transaksi'
-                if (t.progres_jenis !== 'tidak_transaksi') {
-                    validCount++;
-                    currentTransaksi += (t.transaksi_bulan_ini || 0);
-                    totalBulanLalu += (t.transaksi_bulan_lalu || 0);
-                }
-            });
-        }
-        const currentSelisih = currentTransaksi - totalBulanLalu;
-        
-        // ===== UPDATE ELEMEN DOM =====
-        const elements = {
-            targetAgentValue: targetData.agent || 0,
-            targetKoorValue: targetData.koordinator || 0,
-            targetCAValue: targetData.ca || 0,
-            targetTransaksiValue: (targetData.transaksi || 0).toLocaleString(),
-            targetAgentReached: validCount,
-            targetKoorReached: currentKoor,
-            targetCAReached: currentCA,
-            targetTransaksiReached: currentTransaksi.toLocaleString()
-        };
-        
-        for (const [id, value] of Object.entries(elements)) {
-            const el = document.getElementById(id);
-            if (el) el.innerText = value;
-        }
-        
-        // ===== HITUNG PERSENTASE =====
-        const agentPercent = targetData.agent ? Math.min((validCount / targetData.agent) * 100, 100) : 0;
-        const koorPercent = targetData.koordinator ? Math.min((currentKoor / targetData.koordinator) * 100, 100) : 0;
-        const caPercent = targetData.ca ? Math.min((currentCA / targetData.ca) * 100, 100) : 0;
-        const transaksiPercent = targetData.transaksi ? Math.min((currentTransaksi / targetData.transaksi) * 100, 100) : 0;
-        
-        const progressElements = {
-            targetAgentProgress: agentPercent,
-            targetKoorProgress: koorPercent,
-            targetCAProgress: caPercent,
-            targetTransaksiProgress: transaksiPercent
-        };
-        
-        for (const [id, value] of Object.entries(progressElements)) {
-            const el = document.getElementById(id);
-            if (el) el.style.width = value + '%';
-        }
-        
-        // ===== UPDATE CHART =====
-        updateTargetChart([agentPercent, koorPercent, caPercent, transaksiPercent]);
-        updateTrendChart();
-        
-    } catch (err) {
-        console.error('Error updating target display:', err);
-    }
-}
 
 // ========== FUNGSI UPDATE TREND CHART DENGAN KLIK ==========
 
@@ -9688,9 +9480,12 @@ function generateDemoData() {
 // ========== 2. FUNGSI UPDATE UI TARGET ==========
 
 function updateTargetUI(targetAgent, targetUpline, targetTransaksi, targetSelisih, currentAgent, currentUpline, currentTransaksi, currentSelisih) {
-    console.log('📊 Updating UI with:', { targetAgent, targetUpline, targetTransaksi, targetSelisih, currentAgent, currentUpline, currentTransaksi, currentSelisih });
+    console.log('📊 Updating UI with:', { 
+        targetAgent, targetUpline, targetTransaksi, targetSelisih, 
+        currentAgent, currentUpline, currentTransaksi, currentSelisih 
+    });
     
-    // ===== UPDATE ELEMEN =====
+    // ===== UPDATE ELEMEN DOM =====
     const elements = {
         targetAgentValue: targetAgent || 0,
         targetUplineValue: targetUpline || 0,
@@ -9715,7 +9510,7 @@ function updateTargetUI(targetAgent, targetUpline, targetTransaksi, targetSelisi
     
     console.log('📊 Persentase:', { agentPercent, uplinePercent, transaksiPercent, selisihPercent });
     
-    // Update progress bars
+    // ===== UPDATE PROGRESS BARS =====
     const progressElements = {
         targetAgentProgress: agentPercent,
         targetUplineProgress: uplinePercent,
@@ -9725,7 +9520,11 @@ function updateTargetUI(targetAgent, targetUpline, targetTransaksi, targetSelisi
     
     for (const [id, value] of Object.entries(progressElements)) {
         const el = document.getElementById(id);
-        if (el) el.style.width = Math.min(value, 100) + '%';
+        if (el) {
+            // Pastikan nilai tidak negatif dan tidak lebih dari 100%
+            const safeValue = Math.min(Math.max(value, 0), 100);
+            el.style.width = safeValue + '%';
+        }
     }
     
     // ===== CEK APAKAH TARGET TERCAPAI =====
@@ -9739,18 +9538,14 @@ function updateTargetUI(targetAgent, targetUpline, targetTransaksi, targetSelisi
             headerTarget.style.color = '#10b981';
             headerTarget.style.animation = 'pulseTarget 1.5s ease-in-out infinite';
             
-            // ===== HAPUS FLIP CARD ANIMATION =====
-            // Hanya ganti background, tanpa animasi flip
             if (targetSection) {
                 targetSection.style.background = 'linear-gradient(135deg, #fef3c7, #fde68a, #fcd34d)';
                 targetSection.style.borderColor = '#f59e0b';
                 targetSection.style.boxShadow = '0 0 40px rgba(245, 158, 11, 0.3)';
-                // Hapus class target-celebrate jika ada
                 targetSection.classList.remove('target-celebrate');
             }
             
             showNotifTop('🥳🎉 SELAMAT! Semua target KPI telah tercapai! 🎉🥳');
-            
         } else {
             headerTarget.innerHTML = '🎯 Target & KPI Prospek Agent';
             headerTarget.style.color = '';
@@ -9764,18 +9559,18 @@ function updateTargetUI(targetAgent, targetUpline, targetTransaksi, targetSelisi
         }
     }
     
-    // ===== UPDATE CHART =====
+    // ===== UPDATE CHART DENGAN DATA YANG LENGKAP =====
     const chartData = [
         Math.round(agentPercent),
         Math.round(uplinePercent),
         Math.round(transaksiPercent)
     ];
-    console.log('📊 Chart data:', chartData);
+    
+    console.log('📊 Chart data (dikirim ke chart):', chartData);
     updateTargetChart(chartData);
 }
 
-// ========== 3. PERBAIKAN FUNGSI UPDATE TARGET CHART ==========
-
+// ========== FUNGSI UPDATE TARGET CHART ==========
 function updateTargetChart(percentages) {
     const ctx = document.getElementById('targetChart');
     if (!ctx) {
@@ -9783,26 +9578,40 @@ function updateTargetChart(percentages) {
         return;
     }
     
+    // ===== DESTROY CHART LAMA =====
     if (targetChart) {
         targetChart.destroy();
         targetChart = null;
     }
     
+    // ===== TENTUKAN MODE (DARK/LIGHT) =====
     const isDark = document.body.classList.contains('dark-mode');
     const textColor = isDark ? '#f1f5f9' : '#1e293b';
+    const gridColor = isDark ? 'rgba(255,255,255,0.05)' : 'rgba(0,0,0,0.06)';
+    const bgColor = isDark ? '#0f172a' : '#ffffff';
     
-    // ===== PASTIKAN DATA VALID =====
+    // ===== PASTIKAN DATA VALID (3 DATA) =====
     let data = [0, 0, 0];
     if (percentages && percentages.length >= 3) {
+        // Ambil 3 data pertama
         data = percentages.slice(0, 3);
-        data = data.map(v => typeof v === 'number' && !isNaN(v) ? Math.min(v, 100) : 0);
+        // Validasi setiap data: harus number, tidak NaN, min 0, max 100
+        data = data.map(v => {
+            if (typeof v === 'number' && !isNaN(v) && isFinite(v)) {
+                return Math.min(Math.max(Math.round(v), 0), 100);
+            }
+            return 0;
+        });
     }
-    
-    const labels = ['Agent', 'Upline', 'Transaksi'];
-    const colors = ['#667eea', '#4facfe', '#f093fb'];
     
     console.log('📊 Rendering chart with data:', data);
     
+    // ===== LABEL DAN WARNA =====
+    const labels = ['👤 Agent', '👥 Upline', '📊 Transaksi'];
+    const colors = ['#667eea', '#4facfe', '#f093fb'];
+    const borderColors = ['#5a67d8', '#3b82f6', '#e879f9'];
+    
+    // ===== BUAT CHART BARU =====
     targetChart = new Chart(ctx, {
         type: 'bar',
         data: {
@@ -9810,23 +9619,39 @@ function updateTargetChart(percentages) {
             datasets: [{
                 label: 'Pencapaian Target (%)',
                 data: data,
-                backgroundColor: colors,
+                backgroundColor: colors.map((c, i) => {
+                    // Opacity berdasarkan nilai (semakin tinggi semakin solid)
+                    const opacity = 0.7 + (data[i] / 100) * 0.3;
+                    return c + Math.round(opacity * 255).toString(16).padStart(2, '0');
+                }),
+                borderColor: borderColors,
+                borderWidth: 2,
                 borderRadius: 8,
-                barPercentage: 0.6
+                barPercentage: 0.6,
+                maxBarThickness: 60
             }]
         },
         options: {
             responsive: true,
             maintainAspectRatio: true,
+            backgroundColor: bgColor,
             plugins: {
                 legend: {
                     display: false
                 },
                 tooltip: {
+                    backgroundColor: isDark ? '#1e293b' : '#ffffff',
+                    titleColor: isDark ? '#f1f5f9' : '#1f2937',
+                    bodyColor: isDark ? '#cbd5e1' : '#374151',
+                    borderColor: isDark ? '#334155' : '#e5e7eb',
+                    borderWidth: 1,
+                    cornerRadius: 8,
+                    padding: 12,
                     callbacks: {
                         label: function(context) {
                             const value = context.raw || 0;
-                            return `${value}%`;
+                            const label = context.chart.data.labels[context.dataIndex] || '';
+                            return `${label}: ${value}%`;
                         }
                     }
                 }
@@ -9839,16 +9664,19 @@ function updateTargetChart(percentages) {
                         display: true, 
                         text: 'Persentase (%)', 
                         color: textColor,
-                        font: { size: 11 }
+                        font: { size: 11, weight: '600' }
                     },
                     ticks: { 
                         color: textColor,
+                        font: { size: 10 },
+                        stepSize: 20,
                         callback: function(value) {
                             return value + '%';
                         }
                     },
                     grid: { 
-                        color: isDark ? 'rgba(255,255,255,0.05)' : 'rgba(0,0,0,0.06)' 
+                        color: gridColor,
+                        drawBorder: false
                     }
                 },
                 x: {
@@ -9859,8 +9687,11 @@ function updateTargetChart(percentages) {
                     grid: { display: false }
                 }
             },
-            // ===== HAPUS onClick =====
-            // onClick: function(event, elements) { ... }  // <-- DIHAPUS
+            // ===== ANIMASI =====
+            animation: {
+                duration: 800,
+                easing: 'easeOutQuart'
+            }
         }
     });
     
@@ -12599,12 +12430,21 @@ function resetTargetData() {
         targetSection.classList.remove('target-celebrate');
     }
     
+    // Reset flag
+    isDataLoaded = false;
+    isTargetDataLoading = false;
+    
     showNotifTop('🔄 Target data telah direset');
 }
 
 // ===== FUNGSI UNTUK REFRESH TARGET =====
 function refreshTargetData() {
     console.log('🔄 Refresh target data...');
+    
+    // Reset flag agar bisa dimuat ulang
+    isDataLoaded = false;
+    isTargetDataLoading = false;
+    
     if (typeof loadTargetData === 'function') {
         loadTargetData();
     }
@@ -12617,14 +12457,15 @@ function refreshTargetData() {
 // ================================================================
 // ========== EKSPOR FUNGSI GLOBAL ==========
 // ================================================================
-
-// Pastikan semua fungsi global tersedia
 window.resetTargetData = resetTargetData;
 window.refreshTargetData = refreshTargetData;
 window.initTargetFeatures = initTargetFeatures;
 window.initTargetCardClick = initTargetCardClick;
 window.showTargetDetailModal = showTargetDetailModal;
 window.updateTargetUI = updateTargetUI;
+window.updateTargetChart = updateTargetChart;
+window.loadTargetData = loadTargetData;
+window.closeTargetDetailModal = closeTargetDetailModal;
 
 console.log('✅ Semua fungsi target telah diinisialisasi');
 
