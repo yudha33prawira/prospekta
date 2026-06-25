@@ -8467,40 +8467,176 @@ async function loadTargetData() {
         if (progressSelisih) progressSelisih.style.width = selisihPercent + '%';
         
         // ===== CEK APAKAH TARGET TERCAPAI =====
-        const allTargetsMet = agentPercent >= 100 && uplinePercent >= 100 && 
-                              transaksiPercent >= 100 && selisihPercent >= 100;
+        const allTargetsMet = agentPercent >= 100 && uplinePercent >= 100 && transaksiPercent >= 100;
+        const headerTarget = document.querySelector('.target-kpi-section .target-header h3');
+        const targetSection = document.querySelector('.target-kpi-section');
         
-        const targetCard = document.querySelector('.target-kpi-section .target-header h3');
-        if (targetCard) {
+        if (headerTarget) {
             if (allTargetsMet) {
-                targetCard.innerHTML = '🎉🥳 Selamat! Semua Target Tercapai! 🎉🥳';
-                targetCard.style.color = '#10b981';
-                targetCard.style.animation = 'pulseTarget 1s infinite';
+                headerTarget.innerHTML = '🥳🎉 SELAMAT! Semua Target Tercapai! 🎉🥳';
+                headerTarget.style.color = '#10b981';
+                headerTarget.style.animation = 'pulseTarget 1.5s ease-in-out infinite';
+                
+                // ===== FLIP CARD ANIMATION =====
+                if (targetSection) {
+                    targetSection.classList.add('target-celebrate');
+                    // Hapus class setelah 5 detik agar bisa diulang
+                    setTimeout(() => {
+                        targetSection.classList.remove('target-celebrate');
+                    }, 5000);
+                }
+                
+                showNotifTop('🥳🎉 SELAMAT! Semua target KPI telah tercapai! 🎉🥳');
+                
             } else {
-                targetCard.innerHTML = '🎯 Target & KPI Prospek Agent';
-                targetCard.style.color = '';
-                targetCard.style.animation = '';
+                headerTarget.innerHTML = '🎯 Target & KPI Prospek Agent';
+                headerTarget.style.color = '';
+                headerTarget.style.animation = '';
+                if (targetSection) {
+                    targetSection.classList.remove('target-celebrate');
+                }
             }
         }
         
-        // ===== UPDATE CHART =====
-        updateTargetChart([agentPercent, uplinePercent, transaksiPercent, selisihPercent]);
+        // ===== UPDATE CHART (HANYA 3 DATA: Agent, Upline, Transaksi) =====
+        updateTargetChart([agentPercent, uplinePercent, transaksiPercent]);
         
         // ===== UPDATE TREND CHART =====
         updateTrendChart();
         
         console.log('✅ Target data loaded successfully');
         
-        // ===== TAMPILKAN NOTIFIKASI JIKA SEMUA TARGET TERCAPAI =====
-        if (allTargetsMet) {
-            showNotifTop('🥳🎉 SELAMAT! Semua target KPI telah tercapai! 🎉🥳');
-        }
-        
     } catch (err) {
         console.error('Error loading target data:', err);
         showNotifTop('❌ Gagal memuat target: ' + err.message, true);
     }
 }
+
+// ========== TAMBAHKAN CSS UNTUK FLIP ANIMATION ==========
+
+const flipStyle = document.createElement('style');
+flipStyle.textContent = `
+    /* ===== TARGET CELEBRATE - FLIP ANIMATION ===== */
+    .target-kpi-section {
+        transition: all 0.6s cubic-bezier(0.34, 1.2, 0.64, 1);
+        perspective: 1000px;
+    }
+    
+    .target-kpi-section.target-celebrate {
+        animation: celebrateFlip 0.8s ease-in-out;
+        background: linear-gradient(135deg, #fef3c7, #fde68a, #fcd34d) !important;
+        border-color: #f59e0b !important;
+        box-shadow: 0 0 40px rgba(245, 158, 11, 0.3) !important;
+    }
+    
+    @keyframes celebrateFlip {
+        0% {
+            transform: rotateY(0deg) scale(1);
+        }
+        25% {
+            transform: rotateY(90deg) scale(1.05);
+        }
+        50% {
+            transform: rotateY(180deg) scale(1.1);
+        }
+        75% {
+            transform: rotateY(270deg) scale(1.05);
+        }
+        100% {
+            transform: rotateY(360deg) scale(1);
+        }
+    }
+    
+    /* ===== CELEBRATE CONFETTI EFFECT ===== */
+    .target-kpi-section.target-celebrate::before {
+        content: '🎉🥳🎉🥳🎉🥳🎉🥳';
+        position: absolute;
+        top: -20px;
+        left: 50%;
+        transform: translateX(-50%);
+        font-size: 32px;
+        animation: confettiDrop 1.5s ease-in-out infinite;
+        pointer-events: none;
+        opacity: 0.8;
+        letter-spacing: 8px;
+        white-space: nowrap;
+    }
+    
+    @keyframes confettiDrop {
+        0% {
+            transform: translateX(-50%) translateY(-20px) rotate(0deg);
+            opacity: 0;
+        }
+        20% {
+            opacity: 1;
+        }
+        80% {
+            opacity: 1;
+        }
+        100% {
+            transform: translateX(-50%) translateY(10px) rotate(360deg);
+            opacity: 0;
+        }
+    }
+    
+    /* ===== PULSE TARGET HEADER ===== */
+    @keyframes pulseTarget {
+        0% { transform: scale(1); }
+        50% { transform: scale(1.03); }
+        100% { transform: scale(1); }
+    }
+    
+    /* ===== KARTU TARGET CELEBRATE ===== */
+    .target-kpi-section.target-celebrate .target-card {
+        animation: cardCelebrate 0.8s ease-in-out;
+    }
+    
+    .target-kpi-section.target-celebrate .target-card:nth-child(1) { animation-delay: 0.0s; }
+    .target-kpi-section.target-celebrate .target-card:nth-child(2) { animation-delay: 0.1s; }
+    .target-kpi-section.target-celebrate .target-card:nth-child(3) { animation-delay: 0.2s; }
+    .target-kpi-section.target-celebrate .target-card:nth-child(4) { animation-delay: 0.3s; }
+    
+    @keyframes cardCelebrate {
+        0% {
+            transform: scale(1) rotate(0deg);
+        }
+        25% {
+            transform: scale(1.05) rotate(-3deg);
+        }
+        50% {
+            transform: scale(1.1) rotate(3deg);
+        }
+        75% {
+            transform: scale(1.05) rotate(-2deg);
+        }
+        100% {
+            transform: scale(1) rotate(0deg);
+        }
+    }
+    
+    /* ===== HOVER KEMBALI NORMAL ===== */
+    .target-kpi-section.target-celebrate:hover {
+        animation: none !important;
+        transform: none !important;
+        background: linear-gradient(135deg, #fef3c7, #fde68a, #fcd34d) !important;
+    }
+    
+    .target-kpi-section.target-celebrate:hover .target-card {
+        animation: none !important;
+        transform: none !important;
+    }
+    
+    /* ===== DARK MODE ===== */
+    body.dark-mode .target-kpi-section.target-celebrate {
+        background: linear-gradient(135deg, #451a03, #78350f, #92400e) !important;
+        border-color: #f59e0b !important;
+    }
+    
+    body.dark-mode .target-kpi-section.target-celebrate .target-header h3 {
+        color: #fcd34d !important;
+    }
+`;
+document.head.appendChild(flipStyle);
 
 // ========== PERBAIKAN: FUNGSI UPDATE TARGET DISPLAY ==========
 
@@ -8892,6 +9028,7 @@ function generateDemoData() {
     return demoData;
 }
 
+// ========== FUNGSI UPDATE TARGET CHART ==========
 function updateTargetChart(percentages) {
     const ctx = document.getElementById('targetChart');
     if (!ctx) return;
@@ -8901,14 +9038,19 @@ function updateTargetChart(percentages) {
     const isDark = document.body.classList.contains('dark-mode');
     const textColor = isDark ? '#f1f5f9' : '#1e293b';
     
+    // ===== HANYA 3 DATA: Agent, Upline, Transaksi (Tanpa Selisih) =====
+    const data = percentages || [0, 0, 0];
+    const labels = ['👤 Agent', '👥 Upline', '📊 Transaksi'];
+    const colors = ['#667eea', '#4facfe', '#f093fb'];
+    
     targetChart = new Chart(ctx, {
         type: 'bar',
         data: {
-            labels: ['Agent', 'Upline', 'Transaksi', 'Selisih'],
+            labels: labels,
             datasets: [{
                 label: 'Pencapaian Target (%)',
-                data: percentages || [0, 0, 0, 0],
-                backgroundColor: ['#667eea', '#4facfe', '#f093fb', '#fa709a'],
+                data: data,
+                backgroundColor: colors,
                 borderRadius: 8,
                 barPercentage: 0.6
             }]
@@ -8918,22 +9060,180 @@ function updateTargetChart(percentages) {
             maintainAspectRatio: true,
             plugins: {
                 legend: {
-                    labels: { color: textColor }
+                    display: false
+                },
+                tooltip: {
+                    callbacks: {
+                        label: function(context) {
+                            const value = context.raw || 0;
+                            return `${value.toFixed(1)}%`;
+                        }
+                    }
                 }
             },
             scales: {
                 y: {
                     beginAtZero: true,
                     max: 100,
-                    title: { display: true, text: 'Persentase (%)', color: textColor },
-                    ticks: { color: textColor }
+                    title: { 
+                        display: true, 
+                        text: 'Persentase (%)', 
+                        color: textColor,
+                        font: { size: 11 }
+                    },
+                    ticks: { 
+                        color: textColor,
+                        callback: function(value) {
+                            return value + '%';
+                        }
+                    },
+                    grid: { 
+                        color: isDark ? 'rgba(255,255,255,0.05)' : 'rgba(0,0,0,0.06)' 
+                    }
                 },
                 x: {
-                    ticks: { color: textColor }
+                    ticks: { 
+                        color: textColor,
+                        font: { size: 12, weight: 'bold' }
+                    },
+                    grid: { display: false }
+                }
+            },
+            // ===== KLIK CHART UNTUK LIHAT DETAIL PER BULAN =====
+            onClick: function(event, elements) {
+                if (elements.length > 0) {
+                    const index = elements[0].index;
+                    const label = this.data.labels[index];
+                    showDetailPerBulanChart(label);
                 }
             }
         }
     });
+}
+
+// ========== FUNGSI SHOW DETAIL PER BULAN (DARI CHART TARGET) ==========
+
+function showDetailPerBulanChart(label) {
+    // ===== AMBIL DATA DARI TRANSAKSI =====
+    const transaksiLocal = window.transaksiData || transaksiData || [];
+    const periodMap = new Map();
+    
+    transaksiLocal.forEach(t => {
+        const periode = t.periode_bulan_ini || 'Unknown';
+        if (!periodMap.has(periode)) {
+            periodMap.set(periode, { 
+                naik: 0, 
+                turun: 0, 
+                tidak: 0, 
+                total: 0,
+                totalTransaksi: 0,
+                uplineSet: new Set()
+            });
+        }
+        const stats = periodMap.get(periode);
+        if (t.progres_jenis === 'naik') stats.naik++;
+        else if (t.progres_jenis === 'turun') stats.turun++;
+        else if (t.progres_jenis === 'tidak_transaksi') stats.tidak++;
+        stats.total++;
+        stats.totalTransaksi += (t.transaksi_bulan_ini || 0);
+        if (t.upline_name && t.upline_name.trim() !== '' && t.upline_name !== '-') {
+            stats.uplineSet.add(t.upline_name);
+        }
+    });
+    
+    // Urutkan periode
+    const sortedPeriods = Array.from(periodMap.keys()).sort((a, b) => {
+        if (a === 'Unknown') return 1;
+        if (b === 'Unknown') return -1;
+        const [bulanA, tahunA] = a.split(' ');
+        const [bulanB, tahunB] = b.split(' ');
+        const idxA = getBulanIndex(bulanA) || 0;
+        const idxB = getBulanIndex(bulanB) || 0;
+        if (tahunA !== tahunB) return parseInt(tahunA) - parseInt(tahunB);
+        return idxA - idxB;
+    });
+    
+    const monthData = [];
+    sortedPeriods.forEach(periode => {
+        const stats = periodMap.get(periode);
+        monthData.push({
+            periode: periode,
+            naik: stats.naik,
+            turun: stats.turun,
+            tidak: stats.tidak,
+            total: stats.total,
+            totalTransaksi: stats.totalTransaksi,
+            upline: stats.uplineSet.size
+        });
+    });
+    
+    if (monthData.length === 0) {
+        showNotifTop('⚠️ Belum ada data transaksi untuk ditampilkan', true);
+        return;
+    }
+    
+    // ===== BUILD HTML =====
+    let rowsHtml = monthData.map((item, index) => {
+        const bgColor = index % 2 === 0 ? '#f8fafc' : '#ffffff';
+        return `
+            <tr style="background: ${bgColor}; border-bottom: 1px solid #e5e7eb;">
+                <td style="padding: 8px 12px; font-weight: 600; color: #1f2937;">${escapeHtml(item.periode)}</td>
+                <td style="padding: 8px 12px; text-align: center; color: #10b981;">${item.naik}</td>
+                <td style="padding: 8px 12px; text-align: center; color: #ef4444;">${item.turun}</td>
+                <td style="padding: 8px 12px; text-align: center; color: #6b7280;">${item.tidak}</td>
+                <td style="padding: 8px 12px; text-align: center; font-weight: 700; color: #4f46e5;">${item.total}</td>
+                <td style="padding: 8px 12px; text-align: center; color: #8b5cf6;">${item.totalTransaksi.toLocaleString()}</td>
+                <td style="padding: 8px 12px; text-align: center; color: #059669;">${item.upline}</td>
+            </tr>
+        `;
+    }).join('');
+    
+    const modalHtml = `
+        <div class="modal-content" style="max-width: 750px; max-height: 85vh; overflow-y: auto;">
+            <div style="padding: 20px 24px 0; display: flex; justify-content: space-between; align-items: center;">
+                <h3 style="font-size: 20px; margin: 0; color: #1f2937;">📊 Detail Per Bulan</h3>
+                <button onclick="closeModal('detailModal')" style="
+                    background: none;
+                    border: none;
+                    font-size: 28px;
+                    cursor: pointer;
+                    color: #6b7280;
+                    padding: 0 4px;
+                    line-height: 1;
+                " onmouseover="this.style.color='#ef4444'" onmouseout="this.style.color='#6b7280'">✕</button>
+            </div>
+            <div class="modal-subtitle" style="font-size: 13px; color: #6b7280; padding: 0 24px 12px; border-bottom: 1px solid #f0f0f0;">
+                Data per bulan dari Database Transaksi
+            </div>
+            
+            <div style="padding: 16px 24px; overflow-x: auto;">
+                <table style="width: 100%; border-collapse: collapse; font-size: 13px;">
+                    <thead>
+                        <tr style="background: #eef2ff; border-radius: 8px;">
+                            <th style="padding: 10px 12px; text-align: left; color: #4f46e5; font-weight: 700;">📅 Bulan</th>
+                            <th style="padding: 10px 12px; text-align: center; color: #10b981; font-weight: 700;">📈 Naik</th>
+                            <th style="padding: 10px 12px; text-align: center; color: #ef4444; font-weight: 700;">📉 Turun</th>
+                            <th style="padding: 10px 12px; text-align: center; color: #6b7280; font-weight: 700;">🚫 Tidak</th>
+                            <th style="padding: 10px 12px; text-align: center; color: #4f46e5; font-weight: 700;">📊 Total</th>
+                            <th style="padding: 10px 12px; text-align: center; color: #8b5cf6; font-weight: 700;">💰 Transaksi</th>
+                            <th style="padding: 10px 12px; text-align: center; color: #059669; font-weight: 700;">👥 Upline</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        ${rowsHtml}
+                    </tbody>
+                </table>
+            </div>
+            
+            <div class="modal-buttons" style="padding: 16px 24px 24px; border-top: 1px solid #e5e7eb;">
+                <button onclick="closeModal('detailModal')" class="btn-primary" style="flex: 1; padding: 12px; border: none; border-radius: 14px; font-weight: 600; cursor: pointer; background: linear-gradient(135deg, #4f46e5, #6366f1); color: white;">Tutup</button>
+            </div>
+        </div>
+    `;
+    
+    document.getElementById('detailContent').innerHTML = modalHtml;
+    showModal('detailModal');
+    applyDarkModeToModal(document.getElementById('detailModal'));
 }
 
 function updateTrendChart() {
@@ -9217,7 +9517,6 @@ async function saveTargetData() {
     };
     
     try {
-        // ===== CEK APAKAH DATA SUDAH ADA =====
         const { data: existingData, error: checkError } = await window.db
             .from('settings')
             .select('id, user_id')
