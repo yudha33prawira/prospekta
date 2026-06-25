@@ -11,6 +11,15 @@ const _supabase = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY, 
     }
 });
 
+// ===== EXPOSE KE GLOBAL =====
+window.db = _supabase;
+
+// ===== ATAU GUNAKAN CONSTANT =====
+const supabase = _supabase;
+window.db = supabase;
+
+console.log('✅ Supabase client initialized');
+
 // ========== GLOBAL VARIABLES ==========
 let isTargetDataLoading = false;
 let isDataLoaded = false;
