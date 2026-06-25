@@ -3,7 +3,7 @@ const SUPABASE_URL = 'https://haylblhjzfavrfiyaicq.supabase.co';
 const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImhheWxibGhqemZhdnJmaXlhaWNxIiwicm9sZSI6ImFub24iLCJpYXQiOjE3Nzk3MzgyMDIsImV4cCI6MjA5NTMxNDIwMn0.j4yQa1ZttP5_Zg0ye5lK2OLecq39QhG3tPyv5PZ3r78';
 
 // Inisialisasi Supabase client
-const _supabase = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY, {
+const _supabaseClient = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY, {
     cookieOptions: {
         domain: window.location.hostname,
         secure: true,
@@ -12,13 +12,7 @@ const _supabase = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY, 
 });
 
 // ===== EXPOSE KE GLOBAL =====
-window.db = _supabase;
-
-// ===== ATAU GUNAKAN CONSTANT =====
-const supabase = _supabase;
-window.db = supabase;
-
-console.log('✅ Supabase client initialized');
+window.db = _supabaseClient;
 
 // ========== GLOBAL VARIABLES ==========
 let isTargetDataLoading = false;
