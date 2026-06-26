@@ -1321,7 +1321,7 @@ function initSearchRight() {
     
     if (!wrapper || !expanded || !input) return;
     
-    // ===== HOVER EXPAND =====
+    // ===== HOVER - EXPAND KE KIRI =====
     wrapper.addEventListener('mouseenter', function() {
         clearTimeout(searchRightHoverTimer);
         expanded.classList.add('active');
