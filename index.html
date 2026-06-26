@@ -126,33 +126,44 @@
             
                     <!-- ===== KANAN: Search + Notifikasi + Profile ===== -->
                     <div class="topbar-right">
-                    <!-- Search Right -->
-                    <div class="search-right-wrapper" id="searchRightWrapper">
-                        <!-- Trigger -->
-                        <div class="search-right-trigger" id="searchRightTrigger">
-                            <span class="search-right-icon">🔍</span>
-                            <span class="search-right-label">Cari...</span>
-                            <span class="search-right-shortcut">⌘K</span>
-                        </div>
-                        
-                        <!-- Expanded (akan memanjang ke kiri) -->
-                        <div class="search-right-expanded" id="searchRightExpanded">
-                            <div class="search-right-inner">
-                                <span class="search-right-icon-expanded">🔍</span>
-                                <input 
-                                    type="text" 
-                                    id="searchRightInput" 
-                                    placeholder="Cari nama, ID Agent, nomor WhatsApp..." 
-                                    class="search-right-input"
-                                    autocomplete="off"
-                                >
-                                <button class="search-right-clear" id="searchRightClear" style="display:none;">✕</button>
-                                <button class="search-right-close" id="searchRightClose">✕</button>
+                        <!-- Search Right -->
+                        <div class="search-right-wrapper" id="searchRightWrapper">
+                            <!-- Trigger -->
+                            <div class="search-right-trigger" id="searchRightTrigger">
+                                <span class="search-right-icon">🔍</span>
+                                <span class="search-right-label">Cari...</span>
+                                <span class="search-right-shortcut">⌘K</span>
+                            </div>
+                            
+                            <!-- Expanded (akan memanjang ke kiri) -->
+                            <div class="search-right-expanded" id="searchRightExpanded">
+                                <div class="search-right-inner">
+                                    <span class="search-right-icon-expanded">🔍</span>
+                                    <input 
+                                        type="text" 
+                                        id="searchRightInput" 
+                                        placeholder="Cari nama, ID Agent, nomor WhatsApp..." 
+                                        class="search-right-input"
+                                        autocomplete="off"
+                                    >
+                                    <button class="search-right-clear" id="searchRightClear" style="display:none;">✕</button>
+                                    <button class="search-right-close" id="searchRightClose">✕</button>
+                                </div>
+                                
+                                <!-- HASIL PENCARIAN -->
+                                <div class="search-right-results" id="searchRightResults" style="display:none;">
+                                    <div class="search-right-results-header">
+                                        <span id="searchRightCount">0</span> hasil ditemukan
+                                    </div>
+                                    <div class="search-right-results-list" id="searchRightResultsList"></div>
+                                    <div class="search-right-results-footer">
+                                        <kbd>↑</kbd> <kbd>↓</kbd> · <kbd>Enter</kbd> buka · <kbd>Esc</kbd> tutup
+                                    </div>
+                                </div>
                             </div>
                         </div>
-                    </div>
                         
-                        <!-- Icon Notifikasi & Profile -->
+                        <!-- Notifikasi & Profile -->
                         <div class="notif-icon" id="infoBtn">⚠️</div>
                         <div class="notif-icon" id="deadlineNotifBtn">📅<span class="badge badge-zero" id="deadlineCount">0</span></div>
                         <div class="notif-icon" id="pesanNotifBtn">💬<span class="badge badge-zero" id="pesanCount">0</span></div>
