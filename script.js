@@ -825,102 +825,51 @@ async function updateTargetDisplay() {
             targetData = { agent: 10, ca: 20, koordinator: 5, transaksi: 100, selisih: 50, monthlyTargets: [] };
         }
         
-        // ===== AMBIL DATA DARI DB_AGENT =====
-        let query = window.db.from('db_agent').select('*');
-        if (currentUserRole !== 'owner') {
-            query = query.eq('user_id', currentUser.id);
-        }
-        const { data: agents, error: agentError } = await query;
-        
-        if (agentError) {
-            console.error('Error loading agents for target:', agentError);
-            return;
-        }
-        
-        // ===== HITUNG BERDASARKAN AGENT_TYPE =====
-        let currentAgent = 0;
-        let currentKoor = 0;
-        let currentCA = 0;
-        
-        if (agents && agents.length > 0) {
-            agents.forEach(agent => {
-                const type = agent.agent_type || '';
-                if (type === 'AGENT' || type === 'Agent') {
-                    currentAgent++;
-                } else if (type.includes('KORWIL') || type === 'Koordinator Wilayah (KORWIL)') {
-                    currentKoor++;
-                } else if (type.includes('CA') || type === 'CollectingAgent (CA)') {
-                    currentCA++;
-                }
-            });
-        }
-        
-        // ===== HITUNG TRANSAKSI DARI DB_TRANSAKSI =====
+        // ===== HITUNG UPLINE DARI DB_TRANSAKSI =====
         const transaksiDataLocal = window.transaksiData || transaksiData || [];
+        const uplineSet = new Set();
+        let validCount = 0;
         let currentTransaksi = 0;
         let totalBulanLalu = 0;
-        let validCount = 0;
         
-        // ===== HITUNG UPLINE UNIK =====
-        const uplineSet = new Set();
-        
-        if (transaksiDataLocal.length > 0) {
-            transaksiDataLocal.forEach(t => {
-                // Hanya hitung yang statusnya bukan 'tidak_transaksi'
-                if (t.progres_jenis !== 'tidak_transaksi') {
-                    validCount++;
-                    currentTransaksi += (t.transaksi_bulan_ini || 0);
-                    totalBulanLalu += (t.transaksi_bulan_lalu || 0);
-                    
-                    // Kumpulkan upline unik
-                    if (t.upline_name && t.upline_name.trim() !== '' && t.upline_name !== '-') {
-                        uplineSet.add(t.upline_name);
-                    }
+        transaksiDataLocal.forEach(t => {
+            if (t.progres_jenis !== 'tidak_transaksi') {
+                validCount++;
+                currentTransaksi += (t.transaksi_bulan_ini || 0);
+                totalBulanLalu += (t.transaksi_bulan_lalu || 0);
+                
+                // ===== KUMPULKAN UPLINE UNIK =====
+                if (t.upline_name && t.upline_name.trim() !== '' && t.upline_name !== '-') {
+                    uplineSet.add(t.upline_name);
                 }
-            });
-        }
+            }
+        });
+        
         const currentUpline = uplineSet.size;
         const currentSelisih = currentTransaksi - totalBulanLalu;
         
-        // ===== UPDATE ELEMEN DOM =====
-        const elements = {
-            targetAgentValue: targetData.agent || 0,
-            targetKoorValue: targetData.koordinator || 0,
-            targetCAValue: targetData.ca || 0,
-            targetTransaksiValue: (targetData.transaksi || 0).toLocaleString(),
-            targetAgentReached: validCount,
-            targetKoorReached: currentKoor,
-            targetCAReached: currentCA,
-            targetTransaksiReached: currentTransaksi.toLocaleString()
-        };
-        
-        for (const [id, value] of Object.entries(elements)) {
-            const el = document.getElementById(id);
-            if (el) el.innerText = value;
-        }
-        
         // ===== HITUNG PERSENTASE =====
+        // AGENT: dari validCount
         const agentPercent = targetData.agent ? Math.min((validCount / targetData.agent) * 100, 100) : 0;
-        const koorPercent = targetData.koordinator ? Math.min((currentKoor / targetData.koordinator) * 100, 100) : 0;
-        const caPercent = targetData.ca ? Math.min((currentCA / targetData.ca) * 100, 100) : 0;
+        
+        // UPLINE: dari uplineSet (BUKAN dari db_agent)
+        const uplinePercent = targetData.ca ? Math.min((currentUpline / targetData.ca) * 100, 100) : 0;
+        
+        // TRANSAKSI: dari currentTransaksi
         const transaksiPercent = targetData.transaksi ? Math.min((currentTransaksi / targetData.transaksi) * 100, 100) : 0;
         
-        const progressElements = {
-            targetAgentProgress: agentPercent,
-            targetKoorProgress: koorPercent,
-            targetCAProgress: caPercent,
-            targetTransaksiProgress: transaksiPercent
-        };
+        console.log('📊 updateTargetDisplay - Percentages:', { 
+            agentPercent, 
+            uplinePercent, 
+            transaksiPercent,
+            currentUpline,
+            targetCA: targetData.ca
+        });
         
-        for (const [id, value] of Object.entries(progressElements)) {
-            const el = document.getElementById(id);
-            if (el) el.style.width = value + '%';
-        }
-        
-        // ===== UPDATE CHART DENGAN DATA LENGKAP =====
+        // ===== UPDATE CHART =====
         const chartData = [
             Math.round(agentPercent),
-            Math.round(caPercent),    // CA = Upline
+            Math.round(uplinePercent),
             Math.round(transaksiPercent)
         ];
         
@@ -8562,13 +8511,12 @@ async function deleteDBItem(collection, id) {
 
 // ========== TARGET KPI FUNCTIONS ==========
 async function loadTargetData() {
-    // ===== CEK APAKAH SEDANG LOADING =====
+    // ===== CEK FLAG =====
     if (isTargetDataLoading) {
         console.log('⏳ Target data sedang dimuat, skip...');
         return;
     }
     
-    // ===== CEK APAKAH DATA SUDAH DIMUAT =====
     if (isDataLoaded && currentUser) {
         console.log('✅ Target data sudah dimuat, skip loading');
         return;
@@ -8596,7 +8544,7 @@ async function loadTargetData() {
         } else {
             targetData = { 
                 agent: 10, 
-                upline: 5, 
+                upline: 5,      // <-- GANTI: gunakan upline, bukan ca
                 transaksi: 100, 
                 selisih: 50, 
                 monthlyTargets: [] 
@@ -8611,19 +8559,18 @@ async function loadTargetData() {
         
         if (transaksiDataLocal.length === 0) {
             console.warn('⚠️ Tidak ada data transaksi, gunakan default');
-            // Panggil updateTargetUI dengan data default (semua 0)
             updateTargetUI(0, 0, 0, 0, 0, 0, 0, 0);
             isDataLoaded = true;
             isTargetDataLoading = false;
             return;
         }
         
-        // ===== 1. TARGET AGENT: TOTAL DATA - TIDAK_TRANSAKSI =====
+        // ===== 1. TARGET AGENT =====
         const validData = transaksiDataLocal.filter(t => t.progres_jenis !== 'tidak_transaksi');
         const currentAgent = validData.length;
         console.log('📊 Target Agent (total data valid):', currentAgent);
         
-        // ===== 2. TARGET UPLINE: UPLINE UNIK dari data valid =====
+        // ===== 2. TARGET UPLINE =====
         const uplineSet = new Set();
         validData.forEach(t => {
             if (t.upline_name && t.upline_name.trim() !== '' && t.upline_name !== '-') {
@@ -8633,7 +8580,7 @@ async function loadTargetData() {
         const currentUpline = uplineSet.size;
         console.log('📊 Target Upline (upline unik):', currentUpline);
         
-        // ===== 3. TARGET TRANSAKSI: TOTAL transaksi_bulan_ini =====
+        // ===== 3. TARGET TRANSAKSI =====
         let totalTransaksiBulanIni = 0;
         validData.forEach(t => {
             totalTransaksiBulanIni += (t.transaksi_bulan_ini || 0);
@@ -8650,9 +8597,10 @@ async function loadTargetData() {
         console.log('📊 Selisih Transaksi:', currentSelisih);
         
         // ===== UPDATE UI =====
+        // PERHATIKAN: targetUpline menggunakan targetData.upline (BUKAN targetData.ca)
         updateTargetUI(
             targetData.agent || 0,
-            targetData.upline || 0,
+            targetData.upline || 0,      // <-- GANTI: upline, bukan ca
             targetData.transaksi || 0,
             targetData.selisih || 0,
             currentAgent,
@@ -9488,11 +9436,11 @@ function updateTargetUI(targetAgent, targetUpline, targetTransaksi, targetSelisi
     // ===== UPDATE ELEMEN DOM =====
     const elements = {
         targetAgentValue: targetAgent || 0,
-        targetUplineValue: targetUpline || 0,
+        targetUplineValue: targetUpline || 0,        // <-- PASTIKAN targetUpline
         targetTransaksiValue: (targetTransaksi || 0).toLocaleString(),
         targetSelisihValue: (targetSelisih || 0).toLocaleString(),
         targetAgentReached: currentAgent || 0,
-        targetUplineReached: currentUpline || 0,
+        targetUplineReached: currentUpline || 0,     // <-- PASTIKAN currentUpline
         targetTransaksiReached: (currentTransaksi || 0).toLocaleString(),
         targetSelisihReached: (currentSelisih || 0).toLocaleString()
     };
@@ -9513,7 +9461,7 @@ function updateTargetUI(targetAgent, targetUpline, targetTransaksi, targetSelisi
     // ===== UPDATE PROGRESS BARS =====
     const progressElements = {
         targetAgentProgress: agentPercent,
-        targetUplineProgress: uplinePercent,
+        targetUplineProgress: uplinePercent,   // <-- PASTIKAN uplinePercent
         targetTransaksiProgress: transaksiPercent,
         targetSelisihProgress: selisihPercent
     };
@@ -9521,48 +9469,15 @@ function updateTargetUI(targetAgent, targetUpline, targetTransaksi, targetSelisi
     for (const [id, value] of Object.entries(progressElements)) {
         const el = document.getElementById(id);
         if (el) {
-            // Pastikan nilai tidak negatif dan tidak lebih dari 100%
             const safeValue = Math.min(Math.max(value, 0), 100);
             el.style.width = safeValue + '%';
         }
     }
     
-    // ===== CEK APAKAH TARGET TERCAPAI =====
-    const allTargetsMet = agentPercent >= 100 && uplinePercent >= 100 && transaksiPercent >= 100;
-    const headerTarget = document.querySelector('.target-kpi-section .target-header h3');
-    const targetSection = document.querySelector('.target-kpi-section');
-    
-    if (headerTarget) {
-        if (allTargetsMet) {
-            headerTarget.innerHTML = '🥳🎉 SELAMAT! Semua Target Tercapai! 🎉🥳';
-            headerTarget.style.color = '#10b981';
-            headerTarget.style.animation = 'pulseTarget 1.5s ease-in-out infinite';
-            
-            if (targetSection) {
-                targetSection.style.background = 'linear-gradient(135deg, #fef3c7, #fde68a, #fcd34d)';
-                targetSection.style.borderColor = '#f59e0b';
-                targetSection.style.boxShadow = '0 0 40px rgba(245, 158, 11, 0.3)';
-                targetSection.classList.remove('target-celebrate');
-            }
-            
-            showNotifTop('🥳🎉 SELAMAT! Semua target KPI telah tercapai! 🎉🥳');
-        } else {
-            headerTarget.innerHTML = '🎯 Target & KPI Prospek Agent';
-            headerTarget.style.color = '';
-            headerTarget.style.animation = '';
-            if (targetSection) {
-                targetSection.style.background = '';
-                targetSection.style.borderColor = '';
-                targetSection.style.boxShadow = '';
-                targetSection.classList.remove('target-celebrate');
-            }
-        }
-    }
-    
-    // ===== UPDATE CHART DENGAN DATA YANG LENGKAP =====
+    // ===== UPDATE CHART =====
     const chartData = [
         Math.round(agentPercent),
-        Math.round(uplinePercent),
+        Math.round(uplinePercent),    // <-- PASTIKAN uplinePercent
         Math.round(transaksiPercent)
     ];
     
@@ -10087,17 +10002,16 @@ async function loadRiwayatTransaksi() {
     }
 }
 
-// ========== UPDATE FUNGSI SAVE TARGET ==========
-
+// ========== FUNGSI SAVE TARGET ==========
 async function saveTargetData() {
     const agentVal = parseInt(document.getElementById('targetAgentInput')?.value) || 0;
-    const uplineVal = parseInt(document.getElementById('targetUplineInput')?.value) || 0;
+    const uplineVal = parseInt(document.getElementById('targetUplineInput')?.value) || 0;  // <-- PASTIKAN ID INI
     const transaksiVal = parseInt(document.getElementById('targetTransaksiInput')?.value) || 0;
     const selisihVal = parseInt(document.getElementById('targetSelisihInput')?.value) || 0;
     
     const newTarget = {
         agent: agentVal,
-        upline: uplineVal,
+        upline: uplineVal,           // <-- SIMPAN SEBAGAI upline
         transaksi: transaksiVal,
         selisih: selisihVal,
         monthlyTargets: targetData.monthlyTargets || [],
