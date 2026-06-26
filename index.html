@@ -126,43 +126,42 @@
             
                     <!-- ===== KANAN: Search + Notifikasi + Profile ===== -->
                     <div class="topbar-right">
-                        <!-- Search Icon (Trigger) -->
-                        <div class="search-right-wrapper" id="searchRightWrapper">
-                            <div class="search-right-trigger" id="searchRightTrigger">
-                                <span class="search-right-icon">🔍</span>
-                                <span class="search-right-label">Cari...</span>
-                                <span class="search-right-shortcut">⌘K</span>
+                    <!-- Search Right -->
+                    <div class="search-right-wrapper" id="searchRightWrapper">
+                        <!-- Trigger (selalu terlihat) -->
+                        <div class="search-right-trigger" id="searchRightTrigger">
+                            <span class="search-right-icon">🔍</span>
+                            <span class="search-right-label">Cari...</span>
+                            <span class="search-right-shortcut">⌘K</span>
+                        </div>
+                        
+                        <!-- Expanded Search (muncul saat hover, bergeser ke kiri) -->
+                        <div class="search-right-expanded" id="searchRightExpanded">
+                            <div class="search-right-inner">
+                                <span class="search-right-icon-expanded">🔍</span>
+                                <input 
+                                    type="text" 
+                                    id="searchRightInput" 
+                                    placeholder="Cari nama, ID Agent, nomor WhatsApp..." 
+                                    class="search-right-input"
+                                    autocomplete="off"
+                                >
+                                <button class="search-right-clear" id="searchRightClear" style="display:none;">✕</button>
+                                <button class="search-right-close" id="searchRightClose">✕</button>
                             </div>
                             
-                            <!-- Search Expanded (Bergeser ke kiri saat hover) -->
-                            <div class="search-right-expanded" id="searchRightExpanded">
-                                <div class="search-right-inner">
-                                    <span class="search-right-icon-expanded">🔍</span>
-                                    <input 
-                                        type="text" 
-                                        id="searchRightInput" 
-                                        placeholder="Cari nama, ID Agent, nomor WhatsApp..." 
-                                        class="search-right-input"
-                                        autocomplete="off"
-                                    >
-                                    <button class="search-right-clear" id="searchRightClear" style="display:none;">✕</button>
-                                    <button class="search-right-close" id="searchRightClose">✕</button>
+                            <!-- HASIL PENCARIAN -->
+                            <div class="search-right-results" id="searchRightResults" style="display:none;">
+                                <div class="search-right-results-header">
+                                    <span id="searchRightCount">0</span> hasil ditemukan
                                 </div>
-                                
-                                <!-- HASIL PENCARIAN -->
-                                <div class="search-right-results" id="searchRightResults" style="display:none;">
-                                    <div class="search-right-results-header">
-                                        <span id="searchRightCount">0</span> hasil ditemukan
-                                    </div>
-                                    <div class="search-right-results-list" id="searchRightResultsList">
-                                        <!-- Hasil akan di-render di sini -->
-                                    </div>
-                                    <div class="search-right-results-footer">
-                                        <kbd>↑</kbd> <kbd>↓</kbd> · <kbd>Enter</kbd> buka · <kbd>Esc</kbd> tutup
-                                    </div>
+                                <div class="search-right-results-list" id="searchRightResultsList"></div>
+                                <div class="search-right-results-footer">
+                                    <kbd>↑</kbd> <kbd>↓</kbd> · <kbd>Enter</kbd> buka · <kbd>Esc</kbd> tutup
                                 </div>
                             </div>
                         </div>
+                    </div>
                         
                         <!-- Icon Notifikasi & Profile -->
                         <div class="notif-icon" id="infoBtn">⚠️</div>
