@@ -811,6 +811,8 @@ async function updateTargetDisplay() {
     if (!currentUser) return;
     
     try {
+        console.log('📊 updateTargetDisplay dipanggil...');
+        
         // ===== AMBIL TARGET DARI SETTINGS =====
         const { data, error } = await window.db
             .from('settings')
@@ -822,11 +824,21 @@ async function updateTargetDisplay() {
         if (data && data.value) {
             targetData = data.value;
         } else {
-            targetData = { agent: 10, ca: 20, koordinator: 5, transaksi: 100, selisih: 50, monthlyTargets: [] };
+            targetData = { 
+                agent: 5000, 
+                upline: 200, 
+                transaksi: 300000, 
+                selisih: 100, 
+                monthlyTargets: [] 
+            };
         }
+        
+        console.log('📊 Target data:', targetData);
         
         // ===== HITUNG UPLINE DARI DB_TRANSAKSI =====
         const transaksiDataLocal = window.transaksiData || transaksiData || [];
+        console.log('📊 Total transaksi data:', transaksiDataLocal.length);
+        
         const uplineSet = new Set();
         let validCount = 0;
         let currentTransaksi = 0;
@@ -838,7 +850,6 @@ async function updateTargetDisplay() {
                 currentTransaksi += (t.transaksi_bulan_ini || 0);
                 totalBulanLalu += (t.transaksi_bulan_lalu || 0);
                 
-                // ===== KUMPULKAN UPLINE UNIK =====
                 if (t.upline_name && t.upline_name.trim() !== '' && t.upline_name !== '-') {
                     uplineSet.add(t.upline_name);
                 }
@@ -848,22 +859,22 @@ async function updateTargetDisplay() {
         const currentUpline = uplineSet.size;
         const currentSelisih = currentTransaksi - totalBulanLalu;
         
+        console.log('📊 Hasil perhitungan:', {
+            validCount,
+            currentUpline,
+            currentTransaksi,
+            currentSelisih
+        });
+        
         // ===== HITUNG PERSENTASE =====
-        // AGENT: dari validCount
         const agentPercent = targetData.agent ? Math.min((validCount / targetData.agent) * 100, 100) : 0;
-        
-        // UPLINE: dari uplineSet (BUKAN dari db_agent)
-        const uplinePercent = targetData.ca ? Math.min((currentUpline / targetData.ca) * 100, 100) : 0;
-        
-        // TRANSAKSI: dari currentTransaksi
+        const uplinePercent = targetData.upline ? Math.min((currentUpline / targetData.upline) * 100, 100) : 0;
         const transaksiPercent = targetData.transaksi ? Math.min((currentTransaksi / targetData.transaksi) * 100, 100) : 0;
         
-        console.log('📊 updateTargetDisplay - Percentages:', { 
-            agentPercent, 
-            uplinePercent, 
-            transaksiPercent,
-            currentUpline,
-            targetCA: targetData.ca
+        console.log('📊 Persentase:', {
+            agentPercent: Math.round(agentPercent),
+            uplinePercent: Math.round(uplinePercent),
+            transaksiPercent: Math.round(transaksiPercent)
         });
         
         // ===== UPDATE CHART =====
@@ -873,7 +884,7 @@ async function updateTargetDisplay() {
             Math.round(transaksiPercent)
         ];
         
-        console.log('📊 Chart data from updateTargetDisplay:', chartData);
+        console.log('📊 Chart data:', chartData);
         updateTargetChart(chartData);
         updateTrendChart();
         
@@ -8542,11 +8553,12 @@ async function loadTargetData() {
         if (data && data.value) {
             targetData = data.value;
         } else {
+            // DEFAULT TARGET
             targetData = { 
-                agent: 10, 
-                upline: 5,      // <-- GANTI: gunakan upline, bukan ca
-                transaksi: 100, 
-                selisih: 50, 
+                agent: 5000,      // Target Agent
+                upline: 200,      // Target Upline (BUKAN ca!)
+                transaksi: 300000, 
+                selisih: 100, 
                 monthlyTargets: [] 
             };
         }
@@ -8559,7 +8571,13 @@ async function loadTargetData() {
         
         if (transaksiDataLocal.length === 0) {
             console.warn('⚠️ Tidak ada data transaksi, gunakan default');
-            updateTargetUI(0, 0, 0, 0, 0, 0, 0, 0);
+            updateTargetUI(
+                targetData.agent || 5000,
+                targetData.upline || 200,
+                targetData.transaksi || 300000,
+                targetData.selisih || 100,
+                0, 0, 0, 0
+            );
             isDataLoaded = true;
             isTargetDataLoading = false;
             return;
@@ -8579,6 +8597,7 @@ async function loadTargetData() {
         });
         const currentUpline = uplineSet.size;
         console.log('📊 Target Upline (upline unik):', currentUpline);
+        console.log('📊 Daftar Upline:', Array.from(uplineSet));
         
         // ===== 3. TARGET TRANSAKSI =====
         let totalTransaksiBulanIni = 0;
@@ -8597,12 +8616,11 @@ async function loadTargetData() {
         console.log('📊 Selisih Transaksi:', currentSelisih);
         
         // ===== UPDATE UI =====
-        // PERHATIKAN: targetUpline menggunakan targetData.upline (BUKAN targetData.ca)
         updateTargetUI(
-            targetData.agent || 0,
-            targetData.upline || 0,      // <-- GANTI: upline, bukan ca
-            targetData.transaksi || 0,
-            targetData.selisih || 0,
+            targetData.agent || 5000,
+            targetData.upline || 200,      // <-- PASTIKAN upline
+            targetData.transaksi || 300000,
+            targetData.selisih || 100,
             currentAgent,
             currentUpline,
             currentTransaksi,
@@ -9436,18 +9454,23 @@ function updateTargetUI(targetAgent, targetUpline, targetTransaksi, targetSelisi
     // ===== UPDATE ELEMEN DOM =====
     const elements = {
         targetAgentValue: targetAgent || 0,
-        targetUplineValue: targetUpline || 0,        // <-- PASTIKAN targetUpline
+        targetUplineValue: targetUpline || 0,
         targetTransaksiValue: (targetTransaksi || 0).toLocaleString(),
         targetSelisihValue: (targetSelisih || 0).toLocaleString(),
         targetAgentReached: currentAgent || 0,
-        targetUplineReached: currentUpline || 0,     // <-- PASTIKAN currentUpline
+        targetUplineReached: currentUpline || 0,
         targetTransaksiReached: (currentTransaksi || 0).toLocaleString(),
         targetSelisihReached: (currentSelisih || 0).toLocaleString()
     };
     
     for (const [id, value] of Object.entries(elements)) {
         const el = document.getElementById(id);
-        if (el) el.innerText = value;
+        if (el) {
+            console.log(`📊 Setting ${id} = ${value}`);
+            el.innerText = value;
+        } else {
+            console.warn(`⚠️ Element ${id} not found`);
+        }
     }
     
     // ===== HITUNG PERSENTASE =====
@@ -9456,12 +9479,17 @@ function updateTargetUI(targetAgent, targetUpline, targetTransaksi, targetSelisi
     const transaksiPercent = targetTransaksi > 0 ? Math.min((currentTransaksi / targetTransaksi) * 100, 100) : 0;
     const selisihPercent = targetSelisih > 0 ? Math.min((currentSelisih / targetSelisih) * 100, 100) : 0;
     
-    console.log('📊 Persentase:', { agentPercent, uplinePercent, transaksiPercent, selisihPercent });
+    console.log('📊 Persentase:', { 
+        agentPercent: Math.round(agentPercent), 
+        uplinePercent: Math.round(uplinePercent), 
+        transaksiPercent: Math.round(transaksiPercent),
+        selisihPercent: Math.round(selisihPercent)
+    });
     
     // ===== UPDATE PROGRESS BARS =====
     const progressElements = {
         targetAgentProgress: agentPercent,
-        targetUplineProgress: uplinePercent,   // <-- PASTIKAN uplinePercent
+        targetUplineProgress: uplinePercent,
         targetTransaksiProgress: transaksiPercent,
         targetSelisihProgress: selisihPercent
     };
@@ -9471,13 +9499,31 @@ function updateTargetUI(targetAgent, targetUpline, targetTransaksi, targetSelisi
         if (el) {
             const safeValue = Math.min(Math.max(value, 0), 100);
             el.style.width = safeValue + '%';
+            console.log(`📊 ${id} width = ${safeValue}%`);
+        }
+    }
+    
+    // ===== CEK TARGET TERCAPAI =====
+    const allTargetsMet = agentPercent >= 100 && uplinePercent >= 100 && transaksiPercent >= 100;
+    const headerTarget = document.querySelector('.target-kpi-section .target-header h3');
+    const targetSection = document.querySelector('.target-kpi-section');
+    
+    if (headerTarget) {
+        if (allTargetsMet) {
+            headerTarget.innerHTML = '🥳🎉 SELAMAT! Semua Target Tercapai! 🎉🥳';
+            headerTarget.style.color = '#10b981';
+            headerTarget.style.animation = 'pulseTarget 1.5s ease-in-out infinite';
+        } else {
+            headerTarget.innerHTML = '🎯 Target & KPI Prospek Agent';
+            headerTarget.style.color = '';
+            headerTarget.style.animation = '';
         }
     }
     
     // ===== UPDATE CHART =====
     const chartData = [
         Math.round(agentPercent),
-        Math.round(uplinePercent),    // <-- PASTIKAN uplinePercent
+        Math.round(uplinePercent),
         Math.round(transaksiPercent)
     ];
     
@@ -9493,24 +9539,19 @@ function updateTargetChart(percentages) {
         return;
     }
     
-    // ===== DESTROY CHART LAMA =====
     if (targetChart) {
         targetChart.destroy();
         targetChart = null;
     }
     
-    // ===== TENTUKAN MODE (DARK/LIGHT) =====
     const isDark = document.body.classList.contains('dark-mode');
     const textColor = isDark ? '#f1f5f9' : '#1e293b';
     const gridColor = isDark ? 'rgba(255,255,255,0.05)' : 'rgba(0,0,0,0.06)';
-    const bgColor = isDark ? '#0f172a' : '#ffffff';
     
-    // ===== PASTIKAN DATA VALID (3 DATA) =====
+    // ===== PASTIKAN DATA VALID =====
     let data = [0, 0, 0];
     if (percentages && percentages.length >= 3) {
-        // Ambil 3 data pertama
         data = percentages.slice(0, 3);
-        // Validasi setiap data: harus number, tidak NaN, min 0, max 100
         data = data.map(v => {
             if (typeof v === 'number' && !isNaN(v) && isFinite(v)) {
                 return Math.min(Math.max(Math.round(v), 0), 100);
@@ -9520,13 +9561,11 @@ function updateTargetChart(percentages) {
     }
     
     console.log('📊 Rendering chart with data:', data);
+    console.log('📊 Labels:', ['Agent', 'Upline', 'Transaksi']);
     
-    // ===== LABEL DAN WARNA =====
-    const labels = ['👤 Agent', '👥 Upline', '📊 Transaksi'];
+    const labels = ['Agent', 'Upline', 'Transaksi'];
     const colors = ['#667eea', '#4facfe', '#f093fb'];
-    const borderColors = ['#5a67d8', '#3b82f6', '#e879f9'];
     
-    // ===== BUAT CHART BARU =====
     targetChart = new Chart(ctx, {
         type: 'bar',
         data: {
@@ -9534,12 +9573,8 @@ function updateTargetChart(percentages) {
             datasets: [{
                 label: 'Pencapaian Target (%)',
                 data: data,
-                backgroundColor: colors.map((c, i) => {
-                    // Opacity berdasarkan nilai (semakin tinggi semakin solid)
-                    const opacity = 0.7 + (data[i] / 100) * 0.3;
-                    return c + Math.round(opacity * 255).toString(16).padStart(2, '0');
-                }),
-                borderColor: borderColors,
+                backgroundColor: colors,
+                borderColor: colors.map(c => c),
                 borderWidth: 2,
                 borderRadius: 8,
                 barPercentage: 0.6,
@@ -9549,19 +9584,9 @@ function updateTargetChart(percentages) {
         options: {
             responsive: true,
             maintainAspectRatio: true,
-            backgroundColor: bgColor,
             plugins: {
-                legend: {
-                    display: false
-                },
+                legend: { display: false },
                 tooltip: {
-                    backgroundColor: isDark ? '#1e293b' : '#ffffff',
-                    titleColor: isDark ? '#f1f5f9' : '#1f2937',
-                    bodyColor: isDark ? '#cbd5e1' : '#374151',
-                    borderColor: isDark ? '#334155' : '#e5e7eb',
-                    borderWidth: 1,
-                    cornerRadius: 8,
-                    padding: 12,
                     callbacks: {
                         label: function(context) {
                             const value = context.raw || 0;
@@ -9589,10 +9614,7 @@ function updateTargetChart(percentages) {
                             return value + '%';
                         }
                     },
-                    grid: { 
-                        color: gridColor,
-                        drawBorder: false
-                    }
+                    grid: { color: gridColor }
                 },
                 x: {
                     ticks: { 
@@ -9602,7 +9624,6 @@ function updateTargetChart(percentages) {
                     grid: { display: false }
                 }
             },
-            // ===== ANIMASI =====
             animation: {
                 duration: 800,
                 easing: 'easeOutQuart'
@@ -9610,7 +9631,6 @@ function updateTargetChart(percentages) {
         }
     });
     
-    // ===== FORCE UPDATE =====
     targetChart.update();
 }
 
