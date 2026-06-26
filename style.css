@@ -3043,7 +3043,7 @@ body.dark-mode .filter-container button:hover {
 }
 
 /* ================================================================ */
-/* ========== SEARCH RIGHT - EXPAND KE KIRI ========== */
+/* ========== SEARCH RIGHT - EXPAND KE KIRI MENUJU CENTER ========== */
 /* ================================================================ */
 
 .search-right-wrapper {
@@ -3052,6 +3052,7 @@ body.dark-mode .filter-container button:hover {
     align-items: center;
     z-index: 100;
     flex-shrink: 0;
+    min-width: 44px;
 }
 
 /* ===== TRIGGER ===== */
@@ -3071,6 +3072,7 @@ body.dark-mode .filter-container button:hover {
     flex-shrink: 0;
     min-width: 44px;
     justify-content: center;
+    z-index: 2;
 }
 
 .search-right-trigger:hover {
@@ -3114,10 +3116,10 @@ body.dark-mode .filter-container button:hover {
     position: absolute;
     top: 50%;
     right: 0;
-    transform: translateY(-50%) scaleX(0);
-    transform-origin: right center;
+    transform: translateY(-50%);
     width: 0;
-    height: 48px;
+    max-width: 480px;
+    height: 46px;
     background: rgba(255, 255, 255, 0.98);
     backdrop-filter: blur(16px);
     padding: 0;
@@ -3127,27 +3129,25 @@ body.dark-mode .filter-container button:hover {
     opacity: 0;
     visibility: hidden;
     pointer-events: none;
-    transition: all 0.4s cubic-bezier(0.34, 1.2, 0.64, 1);
-    z-index: 99;
+    transition: all 0.5s cubic-bezier(0.34, 1.2, 0.64, 1);
+    z-index: 1;
     display: flex;
     align-items: center;
     overflow: hidden;
 }
 
-/* ===== HOVER TRIGGER - EXPAND KE KIRI ===== */
+/* ===== HOVER - EXPAND KE KIRI ===== */
 .search-right-wrapper:hover .search-right-expanded {
-    width: 420px;
-    transform: translateY(-50%) scaleX(1);
+    width: 380px;
     opacity: 1;
     visibility: visible;
     pointer-events: auto;
     padding: 0 16px;
 }
 
-/* ===== FOCUS STATE ===== */
+/* ===== ACTIVE/FOCUS ===== */
 .search-right-expanded.active {
-    width: 420px;
-    transform: translateY(-50%) scaleX(1);
+    width: 380px;
     opacity: 1;
     visibility: visible;
     pointer-events: auto;
@@ -3233,8 +3233,8 @@ body.dark-mode .filter-container button:hover {
     top: calc(100% + 8px);
     right: 0;
     width: 100%;
-    min-width: 420px;
-    max-width: 500px;
+    min-width: 380px;
+    max-width: 480px;
     background: rgba(255, 255, 255, 0.98);
     backdrop-filter: blur(16px);
     border-radius: 16px;
@@ -3399,6 +3399,18 @@ body.dark-mode .filter-container button:hover {
 }
 
 /* ================================================================ */
+/* ========== TOPBAR RIGHT - ATUR POSISI ========== */
+/* ================================================================ */
+
+.topbar-right {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    position: relative;
+    flex-shrink: 0;
+}
+
+/* ================================================================ */
 /* ========== DARK MODE ========== */
 /* ================================================================ */
 
@@ -3514,12 +3526,12 @@ body.dark-mode .search-right-results-footer kbd {
     
     .search-right-wrapper:hover .search-right-expanded,
     .search-right-expanded.active {
-        width: 280px;
-        min-width: 200px;
+        width: 240px;
+        min-width: 180px;
     }
     
     .search-right-results {
-        min-width: 280px;
+        min-width: 240px;
         max-width: 90vw;
         right: 0;
         left: auto;
@@ -3541,13 +3553,13 @@ body.dark-mode .search-right-results-footer kbd {
     
     .search-right-wrapper:hover .search-right-expanded,
     .search-right-expanded.active {
-        width: 200px;
-        min-width: 160px;
+        width: 180px;
+        min-width: 140px;
         padding: 0 10px;
     }
     
     .search-right-expanded {
-        height: 40px;
+        height: 38px;
     }
     
     .search-right-inner {
@@ -3564,13 +3576,13 @@ body.dark-mode .search-right-results-footer kbd {
     }
     
     .search-right-close {
-        padding: 2px 8px;
+        padding: 2px 6px;
         font-size: 10px;
         border-radius: 6px;
     }
     
     .search-right-results {
-        min-width: 200px;
+        min-width: 180px;
         max-width: 95vw;
         max-height: 300px;
         top: calc(100% + 6px);
